@@ -20,7 +20,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/makerworks?schema=public}
       JWT_SECRET: ${JWT_SECRET:-supersecret-change-me}
       BASE_URL: ${BASE_URL:-http://localhost:3000}
-      STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
+      # Persist uploads (models, images, thumbnails) under /app/uploads
+      STORAGE_DIR: ${STORAGE_DIR:-/app/uploads}
       COST_PER_CM3: ${COST_PER_CM3:-0.30}
       FIXED_FEE_USD: ${FIXED_FEE_USD:-1.00}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
@@ -29,8 +30,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - storage:/app/storage
+      # Map host uploads folder to container
+      - ./uploads:/app/uploads
 
 volumes:
   db_data:
-  storage:
