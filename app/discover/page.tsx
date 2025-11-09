@@ -1,0 +1,116 @@
+import Link from 'next/link'
+
+type SearchParams = { [key: string]: string | string[] | undefined }
+
+async function fetchModels(params: URLSearchParams) {
+  const qs = params.toString()
+  const res = await fetch(`${process.env.BASE_URL || ''}/api/models${qs ? `?${qs}` : ''}`, { cache: 'no-store' })
+  if (!res.ok) return { models: [], total: 0, page: 1, pageSize: 24 }
+  return res.json()
+}
+
+function buildQS(next: Record<string, any>, current: URLSearchParams) {
+  const merged = new URLSearchParams(current)
+  for (const [k, v] of Object.entries(next)) {
+    if (v === undefined || v === null || v === '') merged.delete(k)
+    else merged.set(k, String(v))
+  }
+  return `?${merged.toString()}`
+}
+
+export default async function DiscoverPage({ searchParams }: { searchParams?: SearchParams }) {
+  const params = new URLSearchParams()
+  if (searchParams) {
+    for (const [k, v] of Object.entries(searchParams)) {
+      if (Array.isArray(v)) params.set(k, v[0]!)
+      else if (v) params.set(k, v)
+    }
+  }
+  const { models, total, page, pageSize } = await fetchModels(params)
+  const q = params.get('q') || ''
+  const sort = params.get('sort') || 'latest'
+  const material = params.get('material') || ''
+  const tags = params.get('tags') || ''
+  const tagsList = await fetch(`${process.env.BASE_URL || ''}/api/tags`, { cache: 'no-store' }).then(r => r.ok ? r.json() : { tags: [] })
+  const totalPages = Math.max(1, Math.ceil((total || 0) / (pageSize || 24)))
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-3xl font-semibold">Discover Models</h1>
+      <form method="get" className="grid md:grid-cols-4 gap-3 items-end">
+        <div className="md:col-span-2">
+          <label className="block text-sm mb-1">Search</label>
+          <input className="input" type="search" name="q" defaultValue={q} placeholder="Search models…" />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Material</label>
+          <select name="material" defaultValue={material} className="input">
+            <option value="">Any</option>
+            <option>PLA</option>
+            <option>ABS</option>
+            <option>PETG</option>
+            <option>Resin</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Sort</label>
+          <select name="sort" defaultValue={sort} className="input">
+            <option value="latest">Latest</option>
+            <option value="popular">Popular</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Tags (comma separated)</label>
+          <input name="tags" defaultValue={tags} className="input" placeholder="e.g., phone, mount, cosplay" />
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
+            {tagsList.tags?.map((t: any) => (
+              <a key={t.slug} href={buildQS({ tags: t.slug }, params)} className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20">#{t.name}</a>
+            ))}
+          </div>
+        </div>
+        <div className="md:col-span-4">
+          <button className="btn">Apply Filters</button>
+        </div>
+      </form>
+
+      <section className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+        {models.length === 0 && (
+          <p className="text-slate-400">No models matched your filters.</p>
+        )}
+        {models.map((m: any) => (
+          <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition">
+            {m.coverImagePath ? (
+              <img src={`/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
+            ) : (
+              <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
+            )}
+            <div className="p-4">
+              <h3 className="font-semibold">{m.title}</h3>
+              <div className="flex justify-between text-sm text-slate-400">
+                <span>{m.priceUsd ? `$${m.priceUsd.toFixed(2)}` : 'N/A'}</span>
+                <span>❤ {m.likes} ⬇ {m.downloads}</span>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </section>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-2">
+          {Array.from({ length: totalPages }).map((_, i) => {
+            const p = i + 1
+            const href = buildQS({ page: p }, params)
+            const active = p === page
+            return (
+              <Link key={p} href={href} className={`px-3 py-1.5 rounded-md border ${active ? 'bg-brand-600 border-brand-600 text-white' : 'border-white/10 hover:border-white/20'}`}>
+                {p}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}

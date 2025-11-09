@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { verifyPassword, setAuthCookie } from '@/lib/auth'
+import { ensureUserPage } from '@/lib/userpage'
 
 const schema = z.object({
   email: z.string().email(),
@@ -17,9 +19,10 @@ export async function POST(req: NextRequest) {
     const ok = await verifyPassword(password, user.passwordHash)
     if (!ok) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     setAuthCookie(user.id)
-    return NextResponse.json({ user: { id: user.id, email: user.email, name: user.name } })
+    // Ensure the user has a profile page
+    await ensureUserPage(user.id, user.email, user.name)
+    return NextResponse.json({ user: { id: user.id, email: user.email, name: user.name, isAdmin: (user as any).isAdmin } })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
   }
 }
-

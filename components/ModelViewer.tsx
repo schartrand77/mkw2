@@ -31,7 +31,8 @@ export default function ModelViewer({ src }: { src: string }) {
     const loader = new STLLoader()
     loader.load(src, (geometry) => {
       geometry.computeVertexNormals()
-      const material = new THREE.MeshStandardMaterial({ color: 0x60a5fa, metalness: 0.2, roughness: 0.6 })
+      // Lime accent color
+      const material = new THREE.MeshStandardMaterial({ color: 0x84cc16, metalness: 0.2, roughness: 0.6 })
       const mesh = new THREE.Mesh(geometry, material)
       geometry.center()
       // Auto scale to fit

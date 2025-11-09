@@ -1,4 +1,6 @@
 import ModelViewer from '@/components/ModelViewer'
+import { cookies } from 'next/headers'
+import { verifyToken } from '@/lib/auth'
 
 async function fetchModel(id: string) {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/models/${id}`, { cache: 'no-store' })
@@ -11,6 +13,8 @@ export default async function ModelDetail({ params }: { params: { id: string } }
   if (!model) return <div>Not found</div>
   const src = model.filePath ? `/files${model.filePath}` : ''
   const isStl = model.fileType === 'STL'
+  const token = cookies().get('mwv2_token')?.value
+  const authed = token ? verifyToken(token) : null
   return (
     <div className="grid lg:grid-cols-2 gap-8">
       <div>
@@ -37,9 +41,13 @@ export default async function ModelDetail({ params }: { params: { id: string } }
         </div>
         <div className="flex gap-3">
           <a href={src} download className="btn">Download</a>
+          {authed && (
+            <form action={`/api/models/${model.id}/like`} method="post">
+              <button className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20" formAction={`/api/models/${model.id}/like`}>❤ Like</button>
+            </form>
+          )}
         </div>
       </div>
     </div>
   )
 }
-

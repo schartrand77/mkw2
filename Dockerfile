@@ -28,8 +28,9 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY package.json ./package.json
 COPY prisma ./prisma
+COPY scripts ./scripts
 # Storage directory; will be mounted by docker-compose
 RUN mkdir -p /app/storage && chown -R nextjs:nodejs /app
 USER nextjs
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/bootstrap-admin.js && npm run start"]

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+export const dynamic = 'force-dynamic'
 import { createReadStream } from 'fs'
 import { stat } from 'fs/promises'
 import path from 'path'
@@ -31,4 +32,3 @@ function mimeFromExt(ext: string) {
     default: return 'application/octet-stream'
   }
 }
-

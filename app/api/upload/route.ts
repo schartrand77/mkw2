@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 import path from 'path'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
@@ -17,6 +18,7 @@ export async function POST(req: NextRequest) {
     const description = String(form.get('description') || '').slice(0, 2000)
     const material = String(form.get('material') || 'PLA').slice(0, 40)
     const model = form.get('model') as File | null
+    const tagsRaw = (form.get('tags') as string | null) || ''
     const image = form.get('image') as File | null
 
     if (!model) return NextResponse.json({ error: 'Missing model' }, { status: 400 })
@@ -55,6 +57,9 @@ export async function POST(req: NextRequest) {
         fileType: ext.replace('.', '').toUpperCase(),
         volumeMm3: volumeMm3 || undefined,
         priceUsd: priceUsd || undefined,
+        modelTags: tagsRaw ? {
+          create: await prepareTags(tagsRaw)
+        } : undefined,
       }
     })
 
@@ -77,3 +82,22 @@ async function ensureAnonymousUser(): Promise<string> {
   return created.id
 }
 
+async function prepareTags(tagsRaw: string) {
+  const { prisma } = await import('@/lib/db')
+  const { slugify } = await import('@/lib/userpage')
+  const names = Array.from(new Set(tagsRaw.split(',').map(t => t.trim()).filter(Boolean))).slice(0, 12)
+  const result: any[] = []
+  for (const name of names) {
+    const slug = slugify(name)
+    let tag = await prisma.tag.findUnique({ where: { slug } })
+    if (!tag) {
+      try {
+        tag = await prisma.tag.create({ data: { name, slug } })
+      } catch {
+        tag = await prisma.tag.findUnique({ where: { slug } })
+      }
+    }
+    if (tag) result.push({ tag: { connect: { id: tag.id } } })
+  }
+  return result
+}

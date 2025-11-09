@@ -8,6 +8,7 @@ export default function UploadPage() {
   const [material, setMaterial] = useState('PLA')
   const [modelFile, setModelFile] = useState<File | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const [tags, setTags] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -20,6 +21,7 @@ export default function UploadPage() {
       fd.append('title', title)
       fd.append('description', description)
       fd.append('material', material)
+      fd.append('tags', tags)
       fd.append('model', modelFile)
       if (imageFile) fd.append('image', imageFile)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
@@ -40,6 +42,10 @@ export default function UploadPage() {
         <div>
           <label className="block text-sm mb-1">Title</label>
           <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Tags (comma separated)</label>
+          <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g., gadget, mount, cosplay" />
         </div>
         <div>
           <label className="block text-sm mb-1">Description</label>
@@ -68,4 +74,3 @@ export default function UploadPage() {
     </div>
   )
 }
-

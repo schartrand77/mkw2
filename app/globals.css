@@ -3,9 +3,11 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0B0F17;
-  --card: #0f172a;
-  --muted: #94a3b8;
+  /* Company colors */
+  --bg: #000000; /* black */
+  --card: #2a3439; /* gunmetal */
+  --card-rgb: 42 52 57; /* gunmetal rgb */
+  --muted: #9aa5ad;
 }
 
 html, body {
@@ -13,9 +15,10 @@ html, body {
 }
 
 body {
-  background: radial-gradient(1200px 600px at 80% -10%, rgba(59,130,246,0.25), transparent),
-              radial-gradient(800px 400px at 10% 20%, rgba(139,92,246,0.2), transparent),
-              var(--bg);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(245, 158, 11, 0.22), transparent), /* amber */
+    radial-gradient(900px 500px at 10% 30%, rgba(132, 204, 22, 0.18), transparent),    /* lime */
+    var(--bg);
   color: white;
 }
 
@@ -30,6 +33,6 @@ body {
 }
 
 .input {
-  @apply w-full rounded-md bg-slate-900/40 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 placeholder:text-slate-400;
+  @apply w-full rounded-md border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 placeholder:text-slate-400;
+  background-color: rgb(var(--card-rgb) / 0.6);
 }
-

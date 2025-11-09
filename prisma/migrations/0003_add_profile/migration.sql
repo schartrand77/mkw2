@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS "Profile" (
+  "id" TEXT PRIMARY KEY,
+  "slug" TEXT NOT NULL,
+  "bio" TEXT,
+  "avatarImagePath" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "userId" TEXT NOT NULL UNIQUE,
+  CONSTRAINT "Profile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Profile_slug_key" ON "Profile"("slug");
+

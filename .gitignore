@@ -6,6 +6,18 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+logs
+*.log
+*.tsbuildinfo
+coverage
+dist
+build
+
+# Tooling caches
+.eslintcache
+.turbo
+.vercel
+.cache
 
 # Env
 .env
@@ -25,4 +37,5 @@ storage/*
 # Misc
 .DS_Store
 Thumbs.db
-
+.idea/
+.vscode/

@@ -8,7 +8,8 @@
     "start": "next start -p 3000",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy"
+    "prisma:deploy": "prisma migrate deploy",
+    "bootstrap:admin": "node scripts/bootstrap-admin.js"
   },
   "dependencies": {
     "@prisma/client": "^5.18.0",
@@ -17,10 +18,13 @@
     "next": "^14.2.11",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "sharp": "^0.33.4",
     "three": "^0.169.0",
+    "zxcvbn": "^4.4.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/zxcvbn": "^4.4.4",
     "@types/three": "^0.169.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.6",
