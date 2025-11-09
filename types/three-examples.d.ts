@@ -2,6 +2,9 @@ declare module 'three/examples/jsm/controls/OrbitControls' {
   export class OrbitControls {
     constructor(object: any, domElement?: any)
     enableDamping: boolean
+    autoRotate: boolean
+    autoRotateSpeed: number
+    target: { set: (x: number, y: number, z: number) => void }
     update(): void
     dispose(): void
   }
@@ -18,4 +21,3 @@ declare module 'three/examples/jsm/loaders/STLLoader' {
     parse(data: ArrayBuffer): any
   }
 }
-

@@ -43,6 +43,7 @@ model Model {
   modelTags ModelTag[]
   likesList Like[]
   featured  FeaturedModel?
+  parts     ModelPart[]
 }
 
 model Tag {
@@ -103,11 +104,31 @@ model FeaturedModel {
 
 model SiteConfig {
   id                    String   @id
-  heroTitle             String?
-  heroSubtitle          String?
   costPerCm3            Float?
   fixedFeeUsd           Float?
   allowAnonymousUploads Boolean? @default(true)
+  laborPerHourUsd       Float?
+  printSpeedCm3PerHour  Float?
+  energyUsdPerHour      Float?
+  minimumPriceUsd       Float?
+  materialPlaMultiplier   Float?
+  materialAbsMultiplier   Float?
+  materialPetgMultiplier  Float?
+  materialResinMultiplier Float?
+  fillFactor            Float?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+}
+
+model ModelPart {
+  id         String   @id @default(cuid())
+  modelId    String
+  name       String
+  index      Int      @default(0)
+  filePath   String
+  volumeMm3  Float?
+  priceUsd   Float?
+  createdAt  DateTime @default(now())
+
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
 }

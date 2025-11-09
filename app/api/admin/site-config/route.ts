@@ -5,11 +5,18 @@ import { z } from 'zod'
 export const dynamic = 'force-dynamic'
 
 const schema = z.object({
-  heroTitle: z.string().max(200).optional(),
-  heroSubtitle: z.string().max(400).optional(),
   costPerCm3: z.number().nonnegative().optional(),
   fixedFeeUsd: z.number().nonnegative().optional(),
   allowAnonymousUploads: z.boolean().optional(),
+  laborPerHourUsd: z.number().nonnegative().optional(),
+  printSpeedCm3PerHour: z.number().nonnegative().optional(),
+  energyUsdPerHour: z.number().nonnegative().optional(),
+  minimumPriceUsd: z.number().nonnegative().optional(),
+  materialPlaMultiplier: z.number().positive().optional(),
+  materialAbsMultiplier: z.number().positive().optional(),
+  materialPetgMultiplier: z.number().positive().optional(),
+  materialResinMultiplier: z.number().positive().optional(),
+  fillFactor: z.number().positive().max(2).optional(),
 })
 
 const CONFIG_ID = 'main'

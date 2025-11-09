@@ -9,10 +9,11 @@ import sharp from 'sharp'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const model = await prisma.model.findUnique({ where: { id: params.id }, include: { modelTags: { include: { tag: true } } } })
+  const parts = await prisma.modelPart.findMany({ where: { modelId: params.id }, orderBy: { index: 'asc' } })
   if (!model) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const tags = model.modelTags.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug }))
   const { modelTags, ...rest } = model as any
-  return NextResponse.json({ model: { ...rest, tags } })
+  return NextResponse.json({ model: { ...rest, tags, parts } })
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {

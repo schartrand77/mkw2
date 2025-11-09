@@ -5,6 +5,8 @@ import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer } from '@/lib/storage'
 import { computeStlVolumeMm3 } from '@/lib/stl'
+import JSZip from 'jszip'
+import { estimatePriceUSD } from '@/lib/pricing'
 
 const isAllowedModel = (name: string) => /\.(stl|obj)$/i.test(name)
 const isImage = (name: string) => /\.(png|jpe?g|webp)$/i.test(name)
@@ -24,17 +26,36 @@ export async function POST(req: NextRequest) {
     const title = String(form.get('title') || '').slice(0, 200)
     const description = String(form.get('description') || '').slice(0, 2000)
     const material = String(form.get('material') || 'PLA').slice(0, 40)
-    const model = form.get('model') as File | null
+    const files = form.getAll('files') as File[]
+    const model = (form.get('model') as File | null) // legacy single file field
     const tagsRaw = (form.get('tags') as string | null) || ''
     const image = form.get('image') as File | null
 
-    if (!model) return NextResponse.json({ error: 'Missing model' }, { status: 400 })
-    if (!isAllowedModel(model.name)) return NextResponse.json({ error: 'Unsupported model type' }, { status: 400 })
+    // Collect candidate model files (support zip or multiple file inputs)
+    const modelFiles: { name: string, buf: Buffer }[] = []
+    const inputs = files && files.length > 0 ? files : (model ? [model] : [])
+    if (!inputs || inputs.length === 0) return NextResponse.json({ error: 'Missing model files' }, { status: 400 })
 
-    const modelBuf = Buffer.from(await model.arrayBuffer())
-    const ext = path.extname(model.name).toLowerCase()
-    const modelFileRel = path.join('models', userId, `${Date.now()}-${safeName(title) || 'model'}${ext}`)
-    await saveBuffer(modelFileRel, modelBuf)
+    for (const f of inputs) {
+      const lower = f.name.toLowerCase()
+      const ab = await f.arrayBuffer()
+      const buf = Buffer.from(ab)
+      if (lower.endsWith('.zip')) {
+        const zip = await JSZip.loadAsync(buf)
+        const entries = Object.values(zip.files)
+        for (const entry of entries) {
+          if (entry.dir) continue
+          const ename = entry.name
+          if (!isAllowedModel(ename)) continue
+          const ebuf = await entry.async('nodebuffer')
+          modelFiles.push({ name: path.basename(ename), buf: ebuf })
+        }
+      } else if (isAllowedModel(lower)) {
+        modelFiles.push({ name: f.name, buf })
+      }
+    }
+
+    if (modelFiles.length === 0) return NextResponse.json({ error: 'No valid model files found' }, { status: 400 })
 
     let coverImageRel: string | undefined
     if (image && isImage(image.name)) {
@@ -44,14 +65,27 @@ export async function POST(req: NextRequest) {
       await saveBuffer(coverImageRel, imgBuf)
     }
 
-    let volumeMm3: number | null = null
-    if (ext === '.stl') {
-      volumeMm3 = computeStlVolumeMm3(modelBuf)
+    // Save files and create model + parts
+    const now = Date.now()
+    let totalVolMm3 = 0
+    let totalPrice = 0
+    const partCreates: any[] = []
+    let firstPath: string | null = null
+
+    for (let i = 0; i < modelFiles.length; i++) {
+      const f = modelFiles[i]
+      const ext = path.extname(f.name).toLowerCase()
+      const rel = path.join('models', userId, `${now}-${safeName(title) || 'model'}-${i + 1}${ext}`)
+      await saveBuffer(rel, f.buf)
+      if (!firstPath) firstPath = `/${rel.replace(/\\/g, '/')}`
+      let volMm3: number | null = null
+      if (ext === '.stl') volMm3 = computeStlVolumeMm3(f.buf)
+      const cm3 = volMm3 ? volMm3 / 1000 : null
+      const p = cm3 != null ? estimatePriceUSD({ cm3, material, cfg }) : null
+      if (volMm3) totalVolMm3 += volMm3
+      if (p) totalPrice += p
+      partCreates.push({ name: f.name, index: i, filePath: `/${rel.replace(/\\/g, '/')}`, volumeMm3: volMm3 || undefined, priceUsd: p || undefined })
     }
-    const cm3 = volumeMm3 ? volumeMm3 / 1000 : null
-    const costPerCm3 = (cfg?.costPerCm3 != null ? Number(cfg.costPerCm3) : parseFloat(process.env.COST_PER_CM3 || '0.3'))
-    const fixedFee = (cfg?.fixedFeeUsd != null ? Number(cfg.fixedFeeUsd) : parseFloat(process.env.FIXED_FEE_USD || '1.0'))
-    const priceUsd = cm3 != null ? Number((cm3 * costPerCm3 + fixedFee).toFixed(2)) : null
 
     const created = await prisma.model.create({
       data: {
@@ -59,14 +93,13 @@ export async function POST(req: NextRequest) {
         title,
         description,
         material,
-        filePath: `/${modelFileRel.replace(/\\/g, '/')}`,
+        filePath: firstPath!,
         coverImagePath: coverImageRel ? `/${coverImageRel.replace(/\\/g, '/')}` : undefined,
-        fileType: ext.replace('.', '').toUpperCase(),
-        volumeMm3: volumeMm3 || undefined,
-        priceUsd: priceUsd || undefined,
-        modelTags: tagsRaw ? {
-          create: await prepareTags(tagsRaw)
-        } : undefined,
+        fileType: modelFiles.length > 1 ? 'MULTI' : path.extname(modelFiles[0].name).replace('.', '').toUpperCase(),
+        volumeMm3: totalVolMm3 || undefined,
+        priceUsd: totalPrice || undefined,
+        modelTags: tagsRaw ? { create: await prepareTags(tagsRaw) } : undefined,
+        parts: { create: partCreates }
       }
     })
 

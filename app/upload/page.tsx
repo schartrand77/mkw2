@@ -6,7 +6,7 @@ export default function UploadPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [material, setMaterial] = useState('PLA')
-  const [modelFile, setModelFile] = useState<File | null>(null)
+  const [modelFiles, setModelFiles] = useState<FileList | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [tags, setTags] = useState('')
   const [loading, setLoading] = useState(false)
@@ -14,7 +14,7 @@ export default function UploadPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!modelFile) return alert('Please select a 3D model file (STL/OBJ).')
+    if (!modelFiles || modelFiles.length === 0) return alert('Please select one or more 3D model files (STL/OBJ/ZIP).')
     setLoading(true)
     try {
       const fd = new FormData()
@@ -22,7 +22,8 @@ export default function UploadPage() {
       fd.append('description', description)
       fd.append('material', material)
       fd.append('tags', tags)
-      fd.append('model', modelFile)
+      // Multiple files supported (and ZIP)
+      Array.from(modelFiles).forEach((f) => fd.append('files', f))
       if (imageFile) fd.append('image', imageFile)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       if (!res.ok) throw new Error(await res.text())
@@ -61,8 +62,8 @@ export default function UploadPage() {
           </select>
         </div>
         <div>
-          <label className="block text-sm mb-1">Model file (.stl or .obj)</label>
-          <input type="file" accept=".stl,.obj" onChange={(e) => setModelFile(e.target.files?.[0] || null)} />
+          <label className="block text-sm mb-1">Model files (.stl, .obj, or .zip)</label>
+          <input type="file" multiple accept=".stl,.obj,.zip" onChange={(e) => setModelFiles(e.target.files)} />
         </div>
         <div>
           <label className="block text-sm mb-1">Cover image (optional)</label>

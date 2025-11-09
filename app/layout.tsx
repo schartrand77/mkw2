@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
+export const dynamic = 'force-dynamic'
 export const metadata = {
   title: 'MakerWorks v2',
   description: '3D printing model hosting & cost estimation'

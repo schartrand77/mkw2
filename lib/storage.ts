@@ -1,9 +1,12 @@
 import { mkdir, writeFile, stat, access } from 'fs/promises'
-import { constants } from 'fs'
+import { constants, existsSync } from 'fs'
 import path from 'path'
 
 export function storageRoot() {
-  return process.env.STORAGE_DIR || path.join(process.cwd(), 'storage')
+  const envRoot = process.env.STORAGE_DIR
+  if (envRoot && existsSync(envRoot)) return envRoot
+  // Fallback to project storage dir when env path is unset or invalid (e.g., Docker path in local dev)
+  return path.join(process.cwd(), 'storage')
 }
 
 export async function ensureDir(p: string) {
@@ -30,4 +33,3 @@ export function publicFilePath(relPath: string) {
   // Return web route base `/files` + relPath for client
   return `/files/${relPath}`.replace(/\\/g, '/').replace(/\/+/, '/')
 }
-

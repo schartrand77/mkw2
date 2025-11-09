@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
-import { prisma } from '@/lib/db'
 
 async function fetchModels() {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/models`, { cache: 'no-store' })
@@ -17,16 +16,15 @@ async function fetchFeatured() {
 }
 
 export default async function HomePage() {
-  const [featured, models, cfg] = await Promise.all([
+  const [featured, models] = await Promise.all([
     fetchFeatured(),
     fetchModels(),
-    prisma.siteConfig.findUnique({ where: { id: 'main' } })
   ])
   return (
     <div className="space-y-8">
       <section className="text-center py-10">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">{cfg?.heroTitle || 'Discover, Share, and Print 3D Models'}</h1>
-        <p className="mt-3 text-slate-300">{cfg?.heroSubtitle || 'Host your models, preview in 3D, and estimate print costs.'}</p>
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Discover, Share, and Print 3D Models</h1>
+        <p className="mt-3 text-slate-300">Host your models, preview in 3D, and estimate print costs.</p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <Link href="/upload" className="btn">Upload a Model</Link>
           <Link href="#explore" className="px-4 py-2 rounded-md border border-white/10 hover:border-white/20">Explore</Link>
