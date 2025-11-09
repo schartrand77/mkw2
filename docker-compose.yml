@@ -1,0 +1,35 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: makerworks
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/makerworks?schema=public
+      JWT_SECRET: supersecret-change-me
+      BASE_URL: http://localhost:3000
+      STORAGE_DIR: /app/storage
+      COST_PER_CM3: "0.30"
+      FIXED_FEE_USD: "1.00"
+    ports:
+      - "3000:3000"
+    volumes:
+      - storage:/app/storage
+
+volumes:
+  db_data:
+  storage:
+
