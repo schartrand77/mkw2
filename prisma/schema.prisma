@@ -42,6 +42,7 @@ model Model {
 
   modelTags ModelTag[]
   likesList Like[]
+  featured  FeaturedModel?
 }
 
 model Tag {

@@ -1,4 +1,5 @@
 import ModelViewer from '@/components/ModelViewer'
+import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
