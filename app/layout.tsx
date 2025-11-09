@@ -36,9 +36,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
         </main>
         <footer className="border-t border-white/10 text-center text-sm text-slate-400 py-6">
-          © {new Date().getFullYear()} MakerWorks v2
+          © {new Date().getFullYear()} MakerWorks v2 · Proudly made in Canada
         </footer>
       </body>
     </html>
   )
 }
+

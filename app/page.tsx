@@ -23,7 +23,7 @@ export default async function HomePage() {
   return (
     <div className="space-y-8">
       <section className="text-center py-10">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Discover, Share, and Print 3D Models</h1>
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Dream. Discover. Deliver.</h1>
         <p className="mt-3 text-slate-300">Host your models, preview in 3D, and estimate print costs.</p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <Link href="/upload" className="btn">Upload a Model</Link>
