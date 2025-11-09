@@ -1,8 +1,8 @@
 "use client"
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
 
 export default function ModelViewer({ src }: { src: string }) {
   const mountRef = useRef<HTMLDivElement | null>(null)
@@ -73,4 +73,3 @@ export default function ModelViewer({ src }: { src: string }) {
 
   return <div className="rounded-xl overflow-hidden border border-white/10" ref={mountRef} />
 }
-
