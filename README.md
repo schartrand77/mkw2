@@ -8,6 +8,7 @@ Overview
 - Auth via email/password using signed HttpOnly cookie (JWT)
 - Automatic user page creation upon register/login with route `/u/{slug}` and quick link at `/me`.
 - Production/development ready Docker Compose
+ - Admin dashboard to manage featured models and basic site settings
 
 Quick Start (Docker)
 - Copy `.env.example` to `.env` (optional; compose sets sane defaults)
@@ -46,6 +47,12 @@ Core Endpoints
 - `GET /api/tags` list popular tags
 - `POST /api/account/email/request` request email change (returns verifyUrl in dev)
 - `GET /api/account/email/verify?token=...` verify email change token
+- Admin:
+  - `GET /api/admin/featured` list featured models
+  - `POST /api/admin/featured` set featured order
+  - `GET /api/admin/site-config` fetch config
+  - `PATCH /api/admin/site-config` update config
+  - `GET /api/admin/search-models?q=` search models
 
 Storage Layout
 - Models: `/app/storage/models/{userId}/{timestamp}-{slug}.{ext}`

@@ -91,3 +91,22 @@ model Profile {
   user   User   @relation(fields: [userId], references: [id])
   userId String @unique
 }
+
+model FeaturedModel {
+  modelId   String   @id
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+}
+
+model SiteConfig {
+  id                    String   @id
+  heroTitle             String?
+  heroSubtitle          String?
+  costPerCm3            Float?
+  fixedFeeUsd           Float?
+  allowAnonymousUploads Boolean? @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}

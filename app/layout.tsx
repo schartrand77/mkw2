@@ -2,15 +2,25 @@ import './globals.css'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
+import { prisma } from '@/lib/db'
 
 export const metadata = {
   title: 'MakerWorks v2',
   description: '3D printing model hosting & cost estimation'
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const token = cookies().get('mwv2_token')?.value
-  const authed = token ? !!verifyToken(token) : false
+  const payload = token ? verifyToken(token) : null
+  const authed = !!payload
+  let avatarUrl: string | null = null
+  let isAdmin = false
+  if (payload?.sub) {
+    const profile = await prisma.profile.findUnique({ where: { userId: payload.sub }, select: { avatarImagePath: true } })
+    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
+    avatarUrl = profile?.avatarImagePath ? `/files${profile.avatarImagePath}` : null
+    isAdmin = !!user?.isAdmin
+  }
   return (
     <html lang="en">
       <body>
@@ -23,7 +33,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {authed ? (
                 <>
                   <Link href="/likes" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">Likes</Link>
-                  <Link href="/me" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">My Page</Link>
+                  {isAdmin && (
+                    <Link href="/admin" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">Admin</Link>
+                  )}
+                  {avatarUrl ? (
+                    <Link href="/me" aria-label="My Page">
+                      <img src={avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full border border-white/10 object-cover" />
+                    </Link>
+                  ) : (
+                    <Link href="/me" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">My Page</Link>
+                  )}
                 </>
               ) : (
                 <Link href="/login" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">Sign in</Link>

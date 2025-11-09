@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS "FeaturedModel" (
+  "modelId" TEXT PRIMARY KEY,
+  "position" INTEGER NOT NULL DEFAULT 0,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "FeaturedModel_model_fkey" FOREIGN KEY ("modelId") REFERENCES "Model"("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS "SiteConfig" (
+  "id" TEXT PRIMARY KEY,
+  "heroTitle" TEXT,
+  "heroSubtitle" TEXT,
+  "costPerCm3" DOUBLE PRECISION,
+  "fixedFeeUsd" DOUBLE PRECISION,
+  "allowAnonymousUploads" BOOLEAN DEFAULT true,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL
+);
+

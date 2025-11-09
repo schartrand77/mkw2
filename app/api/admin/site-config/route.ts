@@ -1,0 +1,41 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/db'
+import { requireAdmin } from '../_utils'
+import { z } from 'zod'
+export const dynamic = 'force-dynamic'
+
+const schema = z.object({
+  heroTitle: z.string().max(200).optional(),
+  heroSubtitle: z.string().max(400).optional(),
+  costPerCm3: z.number().nonnegative().optional(),
+  fixedFeeUsd: z.number().nonnegative().optional(),
+  allowAnonymousUploads: z.boolean().optional(),
+})
+
+const CONFIG_ID = 'main'
+
+export async function GET() {
+  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  const cfg = await prisma.siteConfig.upsert({
+    where: { id: CONFIG_ID },
+    update: {},
+    create: { id: CONFIG_ID },
+  })
+  return NextResponse.json({ config: cfg })
+}
+
+export async function PATCH(req: NextRequest) {
+  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  try {
+    const json = await req.json()
+    const parsed = schema.parse(json)
+    const cfg = await prisma.siteConfig.upsert({
+      where: { id: CONFIG_ID },
+      update: parsed,
+      create: { id: CONFIG_ID, ...parsed },
+    })
+    return NextResponse.json({ config: cfg })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
+  }
+}

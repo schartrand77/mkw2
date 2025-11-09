@@ -11,7 +11,14 @@ const isImage = (name: string) => /\.(png|jpe?g|webp)$/i.test(name)
 
 export async function POST(req: NextRequest) {
   try {
-    const userId = getUserIdFromCookie() || (await ensureAnonymousUser())
+    // Check site config for anonymous upload policy
+    const { prisma } = await import('@/lib/db')
+    const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
+    const uidFromCookie = getUserIdFromCookie()
+    if (cfg && cfg.allowAnonymousUploads === false && !uidFromCookie) {
+      return NextResponse.json({ error: 'Sign in required to upload' }, { status: 401 })
+    }
+    const userId = uidFromCookie || (await ensureAnonymousUser())
 
     const form = await req.formData()
     const title = String(form.get('title') || '').slice(0, 200)
@@ -42,8 +49,8 @@ export async function POST(req: NextRequest) {
       volumeMm3 = computeStlVolumeMm3(modelBuf)
     }
     const cm3 = volumeMm3 ? volumeMm3 / 1000 : null
-    const costPerCm3 = parseFloat(process.env.COST_PER_CM3 || '0.3')
-    const fixedFee = parseFloat(process.env.FIXED_FEE_USD || '1.0')
+    const costPerCm3 = (cfg?.costPerCm3 != null ? Number(cfg.costPerCm3) : parseFloat(process.env.COST_PER_CM3 || '0.3'))
+    const fixedFee = (cfg?.fixedFeeUsd != null ? Number(cfg.fixedFeeUsd) : parseFloat(process.env.FIXED_FEE_USD || '1.0'))
     const priceUsd = cm3 != null ? Number((cm3 * costPerCm3 + fixedFee).toFixed(2)) : null
 
     const created = await prisma.model.create({
