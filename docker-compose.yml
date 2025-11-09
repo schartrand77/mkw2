@@ -20,20 +20,23 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/makerworks?schema=public}
       JWT_SECRET: ${JWT_SECRET:-supersecret-change-me}
       BASE_URL: ${BASE_URL:-http://localhost:3000}
-      # Persist uploads (models, images, thumbnails) under /app/uploads
-      STORAGE_DIR: ${STORAGE_DIR:-/app/uploads}
+      # Persist uploads under STORAGE_DIR
+      STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
       # In local Docker (HTTP), do not mark cookies as Secure
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       COST_PER_CM3: ${COST_PER_CM3:-0.30}
       FIXED_FEE_USD: ${FIXED_FEE_USD:-1.00}
+      # Currency configuration (USD or CAD). For client-side display use NEXT_PUBLIC_CURRENCY as well.
+      CURRENCY: ${CURRENCY:-USD}
+      NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-USD}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_NAME: ${ADMIN_NAME:-Admin}
     ports:
       - "3000:3000"
     volumes:
-      # Map host uploads folder to container
-      - ./uploads:/app/uploads
+      # Map host storage folder to container STORAGE_DIR
+      - ./storage:/app/storage
 
 volumes:
   db_data:

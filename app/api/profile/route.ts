@@ -67,7 +67,8 @@ export async function PATCH(req: NextRequest) {
     const buf = Buffer.from(await avatarFile.arrayBuffer())
     // Process avatar to 512x512 webp, center-crop
     const out = await sharp(buf).resize(512, 512, { fit: 'cover' }).webp({ quality: 90 }).toBuffer()
-    const rel = path.join('avatars', userId, `${Date.now()}.webp`)
+    // Store avatars under {userId}/avatars/{timestamp}.webp for per-user organization
+    const rel = path.join(userId, 'avatars', `${Date.now()}.webp`)
     // Cleanup old avatar if any
     if (current.avatarImagePath) {
       try { await unlink(path.join(process.env.STORAGE_DIR || process.cwd() + '/storage', current.avatarImagePath.replace(/^\//, ''))) } catch {}

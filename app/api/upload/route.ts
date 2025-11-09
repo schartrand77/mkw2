@@ -61,7 +61,8 @@ export async function POST(req: NextRequest) {
     if (image && isImage(image.name)) {
       const imgBuf = Buffer.from(await image.arrayBuffer())
       const imgExt = path.extname(image.name).toLowerCase() || '.png'
-      coverImageRel = path.join('images', userId, `${Date.now()}-${safeName(title) || 'cover'}${imgExt}`)
+      // Store cover images under userId/thumbnails
+      coverImageRel = path.join(userId, 'thumbnails', `${Date.now()}-${safeName(title) || 'cover'}${imgExt}`)
       await saveBuffer(coverImageRel, imgBuf)
     }
 
@@ -75,7 +76,8 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < modelFiles.length; i++) {
       const f = modelFiles[i]
       const ext = path.extname(f.name).toLowerCase()
-      const rel = path.join('models', userId, `${now}-${safeName(title) || 'model'}-${i + 1}${ext}`)
+      // Store model files under userId/models
+      const rel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}${ext}`)
       await saveBuffer(rel, f.buf)
       if (!firstPath) firstPath = `/${rel.replace(/\\/g, '/')}`
       let volMm3: number | null = null

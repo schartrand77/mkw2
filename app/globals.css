@@ -17,7 +17,6 @@ html, body {
 body {
   background:
     radial-gradient(1200px 600px at 80% -10%, rgba(245, 158, 11, 0.22), transparent), /* amber */
-    radial-gradient(900px 500px at 10% 30%, rgba(132, 204, 22, 0.18), transparent),    /* lime */
     var(--bg);
   color: white;
 }
@@ -36,3 +35,17 @@ body {
   @apply w-full rounded-md border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 placeholder:text-slate-400;
   background-color: rgb(var(--card-rgb) / 0.6);
 }
+
+/* Removed hero i-dot styling per design update */
+
+/* Navbar gear animation, reused from legacy landing */
+.gear {
+  transform-origin: 50% 50%;
+  animation-name: mw-gear-spin;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+  margin: 0 -0.12em;
+}
+@keyframes mw-gear-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .gear { animation: none !important; } }

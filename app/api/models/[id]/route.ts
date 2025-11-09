@@ -68,7 +68,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const buf = Buffer.from(await image.arrayBuffer())
     // Process to reasonable size webp
     const out = await sharp(buf).resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
-    const rel = path.join('images', userId, `${Date.now()}-cover.webp`)
+    // Save cover under userId/thumbnails
+    const rel = path.join(userId, 'thumbnails', `${Date.now()}-cover.webp`)
     if (existing.coverImagePath) {
       try { await unlink(path.join(storageRoot(), existing.coverImagePath.replace(/^\/+/, ''))) } catch {}
     }

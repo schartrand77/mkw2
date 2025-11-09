@@ -58,7 +58,6 @@ export default function UploadPage() {
             <option>PLA</option>
             <option>ABS</option>
             <option>PETG</option>
-            <option>Resin</option>
           </select>
         </div>
         <div>

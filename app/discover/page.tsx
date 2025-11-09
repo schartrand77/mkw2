@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { formatCurrency } from '@/lib/currency'
 
 type SearchParams = { [key: string]: string | string[] | undefined }
 
@@ -49,7 +50,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
             <option>PLA</option>
             <option>ABS</option>
             <option>PETG</option>
-            <option>Resin</option>
+            
           </select>
         </div>
         <div>
@@ -89,7 +90,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
             <div className="p-4">
               <h3 className="font-semibold">{m.title}</h3>
               <div className="flex justify-between text-sm text-slate-400">
-                <span>{m.priceUsd ? `$${m.priceUsd.toFixed(2)}` : 'N/A'}</span>
+                <span>{m.priceUsd ? formatCurrency(m.priceUsd) : 'N/A'}</span>
                 <span>❤ {m.likes} ⬇ {m.downloads}</span>
               </div>
             </div>

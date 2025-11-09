@@ -51,7 +51,6 @@ export default function ModelEditForm({ model }: { model: Model }) {
           <option>PLA</option>
           <option>ABS</option>
           <option>PETG</option>
-          <option>Resin</option>
         </select>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
@@ -68,4 +67,3 @@ export default function ModelEditForm({ model }: { model: Model }) {
     </form>
   )
 }
-

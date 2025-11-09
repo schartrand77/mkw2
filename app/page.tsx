@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
+import { formatCurrency } from '@/lib/currency'
 
 async function fetchModels() {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/models`, { cache: 'no-store' })
@@ -47,7 +48,7 @@ export default async function HomePage() {
                 <div className="p-4">
                   <h3 className="font-semibold">{m.title}</h3>
                   {m.priceUsd ? (
-                    <p className="text-sm text-slate-400">Est. ${m.priceUsd.toFixed(2)}</p>
+                    <p className="text-sm text-slate-400">Est. {formatCurrency(m.priceUsd)}</p>
                   ) : (
                     <p className="text-sm text-slate-400">No estimate</p>
                   )}
@@ -72,7 +73,7 @@ export default async function HomePage() {
             <div className="p-4">
               <h3 className="font-semibold">{m.title}</h3>
               {m.priceUsd ? (
-                <p className="text-sm text-slate-400">Est. ${m.priceUsd.toFixed(2)}</p>
+                <p className="text-sm text-slate-400">Est. {formatCurrency(m.priceUsd)}</p>
               ) : (
                 <p className="text-sm text-slate-400">No estimate</p>
               )}

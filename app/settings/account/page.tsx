@@ -61,7 +61,7 @@ export default function AccountSettingsPage() {
       <form onSubmit={updateEmail} className="glass p-6 rounded-xl space-y-3">
         <h2 className="font-semibold">Update Email</h2>
         {emailErr && <div className="text-amber-400 text-sm">{emailErr}</div>}
-        {emailMsg && <div className="text-green-400 text-sm">{emailMsg}</div>}
+        {emailMsg && <div className="text-brand-400 text-sm">{emailMsg}</div>}
         <input className="input" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
         <button className="btn">Save Email</button>
       </form>
@@ -69,7 +69,7 @@ export default function AccountSettingsPage() {
       <form onSubmit={updatePassword} className="glass p-6 rounded-xl space-y-3">
         <h2 className="font-semibold">Change Password</h2>
         {passErr && <div className="text-amber-400 text-sm">{passErr}</div>}
-        {passMsg && <div className="text-green-400 text-sm">{passMsg}</div>}
+        {passMsg && <div className="text-brand-400 text-sm">{passMsg}</div>}
         <div>
           <label className="block text-sm mb-1">Current Password</label>
           <input className="input" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />

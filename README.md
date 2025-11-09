@@ -55,8 +55,9 @@ Core Endpoints
   - `GET /api/admin/search-models?q=` search models
 
 Storage Layout
-- Models: `/app/storage/models/{userId}/{timestamp}-{slug}.{ext}`
-- Images: `/app/storage/images/{userId}/{timestamp}-{slug}.{ext}`
+- Models: `/app/storage/{userId}/models/{timestamp}-{slug}.{ext}`
+- Thumbnails: `/app/storage/{userId}/thumbnails/{timestamp}-{slug}.{ext}`
+- Avatars: `/app/storage/{userId}/avatars/{timestamp}.webp`
 
 Notes
 - Volume estimation supports binary and ASCII STL; OBJ volume not computed.

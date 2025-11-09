@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { formatCurrency } from '@/lib/currency'
 
 async function fetchModel(id: string) {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/models/${id}`, { cache: 'no-store' })
@@ -46,7 +47,7 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
           <div className="text-slate-400">Volume</div>
           <div>{model.volumeMm3 ? `${(model.volumeMm3/1000).toFixed(2)} cm³` : 'N/A'}</div>
           <div className="text-slate-400">Estimated Price</div>
-          <div>{model.priceUsd ? `$${model.priceUsd.toFixed(2)}` : 'N/A'}</div>
+          <div>{model.priceUsd ? formatCurrency(model.priceUsd) : 'N/A'}</div>
         </div>
         {hasParts && (
           <div className="glass rounded-xl p-4 text-sm">
