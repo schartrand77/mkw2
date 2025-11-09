@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import NavBar from '@/components/NavBar'
 
 export const dynamic = 'force-dynamic'
 export const metadata = {
@@ -28,27 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="sticky top-0 z-50 border-b border-white/10 bg-black/50 backdrop-blur">
           <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
             <Link href="/" className="text-xl font-semibold tracking-tight">MakerWorks<span className="text-brand-500"> v2</span></Link>
-            <nav className="flex items-center gap-3 text-sm">
-              <Link href="/discover" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">Discover</Link>
-              <Link href="/upload" className="btn">Upload</Link>
-              {authed ? (
-                <>
-                  <Link href="/likes" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">Likes</Link>
-                  {isAdmin && (
-                    <Link href="/admin" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">Admin</Link>
-                  )}
-                  {avatarUrl ? (
-                    <Link href="/me" aria-label="My Page">
-                      <img src={avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full border border-white/10 object-cover" />
-                    </Link>
-                  ) : (
-                    <Link href="/me" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">My Page</Link>
-                  )}
-                </>
-              ) : (
-                <Link href="/login" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">Sign in</Link>
-              )}
-            </nav>
+            <NavBar authed={authed} isAdmin={isAdmin} avatarUrl={avatarUrl} />
           </div>
         </header>
         <main className="mx-auto max-w-6xl px-4 py-8">

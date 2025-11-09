@@ -18,7 +18,9 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password })
       })
       if (!res.ok) throw new Error(await res.text())
+      // Navigate and refresh to ensure server components re-read auth cookie
       router.push('/')
+      router.refresh()
     } catch (err: any) {
       alert(err.message || 'Login failed')
     } finally {
@@ -44,4 +46,3 @@ export default function LoginPage() {
     </div>
   )
 }
-

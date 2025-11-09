@@ -43,10 +43,13 @@ export function getUserIdFromCookie(): string | null {
 export function setAuthCookie(userId: string) {
   const token = signToken(userId)
   const c = cookies()
+  const base = (process.env.BASE_URL || '').toLowerCase()
+  const cookieSecureEnv = (process.env.COOKIE_SECURE || '').toLowerCase()
+  const secure = cookieSecureEnv === 'true' || (process.env.NODE_ENV === 'production' && base.startsWith('https'))
   c.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure,
     path: '/',
     maxAge: 60 * 60 * 24 * 30,
   })
@@ -54,6 +57,8 @@ export function setAuthCookie(userId: string) {
 
 export function clearAuthCookie() {
   const c = cookies()
-  c.set(COOKIE_NAME, '', { maxAge: 0, path: '/' })
+  const base = (process.env.BASE_URL || '').toLowerCase()
+  const cookieSecureEnv = (process.env.COOKIE_SECURE || '').toLowerCase()
+  const secure = cookieSecureEnv === 'true' || (process.env.NODE_ENV === 'production' && base.startsWith('https'))
+  c.set(COOKIE_NAME, '', { maxAge: 0, path: '/', secure, httpOnly: true, sameSite: 'lax' })
 }
-

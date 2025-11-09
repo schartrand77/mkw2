@@ -22,6 +22,8 @@ services:
       BASE_URL: ${BASE_URL:-http://localhost:3000}
       # Persist uploads (models, images, thumbnails) under /app/uploads
       STORAGE_DIR: ${STORAGE_DIR:-/app/uploads}
+      # In local Docker (HTTP), do not mark cookies as Secure
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       COST_PER_CM3: ${COST_PER_CM3:-0.30}
       FIXED_FEE_USD: ${FIXED_FEE_USD:-1.00}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
