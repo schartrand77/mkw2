@@ -31,8 +31,6 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
   const { models, total, page, pageSize } = await fetchModels(params)
   const q = params.get('q') || ''
   const sort = params.get('sort') || 'latest'
-  const tags = params.get('tags') || ''
-  const tagsList = await fetch(`${process.env.BASE_URL || ''}/api/tags`, { cache: 'no-store' }).then(r => r.ok ? r.json() : { tags: [] })
   const totalPages = Math.max(1, Math.ceil((total || 0) / (pageSize || 24)))
 
   return (
@@ -41,7 +39,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
       <form method="get" className="grid md:grid-cols-3 gap-3 items-end">
         <div className="md:col-span-2">
           <label className="block text-sm mb-1">Search</label>
-          <input className="input" type="search" name="q" defaultValue={q} placeholder="Search models…" />
+          <input className="input" type="search" name="q" defaultValue={q} placeholder="Search models..." />
         </div>
         <div>
           <label className="block text-sm mb-1">Sort</label>
@@ -52,16 +50,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
             <option value="price_desc">Price: High to Low</option>
           </select>
         </div>
-        <div>
-          <label className="block text-sm mb-1">Tags (comma separated)</label>
-          <input name="tags" defaultValue={tags} className="input" placeholder="e.g., phone, mount, cosplay" />
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
-            {tagsList.tags?.map((t: any) => (
-              <a key={t.slug} href={buildQS({ tags: t.slug }, params)} className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20">#{t.name}</a>
-            ))}
-          </div>
-        </div>
-        <div className="md:col-span-4">
+        <div className="md:col-span-3">
           <button className="btn">Apply Filters</button>
         </div>
       </form>
@@ -96,11 +85,11 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
               </div>
               <div className="flex justify-between text-sm text-slate-400 mt-2">
                 <span>{m.priceUsd ? formatCurrency(m.priceUsd) : 'N/A'}</span>
-                <span>{m.sizeXmm && m.sizeYmm && m.sizeZmm ? `${(m.sizeXmm).toFixed(0)}×${(m.sizeYmm).toFixed(0)}×${(m.sizeZmm).toFixed(0)} mm` : '—'}</span>
+                <span>{m.sizeXmm && m.sizeYmm && m.sizeZmm ? `${Math.round(m.sizeXmm)} x ${Math.round(m.sizeYmm)} x ${Math.round(m.sizeZmm)} mm` : 'N/A'}</span>
               </div>
               <div className="flex justify-between text-xs text-slate-500 mt-1">
-                <span>♥ {m.likes}</span>
-                <span>⬇ {m.downloads}</span>
+                <span>Likes: {m.likes}</span>
+                <span>Downloads: {m.downloads}</span>
               </div>
             </div>
           </Link>
@@ -124,5 +113,4 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
     </div>
   )
 }
-
 

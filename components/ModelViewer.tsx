@@ -30,13 +30,15 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       const width = Math.max(1, container.clientWidth || container.offsetWidth || 1)
       const h = height
       const scene = new THREE.Scene()
-      scene.background = new THREE.Color('#0b0f17')
+      scene.background = new THREE.Color('#000000')
       const camera = new THREE.PerspectiveCamera(45, width / h, 0.001, 5000)
       camera.position.set(2, 1.5, 2)
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
       renderer.setSize(width, h)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
       container.appendChild(renderer.domElement)
+      // Ensure correct initial size after mount
+      renderer.setSize(width, h)
 
       const light1 = new THREE.DirectionalLight(0xffffff, 1)
       light1.position.set(5, 10, 7.5)
@@ -48,17 +50,18 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       const controls = new OrbitControls(camera as any, renderer.domElement)
       controls.enableDamping = true
       controls.dampingFactor = 0.08
-      controls.screenSpacePanning = false
+      controls.screenSpacePanning = true
       controls.autoRotate = autoRotate
       controls.autoRotateSpeed = 1.0
       controls.zoomSpeed = 0.9
 
       const loader = new STLLoader()
+      try { (loader as any).setCrossOrigin && (loader as any).setCrossOrigin('anonymous') } catch {}
       const group = new THREE.Group()
       scene.add(group)
 
       const files = srcs && srcs.length ? srcs : (src ? [src] : [])
-      const palette = [0x84cc16, 0xf59e0b, 0x3b82f6, 0x10b981, 0xef4444, 0xa855f7]
+      const palette = [0xd0d0d0]
       let loaded = 0
 
       // We cache fit parameters to recompute on resize
@@ -71,15 +74,15 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         const distV = fitRadius / Math.tan(vFov / 2)
         const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect)
         const distH = fitRadius / Math.tan(hFov / 2)
-        const distance = Math.max(distV, distH) * 1.2 // add 20% margin
+        const distance = Math.max(distV, distH) * 1.25 // add 25% margin
         camera.position.copy(viewDir).multiplyScalar(distance)
         controls.target.set(0, 0, 0)
         // Tighten near/far around scene for better depth precision
-        camera.near = Math.max(0.001, distance * 0.01)
-        camera.far = distance * 10
+        camera.near = Math.max(0.0001, distance * 0.001)
+        camera.far = distance * 100
         camera.updateProjectionMatrix()
-        controls.minDistance = distance * 0.2
-        controls.maxDistance = distance * 20
+        controls.minDistance = distance * 0.01
+        controls.maxDistance = distance * 50
         controls.update()
       }
 
@@ -115,7 +118,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
             try {
               if ((geometry as any).computeVertexNormals) (geometry as any).computeVertexNormals()
             } catch {}
-            const material = new THREE.MeshStandardMaterial({ color: palette[idx % palette.length], metalness: 0.2, roughness: 0.6 })
+            const material = new THREE.MeshStandardMaterial({ color: palette[idx % palette.length], metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
             const mesh = new THREE.Mesh(geometry as any, material)
             group.add(mesh)
             loaded++
@@ -132,7 +135,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
 
       const onResize = () => {
         if (!mountRef.current) return
-        const w = Math.max(1, mountRef.current.clientWidth || 1)
+        const w = Math.max(1, mountRef.current.clientWidth || mountRef.current.offsetWidth || 1)
         const hh = h
         renderer.setSize(w, hh)
         camera.aspect = w / hh
@@ -140,6 +143,12 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         fitToView()
       }
       window.addEventListener('resize', onResize)
+      // React to container size changes (layout, sidebar toggles, etc.)
+      let ro: ResizeObserver | null = null
+      if (typeof ResizeObserver !== 'undefined') {
+        ro = new ResizeObserver(() => onResize())
+        ro.observe(container)
+      }
 
       let raf = 0
       const animate = () => {
@@ -147,11 +156,13 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         renderer.render(scene, camera)
         raf = requestAnimationFrame(animate)
       }
+      onResize()
       animate()
 
       return () => {
         cancelAnimationFrame(raf)
         window.removeEventListener('resize', onResize)
+        if (ro) ro.disconnect()
         controls.dispose?.()
         renderer.dispose()
         if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement)

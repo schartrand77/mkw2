@@ -15,7 +15,6 @@ const isImage = (name: string) => /\.(png|jpe?g|webp)$/i.test(name)
 export async function POST(req: NextRequest) {
   try {
     // Check site config for anonymous upload policy
-    const { prisma } = await import('@/lib/db')
     const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
     const uidFromCookie = getUserIdFromCookie()
     if (cfg && cfg.allowAnonymousUploads === false && !uidFromCookie) {
@@ -132,6 +131,7 @@ export async function POST(req: NextRequest) {
     try { await refreshUserAchievements(prisma, userId) } catch {}
     return NextResponse.json({ model: created })
   } catch (e: any) {
+    console.error('Upload failed:', e)
     return NextResponse.json({ error: e.message || 'Upload failed' }, { status: 400 })
   }
 }
@@ -168,3 +168,4 @@ async function prepareTags(tagsRaw: string) {
   }
   return result
 }
+

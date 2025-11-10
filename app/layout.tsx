@@ -7,6 +7,7 @@ import NavBar from '@/components/NavBar'
 import NotificationsProvider from '@/components/notifications/NotificationsProvider'
 import Announcements from '@/components/notifications/Announcements'
 import PWARegister from '@/components/PWARegister'
+import ExtensionsGuard from '@/components/ExtensionsGuard'
 import CartProvider from '@/components/cart/CartProvider'
 
 export const dynamic = 'force-dynamic'
@@ -41,26 +42,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {authed ? (
               <Link href="/" aria-label="MakerWorks v2" className="text-xl font-semibold tracking-tight">
                 <span>MakerW</span>
-                <span
-                  className="inline-block align-baseline text-brand-500 gear"
-                  aria-hidden="true"
-                  style={{ animationDelay: '800ms', animationDuration: '1200ms' }}
-                >
-                  ⚙
-                </span>
+                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>⚙</span>
                 <span>rks</span>
                 <span className="text-brand-500"> v2</span>
               </Link>
             ) : (
               <span className="text-xl font-semibold tracking-tight select-none">
                 <span>MakerW</span>
-                <span
-                  className="inline-block align-baseline text-brand-500 gear"
-                  aria-hidden="true"
-                  style={{ animationDelay: '800ms', animationDuration: '1200ms' }}
-                >
-                  ⚙
-                </span>
+                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>⚙</span>
                 <span>rks</span>
                 <span className="text-brand-500"> v2</span>
               </span>
@@ -75,6 +64,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           &copy; {new Date().getFullYear()} MakerWorks v2 &middot; Proudly made in Canada
         </footer>
         <Announcements />
+        <ExtensionsGuard />
         <PWARegister />
         </NotificationsProvider>
         </CartProvider>
@@ -82,3 +72,4 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   )
 }
+

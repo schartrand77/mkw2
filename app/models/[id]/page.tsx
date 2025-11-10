@@ -45,7 +45,7 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
           <div className="text-slate-400">File Type</div>
           <div>{model.fileType}</div>
           <div className="text-slate-400">Volume</div>
-          <div>{model.volumeMm3 ? `${(model.volumeMm3/1000).toFixed(2)} cm³` : 'N/A'}</div>
+          <div>{model.volumeMm3 ? `${(model.volumeMm3/1000).toFixed(2)} cm^3` : 'N/A'}</div>
           <div className="text-slate-400">Estimated Price</div>
           <div>{model.priceUsd ? formatCurrency(model.priceUsd) : 'N/A'}</div>
         </div>
@@ -57,7 +57,7 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
                 <li key={p.id} className="py-2 flex items-center justify-between">
                   <div>
                     <div className="font-medium">{p.name}</div>
-                    <div className="text-slate-400 text-xs">{p.volumeMm3 ? `${(p.volumeMm3/1000).toFixed(2)} cm³` : 'N/A'}</div>
+                    <div className="text-slate-400 text-xs">{p.volumeMm3 ? `${(p.volumeMm3/1000).toFixed(2)} cm^3` : 'N/A'}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <a className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs" href={`/files${p.filePath}`} download>Download</a>
@@ -75,7 +75,7 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
           <a href={src} download className="btn">Download</a>
           {payload && (
             <form action={`/api/models/${model.id}/like`} method="post">
-              <button className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20" formAction={`/api/models/${model.id}/like`}>❤ Like</button>
+              <button className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20" formAction={`/api/models/${model.id}/like`}>Like</button>
             </form>
           )}
           {canEdit && (
@@ -86,3 +86,4 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
     </div>
   )
 }
+

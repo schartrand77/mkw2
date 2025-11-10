@@ -22,7 +22,7 @@ export default function Gallery({ coverSrc, parts = [], allSrc }: Props) {
     const arr: Item[] = []
     const partSrcs = parts.map(p => filePublicPath(p.filePath))
     if (partSrcs.length > 0) {
-      arr.push({ key: 'three:all', label: '3D — All parts', kind: 'three', srcs: partSrcs })
+      arr.push({ key: 'three:all', label: '3D View: All parts', kind: 'three', srcs: partSrcs })
       parts.forEach((p, i) => arr.push({ key: `three:${i}`, label: p.name, kind: 'three', src: partSrcs[i] }))
     } else if (allSrc) {
       arr.push({ key: 'three:single', label: '3D View', kind: 'three', src: allSrc })
