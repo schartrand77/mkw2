@@ -22,7 +22,7 @@ export default function LoginPage() {
       router.push('/')
       router.refresh()
     } catch (err: any) {
-      alert(err.message || 'Login failed')
+      try { const { pushSessionNotification } = await import('../../components/notifications/NotificationsProvider'); pushSessionNotification({ type: 'error', title: 'Login failed', message: err.message || 'Login failed' }); } catch {}
     } finally {
       setLoading(false)
     }
@@ -46,3 +46,4 @@ export default function LoginPage() {
     </div>
   )
 }
+

@@ -30,7 +30,7 @@ export default function UploadPage() {
       const data = await res.json()
       router.push(`/models/${data.model.id}`)
     } catch (err: any) {
-      alert(err.message || 'Upload failed')
+      try { const { pushSessionNotification } = await import('../../components/notifications/NotificationsProvider'); pushSessionNotification({ type: 'error', title: 'Upload failed', message: err.message || 'Upload failed' }); } catch {}
     } finally {
       setLoading(false)
     }
@@ -74,3 +74,4 @@ export default function UploadPage() {
     </div>
   )
 }
+

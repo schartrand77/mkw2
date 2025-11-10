@@ -31,7 +31,9 @@ services:
       NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-USD}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      ADMIN_NAME: ${ADMIN_NAME:-Admin}
+      ADMIN_NAME: 
+      DISCORD_BOT_TOKEN: 
+      DISCORD_CHANNEL_ID: 
     ports:
       - "3000:3000"
     volumes:
@@ -40,3 +42,4 @@ services:
 
 volumes:
   db_data:
+

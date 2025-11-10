@@ -49,3 +49,17 @@ body {
 }
 @keyframes mw-gear-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .gear { animation: none !important; } }
+
+
+/* Safe area support for iOS notch devices */
+.safe-padded {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+.header-safe {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+.footer-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
