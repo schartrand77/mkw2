@@ -69,6 +69,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   return (
     <nav className="flex items-center gap-3 text-sm">
       <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
+      <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
       <Link href="/upload" className={linkCls('/upload')}>Upload</Link>
       <>
         <Link href="/cart" className={linkCls('/cart')}>Cart{count > 0 ? ` (${count})` : ''}</Link>

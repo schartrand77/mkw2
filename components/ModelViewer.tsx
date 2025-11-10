@@ -67,6 +67,9 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       // We cache fit parameters to recompute on resize
       let fitRadius = 1
       const viewDir = new THREE.Vector3(2, 1.5, 2).normalize()
+      const paddingFactor = 1.08
+      const minZoomFraction = 0.004 // allow users to get very close to the model
+      const maxZoomMultiplier = 80
       const fitToView = () => {
         // Object is centered at origin and scaled so its bounding sphere radius = fitRadius
         const vFov = THREE.MathUtils.degToRad(camera.fov)
@@ -74,15 +77,17 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         const distV = fitRadius / Math.tan(vFov / 2)
         const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect)
         const distH = fitRadius / Math.tan(hFov / 2)
-        const distance = Math.max(distV, distH) * 1.25 // add 25% margin
+        const distance = Math.max(distV, distH) * paddingFactor
+        const minDist = Math.max(fitRadius * minZoomFraction, 0.002)
+        const maxDist = Math.max(distance * maxZoomMultiplier, minDist * 400)
         camera.position.copy(viewDir).multiplyScalar(distance)
         controls.target.set(0, 0, 0)
         // Tighten near/far around scene for better depth precision
-        camera.near = Math.max(0.0001, distance * 0.001)
-        camera.far = distance * 100
+        controls.minDistance = minDist
+        controls.maxDistance = maxDist
+        camera.near = Math.max(0.0001, minDist * 0.5)
+        camera.far = Math.max(maxDist * 2, distance * 50)
         camera.updateProjectionMatrix()
-        controls.minDistance = distance * 0.01
-        controls.maxDistance = distance * 50
         controls.update()
       }
 
