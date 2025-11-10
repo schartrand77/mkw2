@@ -91,6 +91,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
           </button>
           {menuOpen && (
             <div role="menu" className="absolute right-0 mt-2 w-44 glass rounded-md border border-white/10 py-1 z-50">
+              <Link href="/settings/profile" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Edit Profile</Link>
               <Link href="/me" role="menuitem" className="block px-3 py-2 hover:bg-white/10">My Page</Link>
               <Link href="/settings/account" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Account</Link>
               <button role="menuitem" onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')} className="block w-full text-left px-3 py-2 hover:bg-white/10">

@@ -65,7 +65,7 @@ export default function EditProfilePage() {
     <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-semibold mb-4">Edit Profile</h1>
       {loading ? (
-        <div className="text-slate-400">Loading…</div>
+        <div className="text-slate-400">Loading...</div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-4 glass p-6 rounded-xl">
           {error && <div className="text-amber-400 text-sm">{error}</div>}
@@ -101,7 +101,7 @@ export default function EditProfilePage() {
             <textarea className="input h-28" value={bio} onChange={(e) => setBio(e.target.value)} />
           </div>
           <div className="flex gap-3">
-            <button disabled={saving} className="btn">{saving ? 'Saving…' : 'Save changes'}</button>
+            <button disabled={saving} className="btn">{saving ? 'Saving...' : 'Save changes'}</button>
           </div>
         </form>
       )}

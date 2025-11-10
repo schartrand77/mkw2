@@ -1,8 +1,9 @@
-import './globals.css'
+﻿import './globals.css'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { toPublicHref } from '@/lib/storage'
 import NavBar from '@/components/NavBar'
 import NotificationsProvider from '@/components/notifications/NotificationsProvider'
 import Announcements from '@/components/notifications/Announcements'
@@ -29,7 +30,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   if (payload?.sub) {
     const profile = await prisma.profile.findUnique({ where: { userId: payload.sub }, select: { avatarImagePath: true } })
     const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
-    avatarUrl = profile?.avatarImagePath ? `/files${profile.avatarImagePath}` : null
+    avatarUrl = toPublicHref(profile?.avatarImagePath)
     isAdmin = !!user?.isAdmin
   }
   return (
@@ -42,14 +43,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {authed ? (
               <Link href="/" aria-label="MakerWorks v2" className="text-xl font-semibold tracking-tight">
                 <span>MakerW</span>
-                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>⚙</span>
+                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>âš™</span>
                 <span>rks</span>
                 <span className="text-brand-500"> v2</span>
               </Link>
             ) : (
               <span className="text-xl font-semibold tracking-tight select-none">
                 <span>MakerW</span>
-                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>⚙</span>
+                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>âš™</span>
                 <span>rks</span>
                 <span className="text-brand-500"> v2</span>
               </span>
