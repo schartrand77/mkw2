@@ -18,6 +18,7 @@ model User {
   verificationTokens VerificationToken[]
   createdAt    DateTime @default(now())
   profile      Profile?
+  badges       UserAchievement[]
 }
 
 model Model {
@@ -131,4 +132,26 @@ model ModelPart {
   createdAt  DateTime @default(now())
 
   model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+}
+
+model Achievement {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  name        String
+  icon        String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  users UserAchievement[]
+}
+
+model UserAchievement {
+  userId        String
+  achievementId String
+  awardedAt     DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@id([userId, achievementId])
 }

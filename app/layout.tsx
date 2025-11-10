@@ -28,18 +28,33 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <header className="sticky top-0 z-50 border-b border-white/10 bg-black/50 backdrop-blur">
           <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
-            <Link href="/" aria-label="MakerWorks v2" className="text-xl font-semibold tracking-tight">
-              <span>MakerW</span>
-              <span
-                className="inline-block align-baseline text-brand-500 gear"
-                aria-hidden="true"
-                style={{ animationDelay: '800ms', animationDuration: '1200ms' }}
-              >
-                ⚙
+            {authed ? (
+              <Link href="/" aria-label="MakerWorks v2" className="text-xl font-semibold tracking-tight">
+                <span>MakerW</span>
+                <span
+                  className="inline-block align-baseline text-brand-500 gear"
+                  aria-hidden="true"
+                  style={{ animationDelay: '800ms', animationDuration: '1200ms' }}
+                >
+                  ⚙
+                </span>
+                <span>rks</span>
+                <span className="text-brand-500"> v2</span>
+              </Link>
+            ) : (
+              <span className="text-xl font-semibold tracking-tight select-none">
+                <span>MakerW</span>
+                <span
+                  className="inline-block align-baseline text-brand-500 gear"
+                  aria-hidden="true"
+                  style={{ animationDelay: '800ms', animationDuration: '1200ms' }}
+                >
+                  ⚙
+                </span>
+                <span>rks</span>
+                <span className="text-brand-500"> v2</span>
               </span>
-              <span>rks</span>
-              <span className="text-brand-500"> v2</span>
-            </Link>
+            )}
             <NavBar authed={authed} isAdmin={isAdmin} avatarUrl={avatarUrl} />
           </div>
         </header>

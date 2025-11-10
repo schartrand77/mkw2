@@ -6,7 +6,16 @@ import { verifyToken } from '@/lib/auth'
 async function getProfile(slug: string) {
   return prisma.profile.findUnique({
     where: { slug },
-    include: { user: { select: { id: true, name: true, email: true } } },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          badges: { include: { achievement: true } },
+        }
+      }
+    },
   })
 }
 
@@ -29,6 +38,16 @@ export default async function UserPage({ params }: { params: { slug: string } })
       <div className="glass rounded-xl p-6">
         <h1 className="text-2xl font-semibold">{profile.user.name || profile.user.email}</h1>
         <p className="text-slate-400 text-sm">/{profile.slug}</p>
+        {profile.user.badges && profile.user.badges.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2 text-sm">
+            {profile.user.badges.map((ub: any) => (
+              <span key={ub.achievementId} title={ub.achievement?.description || ''} className="px-2 py-1 rounded-md border border-white/10 bg-black/30">
+                <span className="mr-1">{ub.achievement?.icon || '🏆'}</span>
+                <span>{ub.achievement?.name}</span>
+              </span>
+            ))}
+          </div>
+        )}
         {profile.bio && <p className="mt-3 text-slate-300 whitespace-pre-wrap">{profile.bio}</p>}
         {current === profile.userId && (
           <div className="mt-4">

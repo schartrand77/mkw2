@@ -31,8 +31,8 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       const h = height
       const scene = new THREE.Scene()
       scene.background = new THREE.Color('#0b0f17')
-      const camera = new THREE.PerspectiveCamera(45, width / h, 0.01, 1000)
-      camera.position.set(2, 2, 2)
+      const camera = new THREE.PerspectiveCamera(45, width / h, 0.001, 5000)
+      camera.position.set(2, 1.5, 2)
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
       renderer.setSize(width, h)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
@@ -42,11 +42,16 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       light1.position.set(5, 10, 7.5)
       scene.add(light1)
       scene.add(new THREE.AmbientLight(0x888888))
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x222222, 0.6)
+      scene.add(hemi)
 
       const controls = new OrbitControls(camera as any, renderer.domElement)
       controls.enableDamping = true
+      controls.dampingFactor = 0.08
+      controls.screenSpacePanning = false
       controls.autoRotate = autoRotate
       controls.autoRotateSpeed = 1.0
+      controls.zoomSpeed = 0.9
 
       const loader = new STLLoader()
       const group = new THREE.Group()
@@ -56,6 +61,28 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       const palette = [0x84cc16, 0xf59e0b, 0x3b82f6, 0x10b981, 0xef4444, 0xa855f7]
       let loaded = 0
 
+      // We cache fit parameters to recompute on resize
+      let fitRadius = 1
+      const viewDir = new THREE.Vector3(2, 1.5, 2).normalize()
+      const fitToView = () => {
+        // Object is centered at origin and scaled so its bounding sphere radius = fitRadius
+        const vFov = THREE.MathUtils.degToRad(camera.fov)
+        // Compute distance to fit object vertically and horizontally
+        const distV = fitRadius / Math.tan(vFov / 2)
+        const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect)
+        const distH = fitRadius / Math.tan(hFov / 2)
+        const distance = Math.max(distV, distH) * 1.2 // add 20% margin
+        camera.position.copy(viewDir).multiplyScalar(distance)
+        controls.target.set(0, 0, 0)
+        // Tighten near/far around scene for better depth precision
+        camera.near = Math.max(0.001, distance * 0.01)
+        camera.far = distance * 10
+        camera.updateProjectionMatrix()
+        controls.minDistance = distance * 0.2
+        controls.maxDistance = distance * 20
+        controls.update()
+      }
+
       const onLoaded = () => {
         group.updateMatrixWorld(true)
         const box = new THREE.Box3().setFromObject(group)
@@ -63,23 +90,17 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         const center = new THREE.Vector3()
         box.getSize(size)
         box.getCenter(center)
+        // Center object at origin
         group.position.sub(center)
         group.updateMatrixWorld(true)
+        // Normalize scale so we have a stable camera fit independent of model units
         const maxDim = Math.max(size.x, size.y, size.z)
         const radius = maxDim > 0 ? maxDim / 2 : 1
         const scale = radius > 0 ? 1 / radius : 1
         group.scale.setScalar(scale)
         group.updateMatrixWorld(true)
-        const fov = THREE.MathUtils.degToRad(camera.fov)
-        const distance = 1.8
-        const camDist = distance / Math.tan(fov / 2)
-        const dir = new THREE.Vector3(2, 1.5, 2).normalize()
-        camera.position.copy(dir.multiplyScalar(camDist))
-        controls.target.set(0, 0, 0)
-        camera.near = 0.01
-        camera.far = 1000
-        camera.updateProjectionMatrix()
-        controls.update()
+        fitRadius = 1 // after normalization, radius ~1
+        fitToView()
       }
 
       if (files.length === 0) {
@@ -116,6 +137,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         renderer.setSize(w, hh)
         camera.aspect = w / hh
         camera.updateProjectionMatrix()
+        fitToView()
       }
       window.addEventListener('resize', onResize)
 

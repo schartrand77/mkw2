@@ -7,6 +7,7 @@ import { saveBuffer } from '@/lib/storage'
 import { computeStlVolumeMm3 } from '@/lib/stl'
 import JSZip from 'jszip'
 import { estimatePriceUSD } from '@/lib/pricing'
+import { refreshUserAchievements } from '@/lib/achievements'
 
 const isAllowedModel = (name: string) => /\.(stl|obj)$/i.test(name)
 const isImage = (name: string) => /\.(png|jpe?g|webp)$/i.test(name)
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
         parts: { create: partCreates }
       }
     })
-
+    try { await refreshUserAchievements(prisma, userId) } catch {}
     return NextResponse.json({ model: created })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Upload failed' }, { status: 400 })

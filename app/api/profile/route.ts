@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer } from '@/lib/storage'
+import { refreshUserAchievements } from '@/lib/achievements'
 import sharp from 'sharp'
 import { unlink } from 'fs/promises'
 import path from 'path'
@@ -88,6 +89,6 @@ export async function PATCH(req: NextRequest) {
     Object.keys(updatesUser).length ? prisma.user.update({ where: { id: userId }, data: updatesUser, select: { id: true, email: true, name: true } }) : prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true } }) as any,
     Object.keys(updatesProfile).length ? prisma.profile.update({ where: { userId }, data: updatesProfile }) : prisma.profile.findUnique({ where: { userId } }) as any,
   ])
-
+  try { await refreshUserAchievements(prisma, userId) } catch {}
   return NextResponse.json({ profile, user })
 }

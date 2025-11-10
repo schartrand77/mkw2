@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
+import { refreshUserAchievements } from '@/lib/achievements'
 import JSZip from 'jszip'
 import { readFile } from 'fs/promises'
 import path from 'path'
@@ -7,7 +8,7 @@ import { storageRoot } from '@/lib/storage'
 export const dynamic = 'force-dynamic'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const model = await prisma.model.findUnique({ where: { id: params.id }, select: { title: true, parts: true, filePath: true } })
+  const model = await prisma.model.findUnique({ where: { id: params.id }, select: { title: true, parts: true, filePath: true, userId: true } })
   if (!model) return new Response('Not found', { status: 404 })
   const zip = new JSZip()
   if (model.parts.length > 0) {
@@ -29,5 +30,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   })
   const arrayCopy = new Uint8Array(content) // ensure backing ArrayBuffer, not SharedArrayBuffer
   const ab: ArrayBuffer = arrayCopy.buffer.slice(0)
+  // Increment download count and refresh achievements asynchronously
+  try {
+    await prisma.model.update({ where: { id: params.id }, data: { downloads: { increment: 1 } } })
+    if (model.userId) await refreshUserAchievements(prisma, model.userId)
+  } catch {}
   return new Response(ab, { headers })
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/db'
+import { refreshUserAchievements } from '@/lib/achievements'
 import { getUserIdFromCookie } from '@/lib/auth'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -22,6 +23,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     prisma.like.create({ data: { userId, modelId } }),
     prisma.model.update({ where: { id: modelId }, data: { likes: { increment: 1 } } })
   ])
+  try {
+    const m = await prisma.model.findUnique({ where: { id: modelId }, select: { userId: true } })
+    if (m?.userId) await refreshUserAchievements(prisma, m.userId)
+  } catch {}
   const updated = await prisma.model.findUnique({ where: { id: modelId }, select: { likes: true } })
   const prefersHtml = (req.headers.get('accept') || '').includes('text/html')
   if (prefersHtml) return NextResponse.redirect(new URL(`/models/${modelId}`, req.url), { status: 303 })

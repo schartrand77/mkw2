@@ -25,28 +25,32 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
       : 'px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20'
   }
 
+  if (!authed) {
+    // When not authenticated, render a non-interactive navbar to prevent navigation
+    return (
+      <nav className="flex items-center gap-3 text-sm select-none">
+        <span className="px-3 py-1.5 rounded-md border border-white/10 text-slate-500 cursor-not-allowed">Sign in</span>
+      </nav>
+    )
+  }
+
   return (
     <nav className="flex items-center gap-3 text-sm">
       <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
       <Link href="/upload" className={linkCls('/upload')}>Upload</Link>
-      {authed ? (
-        <>
-          <Link href="/likes" className={linkCls('/likes')}>Likes</Link>
-          {isAdmin && (
-            <Link href="/admin" className={linkCls('/admin')}>Admin</Link>
-          )}
-          {avatarUrl ? (
-            <Link href="/me" aria-label="My Page" className={isActivePath(pathname, '/me') ? 'rounded-full ring-2 ring-brand-600' : ''}>
-              <img src={avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full border border-white/10 object-cover" />
-            </Link>
-          ) : (
-            <Link href="/me" className={linkCls('/me')}>My Page</Link>
-          )}
-        </>
-      ) : (
-        <Link href="/login" className={linkCls('/login')}>Sign in</Link>
-      )}
+      <>
+        <Link href="/likes" className={linkCls('/likes')}>Likes</Link>
+        {isAdmin && (
+          <Link href="/admin" className={linkCls('/admin')}>Admin</Link>
+        )}
+        {avatarUrl ? (
+          <Link href="/me" aria-label="My Page" className={isActivePath(pathname, '/me') ? 'rounded-full ring-2 ring-brand-600' : ''}>
+            <img src={avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full border border-white/10 object-cover" />
+          </Link>
+        ) : (
+          <Link href="/me" className={linkCls('/me')}>My Page</Link>
+        )}
+      </>
     </nav>
   )
 }
-

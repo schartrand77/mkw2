@@ -5,6 +5,7 @@ import FeaturedManager from '@/components/admin/FeaturedManager'
 import SiteConfigForm from '@/components/admin/SiteConfigForm'
 import ModelManager from '@/components/admin/ModelManager'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 
 export default async function AdminPage() {
   const token = cookies().get('mwv2_token')?.value
@@ -27,6 +28,9 @@ export default async function AdminPage() {
         <div className="glass p-6 rounded-xl">
           <SiteConfigForm initial={cfg as any} />
         </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <Link href="/admin/users" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 text-sm">View Users & Badges</Link>
       </div>
       <div className="glass p-6 rounded-xl">
         <ModelManager />
