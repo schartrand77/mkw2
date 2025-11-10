@@ -36,6 +36,27 @@ body {
   background-color: rgb(var(--card-rgb) / 0.6);
 }
 
+/* Light theme overrides */
+html.theme-light body {
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(245, 158, 11, 0.12), transparent),
+    #f7f7f9;
+  color: #0b0f17;
+}
+html.theme-light .glass {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+html.theme-light .input {
+  @apply border;
+  border-color: rgba(0, 0, 0, 0.12);
+  background-color: #ffffff;
+  color: #0b0f17;
+}
+html.theme-light .btn {
+  @apply text-white; /* keep brand buttons readable */
+}
+
 /* Removed hero i-dot styling per design update */
 
 /* Navbar gear animation, reused from legacy landing */

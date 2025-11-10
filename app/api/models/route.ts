@@ -61,10 +61,15 @@ export async function GET(req: NextRequest) {
         id: true,
         title: true,
         coverImagePath: true,
+        sizeXmm: true,
+        sizeYmm: true,
+        sizeZmm: true,
+        fileType: true,
         priceUsd: true,
         likes: true,
         downloads: true,
         createdAt: true,
+        _count: { select: { parts: true } },
         modelTags: { include: { tag: true } }
       }
     })
@@ -73,10 +78,15 @@ export async function GET(req: NextRequest) {
     id: m.id,
     title: m.title,
     coverImagePath: m.coverImagePath,
+    sizeXmm: (m as any).sizeXmm,
+    sizeYmm: (m as any).sizeYmm,
+    sizeZmm: (m as any).sizeZmm,
+    fileType: (m as any).fileType,
     priceUsd: m.priceUsd,
     likes: m.likes,
     downloads: m.downloads,
     createdAt: m.createdAt,
+    partsCount: (m as any)._count?.parts || 0,
     tags: (m as any).modelTags?.map((mt: any) => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug })) || []
   }))
   return NextResponse.json({ models: mapped, total, page, pageSize })

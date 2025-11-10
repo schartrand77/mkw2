@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 export default function UploadPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [creditName, setCreditName] = useState('')
+  const [creditUrl, setCreditUrl] = useState('')
   const [material, setMaterial] = useState('PLA')
   const [modelFiles, setModelFiles] = useState<FileList | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -18,6 +20,8 @@ export default function UploadPage() {
     setLoading(true)
     try {
       const fd = new FormData()
+      if (creditName) fd.append('creditName', creditName)
+      if (creditUrl) fd.append('creditUrl', creditUrl)
       fd.append('title', title)
       fd.append('description', description)
       fd.append('material', material)
@@ -48,6 +52,16 @@ export default function UploadPage() {
           <label className="block text-sm mb-1">Tags (comma separated)</label>
           <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g., gadget, mount, cosplay" />
         </div>
+<div className="grid sm:grid-cols-2 gap-3">
+  <div>
+    <label className="block text-sm mb-1">Credit model creator</label>
+    <input className="input" value={creditName} onChange={(e) => setCreditName(e.target.value)} placeholder="Creator name" />
+  </div>
+  <div>
+    <label className="block text-sm mb-1">Credit URL</label>
+    <input className="input" type="url" value={creditUrl} onChange={(e) => setCreditUrl(e.target.value)} placeholder="https://..." />
+  </div>
+</div>
         <div>
           <label className="block text-sm mb-1">Description</label>
           <textarea className="input h-24" value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -74,4 +88,6 @@ export default function UploadPage() {
     </div>
   )
 }
+
+
 

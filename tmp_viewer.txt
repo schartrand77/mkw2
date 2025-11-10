@@ -1,77 +1,127 @@
-import './globals.css'
 import Link from 'next/link'
-import { cookies } from 'next/headers'
-import { verifyToken } from '@/lib/auth'
-import { prisma } from '@/lib/db'
-import NavBar from '@/components/NavBar'
-import NotificationsProvider from '@/components/notifications/NotificationsProvider'
-import Announcements from '@/components/notifications/Announcements'
-import PWARegister from '@/components/PWARegister'
+import { formatCurrency } from '@/lib/currency'
 
-export const dynamic = 'force-dynamic'
-export const metadata = {\n  title: 'MakerWorks v2',\n  description: '3D printing model hosting & cost estimation',\n  manifest: '/manifest.webmanifest',\n  themeColor: '#000000',\n  appleWebApp: {\n    capable: true,\n    statusBarStyle: 'black-translucent'\n  },\n  icons: {\n    icon: '/favicon.svg',\n    apple: '/favicon.svg'\n  }\n}\n
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const token = cookies().get('mwv2_token')?.value
-  const payload = token ? verifyToken(token) : null
-  const authed = !!payload
-  let avatarUrl: string | null = null
-  let isAdmin = false
-  if (payload?.sub) {
-    const profile = await prisma.profile.findUnique({ where: { userId: payload.sub }, select: { avatarImagePath: true } })
-    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
-    avatarUrl = profile?.avatarImagePath ? `/files${profile.avatarImagePath}` : null
-    isAdmin = !!user?.isAdmin
-  }
-  return (
-    <html lang="en">
-      <body>
-        <NotificationsProvider>
-        <header className="sticky top-0 z-50 border-b border-white/10 bg-black/50 backdrop-blur header-safe">
-          <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
-            {authed ? (
-              <Link href="/" aria-label="MakerWorks v2" className="text-xl font-semibold tracking-tight">
-                <span>MakerW</span>
-                <span
-                  className="inline-block align-baseline text-brand-500 gear"
-                  aria-hidden="true"
-                  style={{ animationDelay: '800ms', animationDuration: '1200ms' }}
-                >
-                  ⚙
-                </span>
-                <span>rks</span>
-                <span className="text-brand-500"> v2</span>
-              </Link>
-            ) : (
-              <span className="text-xl font-semibold tracking-tight select-none">
-                <span>MakerW</span>
-                <span
-                  className="inline-block align-baseline text-brand-500 gear"
-                  aria-hidden="true"
-                  style={{ animationDelay: '800ms', animationDuration: '1200ms' }}
-                >
-                  ⚙
-                </span>
-                <span>rks</span>
-                <span className="text-brand-500"> v2</span>
-              </span>
-            )}
-            <NavBar authed={authed} isAdmin={isAdmin} avatarUrl={avatarUrl} />
-          </div>
-        </header>
-        <main className="mx-auto max-w-6xl px-4 py-8 safe-padded">
-          {children}
-        </main>
-        <footer className="border-t border-white/10 text-center text-sm text-slate-400 py-6 footer-safe">
-          &copy; {new Date().getFullYear()} MakerWorks v2 &middot; Proudly made in Canada
-        </footer>\n        <Announcements />\n        <PWARegister />
-        </NotificationsProvider>
-      </body>
-    </html>
-  )
+type SearchParams = { [key: string]: string | string[] | undefined }
+
+async function fetchModels(params: URLSearchParams) {
+  const qs = params.toString()
+  const res = await fetch(`${process.env.BASE_URL || ''}/api/models${qs ? `?${qs}` : ''}`, { cache: 'no-store' })
+  if (!res.ok) return { models: [], total: 0, page: 1, pageSize: 24 }
+  return res.json()
 }
 
+function buildQS(next: Record<string, any>, current: URLSearchParams) {
+  const merged = new URLSearchParams(current)
+  for (const [k, v] of Object.entries(next)) {
+    if (v === undefined || v === null || v === '') merged.delete(k)
+    else merged.set(k, String(v))
+  }
+  return `?${merged.toString()}`
+}
 
+export default async function DiscoverPage({ searchParams }: { searchParams?: SearchParams }) {
+  const params = new URLSearchParams()
+  if (searchParams) {
+    for (const [k, v] of Object.entries(searchParams)) {
+      if (Array.isArray(v)) params.set(k, v[0]!)
+      else if (v) params.set(k, v)
+    }
+  }
+  const { models, total, page, pageSize } = await fetchModels(params)
+  const q = params.get('q') || ''
+  const sort = params.get('sort') || 'latest'
+  const tags = params.get('tags') || ''
+  const tagsList = await fetch(`${process.env.BASE_URL || ''}/api/tags`, { cache: 'no-store' }).then(r => r.ok ? r.json() : { tags: [] })
+  const totalPages = Math.max(1, Math.ceil((total || 0) / (pageSize || 24)))
 
+  return (
+    <div className="space-y-6">
+      <h1 className="text-3xl font-semibold">Discover Models</h1>
+      <form method="get" className="grid md:grid-cols-3 gap-3 items-end">
+        <div className="md:col-span-2">
+          <label className="block text-sm mb-1">Search</label>
+          <input className="input" type="search" name="q" defaultValue={q} placeholder="Search models…" />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Sort</label>
+          <select name="sort" defaultValue={sort} className="input">
+            <option value="latest">Latest</option>
+            <option value="popular">Popular</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Tags (comma separated)</label>
+          <input name="tags" defaultValue={tags} className="input" placeholder="e.g., phone, mount, cosplay" />
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
+            {tagsList.tags?.map((t: any) => (
+              <a key={t.slug} href={buildQS({ tags: t.slug }, params)} className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20">#{t.name}</a>
+            ))}
+          </div>
+        </div>
+        <div className="md:col-span-4">
+          <button className="btn">Apply Filters</button>
+        </div>
+      </form>
 
+      <section className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+        {models.length === 0 && (
+          <p className="text-slate-400">No models matched your filters.</p>
+        )}
+        {models.map((m: any) => (
+          <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition">
+            {m.coverImagePath ? (
+              <img src={`/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
+            ) : (
+              <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
+            )}
+            <div className="p-4">
+              <h3 className="font-semibold">{m.title}</h3>\n              {/* Cart controls */}\n              <div className="mt-2"><span id="__placeholder__"></span></div>
+              <div className="mt-2 flex items-center gap-2">
+                {m.coverImagePath && (
+                  <img src={`/files${m.coverImagePath}`} alt="Cover" className="w-14 h-10 object-cover rounded border border-white/10" />
+                )}
+                {(m.fileType || m.partsCount > 0) && (
+                  <div className="w-14 h-10 rounded border border-white/10 bg-gradient-to-br from-slate-800/60 to-slate-900/60 flex items-center justify-center text-xs text-slate-300">
+                    3D View
+                  </div>
+                )}
+                {m.partsCount > 1 && (
+                  <div className="w-14 h-10 rounded border border-white/10 bg-gradient-to-br from-slate-800/60 to-slate-900/60 flex items-center justify-center text-xs text-slate-300">
+                    3D View
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between text-sm text-slate-400 mt-2">
+                <span>{m.priceUsd ? formatCurrency(m.priceUsd) : 'N/A'}</span>
+                <span>{m.sizeXmm && m.sizeYmm && m.sizeZmm ? `${(m.sizeXmm).toFixed(0)}×${(m.sizeYmm).toFixed(0)}×${(m.sizeZmm).toFixed(0)} mm` : '—'}</span>
+              </div>
+              <div className="flex justify-between text-xs text-slate-500 mt-1">
+                <span>♥ {m.likes}</span>
+                <span>⬇ {m.downloads}</span>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </section>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-2">
+          {Array.from({ length: totalPages }).map((_, i) => {
+            const p = i + 1
+            const href = buildQS({ page: p }, params)
+            const active = p === page
+            return (
+              <Link key={p} href={href} className={`px-3 py-1.5 rounded-md border ${active ? 'bg-brand-600 border-brand-600 text-white' : 'border-white/10 hover:border-white/20'}`}>
+                {p}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 

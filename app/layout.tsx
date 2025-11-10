@@ -7,6 +7,7 @@ import NavBar from '@/components/NavBar'
 import NotificationsProvider from '@/components/notifications/NotificationsProvider'
 import Announcements from '@/components/notifications/Announcements'
 import PWARegister from '@/components/PWARegister'
+import CartProvider from '@/components/cart/CartProvider'
 
 export const dynamic = 'force-dynamic'
 export const metadata = {
@@ -33,6 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <body>
+        <CartProvider>
         <NotificationsProvider>
         <header className="sticky top-0 z-50 border-b border-white/10 bg-black/50 backdrop-blur header-safe">
           <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
@@ -75,8 +77,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Announcements />
         <PWARegister />
         </NotificationsProvider>
+        </CartProvider>
       </body>
     </html>
   )
 }
-

@@ -25,12 +25,17 @@ model Model {
   id              String   @id @default(cuid())
   title           String
   description     String?
+  creditName      String?
+  creditUrl       String?
   filePath        String
   coverImagePath  String?
   fileType        String
   unit            String   @default("mm")
   material        String   @default("PLA")
   volumeMm3       Float?
+  sizeXmm         Float?
+  sizeYmm         Float?
+  sizeZmm         Float?
   priceUsd        Float?
   visibility      String   @default("public")
   downloads       Int      @default(0)
@@ -128,6 +133,9 @@ model ModelPart {
   index      Int      @default(0)
   filePath   String
   volumeMm3  Float?
+  sizeXmm    Float?
+  sizeYmm    Float?
+  sizeZmm    Float?
   priceUsd   Float?
   createdAt  DateTime @default(now())
 

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/currency'
+import AddToCartButtons from '@/components/cart/AddToCartButtons'
 
 type SearchParams = { [key: string]: string | string[] | undefined }
 
@@ -30,7 +31,6 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
   const { models, total, page, pageSize } = await fetchModels(params)
   const q = params.get('q') || ''
   const sort = params.get('sort') || 'latest'
-  const material = params.get('material') || ''
   const tags = params.get('tags') || ''
   const tagsList = await fetch(`${process.env.BASE_URL || ''}/api/tags`, { cache: 'no-store' }).then(r => r.ok ? r.json() : { tags: [] })
   const totalPages = Math.max(1, Math.ceil((total || 0) / (pageSize || 24)))
@@ -38,20 +38,10 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-semibold">Discover Models</h1>
-      <form method="get" className="grid md:grid-cols-4 gap-3 items-end">
+      <form method="get" className="grid md:grid-cols-3 gap-3 items-end">
         <div className="md:col-span-2">
           <label className="block text-sm mb-1">Search</label>
           <input className="input" type="search" name="q" defaultValue={q} placeholder="Search models…" />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Material</label>
-          <select name="material" defaultValue={material} className="input">
-            <option value="">Any</option>
-            <option>PLA</option>
-            <option>ABS</option>
-            <option>PETG</option>
-            
-          </select>
         </div>
         <div>
           <label className="block text-sm mb-1">Sort</label>
@@ -88,10 +78,29 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
               <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
             )}
             <div className="p-4">
-              <h3 className="font-semibold">{m.title}</h3>
-              <div className="flex justify-between text-sm text-slate-400">
+              <div className="mt-2"><AddToCartButtons model={{ id: m.id, title: m.title, priceUsd: m.priceUsd, coverImagePath: m.coverImagePath, sizeXmm: m.sizeXmm, sizeYmm: m.sizeYmm, sizeZmm: m.sizeZmm }} /></div>
+              <div className="mt-2 flex items-center gap-2">
+                {m.coverImagePath && (
+                  <img src={`/files${m.coverImagePath}`} alt="Cover" className="w-14 h-10 object-cover rounded border border-white/10" />
+                )}
+                {(m.fileType || m.partsCount > 0) && (
+                  <div className="w-14 h-10 rounded border border-white/10 bg-gradient-to-br from-slate-800/60 to-slate-900/60 flex items-center justify-center text-xs text-slate-300">
+                    3D View
+                  </div>
+                )}
+                {m.partsCount > 1 && (
+                  <div className="w-14 h-10 rounded border border-white/10 bg-gradient-to-br from-slate-800/60 to-slate-900/60 flex items-center justify-center text-xs text-slate-300">
+                    3D View
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between text-sm text-slate-400 mt-2">
                 <span>{m.priceUsd ? formatCurrency(m.priceUsd) : 'N/A'}</span>
-                <span>❤ {m.likes} ⬇ {m.downloads}</span>
+                <span>{m.sizeXmm && m.sizeYmm && m.sizeZmm ? `${(m.sizeXmm).toFixed(0)}×${(m.sizeYmm).toFixed(0)}×${(m.sizeZmm).toFixed(0)} mm` : '—'}</span>
+              </div>
+              <div className="flex justify-between text-xs text-slate-500 mt-1">
+                <span>♥ {m.likes}</span>
+                <span>⬇ {m.downloads}</span>
               </div>
             </div>
           </Link>
@@ -115,3 +124,5 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
     </div>
   )
 }
+
+
