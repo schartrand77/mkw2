@@ -14,7 +14,14 @@ export async function GET(req: NextRequest) {
     prisma.model.count({ where }),
     prisma.model.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * pageSize, take: pageSize, include: { modelTags: { include: { tag: true } } } })
   ])
-  const models = items.map(m => ({ id: m.id, title: m.title, coverImagePath: m.coverImagePath, visibility: m.visibility, tags: m.modelTags.map(mt => mt.tag.name) }))
+  const models = items.map(m => ({
+    id: m.id,
+    title: m.title,
+    coverImagePath: m.coverImagePath,
+    visibility: m.visibility,
+    tags: m.modelTags.map(mt => mt.tag.name),
+    affiliateTitle: (m as any).affiliateTitle,
+    affiliateUrl: (m as any).affiliateUrl,
+  }))
   return NextResponse.json({ total, page, pageSize, models })
 }
-

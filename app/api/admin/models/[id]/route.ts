@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../../_utils'
 import { slugify } from '@/lib/userpage'
+import { normalizeAmazonAffiliateUrl } from '@/lib/amazon'
 export const dynamic = 'force-dynamic'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -16,6 +17,22 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const allowed = new Set(['public', 'private', 'unlisted'])
     if (!allowed.has(String(visibility))) return NextResponse.json({ error: 'Invalid visibility' }, { status: 400 })
     updates.visibility = String(visibility)
+  }
+
+  if (body.affiliateTitle !== undefined) {
+    const raw = String(body.affiliateTitle ?? '').trim()
+    updates.affiliateTitle = raw ? raw.slice(0, 160) : null
+  }
+
+  if (body.affiliateUrl !== undefined) {
+    const raw = String(body.affiliateUrl ?? '').trim()
+    if (!raw) {
+      updates.affiliateUrl = null
+    } else {
+      const normalized = normalizeAmazonAffiliateUrl(raw)
+      if (!normalized) return NextResponse.json({ error: 'Affiliate link must be an Amazon URL' }, { status: 400 })
+      updates.affiliateUrl = normalized
+    }
   }
 
   const tagsInput: string[] | string | undefined = body.tags
@@ -45,4 +62,3 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   return NextResponse.json({ ok: true })
 }
-

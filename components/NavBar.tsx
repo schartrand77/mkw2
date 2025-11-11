@@ -58,10 +58,12 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   }
 
   if (!authed) {
-    // When not authenticated, render a non-interactive navbar to prevent navigation
     return (
-      <nav className="flex items-center gap-3 text-sm select-none">
-        <span className="px-3 py-1.5 rounded-md border border-white/10 text-slate-500 cursor-not-allowed">Sign in</span>
+      <nav className="flex items-center gap-3 text-sm">
+        <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
+        <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
+        <Link href="/login" className={linkCls('/login')}>Sign in</Link>
+        <Link href="/register" className={linkCls('/register')}>Join</Link>
       </nav>
     )
   }

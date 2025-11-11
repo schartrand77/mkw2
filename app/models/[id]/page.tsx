@@ -16,6 +16,14 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
   if (!model) return <div>Not found</div>
   const src = model.filePath ? `/files${model.filePath}` : ''
   const hasParts = Array.isArray(model.parts) && model.parts.length > 0
+  const affiliateHost = model.affiliateUrl ? (() => {
+    try {
+      const rawHost = new URL(model.affiliateUrl).hostname
+      return rawHost.replace(/^www\./i, '') || 'amazon.ca'
+    } catch {
+      return 'amazon.ca'
+    }
+  })() : null
   const token = cookies().get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   const me = payload?.sub ? await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } }) : null
@@ -49,6 +57,28 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
           <div className="text-slate-400">Estimated Price</div>
           <div>{model.priceUsd ? formatCurrency(model.priceUsd) : 'N/A'}</div>
         </div>
+        {model.affiliateUrl && (
+          <div className="glass rounded-xl p-4 space-y-3">
+            <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Required parts</div>
+            <div>
+              <p className="text-lg font-semibold">{model.affiliateTitle || 'Recommended hardware'}</p>
+              <p className="text-sm text-slate-300">
+                Link provided by the maker so you can grab the exact companion parts (springs, screws, electronics, etc.) this model expects.
+              </p>
+            </div>
+            <a
+              href={model.affiliateUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn w-full md:w-auto text-center"
+            >
+              Shop on {affiliateHost || 'Amazon'}
+            </a>
+            <p className="text-xs text-slate-500">
+              As an Amazon Associate, MakerWorks may earn from qualifying purchases. Pricing/availability updates instantly on Amazon.
+            </p>
+          </div>
+        )}
         {hasParts && (
           <div className="glass rounded-xl p-4 text-sm">
             <div className="font-semibold mb-2">Parts breakdown</div>
@@ -86,4 +116,3 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
     </div>
   )
 }
-

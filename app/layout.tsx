@@ -21,6 +21,24 @@ export const metadata = {
   icons: { icon: '/favicon.svg', apple: '/favicon.svg' },
 }
 
+function GearGlyph() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+      className="h-4 w-4 md:h-5 md:w-5"
+      focusable="false"
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M9.555.834a1 1 0 01.89 0l2.139 1.02c.167.08.36.092.535.033l2.307-.769a1 1 0 011.27.65l.758 2.32a1 1 0 00.35.5l1.917 1.47a1 1 0 01.216 1.35l-1.243 1.92a1 1 0 00-.147.59l.107 2.438a1 1 0 01-.987 1.04l-2.446.1a1 1 0 00-.562.2l-1.945 1.485a1 1 0 01-1.356-.169l-1.526-1.815a1 1 0 00-.534-.33l-2.371-.6a1 1 0 01-.747-.92l-.121-2.449a1 1 0 00-.281-.653L.6 8.165a1 1 0 01.087-1.51l1.94-1.47a1 1 0 00.368-.515l.72-2.382a1 1 0 011.273-.673l2.329.776a1 1 0 00.583-.031L9.555.834zM10 13.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z"
+      />
+    </svg>
+  )
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const token = cookies().get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
@@ -43,14 +61,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {authed ? (
               <Link href="/" aria-label="MakerWorks v2" className="text-xl font-semibold tracking-tight">
                 <span>MakerW</span>
-                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>âš™</span>
+                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
+                  <GearGlyph />
+                </span>
                 <span>rks</span>
                 <span className="text-brand-500"> v2</span>
               </Link>
             ) : (
               <span className="text-xl font-semibold tracking-tight select-none">
                 <span>MakerW</span>
-                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>âš™</span>
+                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
+                  <GearGlyph />
+                </span>
                 <span>rks</span>
                 <span className="text-brand-500"> v2</span>
               </span>
@@ -73,4 +95,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   )
 }
+
+
 

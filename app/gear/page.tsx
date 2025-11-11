@@ -1,12 +1,14 @@
-import { amazonShopItems, buildAmazonSearchUrl, DEFAULT_AMAZON_QUERY } from '@/lib/amazon'
+import { buildAmazonSearchUrl, DEFAULT_AMAZON_QUERY } from '@/lib/amazon'
+import { getAmazonSpotlightCards } from '@/lib/amazonSpotlights'
 
 export const metadata = {
   title: 'Amazon Accessories Shop | MakerWorks v2',
   description: 'Curated Amazon affiliate picks for 3D printing accessories, tools, and workspace upgrades.',
 }
 
-export default function AmazonStorePage() {
+export default async function AmazonStorePage() {
   const filteredSearchUrl = buildAmazonSearchUrl(DEFAULT_AMAZON_QUERY, 'makerworks_v2_store_primary')
+  const spotlightItems = await getAmazonSpotlightCards()
 
   return (
     <div className="space-y-10">
@@ -31,7 +33,7 @@ export default function AmazonStorePage() {
               View filtered results
             </a>
             <a
-              href="https://advertising.amazon.com/resources/ad-policy/associates-program"
+              href="https://www.amazon.ca/associates"
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2 rounded-md border border-white/15 text-sm text-slate-300 hover:border-white/30"
@@ -56,15 +58,15 @@ export default function AmazonStorePage() {
         </header>
 
         <div className="grid gap-6 md:grid-cols-2">
-          {amazonShopItems.map((item) => (
+          {spotlightItems.map((item) => (
             <article
               key={item.id}
               className="glass rounded-2xl border border-white/10 overflow-hidden flex flex-col hover:border-white/20 transition"
             >
               <div className="relative aspect-video">
                 <img
-                  src={item.image}
-                  alt={item.title}
+                  src={item.displayImage || item.image}
+                  alt={item.displayTitle}
                   className="h-full w-full object-cover"
                   loading="lazy"
                 />
@@ -76,10 +78,10 @@ export default function AmazonStorePage() {
               <div className="p-5 flex flex-col gap-4 grow">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-semibold">{item.title}</h3>
+                    <h3 className="text-xl font-semibold">{item.displayTitle}</h3>
                     <span className="text-sm text-slate-400">{item.priceHint}</span>
                   </div>
-                  <p className="text-sm text-slate-300">{item.description}</p>
+                  <p className="text-sm text-slate-300">{item.descriptionFromAmazon || item.description}</p>
                 </div>
                 <ul className="space-y-1 text-sm text-slate-400">
                   {item.highlights.map((highlight) => (

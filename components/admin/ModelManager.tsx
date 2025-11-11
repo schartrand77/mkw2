@@ -1,7 +1,15 @@
 "use client"
 import { useEffect, useState } from 'react'
 
-type Model = { id: string; title: string; coverImagePath?: string | null; visibility: string; tags: string[] }
+type Model = {
+  id: string
+  title: string
+  coverImagePath?: string | null
+  visibility: string
+  tags: string[]
+  affiliateTitle?: string | null
+  affiliateUrl?: string | null
+}
 
 export default function ModelManager() {
   const [query, setQuery] = useState('')
@@ -36,7 +44,16 @@ export default function ModelManager() {
   }
 
   const saveRow = async (m: Model) => {
-    const res = await fetch(`/api/admin/models/${m.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visibility: m.visibility, tags: m.tags.join(',') }) })
+    const res = await fetch(`/api/admin/models/${m.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        visibility: m.visibility,
+        tags: m.tags.join(','),
+        affiliateTitle: m.affiliateTitle ?? '',
+        affiliateUrl: m.affiliateUrl ?? '',
+      })
+    })
     if (!res.ok) alert('Failed to save model: ' + (await res.text()))
   }
 
@@ -71,6 +88,20 @@ export default function ModelManager() {
             <div className="md:col-span-1">
               <button className="btn" onClick={() => saveRow(m)}>Save</button>
             </div>
+            <div className="md:col-span-12 grid md:grid-cols-2 gap-3">
+              <input
+                className="input"
+                placeholder="Affiliate label e.g. Springs kit"
+                value={m.affiliateTitle || ''}
+                onChange={(e) => updateRow(i, { affiliateTitle: e.target.value })}
+              />
+              <input
+                className="input"
+                placeholder="Amazon.ca link (dp/ASIN)"
+                value={m.affiliateUrl || ''}
+                onChange={(e) => updateRow(i, { affiliateUrl: e.target.value })}
+              />
+            </div>
           </div>
         ))}
       </div>
@@ -84,4 +115,3 @@ export default function ModelManager() {
     </div>
   )
 }
-
