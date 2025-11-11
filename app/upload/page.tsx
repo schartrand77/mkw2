@@ -2,6 +2,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
+  try {
+    const mod = await import('@/components/notifications/NotificationsProvider')
+    mod.pushSessionNotification(payload)
+  } catch {}
+}
+
 export default function UploadPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -38,10 +45,11 @@ export default function UploadPage() {
         try { const j = await res.json(); throw new Error(j.error || 'Upload failed') } catch { throw new Error('Upload failed') }
       }
       const data = await res.json()
+      await notify({ type: 'success', title: 'Upload complete', message: 'Your model is ready to view.' })
       router.push(`/models/${data.model.id}`)
     } catch (err: any) {
       setErrorMsg(err.message || 'Upload failed')
-      try { const { pushSessionNotification } = await import('../../components/notifications/NotificationsProvider'); pushSessionNotification({ type: 'error', title: 'Upload failed', message: err.message || 'Upload failed' }); } catch {}
+      await notify({ type: 'error', title: 'Upload failed', message: err.message || 'Upload failed' })
     } finally {
       setLoading(false)
     }
@@ -96,4 +104,3 @@ export default function UploadPage() {
     </div>
   )
 }
-

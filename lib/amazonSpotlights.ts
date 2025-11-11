@@ -3,7 +3,6 @@
 import {
   amazonShopItems,
   AmazonShopItemWithUrl,
-  buildAmazonProductUrl,
   buildAmazonSearchUrl,
 } from '@/lib/amazon'
 import {
@@ -24,15 +23,18 @@ export async function getAmazonSpotlightCards(): Promise<
   const cards = await Promise.all(
     amazonShopItems.map(async (item) => {
       const ref = `makerworks_v2_store_${item.id}`
+      const hasManualLink = !!item.manualUrl
       let meta = null
-      if (item.asin) {
-        meta = await fetchAmazonProductMetaByAsin(item.asin, ref)
-      } else if (item.searchQuery) {
-        meta = await fetchAmazonProductMeta(
-          buildAmazonSearchUrl(item.searchQuery, ref),
-        )
-      } else {
-        meta = await fetchAmazonProductMeta(item.url)
+      if (!hasManualLink) {
+        if (item.asin) {
+          meta = await fetchAmazonProductMetaByAsin(item.asin, ref)
+        } else if (item.searchQuery) {
+          meta = await fetchAmazonProductMeta(
+            buildAmazonSearchUrl(item.searchQuery, ref),
+          )
+        } else {
+          meta = await fetchAmazonProductMeta(item.url)
+        }
       }
 
       return {

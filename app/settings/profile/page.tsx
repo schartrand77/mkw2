@@ -2,6 +2,13 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
+  try {
+    const mod = await import('@/components/notifications/NotificationsProvider')
+    mod.pushSessionNotification(payload)
+  } catch {}
+}
+
 type Profile = { slug: string; bio?: string | null; avatarImagePath?: string | null }
 type User = { name?: string | null; email: string }
 
@@ -53,6 +60,22 @@ export default function EditProfilePage() {
       if (!res.ok) throw new Error(await res.text())
       const data = await res.json()
       const newSlug = data.profile?.slug || slug
+      const savedAvatarPath: string | undefined = data.profile?.avatarImagePath
+      if (savedAvatarPath) {
+        const normalized = savedAvatarPath.startsWith('/files')
+          ? savedAvatarPath
+          : `/files${savedAvatarPath}`
+        setAvatar(null)
+        setAvatarUrl(normalized)
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('mwv2:avatarUrl', normalized)
+            window.dispatchEvent(new CustomEvent('mwv2:avatar:update', { detail: normalized }))
+          } catch {}
+        }
+      }
+      await notify({ type: 'success', title: 'Profile updated', message: 'Your profile changes are live.' })
+      router.refresh()
       router.push(`/u/${newSlug}`)
     } catch (err: any) {
       setError(err.message || 'Failed to save profile')
@@ -108,4 +131,3 @@ export default function EditProfilePage() {
     </div>
   )
 }
-

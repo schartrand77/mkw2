@@ -20,6 +20,7 @@ function isActivePath(pathname: string, href: string): boolean {
 export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   const pathname = usePathname() || '/'
   const [menuOpen, setMenuOpen] = useState(false)
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(avatarUrl)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const { count } = useCart()
   const logout = async () => {
@@ -68,6 +69,33 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
     )
   }
 
+  useEffect(() => {
+    setAvatarSrc(avatarUrl || null)
+  }, [avatarUrl])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const storageKey = 'mwv2:avatarUrl'
+    const eventName = 'mwv2:avatar:update'
+    try {
+      const existing = localStorage.getItem(storageKey)
+      if (existing) setAvatarSrc(existing)
+    } catch {}
+    const onAvatarUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail
+      if (typeof detail === 'string' && detail.length) {
+        setAvatarSrc(detail)
+      } else {
+        try {
+          const fallback = localStorage.getItem(storageKey)
+          if (fallback) setAvatarSrc(fallback)
+        } catch {}
+      }
+    }
+    window.addEventListener(eventName, onAvatarUpdate as EventListener)
+    return () => window.removeEventListener(eventName, onAvatarUpdate as EventListener)
+  }, [])
+
   return (
     <nav className="flex items-center gap-3 text-sm">
       <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
@@ -86,8 +114,8 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
             onClick={() => setMenuOpen(o => !o)}
             className={isActivePath(pathname, '/me') ? 'rounded-full ring-2 ring-brand-600' : ''}
           >
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full border border-white/10 object-cover" />
+            {avatarSrc ? (
+              <img src={avatarSrc} alt="Avatar" className="w-8 h-8 rounded-full border border-white/10 object-cover" />
             ) : (
               <span className="px-3 py-1.5 rounded-md border border-white/10">Me</span>
             )}

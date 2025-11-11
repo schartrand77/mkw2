@@ -1,0 +1,80 @@
+<svg width="1465" height="601" viewBox="0 0 1465 601" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PLA basic colors Polymaker banner">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="80%">
+      <stop offset="0%" stop-color="#3d1d7c"/>
+      <stop offset="40%" stop-color="#5b2487"/>
+      <stop offset="70%" stop-color="#a23c7c"/>
+      <stop offset="100%" stop-color="#f56c44"/>
+    </radialGradient>
+    <linearGradient id="rocketBody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6ff3ff"/>
+      <stop offset="100%" stop-color="#1c9bd5"/>
+    </linearGradient>
+    <linearGradient id="rocketNose" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#080b3b"/>
+      <stop offset="100%" stop-color="#171949"/>
+    </linearGradient>
+    <linearGradient id="rocketWindow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#151f5b"/>
+      <stop offset="100%" stop-color="#020724"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="20" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="1465" height="601" fill="url(#bg)"/>
+  <g opacity="0.3">
+    <circle cx="180" cy="120" r="3" fill="#fff"/>
+    <circle cx="300" cy="80" r="2" fill="#fff"/>
+    <circle cx="600" cy="140" r="2.5" fill="#fff"/>
+    <circle cx="900" cy="110" r="3.5" fill="#fff"/>
+    <circle cx="1200" cy="90" r="2.7" fill="#fff"/>
+    <circle cx="1350" cy="180" r="2" fill="#fff"/>
+    <circle cx="200" cy="260" r="2.3" fill="#fff"/>
+    <circle cx="540" cy="230" r="2" fill="#fff"/>
+    <circle cx="820" cy="260" r="3" fill="#fff"/>
+    <circle cx="1100" cy="230" r="2.4" fill="#fff"/>
+  </g>
+  <g transform="translate(180 200)">
+    <g transform="translate(0,0)">
+      <circle cx="0" cy="0" r="90" fill="#0a0f28"/>
+      <circle cx="0" cy="0" r="80" fill="#45aaf2"/>
+      <circle cx="0" cy="0" r="65" fill="#fff"/>
+      <circle cx="0" cy="0" r="40" fill="#45aaf2"/>
+    </g>
+    <g transform="translate(120,20)">
+      <circle cx="0" cy="0" r="80" fill="#0a0f28"/>
+      <circle cx="0" cy="0" r="70" fill="#45f29a"/>
+      <circle cx="0" cy="0" r="55" fill="#fff"/>
+      <circle cx="0" cy="0" r="30" fill="#45f29a"/>
+    </g>
+    <g transform="translate(230,40)">
+      <circle cx="0" cy="0" r="70" fill="#0a0f28"/>
+      <circle cx="0" cy="0" r="60" fill="#ffdf5d"/>
+      <circle cx="0" cy="0" r="45" fill="#fff"/>
+      <circle cx="0" cy="0" r="25" fill="#ffdf5d"/>
+    </g>
+    <g transform="translate(330,60)">
+      <circle cx="0" cy="0" r="60" fill="#0a0f28"/>
+      <circle cx="0" cy="0" r="54" fill="#ff7b5f"/>
+      <circle cx="0" cy="0" r="40" fill="#fff"/>
+      <circle cx="0" cy="0" r="22" fill="#ff7b5f"/>
+    </g>
+  </g>
+  <g transform="translate(760 80)" filter="url(#glow)">
+    <path d="M200 0 L260 200 L230 500 C220 540 180 560 150 560 L130 560 C100 560 60 540 50 500 L20 200 L80 0 Z" fill="url(#rocketBody)"/>
+    <path d="M80 0 Q140 -40 200 0 L185 80 L95 80 Z" fill="url(#rocketNose)"/>
+    <path d="M40 200 Q20 220 10 260 L-30 280 Q-15 220 10 180 Z" fill="#1a0d2c"/>
+    <path d="M240 200 Q260 220 270 260 L310 280 Q295 220 270 180 Z" fill="#1a0d2c"/>
+    <circle cx="140" cy="210" r="55" fill="url(#rocketWindow)"/>
+    <circle cx="140" cy="210" r="35" fill="#0cc0ff"/>
+    <path d="M130 560 L90 640 L150 600 L210 640 L170 560 Z" fill="#ffb347"/>
+  </g>
+  <text x="900" y="420" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="96" font-weight="700" fill="#ffffff" letter-spacing="3">PLA BASIC</text>
+  <text x="900" y="500" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="96" font-weight="700" fill="#ffffff" letter-spacing="3">COLORS</text>
+  <text x="905" y="540" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="28" fill="#d6f5ff" letter-spacing="8">POLYMAKER FILAMENT COLLECTION</text>
+</svg>

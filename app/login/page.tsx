@@ -2,6 +2,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
+  try {
+    const mod = await import('@/components/notifications/NotificationsProvider')
+    mod.pushSessionNotification(payload)
+  } catch {}
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,11 +25,11 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password })
       })
       if (!res.ok) throw new Error(await res.text())
-      // Navigate and refresh to ensure server components re-read auth cookie
+      await notify({ type: 'success', title: 'Signed in', message: 'Welcome back!' })
       router.push('/')
       router.refresh()
     } catch (err: any) {
-      try { const { pushSessionNotification } = await import('../../components/notifications/NotificationsProvider'); pushSessionNotification({ type: 'error', title: 'Login failed', message: err.message || 'Login failed' }); } catch {}
+      await notify({ type: 'error', title: 'Login failed', message: err.message || 'Login failed' })
     } finally {
       setLoading(false)
     }
@@ -46,4 +53,3 @@ export default function LoginPage() {
     </div>
   )
 }
-

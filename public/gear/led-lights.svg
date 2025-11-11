@@ -1,0 +1,57 @@
+<svg width="1465" height="768" viewBox="0 0 1465 768" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="LED lighting display in a modern hallway">
+  <defs>
+    <linearGradient id="led-bg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#061544"/>
+      <stop offset="50%" stop-color="#132c73"/>
+      <stop offset="100%" stop-color="#041126"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff9ddc"/>
+      <stop offset="100%" stop-color="#ffa7a1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1465" height="768" fill="url(#led-bg)"/>
+
+  <g opacity="0.3">
+    <rect x="220" y="140" width="260" height="520" fill="url(#panel)" filter="url(#blur)"/>
+    <rect x="760" y="220" width="200" height="400" fill="#00c0ff"/>
+    <rect x="1040" y="180" width="150" height="360" fill="#ff6ad7"/>
+  </g>
+
+  <g transform="translate(120 100)">
+    <rect x="0" y="120" width="360" height="540" rx="30" fill="#0b1535" stroke="#1b2755" stroke-width="8"/>
+    <rect x="40" y="160" width="280" height="460" rx="18" fill="url(#panel)"/>
+    <rect x="20" y="140" width="320" height="500" rx="24" fill="none" stroke="#222b63" stroke-dasharray="8 12" opacity="0.5"/>
+  </g>
+
+  <g transform="translate(560 160)">
+    <rect x="0" y="60" width="220" height="420" rx="20" fill="#0c1c46" stroke="#1f3b7a" stroke-width="8"/>
+    <rect x="40" y="100" width="140" height="340" rx="12" transform="skewY(-4)" fill="#6cd8ff"/>
+    <rect x="20" y="80" width="180" height="380" rx="16" fill="none" stroke="#59bfee" stroke-dasharray="12 16" opacity="0.5"/>
+  </g>
+
+  <g transform="translate(900 120)">
+    <rect x="0" y="80" width="190" height="380" rx="18" fill="#0f1f4f" stroke="#243978" stroke-width="6"/>
+    <rect x="30" y="110" width="130" height="320" rx="12" fill="#ff6ab3"/>
+    <rect x="20" y="100" width="150" height="340" rx="16" fill="none" stroke="#ff8ed1" stroke-dasharray="10 14" opacity="0.6"/>
+  </g>
+
+  <g transform="translate(1180 150)">
+    <rect x="0" y="100" width="180" height="360" rx="16" fill="#111f43" stroke="#203768" stroke-width="6"/>
+    <rect x="25" y="130" width="130" height="300" rx="12" fill="#8cf2ff"/>
+    <rect x="15" y="120" width="150" height="320" rx="16" fill="none" stroke="#71d5f0" stroke-dasharray="10 14" opacity="0.7"/>
+  </g>
+
+  <g opacity="0.5">
+    <path d="M0 660 C 260 640 520 640 780 660 C1040 680 1300 680 1465 660 L1465 768 L0 768 Z" fill="#0b1738"/>
+    <path d="M0 660 C 260 635 520 635 780 660 C1040 685 1300 685 1465 660" stroke="#3ae0ff" stroke-width="4"/>
+    <path d="M0 690 C 260 665 520 665 780 690 C1040 715 1300 715 1465 690" stroke="#ff67c2" stroke-width="4" opacity="0.7"/>
+  </g>
+
+  <text x="220" y="120" font-family="'Space Grotesk','Segoe UI',sans-serif" font-size="70" fill="#e3f2ff" font-weight="700">
+    LED ACCENT LIGHTS
+  </text>
+  <text x="220" y="170" font-family="'Space Grotesk','Segoe UI',sans-serif" font-size="32" fill="#c8f5ff" letter-spacing="8">
+    FOR MAKER WORKSPACES
+  </text>
+</svg>

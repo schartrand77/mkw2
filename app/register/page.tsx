@@ -2,6 +2,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
+  try {
+    const mod = await import('@/components/notifications/NotificationsProvider')
+    mod.pushSessionNotification(payload)
+  } catch {}
+}
+
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
@@ -19,9 +26,11 @@ export default function RegisterPage() {
         body: JSON.stringify({ email, name, password })
       })
       if (!res.ok) throw new Error(await res.text())
+      await notify({ type: 'success', title: 'Account created', message: 'Welcome to MakerWorks!' })
       router.push('/')
+      router.refresh()
     } catch (err: any) {
-      alert(err.message || 'Registration failed')
+      await notify({ type: 'error', title: 'Registration failed', message: err.message || 'Registration failed' })
     } finally {
       setLoading(false)
     }
@@ -33,19 +42,18 @@ export default function RegisterPage() {
       <form onSubmit={submit} className="space-y-4 glass p-6 rounded-xl">
         <div>
           <label className="block text-sm mb-1">Email</label>
-          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </div>
         <div>
           <label className="block text-sm mb-1">Name</label>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
         <div>
           <label className="block text-sm mb-1">Password</label>
-          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </div>
         <button className="btn" disabled={loading}>{loading ? 'Creating…' : 'Create account'}</button>
       </form>
     </div>
   )
 }
-

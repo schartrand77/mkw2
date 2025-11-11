@@ -9,6 +9,8 @@ type Ctx = {
 }
 
 const NotificationsCtx = createContext<Ctx | null>(null)
+const SESSION_KEY = 'mwv2:notify'
+const EVENT_KEY = 'mwv2:notify:event'
 
 function rndId() { return Math.random().toString(36).slice(2) }
 
@@ -19,7 +21,11 @@ export function useNotifications() {
 }
 
 export function pushSessionNotification(n: Omit<Notice, 'id'>) {
-  try { sessionStorage.setItem('mwv2:notify', JSON.stringify(n)) } catch {}
+  if (typeof window === 'undefined') return
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(n))
+    window.dispatchEvent(new CustomEvent(EVENT_KEY, { detail: n }))
+  } catch {}
 }
 
 export default function NotificationsProvider({ children }: { children: React.ReactNode }) {
@@ -41,17 +47,40 @@ export default function NotificationsProvider({ children }: { children: React.Re
   }, [])
 
   useEffect(() => {
-    // Pick up session notification across navigations
-    try {
-      const raw = sessionStorage.getItem('mwv2:notify')
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        sessionStorage.removeItem('mwv2:notify')
+    const flushSessionQueue = () => {
+      try {
+        const raw = sessionStorage.getItem(SESSION_KEY)
+        if (raw) {
+          sessionStorage.removeItem(SESSION_KEY)
+          const parsed = JSON.parse(raw)
+          if (parsed && parsed.message) notify(parsed)
+        }
+      } catch {}
+    }
+    flushSessionQueue()
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== SESSION_KEY || !event.newValue) return
+      try {
+        const parsed = JSON.parse(event.newValue)
+        sessionStorage.removeItem(SESSION_KEY)
         if (parsed && parsed.message) notify(parsed)
-      }
-    } catch {}
-    // Cleanup on unmount
-    return () => { Object.values(timers.current).forEach(clearTimeout) }
+      } catch {}
+    }
+
+    const onCustom = (event: Event) => {
+      const detail = (event as CustomEvent<Omit<Notice, 'id'>>).detail
+      if (detail && detail.message) notify(detail)
+    }
+
+    window.addEventListener('storage', onStorage)
+    window.addEventListener(EVENT_KEY, onCustom as EventListener)
+
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener(EVENT_KEY, onCustom as EventListener)
+      Object.values(timers.current).forEach(clearTimeout)
+    }
   }, [notify])
 
   const value = useMemo(() => ({ notify }), [notify])
@@ -81,4 +110,3 @@ export default function NotificationsProvider({ children }: { children: React.Re
     </NotificationsCtx.Provider>
   )
 }
-

@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
+import { toPublicHref } from '@/lib/storage'
 
 async function getProfile(slug: string) {
   return prisma.profile.findUnique({
@@ -33,27 +34,41 @@ export default async function UserPage({ params }: { params: { slug: string } })
   const models = await getUserModels(profile.userId)
   const token = cookies().get('mwv2_token')?.value
   const current = token ? verifyToken(token)?.sub : null
+  const avatarSrc = toPublicHref(profile.avatarImagePath)
   return (
     <div className="space-y-8">
-      <div className="glass rounded-xl p-6">
-        <h1 className="text-2xl font-semibold">{profile.user.name || profile.user.email}</h1>
-        <p className="text-slate-400 text-sm">/{profile.slug}</p>
-        {profile.user.badges && profile.user.badges.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2 text-sm">
-            {profile.user.badges.map((ub: any) => (
-              <span key={ub.achievementId} title={ub.achievement?.description || ''} className="px-2 py-1 rounded-md border border-white/10 bg-black/30">
-                <span className="mr-1">{ub.achievement?.icon || '🏆'}</span>
-                <span>{ub.achievement?.name}</span>
-              </span>
-            ))}
+      <div className="glass rounded-xl p-6 flex flex-col gap-4 md:flex-row md:items-center">
+        <div className="w-24 h-24 rounded-full border border-white/10 bg-slate-900/40 overflow-hidden flex-shrink-0">
+          {avatarSrc ? (
+            <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-xs text-slate-500">
+              No avatar
+            </div>
+          )}
+        </div>
+        <div className="flex-1 space-y-3">
+          <div>
+            <h1 className="text-2xl font-semibold">{profile.user.name || profile.user.email}</h1>
+            <p className="text-slate-400 text-sm">/{profile.slug}</p>
           </div>
-        )}
-        {profile.bio && <p className="mt-3 text-slate-300 whitespace-pre-wrap">{profile.bio}</p>}
-        {current === profile.userId && (
-          <div className="mt-4">
-            <Link href="/settings/profile" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">Edit profile</Link>
-          </div>
-        )}
+          {profile.user.badges && profile.user.badges.length > 0 && (
+            <div className="flex flex-wrap gap-2 text-sm">
+              {profile.user.badges.map((ub: any) => (
+                <span key={ub.achievementId} title={ub.achievement?.description || ''} className="px-2 py-1 rounded-md border border-white/10 bg-black/30">
+                  <span className="mr-1">{ub.achievement?.icon || 'dY?+'}</span>
+                  <span>{ub.achievement?.name}</span>
+                </span>
+              ))}
+            </div>
+          )}
+          {profile.bio && <p className="text-slate-300 whitespace-pre-wrap">{profile.bio}</p>}
+          {current === profile.userId && (
+            <div>
+              <Link href="/settings/profile" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">Edit profile</Link>
+            </div>
+          )}
+        </div>
       </div>
       <section className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
         {models.length === 0 && <p className="text-slate-400">No models yet.</p>}
@@ -78,3 +93,4 @@ export default async function UserPage({ params }: { params: { slug: string } })
     </div>
   )
 }
+
