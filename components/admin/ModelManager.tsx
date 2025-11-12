@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
 type Model = {
   id: string
@@ -114,6 +115,9 @@ export default function ModelManager() {
                 value={m.videoUrl || ''}
                 onChange={(e) => updateRow(i, { videoUrl: e.target.value })}
               />
+              <Link href={`/admin/models/${m.id}/images`} className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20 md:col-span-2">
+                Manage images
+              </Link>
             </div>
           </div>
         ))}

@@ -4,23 +4,27 @@ import ModelViewer from './ModelViewer'
 
 type Part = { id: string; name: string; filePath: string }
 
+type GalleryImage = { id: string; filePath: string; caption?: string | null }
+
 type Props = {
   coverSrc?: string | null
   parts?: Part[]
   allSrc?: string | null
+  images?: GalleryImage[]
 }
 
 type Item = { key: string; label: string; kind: 'image' | 'three'; src?: string; srcs?: string[] }
 
 function filePublicPath(filePath: string) {
-  // Ensure single slash between prefix and path
-  return (`/files${filePath}`).replace(/\/+/, '/')
+  if (!filePath) return null
+  const normalized = filePath.startsWith('/') ? filePath : `/${filePath}`
+  return `/files${normalized}`
 }
 
-export default function Gallery({ coverSrc, parts = [], allSrc }: Props) {
+export default function Gallery({ coverSrc, parts = [], allSrc, images = [] }: Props) {
   const items = useMemo<Item[]>(() => {
     const arr: Item[] = []
-    const partSrcs = parts.map(p => filePublicPath(p.filePath))
+    const partSrcs = parts.map(p => filePublicPath(p.filePath)).filter((src): src is string => !!src)
     if (partSrcs.length > 0) {
       arr.push({ key: 'three:all', label: '3D View: All parts', kind: 'three', srcs: partSrcs })
       parts.forEach((p, i) => arr.push({ key: `three:${i}`, label: p.name, kind: 'three', src: partSrcs[i] }))
@@ -28,8 +32,16 @@ export default function Gallery({ coverSrc, parts = [], allSrc }: Props) {
       arr.push({ key: 'three:single', label: '3D View', kind: 'three', src: allSrc })
     }
     if (coverSrc) arr.push({ key: 'image:cover', label: 'Cover', kind: 'image', src: coverSrc })
+    if (images.length > 0) {
+      images.forEach((img, idx) => {
+        const src = filePublicPath(img.filePath)
+        if (!src) return
+        const label = img.caption?.trim() || `Photo ${idx + 1}`
+        arr.push({ key: `gallery:${img.id}`, label, kind: 'image', src })
+      })
+    }
     return arr
-  }, [coverSrc, parts, allSrc])
+  }, [coverSrc, parts, allSrc, images])
 
   const [active, setActive] = useState(items[0]?.key)
   const activeItem = items.find(i => i.key === active) || items[0]
@@ -47,7 +59,7 @@ export default function Gallery({ coverSrc, parts = [], allSrc }: Props) {
               )
             ) : activeItem.src ? (
               // image
-              <img src={activeItem.src} alt={activeItem.label} className="w-full" />
+              <img src={activeItem.src} alt={activeItem.label} className="w-full aspect-video object-cover" />
             ) : (
               <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No preview</div>
             )
@@ -76,4 +88,3 @@ export default function Gallery({ coverSrc, parts = [], allSrc }: Props) {
     </div>
   )
 }
-

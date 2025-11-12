@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
 type Props = {
@@ -10,8 +10,25 @@ type Props = {
   autoRotate?: boolean
 }
 
+function toAbsoluteUrl(url?: string | null) {
+  if (!url) return null
+  if (typeof window === 'undefined') return url
+  try {
+    return new URL(url, window.location.origin).toString()
+  } catch {
+    return url
+  }
+}
+
 export default function ModelViewer({ src, srcs, className, height = 480, autoRotate = false }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null)
+  const fitRef = useRef<(() => void) | null>(null)
+  const resolvedFiles = useMemo(() => {
+    const list = srcs && srcs.length ? srcs : (src ? [src] : [])
+    return list
+      .map((item) => toAbsoluteUrl(item))
+      .filter((item): item is string => !!item)
+  }, [src, srcs])
 
   useEffect(() => {
     if (!mountRef.current) return
@@ -22,8 +39,21 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       // Import example helpers dynamically to avoid any bundling/runtime edge cases
       const [{ OrbitControls }, { STLLoader }] = await Promise.all([
         import('three/examples/jsm/controls/OrbitControls'),
-        import('three/examples/jsm/loaders/STLLoader')
+        import('three/examples/jsm/loaders/STLLoader'),
       ])
+
+      let OBJLoaderModule: any = null
+      let ThreeMFModule: any = null
+      try {
+        OBJLoaderModule = await import('three/examples/jsm/loaders/OBJLoader.js')
+      } catch (err) {
+        console.warn('OBJ loader unavailable, OBJ previews disabled', err)
+      }
+      try {
+        ThreeMFModule = await import('three/examples/jsm/loaders/3MFLoader.js')
+      } catch (err) {
+        console.warn('3MF loader unavailable, 3MF previews disabled', err)
+      }
 
       if (disposed) return
 
@@ -55,12 +85,14 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       controls.autoRotateSpeed = 1.0
       controls.zoomSpeed = 0.9
 
-      const loader = new STLLoader()
-      try { (loader as any).setCrossOrigin && (loader as any).setCrossOrigin('anonymous') } catch {}
+      const stlLoader = new STLLoader()
+      try { (stlLoader as any).setCrossOrigin && (stlLoader as any).setCrossOrigin('anonymous') } catch {}
+      const objLoader = OBJLoaderModule ? new OBJLoaderModule.OBJLoader() : null
+      const tmfLoader = ThreeMFModule ? new ThreeMFModule.ThreeMFLoader() : null
       const group = new THREE.Group()
       scene.add(group)
 
-      const files = srcs && srcs.length ? srcs : (src ? [src] : [])
+      const files = resolvedFiles
       const palette = [0xd0d0d0]
       let loaded = 0
 
@@ -90,6 +122,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         camera.updateProjectionMatrix()
         controls.update()
       }
+      fitRef.current = fitToView
 
       const onLoaded = () => {
         group.updateMatrixWorld(true)
@@ -116,25 +149,72 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         onLoaded()
       }
 
+      const addObject = (object: THREE.Object3D) => {
+        group.add(object)
+        loaded++
+        if (loaded === files.length) onLoaded()
+      }
+
+      const meshify = (object: THREE.Object3D, color: number) => {
+        object.traverse((child: any) => {
+          if (child instanceof THREE.Mesh) {
+            child.material = new THREE.MeshStandardMaterial({
+              color,
+              metalness: 0.05,
+              roughness: 0.9,
+              side: THREE.DoubleSide,
+            })
+          }
+        })
+        return object
+      }
+
       files.forEach((file, idx) => {
-        loader.load(
+        const ext = file.split('.').pop()?.toLowerCase()
+        const color = palette[idx % palette.length]
+        const handleError = (err: any) => {
+          console.error('Failed to load model', file, err)
+          loaded++
+          if (loaded === files.length) onLoaded()
+        }
+
+        if (ext === 'obj' && objLoader) {
+          objLoader.load(
+            file,
+            (obj: any) => addObject(meshify(obj, color)),
+            undefined,
+            handleError
+          )
+          return
+        }
+
+        if (ext === '3mf' && tmfLoader) {
+          tmfLoader.load(
+            file,
+            (obj: any) => addObject(meshify(obj, color)),
+            undefined,
+            handleError
+          )
+          return
+        }
+
+        if (ext === 'obj' || ext === '3mf') {
+          console.warn('Missing loader for', ext, 'files')
+        }
+
+        // Default to STL
+        stlLoader.load(
           file,
           (geometry: any) => {
             try {
               if ((geometry as any).computeVertexNormals) (geometry as any).computeVertexNormals()
             } catch {}
-            const material = new THREE.MeshStandardMaterial({ color: palette[idx % palette.length], metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
+            const material = new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
             const mesh = new THREE.Mesh(geometry as any, material)
-            group.add(mesh)
-            loaded++
-            if (loaded === files.length) onLoaded()
+            addObject(mesh)
           },
           undefined,
-          (err: any) => {
-            console.error('Failed to load STL', file, err)
-            loaded++
-            if (loaded === files.length) onLoaded()
-          }
+          handleError
         )
       })
 
@@ -171,6 +251,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         controls.dispose?.()
         renderer.dispose()
         if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement)
+        fitRef.current = null
       }
     }
 
@@ -180,7 +261,18 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       disposed = true
       cleanup.catch(() => {})
     }
-  }, [src, srcs, height, autoRotate])
+  }, [resolvedFiles, height, autoRotate])
 
-  return <div className={className ? className : ''} style={{ width: '100%', height }} ref={mountRef} />
+  return (
+    <div className={`relative ${className || ''}`} style={{ width: '100%', height }}>
+      <div ref={mountRef} className="w-full h-full" />
+      <button
+        type="button"
+        onClick={() => fitRef.current?.()}
+        className="absolute top-2 right-2 z-10 px-3 py-1.5 text-xs rounded-md border border-white/20 bg-black/40 backdrop-blur hover:border-white/40"
+      >
+        Center view
+      </button>
+    </div>
+  )
 }

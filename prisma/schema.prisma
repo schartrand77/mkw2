@@ -45,6 +45,7 @@ model Model {
   affiliateTitle  String?
   affiliateUrl    String?
   videoEmbedId    String?
+  images          ModelImage[]
 
   user     User   @relation(fields: [userId], references: [id])
   userId   String
@@ -53,6 +54,17 @@ model Model {
   likesList Like[]
   featured  FeaturedModel?
   parts     ModelPart[]
+}
+
+model ModelImage {
+  id        String   @id @default(cuid())
+  modelId   String
+  filePath  String
+  caption   String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
 }
 
 model Tag {

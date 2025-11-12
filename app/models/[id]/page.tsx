@@ -15,7 +15,12 @@ async function fetchModel(id: string) {
 export default async function ModelDetail({ params, searchParams }: { params: { id: string }, searchParams?: { [k: string]: string | string[] | undefined } }) {
   const model = await fetchModel(params.id)
   if (!model) return <div>Not found</div>
-  const src = model.filePath ? `/files${model.filePath}` : ''
+  const toFileUrl = (path?: string | null) => {
+    if (!path) return ''
+    const normalized = path.startsWith('/') ? path : `/${path}`
+    return `/files${normalized}`
+  }
+  const src = toFileUrl(model.filePath)
   const hasParts = Array.isArray(model.parts) && model.parts.length > 0
   const videoEmbedUrl = model.videoEmbedId ? buildYouTubeEmbedUrl(model.videoEmbedId) : null
   const affiliateHost = model.affiliateUrl ? (() => {
@@ -34,9 +39,10 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
     <div className="max-w-5xl mx-auto grid lg:grid-cols-2 gap-8">
       <div>
         <Gallery
-          coverSrc={model.coverImagePath ? `/files${model.coverImagePath}` : null}
+          coverSrc={model.coverImagePath ? toFileUrl(model.coverImagePath) : null}
           parts={hasParts ? model.parts : []}
           allSrc={src || null}
+          images={model.images || []}
         />
       </div>
       <div className="space-y-4">
@@ -108,7 +114,7 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
                     <div className="text-slate-400 text-xs">{p.volumeMm3 ? `${(p.volumeMm3/1000).toFixed(2)} cm^3` : 'N/A'}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <a className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs" href={`/files${p.filePath}`} download>Download</a>
+                    <a className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs" href={toFileUrl(p.filePath)} download>Download</a>
                     <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs" href={`/models/${model.id}?part=${i}`}>Preview</Link>
                   </div>
                 </li>
