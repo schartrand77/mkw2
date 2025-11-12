@@ -5,7 +5,7 @@ import { refreshUserAchievements } from '@/lib/achievements'
 import { getUserIdFromCookie } from '@/lib/auth'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const userId = getUserIdFromCookie()
+  const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const modelId = params.id
   const existing = await prisma.like.findUnique({ where: { userId_modelId: { userId, modelId } } })

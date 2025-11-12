@@ -2,7 +2,7 @@ MakerWorks v2 — 3D Model Hosting & Cost Estimation
 
 Overview
 - Full‑stack Next.js 14 app with Prisma + Postgres
-- Upload STL/OBJ, optional cover image, 3D viewer for STL (three.js)
+- Upload STL/OBJ/3MF, optional cover image, 3D viewer for STL (three.js)
 - Simple cost estimate based on STL volume (cm³) + fixed fee
 - File storage on a Docker volume, served via `/files/*`
 - Auth via email/password using signed HttpOnly cookie (JWT)
@@ -39,7 +39,7 @@ Core Endpoints
 - `PATCH /api/account/password` change password (requires currentPassword)
 - `GET /api/profile` fetch current profile
 - `PATCH /api/profile` update name, slug, bio, avatar (multipart or JSON)
-- `POST /api/upload` multipart form: title, description?, material?, model(.stl|.obj), image(optional)
+- `POST /api/upload` multipart form: title, description?, material?, model(.stl|.obj|.3mf), image(optional)
 - `GET /api/models` list latest public models
 - `GET /api/models/:id` model details
 - `POST /api/models/:id/like` toggle like (auth)
@@ -60,7 +60,7 @@ Storage Layout
 - Avatars: `/app/storage/{userId}/avatars/{timestamp}.webp`
 
 Notes
-- Volume estimation supports binary and ASCII STL; OBJ volume not computed.
+- Volume estimation supports binary and ASCII STL; OBJ/3MF volume not computed.
 - Default pricing: `$0.30 / cm³ + $1.00 fixed` (env configurable).
 - Anonymous uploads are attached to a stable `anonymous@local` user for demo.
 - Admin flag is stored on users (`isAdmin`). Registration never grants admin.

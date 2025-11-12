@@ -25,7 +25,7 @@ export default function UploadPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!modelFiles || modelFiles.length === 0) {
-      setErrorMsg('Please select one or more 3D model files (STL/OBJ/ZIP).')
+      setErrorMsg('Please select one or more 3D model files (STL/OBJ/3MF/ZIP).')
       return
     }
     setLoading(true)
@@ -91,8 +91,8 @@ export default function UploadPage() {
           </select>
         </div>
         <div>
-          <label className="block text-sm mb-1">Model files (.stl, .obj, or .zip)</label>
-          <input type="file" multiple accept=".stl,.obj,.zip" onChange={(e) => setModelFiles(e.target.files)} />
+          <label className="block text-sm mb-1">Model files (.stl, .obj, .3mf, or .zip)</label>
+          <input type="file" multiple accept=".stl,.obj,.3mf,.zip" onChange={(e) => setModelFiles(e.target.files)} />
         </div>
         <div>
           <label className="block text-sm mb-1">Cover image (optional)</label>

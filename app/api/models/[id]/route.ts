@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const userId = getUserIdFromCookie()
+  const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const existing = await prisma.model.findUnique({ where: { id: params.id }, select: { userId: true, coverImagePath: true } })

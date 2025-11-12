@@ -1,10 +1,24 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+const PUBLIC_EXACT = new Set([
+  '/login',
+  '/manifest.webmanifest',
+  '/sw.js',
+  '/robots.txt',
+  '/sitemap.xml',
+])
+const PUBLIC_PREFIXES = ['/favicon', '/apple-touch-icon']
+
+function isPublicPath(pathname: string) {
+  if (PUBLIC_EXACT.has(pathname)) return true
+  return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+}
+
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
-  // Allow login page and Next.js internals via matcher below; double-check login here
-  if (pathname === '/login') return NextResponse.next()
+  // Allow login page, manifest, service worker, and favicons to bypass auth
+  if (isPublicPath(pathname)) return NextResponse.next()
 
   const token = req.cookies.get('mwv2_token')?.value
   if (!token) {
@@ -23,4 +37,3 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|files/).*)',
   ],
 }
-

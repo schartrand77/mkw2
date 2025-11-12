@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { requireAdmin } from '../../_utils'
 import { slugify } from '@/lib/userpage'
 import { normalizeAmazonAffiliateUrl } from '@/lib/amazon'
+import { extractYouTubeId } from '@/lib/youtube'
 export const dynamic = 'force-dynamic'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -32,6 +33,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       const normalized = normalizeAmazonAffiliateUrl(raw)
       if (!normalized) return NextResponse.json({ error: 'Affiliate link must be an Amazon URL' }, { status: 400 })
       updates.affiliateUrl = normalized
+    }
+  }
+
+  if (body.videoUrl !== undefined) {
+    const raw = String(body.videoUrl ?? '').trim()
+    if (!raw) {
+      updates.videoEmbedId = null
+    } else {
+      const id = extractYouTubeId(raw)
+      if (!id) return NextResponse.json({ error: 'Video must be a valid YouTube link or ID' }, { status: 400 })
+      updates.videoEmbedId = id
     }
   }
 

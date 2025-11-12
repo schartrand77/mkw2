@@ -9,6 +9,8 @@ type Model = {
   tags: string[]
   affiliateTitle?: string | null
   affiliateUrl?: string | null
+  videoEmbedId?: string | null
+  videoUrl?: string
 }
 
 export default function ModelManager() {
@@ -28,7 +30,11 @@ export default function ModelManager() {
         if (!res.ok) return
         const data = await res.json()
         if (active) {
-          setItems(data.models)
+          const normalized = data.models.map((m: Model) => ({
+            ...m,
+            videoUrl: m.videoEmbedId ? `https://youtu.be/${m.videoEmbedId}` : ''
+          }))
+          setItems(normalized)
           setTotal(data.total)
           setPage(data.page)
           setPageSize(data.pageSize)
@@ -52,6 +58,7 @@ export default function ModelManager() {
         tags: m.tags.join(','),
         affiliateTitle: m.affiliateTitle ?? '',
         affiliateUrl: m.affiliateUrl ?? '',
+        videoUrl: m.videoUrl ?? '',
       })
     })
     if (!res.ok) alert('Failed to save model: ' + (await res.text()))
@@ -100,6 +107,12 @@ export default function ModelManager() {
                 placeholder="Amazon.ca link (dp/ASIN)"
                 value={m.affiliateUrl || ''}
                 onChange={(e) => updateRow(i, { affiliateUrl: e.target.value })}
+              />
+              <input
+                className="input md:col-span-2"
+                placeholder="YouTube URL or video ID"
+                value={m.videoUrl || ''}
+                onChange={(e) => updateRow(i, { videoUrl: e.target.value })}
               />
             </div>
           </div>

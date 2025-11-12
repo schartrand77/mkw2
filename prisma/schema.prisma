@@ -44,6 +44,7 @@ model Model {
   updatedAt       DateTime @updatedAt
   affiliateTitle  String?
   affiliateUrl    String?
+  videoEmbedId    String?
 
   user     User   @relation(fields: [userId], references: [id])
   userId   String

@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { cookies } from 'next/headers'
+import { prisma } from '@/lib/db'
 
 const COOKIE_NAME = 'mwv2_token'
 
@@ -29,12 +30,18 @@ export function verifyToken(token: string): { sub: string } | null {
   }
 }
 
-export function getUserIdFromCookie(): string | null {
+export async function getUserIdFromCookie(): Promise<string | null> {
   try {
     const token = cookies().get(COOKIE_NAME)?.value
     if (!token) return null
     const payload = verifyToken(token)
-    return payload?.sub || null
+    if (!payload?.sub) return null
+    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true } })
+    if (!user) {
+      clearAuthCookie()
+      return null
+    }
+    return user.id
   } catch {
     return null
   }

@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     tags: m.modelTags.map(mt => mt.tag.name),
     affiliateTitle: (m as any).affiliateTitle,
     affiliateUrl: (m as any).affiliateUrl,
+    videoEmbedId: (m as any).videoEmbedId,
   }))
   return NextResponse.json({ total, page, pageSize, models })
 }

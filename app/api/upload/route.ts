@@ -9,14 +9,14 @@ import JSZip from 'jszip'
 import { estimatePriceUSD } from '@/lib/pricing'
 import { refreshUserAchievements } from '@/lib/achievements'
 
-const isAllowedModel = (name: string) => /\.(stl|obj)$/i.test(name)
+const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
 const isImage = (name: string) => /\.(png|jpe?g|webp)$/i.test(name)
 
 export async function POST(req: NextRequest) {
   try {
     // Check site config for anonymous upload policy
     const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
-    const uidFromCookie = getUserIdFromCookie()
+    const uidFromCookie = await getUserIdFromCookie()
     if (cfg && cfg.allowAnonymousUploads === false && !uidFromCookie) {
       return NextResponse.json({ error: 'Sign in required to upload' }, { status: 401 })
     }

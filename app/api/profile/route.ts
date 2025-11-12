@@ -12,7 +12,7 @@ import { ensureUserPage, slugify } from '@/lib/userpage'
 const isImage = (name: string) => /\.(png|jpe?g|webp)$/i.test(name)
 
 export async function GET() {
-  const userId = getUserIdFromCookie()
+  const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const profile = await ensureUserPage(userId)
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true } })
@@ -20,7 +20,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const userId = getUserIdFromCookie()
+  const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const ct = req.headers.get('content-type') || ''

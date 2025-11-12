@@ -10,7 +10,7 @@ const schema = z.object({
 })
 
 export async function PATCH(req: NextRequest) {
-  const userId = getUserIdFromCookie()
+  const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { currentPassword, newPassword } = schema.parse(await req.json())

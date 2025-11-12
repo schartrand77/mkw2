@@ -18,6 +18,7 @@ export const metadata = {
   manifest: '/manifest.webmanifest',
   themeColor: '#000000',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent' },
+  other: { 'mobile-web-app-capable': 'yes' },
   icons: { icon: '/favicon.svg', apple: '/favicon.svg' },
 }
 

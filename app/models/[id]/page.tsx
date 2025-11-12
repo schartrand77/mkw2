@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { formatCurrency } from '@/lib/currency'
+import { buildYouTubeEmbedUrl } from '@/lib/youtube'
 
 async function fetchModel(id: string) {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/models/${id}`, { cache: 'no-store' })
@@ -16,6 +17,7 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
   if (!model) return <div>Not found</div>
   const src = model.filePath ? `/files${model.filePath}` : ''
   const hasParts = Array.isArray(model.parts) && model.parts.length > 0
+  const videoEmbedUrl = model.videoEmbedId ? buildYouTubeEmbedUrl(model.videoEmbedId) : null
   const affiliateHost = model.affiliateUrl ? (() => {
     try {
       const rawHost = new URL(model.affiliateUrl).hostname
@@ -47,6 +49,22 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
           </div>
         )}
         <div className="glass rounded-xl p-4 text-slate-300 whitespace-pre-wrap">{model.description || 'No description provided.'}</div>
+        {videoEmbedUrl && (
+          <div className="glass rounded-xl overflow-hidden">
+            <div className="aspect-video bg-black">
+              <iframe
+                src={videoEmbedUrl}
+                title={`${model.title} video`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full"
+              />
+            </div>
+            <div className="px-4 py-3 text-xs text-slate-400 border-t border-white/5">
+              Build video provided by the creator
+            </div>
+          </div>
+        )}
         <div className="glass rounded-xl p-4 grid grid-cols-2 gap-3 text-sm">
           <div className="text-slate-400">Material</div>
           <div>{model.material}</div>

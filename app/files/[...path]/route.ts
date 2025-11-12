@@ -29,6 +29,7 @@ function mimeFromExt(ext: string) {
     case '.webp': return 'image/webp'
     case '.stl': return 'model/stl'
     case '.obj': return 'text/plain'
+    case '.3mf': return 'model/3mf'
     default: return 'application/octet-stream'
   }
 }

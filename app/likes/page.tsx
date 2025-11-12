@@ -14,7 +14,7 @@ async function getLiked(userId: string) {
 }
 
 export default async function LikedPage() {
-  const userId = getUserIdFromCookie()
+  const userId = await getUserIdFromCookie()
   if (!userId) redirect('/login')
   const models = await getLiked(userId)
   return (
@@ -38,4 +38,3 @@ export default async function LikedPage() {
     </div>
   )
 }
-

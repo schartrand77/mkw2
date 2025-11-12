@@ -7,7 +7,7 @@ import { z } from 'zod'
 const schema = z.object({ email: z.string().email() })
 
 export async function PATCH(req: NextRequest) {
-  const userId = getUserIdFromCookie()
+  const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { email } = schema.parse(await req.json())
