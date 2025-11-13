@@ -5,10 +5,23 @@ import { getCurrency } from '@/lib/currency'
 import { getStripe } from '@/lib/stripe'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { z } from 'zod'
-import type { CheckoutLineItem } from '@/types/checkout'
+import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { clampScale, getColorMultiplier, normalizeColors, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
 
 export const dynamic = 'force-dynamic'
+
+const shippingSchema = z.object({
+  method: z.enum(['pickup', 'ship']),
+  address: z.object({
+    name: z.string().max(120).optional(),
+    line1: z.string().max(200).optional(),
+    line2: z.string().max(200).optional(),
+    city: z.string().max(120).optional(),
+    state: z.string().max(120).optional(),
+    postalCode: z.string().max(40).optional(),
+    country: z.string().max(120).optional(),
+  }).optional(),
+}).optional()
 
 const itemSchema = z.object({
   modelId: z.string().min(1),
@@ -22,6 +35,7 @@ const itemSchema = z.object({
 
 const payloadSchema = z.object({
   items: z.array(itemSchema).min(1),
+  shipping: shippingSchema,
 })
 
 export async function POST(req: NextRequest) {
@@ -37,6 +51,13 @@ export async function POST(req: NextRequest) {
     }
 
     const items = parsed.data.items
+    const shipping = parsed.data.shipping as ShippingSelection | undefined
+    if (shipping?.method === 'ship') {
+      const addr = shipping.address as ShippingSelection['address']
+      if (!addr || !addr.name || !addr.line1 || !addr.city || !addr.postalCode || !addr.country) {
+        return NextResponse.json({ error: 'Shipping address is incomplete' }, { status: 400 })
+      }
+    }
     const ids = Array.from(new Set(items.map(i => i.modelId)))
     const [models, cfg] = await Promise.all([
       prisma.model.findMany({
@@ -100,6 +121,10 @@ export async function POST(req: NextRequest) {
       metadata: {
         cart: metadataItems.slice(0, 500),
         userId: userId || '',
+        shippingMethod: shipping?.method || 'pickup',
+        shippingAddress: shipping?.method === 'ship' && shipping.address
+          ? `${shipping.address.name || ''} | ${shipping.address.line1 || ''} ${shipping.address.line2 || ''}, ${shipping.address.city || ''}, ${shipping.address.state || ''} ${shipping.address.postalCode || ''}, ${shipping.address.country || ''}`
+          : '',
       },
     })
 
@@ -110,6 +135,7 @@ export async function POST(req: NextRequest) {
       amount,
       total: Number(total.toFixed(2)),
       lineItems,
+      shipping: shipping || { method: 'pickup' },
     })
   } catch (err: any) {
     console.error('Stripe checkout error:', err)

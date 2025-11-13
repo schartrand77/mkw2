@@ -11,6 +11,21 @@ export type CheckoutItemInput = {
   customText?: string | null
 }
 
+export type ShippingAddress = {
+  name: string
+  line1: string
+  line2?: string | null
+  city: string
+  state?: string | null
+  postalCode?: string | null
+  country?: string | null
+}
+
+export type ShippingSelection = {
+  method: 'pickup' | 'ship'
+  address?: ShippingAddress | null
+}
+
 export type CheckoutLineItem = {
   modelId: string
   title: string
@@ -31,4 +46,5 @@ export type CheckoutIntentResponse = {
   amount: number
   total: number
   lineItems: CheckoutLineItem[]
+  shipping?: ShippingSelection
 }

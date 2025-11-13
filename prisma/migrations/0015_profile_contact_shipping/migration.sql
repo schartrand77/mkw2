@@ -1,0 +1,17 @@
+ALTER TABLE "Profile"
+  ADD COLUMN IF NOT EXISTS "contactEmail" TEXT,
+  ADD COLUMN IF NOT EXISTS "contactPhone" TEXT,
+  ADD COLUMN IF NOT EXISTS "websiteUrl" TEXT,
+  ADD COLUMN IF NOT EXISTS "socialTwitter" TEXT,
+  ADD COLUMN IF NOT EXISTS "socialInstagram" TEXT,
+  ADD COLUMN IF NOT EXISTS "socialTikTok" TEXT,
+  ADD COLUMN IF NOT EXISTS "socialYoutube" TEXT,
+  ADD COLUMN IF NOT EXISTS "socialLinkedin" TEXT,
+  ADD COLUMN IF NOT EXISTS "socialFacebook" TEXT,
+  ADD COLUMN IF NOT EXISTS "shippingName" TEXT,
+  ADD COLUMN IF NOT EXISTS "shippingAddress1" TEXT,
+  ADD COLUMN IF NOT EXISTS "shippingAddress2" TEXT,
+  ADD COLUMN IF NOT EXISTS "shippingCity" TEXT,
+  ADD COLUMN IF NOT EXISTS "shippingState" TEXT,
+  ADD COLUMN IF NOT EXISTS "shippingPostal" TEXT,
+  ADD COLUMN IF NOT EXISTS "shippingCountry" TEXT;

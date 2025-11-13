@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Elements } from '@stripe/react-stripe-js'
@@ -6,12 +6,34 @@ import { loadStripe } from '@stripe/stripe-js'
 import CheckoutForm from '@/components/checkout/CheckoutForm'
 import OrderSummary from '@/components/checkout/OrderSummary'
 import { useCart } from '@/components/cart/CartProvider'
-import type { CheckoutIntentResponse, CheckoutItemInput } from '@/types/checkout'
+import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress } from '@/types/checkout'
 import type { Appearance, PaymentIntent } from '@stripe/stripe-js'
 import { normalizeColors } from '@/lib/cartPricing'
 
 const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
 const stripePromise = publishableKey ? loadStripe(publishableKey) : null
+
+type ProfileResponse = {
+  profile: {
+    contactEmail?: string | null
+    contactPhone?: string | null
+    websiteUrl?: string | null
+    socialTwitter?: string | null
+    socialInstagram?: string | null
+    socialTikTok?: string | null
+    socialYoutube?: string | null
+    socialLinkedin?: string | null
+    socialFacebook?: string | null
+    shippingName?: string | null
+    shippingAddress1?: string | null
+    shippingAddress2?: string | null
+    shippingCity?: string | null
+    shippingState?: string | null
+    shippingPostal?: string | null
+    shippingCountry?: string | null
+  }
+  user: { name?: string | null, email: string }
+}
 
 export default function CheckoutPage() {
   const { items, clear, remove } = useCart()
@@ -19,6 +41,8 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successIntent, setSuccessIntent] = useState<PaymentIntent | null>(null)
+  const [profile, setProfile] = useState<ProfileResponse | null>(null)
+  const [shippingMethod, setShippingMethod] = useState<'pickup' | 'ship'>('pickup')
 
   const checkoutItems = useMemo<CheckoutItemInput[]>(() => (
     items.map((item) => ({
@@ -32,8 +56,45 @@ export default function CheckoutPage() {
     }))
   ), [items])
 
+  const shippingAddress: ShippingAddress | null = useMemo(() => {
+    const data = profile?.profile
+    if (!data) return null
+    if (!data.shippingAddress1 || !data.shippingCity || !data.shippingPostal || !data.shippingCountry) return null
+    return {
+      name: data.shippingName || profile?.user.name || '',
+      line1: data.shippingAddress1,
+      line2: data.shippingAddress2 || undefined,
+      city: data.shippingCity,
+      state: data.shippingState || undefined,
+      postalCode: data.shippingPostal || undefined,
+      country: data.shippingCountry || undefined,
+    }
+  }, [profile])
+
+  const shippingSelection = useMemo(() => ({
+    method: shippingMethod,
+    address: shippingMethod === 'ship' && shippingAddress ? shippingAddress : undefined,
+  }), [shippingMethod, shippingAddress])
+
+  useEffect(() => {
+    let mounted = true
+    fetch('/api/profile', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) return
+        const data = await res.json()
+        if (mounted) setProfile(data)
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
+
   const fetchIntent = useCallback(async () => {
     if (!checkoutItems.length) {
+      setIntent(null)
+      return
+    }
+    if (shippingMethod === 'ship' && !shippingAddress) {
+      setError('Add a shipping address under Settings â†’ Profile before selecting shipping.')
       setIntent(null)
       return
     }
@@ -43,7 +104,7 @@ export default function CheckoutPage() {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: checkoutItems }),
+        body: JSON.stringify({ items: checkoutItems, shipping: shippingSelection }),
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
@@ -56,7 +117,7 @@ export default function CheckoutPage() {
     } finally {
       setLoading(false)
     }
-  }, [checkoutItems])
+  }, [checkoutItems, shippingSelection, shippingAddress, shippingMethod])
 
   useEffect(() => {
     fetchIntent()
@@ -118,11 +179,11 @@ export default function CheckoutPage() {
                   <div>
                     <div className="font-medium">{item.title}</div>
                     <div className="text-xs text-slate-400 space-y-0.5">
-                      <div>Qty {item.options.qty} · Scale {(item.options.scale || 1).toFixed(2)}</div>
+                      <div>Qty {item.options.qty} Â· Scale {(item.options.scale || 1).toFixed(2)}</div>
                       <div>
                         Material {item.options.material || 'PLA'}
                         {normalizeColors(item.options.colors).length > 0 && (
-                          <> · Colors: {normalizeColors(item.options.colors).join(', ')}</>
+                          <> Â· Colors: {normalizeColors(item.options.colors).join(', ')}</>
                         )}
                       </div>
                     </div>
@@ -139,10 +200,52 @@ export default function CheckoutPage() {
             </div>
           </div>
         )}
+        <div className="glass rounded-xl border border-white/10 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Shipping</h2>
+            <Link href="/settings/profile" className="text-xs text-brand-400 hover:text-brand-300 underline underline-offset-4">Edit profile</Link>
+          </div>
+          <div className="space-y-2 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="shipping"
+                value="pickup"
+                checked={shippingMethod === 'pickup'}
+                onChange={() => setShippingMethod('pickup')}
+              />
+              Local pickup (MakerWorks lab)
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="shipping"
+                value="ship"
+                checked={shippingMethod === 'ship'}
+                onChange={() => setShippingMethod('ship')}
+                disabled={!shippingAddress}
+              />
+              Ship to saved address
+            </label>
+          </div>
+          {shippingMethod === 'ship' && (
+            shippingAddress ? (
+              <div className="text-xs text-slate-300 space-y-0.5">
+                <div className="font-semibold text-sm">{shippingAddress.name}</div>
+                <div>{shippingAddress.line1}</div>
+                {shippingAddress.line2 && <div>{shippingAddress.line2}</div>}
+                <div>{shippingAddress.city}{shippingAddress.state ? `, ${shippingAddress.state}` : ''}</div>
+                <div>{shippingAddress.postalCode}{shippingAddress.country ? ` Â· ${shippingAddress.country}` : ''}</div>
+              </div>
+            ) : (
+              <p className="text-xs text-amber-300">Add your shipping address under Settings â†’ Profile to enable shipping.</p>
+            )
+          )}
+        </div>
         {intent && (
           <OrderSummary items={intent.lineItems} currency={intent.currency} total={intent.total} />
         )}
-        {loading && <p className="text-sm text-slate-400">Preparing secure payment…</p>}
+        {loading && <p className="text-sm text-slate-400">Preparing secure paymentâ€¦</p>}
         {error && <p className="text-sm text-amber-300">{error}</p>}
         {successIntent && (
           <div className="glass rounded-xl border border-emerald-500/30 p-4 text-sm">
@@ -165,3 +268,4 @@ export default function CheckoutPage() {
     </div>
   )
 }
+

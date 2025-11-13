@@ -28,6 +28,26 @@ export async function PATCH(req: NextRequest) {
   let bio: string | undefined
   let slug: string | undefined
   let avatarFile: File | null = null
+  const extraFields: Record<string, string | null | undefined> = {}
+
+  const profileFieldLimits: Record<string, number> = {
+    contactEmail: 200,
+    contactPhone: 60,
+    websiteUrl: 200,
+    socialTwitter: 120,
+    socialInstagram: 120,
+    socialTikTok: 120,
+    socialYoutube: 200,
+    socialLinkedin: 200,
+    socialFacebook: 200,
+    shippingName: 120,
+    shippingAddress1: 200,
+    shippingAddress2: 200,
+    shippingCity: 120,
+    shippingState: 120,
+    shippingPostal: 40,
+    shippingCountry: 120,
+  }
 
   if (ct.includes('multipart/form-data')) {
     const form = await req.formData()
@@ -35,12 +55,22 @@ export async function PATCH(req: NextRequest) {
     bio = (form.get('bio') as string | null) || undefined
     slug = (form.get('slug') as string | null) || undefined
     avatarFile = (form.get('avatar') as File | null) || null
+    for (const key of Object.keys(profileFieldLimits)) {
+      if (form.has(key)) {
+        extraFields[key] = (form.get(key) as string | null) ?? null
+      }
+    }
   } else {
     try {
       const json = await req.json()
       name = typeof json.name === 'string' ? json.name : undefined
       bio = typeof json.bio === 'string' ? json.bio : undefined
       slug = typeof json.slug === 'string' ? json.slug : undefined
+      for (const key of Object.keys(profileFieldLimits)) {
+        if (key in json) {
+          extraFields[key] = typeof json[key] === 'string' ? json[key] : null
+        }
+      }
     } catch {
       // ignore
     }
@@ -76,6 +106,14 @@ export async function PATCH(req: NextRequest) {
     }
     await saveBuffer(rel, out)
     updatesProfile.avatarImagePath = `/${rel.replace(/\\/g, '/')}`
+  }
+
+  for (const [key, raw] of Object.entries(extraFields)) {
+    if (!(key in profileFieldLimits)) continue
+    if (raw === undefined) continue
+    const limit = profileFieldLimits[key]
+    const trimmed = (raw || '').trim()
+    updatesProfile[key] = trimmed ? trimmed.slice(0, limit) : null
   }
 
   if (Object.keys(updatesUser).length === 0 && Object.keys(updatesProfile).length === 0) {

@@ -109,6 +109,22 @@ model Profile {
   slug             String   @unique
   bio              String?
   avatarImagePath  String?
+  contactEmail     String?
+  contactPhone     String?
+  websiteUrl       String?
+  socialTwitter    String?
+  socialInstagram  String?
+  socialTikTok     String?
+  socialYoutube    String?
+  socialLinkedin   String?
+  socialFacebook   String?
+  shippingName     String?
+  shippingAddress1 String?
+  shippingAddress2 String?
+  shippingCity     String?
+  shippingState    String?
+  shippingPostal   String?
+  shippingCountry  String?
   createdAt        DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id])

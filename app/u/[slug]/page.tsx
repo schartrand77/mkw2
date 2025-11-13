@@ -35,6 +35,21 @@ export default async function UserPage({ params }: { params: { slug: string } })
   const token = cookies().get('mwv2_token')?.value
   const current = token ? verifyToken(token)?.sub : null
   const avatarSrc = toPublicHref(profile.avatarImagePath)
+  const contactItems = [
+    profile.contactEmail && { label: 'Email', value: profile.contactEmail, href: `mailto:${profile.contactEmail}` },
+    profile.contactPhone && { label: 'Phone', value: profile.contactPhone, href: `tel:${profile.contactPhone.replace(/[^+0-9]/g, '')}` },
+    profile.websiteUrl && { label: 'Website', value: profile.websiteUrl, href: profile.websiteUrl.startsWith('http') ? profile.websiteUrl : `https://${profile.websiteUrl}` },
+  ].filter(Boolean) as { label: string, value: string, href?: string }[]
+
+  const socials = [
+    profile.socialInstagram && { label: 'Instagram', href: formatSocialUrl('instagram', profile.socialInstagram), display: cleanHandle(profile.socialInstagram) },
+    profile.socialTwitter && { label: 'Twitter / X', href: formatSocialUrl('twitter', profile.socialTwitter), display: cleanHandle(profile.socialTwitter) },
+    profile.socialTikTok && { label: 'TikTok', href: formatSocialUrl('tiktok', profile.socialTikTok), display: cleanHandle(profile.socialTikTok) },
+    profile.socialYoutube && { label: 'YouTube', href: formatSocialUrl('youtube', profile.socialYoutube), display: cleanHandle(profile.socialYoutube) },
+    profile.socialLinkedin && { label: 'LinkedIn', href: formatSocialUrl('linkedin', profile.socialLinkedin), display: cleanHandle(profile.socialLinkedin) },
+    profile.socialFacebook && { label: 'Facebook', href: formatSocialUrl('facebook', profile.socialFacebook), display: cleanHandle(profile.socialFacebook) },
+  ].filter((s) => s && s.href) as { label: string, href: string, display: string }[]
+
   return (
     <div className="space-y-8">
       <div className="glass rounded-xl p-6 flex flex-col gap-4 md:flex-row md:items-center">
@@ -70,6 +85,39 @@ export default async function UserPage({ params }: { params: { slug: string } })
           )}
         </div>
       </div>
+      {(contactItems.length > 0 || socials.length > 0) && (
+        <div className="glass rounded-xl p-6 space-y-4">
+          {contactItems.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold mb-2">Contact</h2>
+              <ul className="space-y-1 text-sm text-slate-300">
+                {contactItems.map((item) => (
+                  <li key={item.label}>
+                    <span className="text-slate-500 mr-2 uppercase tracking-[0.25em] text-[10px]">{item.label}</span>
+                    {item.href ? (
+                      <a href={item.href} className="hover:underline">{item.value}</a>
+                    ) : (
+                      <span>{item.value}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {socials.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold mb-2">Social</h2>
+              <div className="flex flex-wrap gap-2 text-sm">
+                {socials.map((social) => (
+                  <a key={social.label} href={social.href} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20">
+                    {social.label}: {social.display}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <section className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
         {models.length === 0 && <p className="text-slate-400">No models yet.</p>}
         {models.map((m) => (
@@ -94,3 +142,29 @@ export default async function UserPage({ params }: { params: { slug: string } })
   )
 }
 
+function cleanHandle(value: string) {
+  return value.startsWith('@') ? value : value.replace(/^https?:\/\//i, '')
+}
+
+function formatSocialUrl(kind: 'instagram' | 'twitter' | 'tiktok' | 'youtube' | 'linkedin' | 'facebook', value: string) {
+  if (!value) return ''
+  const trimmed = value.trim()
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  const handle = trimmed.replace(/^@/, '')
+  switch (kind) {
+    case 'instagram':
+      return `https://instagram.com/${handle}`
+    case 'twitter':
+      return `https://twitter.com/${handle}`
+    case 'tiktok':
+      return `https://www.tiktok.com/@${handle}`
+    case 'youtube':
+      return `https://www.youtube.com/${handle}`
+    case 'linkedin':
+      return `https://www.linkedin.com/in/${handle}`
+    case 'facebook':
+      return `https://www.facebook.com/${handle}`
+    default:
+      return handle
+  }
+}

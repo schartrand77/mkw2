@@ -11,6 +11,24 @@ async function notify(payload: { type: 'success' | 'error' | 'info'; title?: str
 
 type Profile = { slug: string; bio?: string | null; avatarImagePath?: string | null }
 type User = { name?: string | null; email: string }
+type ProfileExtras = {
+  contactEmail?: string | null
+  contactPhone?: string | null
+  websiteUrl?: string | null
+  socialTwitter?: string | null
+  socialInstagram?: string | null
+  socialTikTok?: string | null
+  socialYoutube?: string | null
+  socialLinkedin?: string | null
+  socialFacebook?: string | null
+  shippingName?: string | null
+  shippingAddress1?: string | null
+  shippingAddress2?: string | null
+  shippingCity?: string | null
+  shippingState?: string | null
+  shippingPostal?: string | null
+  shippingCountry?: string | null
+}
 
 export default function EditProfilePage() {
   const [loading, setLoading] = useState(true)
@@ -20,6 +38,22 @@ export default function EditProfilePage() {
   const [bio, setBio] = useState('')
   const [avatar, setAvatar] = useState<File | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [contactEmail, setContactEmail] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState('')
+  const [socialTwitter, setSocialTwitter] = useState('')
+  const [socialInstagram, setSocialInstagram] = useState('')
+  const [socialTikTok, setSocialTikTok] = useState('')
+  const [socialYoutube, setSocialYoutube] = useState('')
+  const [socialLinkedin, setSocialLinkedin] = useState('')
+  const [socialFacebook, setSocialFacebook] = useState('')
+  const [shippingName, setShippingName] = useState('')
+  const [shippingAddress1, setShippingAddress1] = useState('')
+  const [shippingAddress2, setShippingAddress2] = useState('')
+  const [shippingCity, setShippingCity] = useState('')
+  const [shippingState, setShippingState] = useState('')
+  const [shippingPostal, setShippingPostal] = useState('')
+  const [shippingCountry, setShippingCountry] = useState('')
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
@@ -28,11 +62,27 @@ export default function EditProfilePage() {
       try {
         const res = await fetch('/api/profile', { cache: 'no-store' })
         if (!res.ok) throw new Error('Failed to load profile')
-        const data = await res.json() as { profile: Profile, user: User }
+        const data = await res.json() as { profile: Profile & ProfileExtras, user: User }
         setName(data.user?.name || '')
         setSlug(data.profile?.slug || '')
         setBio((data.profile?.bio as string) || '')
         setAvatarUrl(data.profile?.avatarImagePath ? `/files${data.profile.avatarImagePath}` : null)
+        setContactEmail(data.profile?.contactEmail || data.user?.email || '')
+        setContactPhone(data.profile?.contactPhone || '')
+        setWebsiteUrl(data.profile?.websiteUrl || '')
+        setSocialTwitter(data.profile?.socialTwitter || '')
+        setSocialInstagram(data.profile?.socialInstagram || '')
+        setSocialTikTok(data.profile?.socialTikTok || '')
+        setSocialYoutube(data.profile?.socialYoutube || '')
+        setSocialLinkedin(data.profile?.socialLinkedin || '')
+        setSocialFacebook(data.profile?.socialFacebook || '')
+        setShippingName(data.profile?.shippingName || data.user?.name || '')
+        setShippingAddress1(data.profile?.shippingAddress1 || '')
+        setShippingAddress2(data.profile?.shippingAddress2 || '')
+        setShippingCity(data.profile?.shippingCity || '')
+        setShippingState(data.profile?.shippingState || '')
+        setShippingPostal(data.profile?.shippingPostal || '')
+        setShippingCountry(data.profile?.shippingCountry || '')
       } catch (e: any) {
         setError(e.message)
       } finally {
@@ -51,6 +101,22 @@ export default function EditProfilePage() {
       fd.append('name', name)
       fd.append('slug', slug)
       fd.append('bio', bio)
+      fd.append('contactEmail', contactEmail)
+      fd.append('contactPhone', contactPhone)
+      fd.append('websiteUrl', websiteUrl)
+      fd.append('socialTwitter', socialTwitter)
+      fd.append('socialInstagram', socialInstagram)
+      fd.append('socialTikTok', socialTikTok)
+      fd.append('socialYoutube', socialYoutube)
+      fd.append('socialLinkedin', socialLinkedin)
+      fd.append('socialFacebook', socialFacebook)
+      fd.append('shippingName', shippingName)
+      fd.append('shippingAddress1', shippingAddress1)
+      fd.append('shippingAddress2', shippingAddress2)
+      fd.append('shippingCity', shippingCity)
+      fd.append('shippingState', shippingState)
+      fd.append('shippingPostal', shippingPostal)
+      fd.append('shippingCountry', shippingCountry)
       if (avatar) fd.append('avatar', avatar)
       const res = await fetch('/api/profile', { method: 'PATCH', body: fd })
       if (res.status === 409) {
@@ -90,39 +156,128 @@ export default function EditProfilePage() {
       {loading ? (
         <div className="text-slate-400">Loading...</div>
       ) : (
-        <form onSubmit={onSubmit} className="space-y-4 glass p-6 rounded-xl">
+        <form onSubmit={onSubmit} className="space-y-4">
           {error && <div className="text-amber-400 text-sm">{error}</div>}
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full overflow-hidden border border-white/10 bg-slate-900/40">
-              {avatar ? (
-                <img className="w-full h-full object-cover" src={URL.createObjectURL(avatar)} />
-              ) : avatarUrl ? (
-                <img className="w-full h-full object-cover" src={avatarUrl} />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">No avatar</div>
-              )}
+          <div className="glass p-6 rounded-xl space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 rounded-full overflow-hidden border border-white/10 bg-slate-900/40">
+                {avatar ? (
+                  <img className="w-full h-full object-cover" src={URL.createObjectURL(avatar)} />
+                ) : avatarUrl ? (
+                  <img className="w-full h-full object-cover" src={avatarUrl} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">No avatar</div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Avatar</label>
+                <input type="file" accept="image/*" onChange={(e) => setAvatar(e.target.files?.[0] || null)} />
+              </div>
             </div>
             <div>
-              <label className="block text-sm mb-1">Avatar</label>
-              <input type="file" accept="image/*" onChange={(e) => setAvatar(e.target.files?.[0] || null)} />
+              <label className="block text-sm mb-1">Name</label>
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Profile URL</label>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">/u/</span>
+                <input className="input" value={slug} onChange={(e) => setSlug(e.target.value)} />
+              </div>
+              <p className="text-xs text-slate-400 mt-1">Allowed: lowercase letters, numbers, hyphens</p>
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Bio</label>
+              <textarea className="input h-28" value={bio} onChange={(e) => setBio(e.target.value)} />
             </div>
           </div>
-          <div>
-            <label className="block text-sm mb-1">Name</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div>
-            <label className="block text-sm mb-1">Profile URL</label>
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400">/u/</span>
-              <input className="input" value={slug} onChange={(e) => setSlug(e.target.value)} />
+
+          <div className="glass p-6 rounded-xl space-y-3">
+            <h2 className="text-lg font-semibold">Contact information</h2>
+            <div>
+              <label className="block text-sm mb-1">Public contact email</label>
+              <input className="input" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="you@example.com" />
             </div>
-            <p className="text-xs text-slate-400 mt-1">Allowed: lowercase letters, numbers, hyphens</p>
+            <div>
+              <label className="block text-sm mb-1">Phone number</label>
+              <input className="input" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+1 (555) 555-0100" />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Website / Portfolio</label>
+              <input className="input" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://your-site.com" />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm mb-1">Bio</label>
-            <textarea className="input h-28" value={bio} onChange={(e) => setBio(e.target.value)} />
+
+  <div className="glass p-6 rounded-xl space-y-3">
+    <h2 className="text-lg font-semibold">Social accounts</h2>
+    <p className="text-xs text-slate-400">Links can be full URLs or handles. Leave blank to hide.</p>
+    <div className="grid sm:grid-cols-2 gap-3">
+      <div>
+        <label className="block text-sm mb-1">Instagram</label>
+        <input className="input" value={socialInstagram} onChange={(e) => setSocialInstagram(e.target.value)} placeholder="@makerworks" />
+      </div>
+      <div>
+        <label className="block text-sm mb-1">Twitter / X</label>
+        <input className="input" value={socialTwitter} onChange={(e) => setSocialTwitter(e.target.value)} placeholder="@makerworks" />
+      </div>
+      <div>
+        <label className="block text-sm mb-1">TikTok</label>
+        <input className="input" value={socialTikTok} onChange={(e) => setSocialTikTok(e.target.value)} placeholder="@makerworks" />
+      </div>
+      <div>
+        <label className="block text-sm mb-1">YouTube</label>
+        <input className="input" value={socialYoutube} onChange={(e) => setSocialYoutube(e.target.value)} placeholder="https://youtube.com/..." />
+      </div>
+      <div>
+        <label className="block text-sm mb-1">LinkedIn</label>
+        <input className="input" value={socialLinkedin} onChange={(e) => setSocialLinkedin(e.target.value)} placeholder="https://linkedin.com/in/..." />
+      </div>
+      <div>
+        <label className="block text-sm mb-1">Facebook</label>
+        <input className="input" value={socialFacebook} onChange={(e) => setSocialFacebook(e.target.value)} placeholder="https://facebook.com/..." />
+      </div>
+    </div>
+  </div>
+
+          <div className="glass p-6 rounded-xl space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold">Shipping address</h2>
+              <span className="text-xs uppercase tracking-[0.25em] text-slate-500">Used at checkout</span>
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Recipient name</label>
+              <input className="input" value={shippingName} onChange={(e) => setShippingName(e.target.value)} placeholder="Full name" />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Address line 1</label>
+              <input className="input" value={shippingAddress1} onChange={(e) => setShippingAddress1(e.target.value)} placeholder="Street address" />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Address line 2</label>
+              <input className="input" value={shippingAddress2} onChange={(e) => setShippingAddress2(e.target.value)} placeholder="Apartment, suite, etc. (optional)" />
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1">City</label>
+                <input className="input" value={shippingCity} onChange={(e) => setShippingCity(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">State / Province</label>
+                <input className="input" value={shippingState} onChange={(e) => setShippingState(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm mb-1">Postal code</label>
+                <input className="input" value={shippingPostal} onChange={(e) => setShippingPostal(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Country</label>
+                <input className="input" value={shippingCountry} onChange={(e) => setShippingCountry(e.target.value)} placeholder="Canada" />
+              </div>
+            </div>
           </div>
+
           <div className="flex gap-3">
             <button disabled={saving} className="btn">{saving ? 'Saving...' : 'Save changes'}</button>
           </div>
