@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import type { Prisma } from '@prisma/client'
+import { estimatePrice } from '@/lib/pricing'
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
     }
   })()
 
-  const [total, models] = await Promise.all([
+  const [total, models, cfg] = await Promise.all([
     prisma.model.count({ where }),
     prisma.model.findMany({
       where,
@@ -66,13 +67,16 @@ export async function GET(req: NextRequest) {
         sizeZmm: true,
         fileType: true,
         priceUsd: true,
+        volumeMm3: true,
+        material: true,
         likes: true,
         downloads: true,
         createdAt: true,
         _count: { select: { parts: true } },
         modelTags: { include: { tag: true } }
       }
-    })
+    }),
+    prisma.siteConfig.findUnique({ where: { id: 'main' } })
   ])
   const mapped = models.map(m => ({
     id: m.id,
@@ -82,7 +86,13 @@ export async function GET(req: NextRequest) {
     sizeYmm: (m as any).sizeYmm,
     sizeZmm: (m as any).sizeZmm,
     fileType: (m as any).fileType,
-    priceUsd: m.priceUsd,
+    priceUsd: (() => {
+      if (m.volumeMm3) {
+        const cm3 = m.volumeMm3 / 1000
+        return estimatePrice({ cm3, material: m.material, cfg })
+      }
+      return m.priceUsd
+    })(),
     likes: m.likes,
     downloads: m.downloads,
     createdAt: m.createdAt,

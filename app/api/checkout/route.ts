@@ -6,6 +6,7 @@ import { getStripe } from '@/lib/stripe'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { z } from 'zod'
 import type { CheckoutLineItem } from '@/types/checkout'
+import { clampScale, getColorMultiplier, normalizeColors, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +14,8 @@ const itemSchema = z.object({
   modelId: z.string().min(1),
   qty: z.number().int().positive().max(50),
   scale: z.number().positive().max(5).default(1),
-  color: z.string().max(64).optional().nullable(),
+  material: z.enum(['PLA', 'PETG']).optional().default('PLA'),
+  colors: z.array(z.string().max(64)).max(MAX_CART_COLORS).optional(),
   infillPct: z.number().int().min(0).max(100).optional().nullable(),
   customText: z.string().max(140).optional().nullable(),
 })
@@ -51,12 +53,15 @@ export async function POST(req: NextRequest) {
     const lineItems: CheckoutLineItem[] = items.map((entry) => {
       const model = modelMap.get(entry.modelId)!
       const cm3 = model.volumeMm3 ? model.volumeMm3 / 1000 : null
-      const basePrice = model.priceUsd ?? (cm3 != null ? estimatePrice({ cm3, material: model.material, cfg }) : null)
+      const materialChoice: MaterialType = entry.material || (model.material?.toUpperCase() === 'PETG' ? 'PETG' : 'PLA')
+      const colors = normalizeColors(entry.colors)
+      const basePrice = (cm3 != null ? estimatePrice({ cm3, material: materialChoice, cfg }) : null) ?? model.priceUsd
       if (basePrice == null || !isFinite(basePrice)) {
         throw new Error(`Model ${model.id} is missing pricing data`)
       }
-      const clampedScale = Math.max(0.1, Math.min(5, entry.scale || 1))
-      const unitPrice = Number((basePrice * Math.pow(clampedScale, 3)).toFixed(2))
+      const clampedScale = clampScale(entry.scale)
+      const colorMultiplier = getColorMultiplier(colors)
+      const unitPrice = Number((basePrice * Math.pow(clampedScale, 3) * colorMultiplier).toFixed(2))
       const qty = entry.qty || 1
       const lineTotal = Number((unitPrice * qty).toFixed(2))
       return {
@@ -66,7 +71,8 @@ export async function POST(req: NextRequest) {
         scale: clampedScale,
         unitPrice,
         lineTotal,
-        color: entry.color || undefined,
+        material: materialChoice,
+        colors,
         infillPct: entry.infillPct ?? undefined,
         customText: entry.customText || undefined,
       }

@@ -1,9 +1,9 @@
-MakerWorks v2 — 3D Model Hosting & Cost Estimation
+﻿MakerWorks v2 â€” 3D Model Hosting & Cost Estimation
 
 Overview
-- Full‑stack Next.js 14 app with Prisma + Postgres
+- Fullâ€‘stack Next.js 14 app with Prisma + Postgres
 - Upload STL/OBJ/3MF, optional cover image, 3D viewer for STL (three.js)
-- Simple cost estimate based on STL volume (cm³) + fixed fee
+- Simple cost estimate based on material mass (per-kg spool prices) plus labor/energy with PLA/PETG selectors
 - File storage on a Docker volume, served via `/files/*`
 - Auth via email/password using signed HttpOnly cookie (JWT)
 - Automatic user page creation upon register/login with route `/u/{slug}` and quick link at `/me`.
@@ -19,7 +19,7 @@ Quick Start (Docker)
 
 Unraid (Community Applications)
 1. Ensure the GitHub Action **Publish container image** pushed `ghcr.io/schartrand77/mkw2:latest` (happens on every push to `main` and any `v*` tag).
-2. On Unraid go to `Apps → Settings → Additional Repositories` and add `https://raw.githubusercontent.com/schartrand77/mkw2/main/unraid/templates`. The feed exposes the **MakerWorks v2** template inside Community Applications.
+2. On Unraid go to `Apps â†’ Settings â†’ Additional Repositories` and add `https://raw.githubusercontent.com/schartrand77/mkw2/main/unraid/templates`. The feed exposes the **MakerWorks v2** template inside Community Applications.
 3. When installing, map `/app/storage` to a persistent share such as `/mnt/user/appdata/makerworks/storage`, and pick the external port you want (defaults to 3000).
 4. Point `DATABASE_URL` at any reachable Postgres 15+ instance. If you deploy the official `postgres` container on the same host, place both containers on a custom user-defined bridge (e.g. `makerworks_net`) and use `postgresql://postgres:postgres@postgres:5432/makerworks?schema=public`.
 5. Set `BASE_URL` to the public URL (e.g. `https://makerworks.example.com`), set `JWT_SECRET` to a long random value, and define the bootstrap `ADMIN_EMAIL` / `ADMIN_PASSWORD`. First launch runs migrations and seeds that admin user automatically.
@@ -71,9 +71,10 @@ Storage Layout
 
 Notes
 - Volume estimation supports binary and ASCII STL; OBJ/3MF volume not computed.
-- Default pricing: `$0.30 / cm³ + $1.00 fixed` (env configurable).
+- Default pricing: `$0.30 / cmÂ³ + $1.00 fixed` (env configurable).
 - Anonymous uploads are attached to a stable `anonymous@local` user for demo.
 - Admin flag is stored on users (`isAdmin`). Registration never grants admin.
+- PLA vs PETG selection and up to four cart colors now draw from the configured spool prices; extra colors apply the `COLOR_SURCHARGE_RATE`.
  - Avatars are resized to 512x512 webp on upload. Old avatars are deleted on replacement.
 
 Next Steps (nice to have)
@@ -85,4 +86,6 @@ Next Steps (nice to have)
 Stripe Checkout
 - Provide `STRIPE_SECRET_KEY` (server) and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (client) in your environment.
 - Use Stripe test keys (`sk_test_...`, `pk_test_...`) for development; switch to live keys and HTTPS in production.
-- The in-app checkout screen calls `POST /api/checkout` to create PaymentIntents and renders Stripe�s Payment Element without redirecting users.
+- The in-app checkout screen calls `POST /api/checkout` to create PaymentIntents and renders Stripe’s Payment Element without redirecting users.
+
+

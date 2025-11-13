@@ -1,5 +1,6 @@
 "use client"
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { Elements } from '@stripe/react-stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
 import CheckoutForm from '@/components/checkout/CheckoutForm'
@@ -7,12 +8,13 @@ import OrderSummary from '@/components/checkout/OrderSummary'
 import { useCart } from '@/components/cart/CartProvider'
 import type { CheckoutIntentResponse, CheckoutItemInput } from '@/types/checkout'
 import type { Appearance, PaymentIntent } from '@stripe/stripe-js'
+import { normalizeColors } from '@/lib/cartPricing'
 
 const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
 const stripePromise = publishableKey ? loadStripe(publishableKey) : null
 
 export default function CheckoutPage() {
-  const { items, clear } = useCart()
+  const { items, clear, remove } = useCart()
   const [intent, setIntent] = useState<CheckoutIntentResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -23,7 +25,8 @@ export default function CheckoutPage() {
       modelId: item.modelId,
       qty: Math.max(1, item.options.qty || 1),
       scale: item.options.scale || 1,
-      color: item.options.color || null,
+      material: item.options.material || 'PLA',
+      colors: normalizeColors(item.options.colors),
       infillPct: item.options.infillPct ?? null,
       customText: item.options.customText || null,
     }))
@@ -78,6 +81,7 @@ export default function CheckoutPage() {
     return (
       <div className="max-w-2xl mx-auto space-y-4">
         <h1 className="text-2xl font-semibold">Checkout</h1>
+        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Securely processed via Stripe</p>
         <p className="text-sm text-amber-300">Stripe publishable key is not configured. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to enable checkout.</p>
       </div>
     )
@@ -95,7 +99,46 @@ export default function CheckoutPage() {
   return (
     <div className="max-w-4xl mx-auto grid gap-6 md:grid-cols-2">
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">Checkout</h1>
+        <div>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h1 className="text-2xl font-semibold">Checkout</h1>
+            <Link href="/cart" className="text-sm text-brand-400 hover:text-brand-300 underline underline-offset-4">Edit cart</Link>
+          </div>
+          <p className="text-xs uppercase tracking-[0.25em] text-slate-500 mt-1">Securely processed via Stripe</p>
+        </div>
+        {items.length > 0 && (
+          <div className="glass rounded-xl border border-white/10">
+            <div className="flex items-center justify-between px-4 py-3 text-xs uppercase tracking-[0.3em] text-slate-400">
+              <span>Cart Items</span>
+              <span>Remove</span>
+            </div>
+            <div className="divide-y divide-white/10">
+              {items.map((item) => (
+                <div key={item.modelId} className="px-4 py-3 flex items-center justify-between text-sm">
+                  <div>
+                    <div className="font-medium">{item.title}</div>
+                    <div className="text-xs text-slate-400 space-y-0.5">
+                      <div>Qty {item.options.qty} · Scale {(item.options.scale || 1).toFixed(2)}</div>
+                      <div>
+                        Material {item.options.material || 'PLA'}
+                        {normalizeColors(item.options.colors).length > 0 && (
+                          <> · Colors: {normalizeColors(item.options.colors).join(', ')}</>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => remove(item.modelId)}
+                    className="text-xs text-amber-300 hover:text-amber-200"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {intent && (
           <OrderSummary items={intent.lineItems} currency={intent.currency} total={intent.total} />
         )}

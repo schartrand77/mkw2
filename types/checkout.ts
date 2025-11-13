@@ -1,13 +1,15 @@
+import type { Currency } from '@/lib/currency'
+import type { MaterialType } from '@/lib/cartPricing'
+
 export type CheckoutItemInput = {
   modelId: string
   qty: number
   scale: number
-  color?: string | null
+  material: MaterialType
+  colors?: string[] | null
   infillPct?: number | null
   customText?: string | null
 }
-
-import type { Currency } from '@/lib/currency'
 
 export type CheckoutLineItem = {
   modelId: string
@@ -16,7 +18,8 @@ export type CheckoutLineItem = {
   scale: number
   unitPrice: number
   lineTotal: number
-  color?: string
+  material: MaterialType
+  colors?: string[]
   infillPct?: number
   customText?: string
 }
