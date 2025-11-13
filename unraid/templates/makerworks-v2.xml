@@ -28,6 +28,8 @@ MakerWorks v2 is a self-hosted 3D model hub built with Next.js 14, Prisma, and P
   <Config Name="PETG_PRICE_PER_KG_USD" Target="PETG_PRICE_PER_KG_USD" Default="28.00" Mode="" Description="Price of a 1kg PETG spool (USD) used for estimator" Type="Variable" Display="advanced" Required="false" Mask="false">28.00</Config>
   <Config Name="PLA_PRICE_PER_KG_CAD" Target="PLA_PRICE_PER_KG_CAD" Default="30.00" Mode="" Description="Optional CAD override for PLA per-kg cost" Type="Variable" Display="advanced" Required="false" Mask="false">30.00</Config>
   <Config Name="PETG_PRICE_PER_KG_CAD" Target="PETG_PRICE_PER_KG_CAD" Default="34.00" Mode="" Description="Optional CAD override for PETG per-kg cost" Type="Variable" Display="advanced" Required="false" Mask="false">34.00</Config>
+  <Config Name="STRIPE_SECRET_KEY" Target="STRIPE_SECRET_KEY" Default="" Mode="" Description="Stripe secret key (starts with sk_live_ or sk_test_)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" Target="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" Default="" Mode="" Description="Stripe publishable key used by the in-app checkout UI" Type="Variable" Display="always" Required="false" Mask="false"></Config>
   <Config Name="CURRENCY" Target="CURRENCY" Default="USD" Mode="" Description="Back-end currency (USD or CAD)" Type="Variable" Display="advanced" Required="false" Mask="false">USD</Config>
   <Config Name="NEXT_PUBLIC_CURRENCY" Target="NEXT_PUBLIC_CURRENCY" Default="USD" Mode="" Description="Client-facing currency label (must match CURRENCY)" Type="Variable" Display="advanced" Required="false" Mask="false">USD</Config>
 

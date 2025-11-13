@@ -59,11 +59,14 @@ export default function CartPage() {
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <button className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20" onClick={clear}>Clear cart</button>
-            <div className="text-right">
-              <div className="text-slate-400 text-sm">Estimated subtotal</div>
-              <div className="text-lg font-semibold">${subtotal.toFixed(2)}</div>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className="text-slate-400 text-sm">Estimated subtotal</div>
+                <div className="text-lg font-semibold">${subtotal.toFixed(2)}</div>
+              </div>
+              <Link href="/checkout" className="btn whitespace-nowrap">Checkout</Link>
             </div>
           </div>
         </>
@@ -71,4 +74,3 @@ export default function CartPage() {
     </div>
   )
 }
-

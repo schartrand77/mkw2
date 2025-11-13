@@ -9,6 +9,7 @@ Overview
 - Automatic user page creation upon register/login with route `/u/{slug}` and quick link at `/me`.
 - Production/development ready Docker Compose
 - Admin dashboard to manage featured models and basic site settings
+- Embedded Stripe Payment Element checkout keeps purchases inside the app (no redirects)
 
 Quick Start (Docker)
 - Copy `.env.example` to `.env` (optional; compose sets sane defaults)
@@ -53,6 +54,7 @@ Core Endpoints
 - `POST /api/models/:id/like` toggle like (auth)
 - `GET /files/...` serve stored files
 - `GET /api/tags` list popular tags
+- `POST /api/checkout` build totals from the cart and create a Stripe PaymentIntent
 - `POST /api/account/email/request` request email change (returns verifyUrl in dev)
 - `GET /api/account/email/verify?token=...` verify email change token
 - Admin:
@@ -80,3 +82,7 @@ Next Steps (nice to have)
 - Likes/downloads, comments, tags, search facets
 - MinIO/S3 storage backend option
 - Advanced cost model (material/time/layer height)
+Stripe Checkout
+- Provide `STRIPE_SECRET_KEY` (server) and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (client) in your environment.
+- Use Stripe test keys (`sk_test_...`, `pk_test_...`) for development; switch to live keys and HTTPS in production.
+- The in-app checkout screen calls `POST /api/checkout` to create PaymentIntents and renders Stripe’s Payment Element without redirecting users.
