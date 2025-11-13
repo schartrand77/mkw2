@@ -1,18 +1,14 @@
-"use client"
+﻿"use client"
 import { useState } from 'react'
 
 type Config = {
-  costPerCm3?: number | null
-  fixedFeeUsd?: number | null
+  plaPricePerKgUsd?: number | null
+  petgPricePerKgUsd?: number | null
   allowAnonymousUploads?: boolean | null
   laborPerHourUsd?: number | null
   printSpeedCm3PerHour?: number | null
   energyUsdPerHour?: number | null
   minimumPriceUsd?: number | null
-  materialPlaMultiplier?: number | null
-  materialAbsMultiplier?: number | null
-  materialPetgMultiplier?: number | null
-  materialResinMultiplier?: number | null
   fillFactor?: number | null
 }
 
@@ -27,20 +23,20 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
     e.preventDefault()
     setSaving(true); setMsg(null); setErr(null)
     try {
-      const res = await fetch('/api/admin/site-config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-        costPerCm3: cfg.costPerCm3 != null ? Number(cfg.costPerCm3) : undefined,
-        fixedFeeUsd: cfg.fixedFeeUsd != null ? Number(cfg.fixedFeeUsd) : undefined,
-        allowAnonymousUploads: cfg.allowAnonymousUploads != null ? Boolean(cfg.allowAnonymousUploads) : undefined,
-        laborPerHourUsd: cfg.laborPerHourUsd != null ? Number(cfg.laborPerHourUsd) : undefined,
-        printSpeedCm3PerHour: cfg.printSpeedCm3PerHour != null ? Number(cfg.printSpeedCm3PerHour) : undefined,
-        energyUsdPerHour: cfg.energyUsdPerHour != null ? Number(cfg.energyUsdPerHour) : undefined,
-        minimumPriceUsd: cfg.minimumPriceUsd != null ? Number(cfg.minimumPriceUsd) : undefined,
-        materialPlaMultiplier: cfg.materialPlaMultiplier != null ? Number(cfg.materialPlaMultiplier) : undefined,
-        materialAbsMultiplier: cfg.materialAbsMultiplier != null ? Number(cfg.materialAbsMultiplier) : undefined,
-        materialPetgMultiplier: cfg.materialPetgMultiplier != null ? Number(cfg.materialPetgMultiplier) : undefined,
-        // Resin removed from UI; do not send materialResinMultiplier
-        fillFactor: cfg.fillFactor != null ? Number(cfg.fillFactor) : undefined,
-      }) })
+      const res = await fetch('/api/admin/site-config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plaPricePerKgUsd: cfg.plaPricePerKgUsd != null ? Number(cfg.plaPricePerKgUsd) : undefined,
+          petgPricePerKgUsd: cfg.petgPricePerKgUsd != null ? Number(cfg.petgPricePerKgUsd) : undefined,
+          allowAnonymousUploads: cfg.allowAnonymousUploads != null ? Boolean(cfg.allowAnonymousUploads) : undefined,
+          laborPerHourUsd: cfg.laborPerHourUsd != null ? Number(cfg.laborPerHourUsd) : undefined,
+          printSpeedCm3PerHour: cfg.printSpeedCm3PerHour != null ? Number(cfg.printSpeedCm3PerHour) : undefined,
+          energyUsdPerHour: cfg.energyUsdPerHour != null ? Number(cfg.energyUsdPerHour) : undefined,
+          minimumPriceUsd: cfg.minimumPriceUsd != null ? Number(cfg.minimumPriceUsd) : undefined,
+          fillFactor: cfg.fillFactor != null ? Number(cfg.fillFactor) : undefined,
+        })
+      })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to save config')
       setMsg('Saved site configuration.')
     } catch (e: any) {
@@ -56,12 +52,12 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
 
       <div className="grid sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm mb-1">Cost per cm³ ({currency})</label>
-          <input className="input" type="number" step="0.01" value={cfg.costPerCm3 ?? ''} onChange={(e) => setCfg({ ...cfg, costPerCm3: e.target.value === '' ? null : Number(e.target.value) })} />
+          <label className="block text-sm mb-1">PLA price per kg ({currency})</label>
+          <input className="input" type="number" step="0.01" value={cfg.plaPricePerKgUsd ?? ''} onChange={(e) => setCfg({ ...cfg, plaPricePerKgUsd: e.target.value === '' ? null : Number(e.target.value) })} />
         </div>
         <div>
-          <label className="block text-sm mb-1">Fixed fee ({currency})</label>
-          <input className="input" type="number" step="0.01" value={cfg.fixedFeeUsd ?? ''} onChange={(e) => setCfg({ ...cfg, fixedFeeUsd: e.target.value === '' ? null : Number(e.target.value) })} />
+          <label className="block text-sm mb-1">PETG price per kg ({currency})</label>
+          <input className="input" type="number" step="0.01" value={cfg.petgPricePerKgUsd ?? ''} onChange={(e) => setCfg({ ...cfg, petgPricePerKgUsd: e.target.value === '' ? null : Number(e.target.value) })} />
         </div>
       </div>
 
@@ -71,7 +67,7 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
           <input className="input" type="number" step="0.01" value={cfg.laborPerHourUsd ?? ''} onChange={(e) => setCfg({ ...cfg, laborPerHourUsd: e.target.value === '' ? null : Number(e.target.value) })} />
         </div>
         <div>
-          <label className="block text-sm mb-1">Print speed (cm³/hour)</label>
+          <label className="block text-sm mb-1">Print speed (cm^3/hour)</label>
           <input className="input" type="number" step="0.01" value={cfg.printSpeedCm3PerHour ?? ''} onChange={(e) => setCfg({ ...cfg, printSpeedCm3PerHour: e.target.value === '' ? null : Number(e.target.value) })} />
         </div>
       </div>
@@ -87,23 +83,7 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm mb-1">PLA multiplier</label>
-          <input className="input" type="number" step="0.01" value={cfg.materialPlaMultiplier ?? ''} onChange={(e) => setCfg({ ...cfg, materialPlaMultiplier: e.target.value === '' ? null : Number(e.target.value) })} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">ABS multiplier</label>
-          <input className="input" type="number" step="0.01" value={cfg.materialAbsMultiplier ?? ''} onChange={(e) => setCfg({ ...cfg, materialAbsMultiplier: e.target.value === '' ? null : Number(e.target.value) })} />
-        </div>
-      </div>
-
-      <div className="grid sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm mb-1">PETG multiplier</label>
-          <input className="input" type="number" step="0.01" value={cfg.materialPetgMultiplier ?? ''} onChange={(e) => setCfg({ ...cfg, materialPetgMultiplier: e.target.value === '' ? null : Number(e.target.value) })} />
-        </div>
-      </div>
+      <p className="text-xs text-slate-400">Material costs are now derived directly from their per-kg prices; no multipliers needed.</p>
 
       <div>
         <label className="block text-sm mb-1">Infill (%)</label>
@@ -112,7 +92,7 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
           value={cfg.fillFactor != null ? String(Math.round(Number(cfg.fillFactor) * 100)) : ''}
           onChange={(e) => setCfg({ ...cfg, fillFactor: e.target.value === '' ? null : Number(e.target.value) / 100 })}
         >
-          <option value="">Select…</option>
+          <option value="">Select...</option>
           <option value="15">15%</option>
           <option value="30">30%</option>
           <option value="45">45%</option>
@@ -126,8 +106,7 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
         <input id="anu" type="checkbox" checked={!!cfg.allowAnonymousUploads} onChange={(e) => setCfg({ ...cfg, allowAnonymousUploads: e.target.checked })} />
         <label htmlFor="anu" className="text-sm">Allow anonymous uploads</label>
       </div>
-      <button className="btn" disabled={saving}>{saving ? 'Saving…' : 'Save Settings'}</button>
+      <button className="btn" disabled={saving}>{saving ? 'Saving...' : 'Save Settings'}</button>
     </form>
   )
 }
-

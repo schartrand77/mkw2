@@ -125,17 +125,13 @@ model FeaturedModel {
 
 model SiteConfig {
   id                    String   @id
-  costPerCm3            Float?
-  fixedFeeUsd           Float?
   allowAnonymousUploads Boolean? @default(true)
   laborPerHourUsd       Float?
   printSpeedCm3PerHour  Float?
   energyUsdPerHour      Float?
   minimumPriceUsd       Float?
-  materialPlaMultiplier   Float?
-  materialAbsMultiplier   Float?
-  materialPetgMultiplier  Float?
-  materialResinMultiplier Float?
+  plaPricePerKgUsd      Float?
+  petgPricePerKgUsd     Float?
   fillFactor            Float?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
