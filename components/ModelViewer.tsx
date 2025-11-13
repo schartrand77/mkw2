@@ -131,14 +131,13 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         const center = new THREE.Vector3()
         box.getSize(size)
         box.getCenter(center)
-        // Center object at origin
-        group.position.sub(center)
-        group.updateMatrixWorld(true)
         // Normalize scale so we have a stable camera fit independent of model units
         const maxDim = Math.max(size.x, size.y, size.z)
         const radius = maxDim > 0 ? maxDim / 2 : 1
         const scale = radius > 0 ? 1 / radius : 1
         group.scale.setScalar(scale)
+        // Translate after scaling so large coordinates shrink consistently
+        group.position.copy(center).multiplyScalar(-scale)
         group.updateMatrixWorld(true)
         fitRadius = 1 // after normalization, radius ~1
         fitToView()
