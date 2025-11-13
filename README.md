@@ -8,13 +8,21 @@ Overview
 - Auth via email/password using signed HttpOnly cookie (JWT)
 - Automatic user page creation upon register/login with route `/u/{slug}` and quick link at `/me`.
 - Production/development ready Docker Compose
- - Admin dashboard to manage featured models and basic site settings
+- Admin dashboard to manage featured models and basic site settings
 
 Quick Start (Docker)
 - Copy `.env.example` to `.env` (optional; compose sets sane defaults)
 - Build and run: `docker-compose up --build`
 - App: `http://localhost:3000`
 - Postgres: `postgres://postgres:postgres@localhost:5432/makerworks`
+
+Unraid (Community Applications)
+1. Ensure the GitHub Action **Publish container image** pushed `ghcr.io/schartrand77/mkw2:latest` (happens on every push to `main` and any `v*` tag).
+2. On Unraid go to `Apps → Settings → Additional Repositories` and add `https://raw.githubusercontent.com/schartrand77/mkw2/main/unraid/templates`. The feed exposes the **MakerWorks v2** template inside Community Applications.
+3. When installing, map `/app/storage` to a persistent share such as `/mnt/user/appdata/makerworks/storage`, and pick the external port you want (defaults to 3000).
+4. Point `DATABASE_URL` at any reachable Postgres 15+ instance. If you deploy the official `postgres` container on the same host, place both containers on a custom user-defined bridge (e.g. `makerworks_net`) and use `postgresql://postgres:postgres@postgres:5432/makerworks?schema=public`.
+5. Set `BASE_URL` to the public URL (e.g. `https://makerworks.example.com`), set `JWT_SECRET` to a long random value, and define the bootstrap `ADMIN_EMAIL` / `ADMIN_PASSWORD`. First launch runs migrations and seeds that admin user automatically.
+6. Leave `STORAGE_DIR` at `/app/storage` unless you have a special layout, and flip `COOKIE_SECURE=true` whenever you serve the site behind HTTPS so auth cookies remain secure.
 
 Local Dev (without Docker)
 1. Install deps: `npm ci`

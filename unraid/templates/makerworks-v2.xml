@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>MakerWorks v2</Name>
+  <Repository>ghcr.io/schartrand77/mkw2:latest</Repository>
+  <Registry>https://ghcr.io/schartrand77/mkw2</Registry>
+  <Network>bridge</Network>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/schartrand77/mkw2/issues</Support>
+  <Project>https://github.com/schartrand77/mkw2</Project>
+  <Overview><![CDATA[
+MakerWorks v2 is a self-hosted 3D model hub built with Next.js 14, Prisma, and Postgres. The template deploys the web application container from GitHub Container Registry; pair it with any reachable Postgres instance (local container, remote VM, managed service) and map a persistent storage share for uploaded STL/OBJ/3MF assets plus thumbnails.
+  ]]></Overview>
+  <Category>Productivity:Tools</Category>
+  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <Icon>https://raw.githubusercontent.com/schartrand77/mkw2/main/public/favicon.svg</Icon>
+
+  <Config Name="Web Port" Target="3000" Default="3000" Mode="tcp" Description="Port the MakerWorks Next.js server listens on" Type="Port" Display="always" Required="true" Mask="false">3000</Config>
+  <Config Name="Storage" Target="/app/storage" Default="/mnt/user/appdata/makerworks/storage" Mode="rw" Description="Persistent directory for uploaded models, covers, and avatars" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/makerworks/storage</Config>
+
+  <Config Name="DATABASE_URL" Target="DATABASE_URL" Default="postgresql://postgres:postgres@postgres:5432/makerworks?schema=public" Mode="" Description="Postgres connection string (must be reachable from the container)" Type="Variable" Display="always" Required="true" Mask="false">postgresql://postgres:postgres@postgres:5432/makerworks?schema=public</Config>
+  <Config Name="JWT_SECRET" Target="JWT_SECRET" Default="" Mode="" Description="Secret used to sign user sessions (set to a long random string)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="BASE_URL" Target="BASE_URL" Default="https://makerworks.example.com" Mode="" Description="Public URL users access (used for redirects/cookies)" Type="Variable" Display="always" Required="true" Mask="false">https://makerworks.example.com</Config>
+  <Config Name="COOKIE_SECURE" Target="COOKIE_SECURE" Default="true" Mode="" Description="Set to true when BASE_URL is HTTPS so auth cookies are secure" Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="STORAGE_DIR" Target="STORAGE_DIR" Default="/app/storage" Mode="" Description="Internal storage path (normally leave at /app/storage)" Type="Variable" Display="advanced" Required="false" Mask="false">/app/storage</Config>
+
+  <Config Name="COST_PER_CM3" Target="COST_PER_CM3" Default="0.30" Mode="" Description="Cost per cubic centimeter used by print estimator" Type="Variable" Display="advanced" Required="false" Mask="false">0.30</Config>
+  <Config Name="FIXED_FEE_USD" Target="FIXED_FEE_USD" Default="1.00" Mode="" Description="Fixed service fee (USD) added to every estimate" Type="Variable" Display="advanced" Required="false" Mask="false">1.00</Config>
+  <Config Name="CURRENCY" Target="CURRENCY" Default="USD" Mode="" Description="Back-end currency (USD or CAD)" Type="Variable" Display="advanced" Required="false" Mask="false">USD</Config>
+  <Config Name="NEXT_PUBLIC_CURRENCY" Target="NEXT_PUBLIC_CURRENCY" Default="USD" Mode="" Description="Client-facing currency label (must match CURRENCY)" Type="Variable" Display="advanced" Required="false" Mask="false">USD</Config>
+
+  <Config Name="ADMIN_EMAIL" Target="ADMIN_EMAIL" Default="admin@example.com" Mode="" Description="Email for the bootstrap administrator account" Type="Variable" Display="always" Required="true" Mask="false">admin@example.com</Config>
+  <Config Name="ADMIN_PASSWORD" Target="ADMIN_PASSWORD" Default="" Mode="" Description="Password for the bootstrap administrator (rotated on change)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="ADMIN_NAME" Target="ADMIN_NAME" Default="Admin" Mode="" Description="Display name for the bootstrap administrator account" Type="Variable" Display="advanced" Required="false" Mask="false">Admin</Config>
+
+  <Config Name="DISCORD_BOT_TOKEN" Target="DISCORD_BOT_TOKEN" Default="" Mode="" Description="Optional bot token used for Discord announcements" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="DISCORD_CHANNEL_ID" Target="DISCORD_CHANNEL_ID" Default="" Mode="" Description="Discord channel ID used for announcements" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+</Container>
