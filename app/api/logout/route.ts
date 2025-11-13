@@ -3,10 +3,11 @@ export const dynamic = 'force-dynamic'
 import { clearAuthCookie } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
-  clearAuthCookie()
   const prefersHtml = (req.headers.get('accept') || '').includes('text/html')
-  if (prefersHtml) {
-    return NextResponse.redirect(new URL('/login', req.url), { status: 303 })
-  }
-  return NextResponse.json({ ok: true })
+  const redirectUrl = new URL('/signed-out', req.url)
+  const response = prefersHtml
+    ? NextResponse.redirect(redirectUrl, { status: 303 })
+    : NextResponse.json({ ok: true, redirect: '/signed-out' })
+  clearAuthCookie(response.cookies as any)
+  return response
 }

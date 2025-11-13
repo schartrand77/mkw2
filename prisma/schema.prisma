@@ -61,7 +61,7 @@ model ModelImage {
   modelId   String
   filePath  String
   caption   String?
-  sortOrder Int      @default(0)
+  sortOrder BigInt   @default(0)
   createdAt DateTime @default(now())
 
   model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)

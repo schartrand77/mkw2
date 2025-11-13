@@ -1,7 +1,8 @@
 "use client"
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useCart } from '@/components/cart/CartProvider'
+import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 import { useEffect, useRef, useState } from 'react'
 
 type Props = {
@@ -19,13 +20,30 @@ function isActivePath(pathname: string, href: string): boolean {
 
 export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   const pathname = usePathname() || '/'
+  const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
   const [avatarSrc, setAvatarSrc] = useState<string | null>(avatarUrl)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const { count } = useCart()
   const logout = async () => {
-    try { await fetch('/api/logout', { method: 'POST' }) } catch {}
-    window.location.href = '/login'
+    let redirectTarget = '/signed-out'
+    try {
+      const res = await fetch('/api/logout', { method: 'POST', credentials: 'include' })
+      const contentType = res.headers.get('content-type') || ''
+      if (res.ok && contentType.includes('application/json')) {
+        try {
+          const data = await res.json()
+          if (typeof data?.redirect === 'string') redirectTarget = data.redirect
+        } catch {}
+      }
+    } catch {}
+    pushSessionNotification({ type: 'info', title: 'Signed out', message: 'Come back soon!' })
+    setMenuOpen(false)
+    if (typeof window !== 'undefined') {
+      window.location.href = redirectTarget
+    } else {
+      router.replace(redirectTarget)
+    }
   }
 
   useEffect(() => {

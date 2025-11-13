@@ -4,6 +4,7 @@ import { requireAdmin } from '../../../_utils'
 import path from 'path'
 import sharp from 'sharp'
 import { saveBuffer } from '@/lib/storage'
+import { serializeModelImage, serializeModelImages } from '@/lib/model-images'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +22,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     prisma.modelImage.findMany({ where: { modelId: params.id }, orderBy: { sortOrder: 'asc' } }),
     prisma.model.findUnique({ where: { id: params.id }, select: { coverImagePath: true } }),
   ])
-  return NextResponse.json({ images, coverImagePath: model?.coverImagePath || null })
+  return NextResponse.json({ images: serializeModelImages(images), coverImagePath: model?.coverImagePath || null })
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -46,12 +47,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   await saveBuffer(rel, processed)
   const publicPath = `/${rel.replace(/\\/g, '/')}`
 
-  const sortOrder = Date.now()
+  const sortOrder = BigInt(Date.now())
   const created = await prisma.modelImage.create({
     data: { modelId: model.id, filePath: publicPath, caption, sortOrder },
   })
   if (setCover) {
     await prisma.model.update({ where: { id: model.id }, data: { coverImagePath: publicPath } })
   }
-  return NextResponse.json({ image: created })
+  return NextResponse.json({ image: serializeModelImage(created) })
 }

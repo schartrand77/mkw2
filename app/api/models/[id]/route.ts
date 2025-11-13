@@ -6,6 +6,7 @@ import { saveBuffer, storageRoot } from '@/lib/storage'
 import path from 'path'
 import { unlink } from 'fs/promises'
 import sharp from 'sharp'
+import { serializeModelImages } from '@/lib/model-images'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const model = await prisma.model.findUnique({
@@ -19,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!model) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const tags = model.modelTags.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug }))
   const { modelTags, images, ...rest } = model as any
-  return NextResponse.json({ model: { ...rest, tags, parts, images } })
+  return NextResponse.json({ model: { ...rest, tags, parts, images: serializeModelImages(images) } })
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {

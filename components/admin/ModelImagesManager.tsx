@@ -34,6 +34,22 @@ export default function ModelImagesManager({ modelId, initialCover }: { modelId:
     setSetCover(true)
   }
 
+  const readErrorMessage = async (res: Response) => {
+    try {
+      const text = await res.text()
+      if (!text) return `${res.status} ${res.statusText}`
+      try {
+        const data = JSON.parse(text)
+        if (data?.error) return data.error
+        return text
+      } catch {
+        return text
+      }
+    } catch {
+      return `${res.status} ${res.statusText}`
+    }
+  }
+
   const upload = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!file) {
@@ -47,7 +63,7 @@ export default function ModelImagesManager({ modelId, initialCover }: { modelId:
       if (caption.trim()) fd.append('caption', caption.trim())
       if (setCover) fd.append('setCover', '1')
       const res = await fetch(`/api/admin/models/${modelId}/images`, { method: 'POST', body: fd })
-      if (!res.ok) throw new Error((await res.json()).error || 'Upload failed')
+      if (!res.ok) throw new Error(await readErrorMessage(res))
       await load()
       resetForm()
     } catch (err: any) {
@@ -59,26 +75,38 @@ export default function ModelImagesManager({ modelId, initialCover }: { modelId:
 
   const updateCaption = async (id: string) => {
     const caption = captionDrafts[id] || ''
-    await fetch(`/api/admin/models/${modelId}/images/${id}`, {
+    const res = await fetch(`/api/admin/models/${modelId}/images/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ caption }),
     })
+    if (!res.ok) {
+      setError(await readErrorMessage(res))
+      return
+    }
     await load()
   }
 
   const setAsCover = async (id: string) => {
-    await fetch(`/api/admin/models/${modelId}/images/${id}`, {
+    const res = await fetch(`/api/admin/models/${modelId}/images/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ setCover: true }),
     })
+    if (!res.ok) {
+      setError(await readErrorMessage(res))
+      return
+    }
     await load()
   }
 
   const remove = async (id: string) => {
     if (!confirm('Remove this image?')) return
-    await fetch(`/api/admin/models/${modelId}/images/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/admin/models/${modelId}/images/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      setError(await readErrorMessage(res))
+      return
+    }
     await load()
   }
 

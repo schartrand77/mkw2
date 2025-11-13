@@ -4,6 +4,7 @@ import { requireAdmin } from '../../../../_utils'
 import { storageRoot } from '@/lib/storage'
 import path from 'path'
 import { unlink } from 'fs/promises'
+import { serializeModelImage } from '@/lib/model-images'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,11 +19,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const raw = typeof body.caption === 'string' ? body.caption : ''
     updates.caption = raw ? raw.slice(0, 160) : null
   }
-  if ('sortOrder' in body && Number.isFinite(Number(body.sortOrder))) {
-    updates.sortOrder = Number(body.sortOrder)
+  if ('sortOrder' in body && body.sortOrder != null) {
+    try {
+      updates.sortOrder = BigInt(body.sortOrder)
+    } catch {
+      return NextResponse.json({ error: 'Invalid sort order' }, { status: 400 })
+    }
   }
   if (Object.keys(updates).length === 0 && !body.setCover) {
-    return NextResponse.json({ image })
+    return NextResponse.json({ image: serializeModelImage(image) })
   }
   const updated = await prisma.modelImage.update({
     where: { id: image.id },
@@ -31,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.setCover) {
     await prisma.model.update({ where: { id: params.id }, data: { coverImagePath: updated.filePath } })
   }
-  return NextResponse.json({ image: updated })
+  return NextResponse.json({ image: serializeModelImage(updated) })
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string; imageId: string } }) {

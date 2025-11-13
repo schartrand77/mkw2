@@ -22,12 +22,18 @@ export default function LoginPage() {
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
+        credentials: 'include',
       })
       if (!res.ok) throw new Error(await res.text())
       await notify({ type: 'success', title: 'Signed in', message: 'Welcome back!' })
-      router.push('/')
-      router.refresh()
+      setEmail('')
+      setPassword('')
+      if (typeof window !== 'undefined') {
+        window.location.href = '/discover'
+      } else {
+        router.replace('/discover')
+      }
     } catch (err: any) {
       await notify({ type: 'error', title: 'Login failed', message: err.message || 'Login failed' })
     } finally {

@@ -5,6 +5,20 @@ import { prisma } from '@/lib/db'
 
 const COOKIE_NAME = 'mwv2_token'
 
+type CookieStore = {
+  set: (name: string, value: string, options?: Record<string, any>) => void
+}
+
+function resolveCookieStore(store?: CookieStore): CookieStore {
+  return (store ?? (cookies() as unknown as CookieStore))
+}
+
+function shouldUseSecureCookies() {
+  const base = (process.env.BASE_URL || '').toLowerCase()
+  const cookieSecureEnv = (process.env.COOKIE_SECURE || '').toLowerCase()
+  return cookieSecureEnv === 'true' || (process.env.NODE_ENV === 'production' && base.startsWith('https'))
+}
+
 export async function hashPassword(password: string) {
   const salt = await bcrypt.genSalt(10)
   return bcrypt.hash(password, salt)
@@ -47,12 +61,10 @@ export async function getUserIdFromCookie(): Promise<string | null> {
   }
 }
 
-export function setAuthCookie(userId: string) {
+export function setAuthCookie(userId: string, store?: CookieStore) {
   const token = signToken(userId)
-  const c = cookies()
-  const base = (process.env.BASE_URL || '').toLowerCase()
-  const cookieSecureEnv = (process.env.COOKIE_SECURE || '').toLowerCase()
-  const secure = cookieSecureEnv === 'true' || (process.env.NODE_ENV === 'production' && base.startsWith('https'))
+  const c = resolveCookieStore(store)
+  const secure = shouldUseSecureCookies()
   c.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -62,10 +74,15 @@ export function setAuthCookie(userId: string) {
   })
 }
 
-export function clearAuthCookie() {
-  const c = cookies()
-  const base = (process.env.BASE_URL || '').toLowerCase()
-  const cookieSecureEnv = (process.env.COOKIE_SECURE || '').toLowerCase()
-  const secure = cookieSecureEnv === 'true' || (process.env.NODE_ENV === 'production' && base.startsWith('https'))
-  c.set(COOKIE_NAME, '', { maxAge: 0, path: '/', secure, httpOnly: true, sameSite: 'lax' })
+export function clearAuthCookie(store?: CookieStore) {
+  const c = resolveCookieStore(store)
+  const secure = shouldUseSecureCookies()
+  c.set(COOKIE_NAME, '', {
+    maxAge: 0,
+    path: '/',
+    secure,
+    httpOnly: true,
+    sameSite: 'lax',
+    expires: new Date(0),
+  })
 }
