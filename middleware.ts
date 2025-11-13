@@ -8,7 +8,7 @@ const PUBLIC_EXACT = new Set([
   '/robots.txt',
   '/sitemap.xml',
 ])
-const PUBLIC_PREFIXES = ['/favicon', '/apple-touch-icon']
+const PUBLIC_PREFIXES = ['/favicon', '/apple-touch-icon', '/_next']
 
 function isPublicPath(pathname: string) {
   if (PUBLIC_EXACT.has(pathname)) return true
@@ -34,6 +34,6 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     // Match all paths except those starting with the following segments
-    '/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|files/).*)',
+    '/((?!api|_next/|favicon.ico|robots.txt|sitemap.xml|files/).*)',
   ],
 }
