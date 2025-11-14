@@ -84,3 +84,43 @@ html.theme-light .btn {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
+.marquee-viewport {
+  position: relative;
+  overflow: hidden;
+}
+.marquee-track {
+  display: flex;
+  gap: 1.5rem;
+  width: max-content;
+  animation: marquee-scroll 30s linear infinite;
+}
+.marquee-viewport:hover .marquee-track {
+  animation-play-state: paused;
+}
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 120px;
+  pointer-events: none;
+  z-index: 1;
+}
+.marquee-fade-left {
+  left: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0));
+}
+.marquee-fade-right {
+  right: 0;
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0));
+}
+html.theme-light .marquee-fade-left {
+  background: linear-gradient(90deg, rgba(247, 247, 249, 0.95), rgba(247, 247, 249, 0));
+}
+html.theme-light .marquee-fade-right {
+  background: linear-gradient(270deg, rgba(247, 247, 249, 0.95), rgba(247, 247, 249, 0));
+}
+
