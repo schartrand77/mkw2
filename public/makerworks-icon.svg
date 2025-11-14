@@ -46,7 +46,7 @@
     </g>
     <g fill="#f5f7fc" stroke="#cfd8e6" stroke-width="4" stroke-linejoin="round">
       <path d="M128 376V218h46l32 80 34-80h46v158h-40v-88l-38 88h-22l-38-88v88z"/>
-      <path d="M282 218h46l22 86 22-86h46v158h-38v-88l-24 88h-12l-24-88v88h-38z"/>
+      <path d="M282 218h34l18 108 32-86 32 86 18-108h34l-40 158h-38l-16-74-16 74h-38z"/>
     </g>
   </g>
 </svg>

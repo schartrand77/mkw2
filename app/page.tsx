@@ -27,14 +27,16 @@ export default async function HomePage() {
           </div>
         </div>
         <div className="glass rounded-3xl border border-white/10 overflow-hidden shadow-2xl shadow-black/40">
-          <Image
-            src="/makerworks-banner.svg"
-            alt="MakerWorks brand banner"
-            width={1600}
-            height={650}
-            priority
-            className="w-full h-auto"
-          />
+          <div className="relative w-full aspect-[32/13]">
+            <Image
+              src="/makerworks-banner.svg"
+              alt="MakerWorks brand banner"
+              fill
+              priority
+              sizes="(min-width: 1024px) 1024px, 100vw"
+              className="object-cover"
+            />
+          </div>
         </div>
       </section>
       {featured.length > 0 ? (

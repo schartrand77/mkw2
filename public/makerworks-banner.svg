@@ -24,16 +24,10 @@
   <rect width="1600" height="650" filter="url(#banner-noise)"/>
   <g transform="translate(130 110)">
     <rect x="0" y="0" width="460" height="460" rx="90" fill="#03070c" opacity=".55"/>
-    <image href="/makerworks-icon.svg" x="50" y="20" width="360" height="360"/>
-    <text x="540" y="180" font-size="110" font-weight="700" letter-spacing="0.2em" fill="url(#banner-text)" font-family="'Poppins','Segoe UI',sans-serif">
-      MAKERWORKS
-    </text>
-    <text x="540" y="260" font-size="42" letter-spacing="0.35em" fill="#96a8bf" font-family="'Poppins','Segoe UI',sans-serif">
-      DREAM · DISCOVER · DELIVER
-    </text>
+    <image href="makerworks-icon.svg" x="50" y="20" width="360" height="360"/>
+    <text x="540" y="180" font-size="110" font-weight="700" letter-spacing="0.2em" fill="url(#banner-text)" font-family="'Poppins','Segoe UI',sans-serif">MAKERWORKS</text>
+    <text x="540" y="260" font-size="42" letter-spacing="0.35em" fill="#96a8bf" font-family="'Poppins','Segoe UI',sans-serif">DREAM &#183; DISCOVER &#183; DELIVER</text>
     <rect x="540" y="320" width="720" height="4" fill="#3c4d62"/>
-    <text x="540" y="400" font-size="26" fill="#ccd6e4" font-family="'Inter','Segoe UI',sans-serif">
-      Custom models, premium finishing, and fast support from the MakerWorks collective.
-    </text>
+    <text x="540" y="400" font-size="26" fill="#ccd6e4" font-family="'Inter','Segoe UI',sans-serif">Custom models, premium finishing, and fast support from the MakerWorks collective.</text>
   </g>
 </svg>
