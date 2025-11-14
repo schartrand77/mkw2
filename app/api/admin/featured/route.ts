@@ -36,7 +36,10 @@ export async function POST(req: NextRequest) {
   const found = await prisma.model.findMany({ where: { id: { in: modelIds } }, select: { id: true } })
   const foundIds = new Set(found.map(f => f.id))
   const cleanIds = modelIds.filter((id, idx) => foundIds.has(id) && modelIds.indexOf(id) === idx)
-  if (!cleanIds.length) return NextResponse.json({ error: 'No valid models' }, { status: 400 })
+  if (!cleanIds.length) {
+    await prisma.featuredModel.deleteMany({})
+    return NextResponse.json({ featured: [] })
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.featuredModel.deleteMany({ where: { modelId: { notIn: cleanIds } } })

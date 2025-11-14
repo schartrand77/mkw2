@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { formatCurrency } from '@/lib/currency'
 
 async function fetchFeatured() {
@@ -12,12 +13,28 @@ export default async function HomePage() {
   const featured = await fetchFeatured()
   return (
     <div className="space-y-8">
-      <section className="text-center py-10">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Dream. Discover. Deliver.</h1>
-        <p className="mt-3 text-slate-300">3D print services, Model Creation, all with a smile.</p>
-        <div className="mt-6 flex items-center justify-center gap-3">
-          <Link href="/upload" className="btn">Upload a Model</Link>
-          <Link href="/discover" className="px-4 py-2 rounded-md border border-white/10 hover:border-white/20">Browse Library</Link>
+      <section className="py-10 space-y-8">
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-3 text-slate-300 text-sm uppercase tracking-[0.4em]">
+            <img src="/makerworks-icon.svg" alt="" className="h-10 w-10 drop-shadow-lg" />
+            <span>MakerWorks</span>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Dream. Discover. Deliver.</h1>
+          <p className="text-slate-300 max-w-2xl mx-auto">3D print services, model creation, and prototyping support from a team obsessed with detail.</p>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <Link href="/upload" className="btn">Upload a Model</Link>
+            <Link href="/discover" className="px-4 py-2 rounded-md border border-white/10 hover:border-white/20">Browse Library</Link>
+          </div>
+        </div>
+        <div className="glass rounded-3xl border border-white/10 overflow-hidden shadow-2xl shadow-black/40">
+          <Image
+            src="/makerworks-banner.svg"
+            alt="MakerWorks brand banner"
+            width={1600}
+            height={650}
+            priority
+            className="w-full h-auto"
+          />
         </div>
       </section>
       {featured.length > 0 ? (

@@ -12,23 +12,54 @@ import ExtensionsGuard from '@/components/ExtensionsGuard'
 import CartProvider from '@/components/cart/CartProvider'
 
 export const dynamic = 'force-dynamic'
+const siteDescription = '3D printing model hosting & cost estimation'
+const heroImage = '/makerworks-banner.svg'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.BASE_URL || 'http://localhost:3000'
+
 export const metadata = {
   title: 'MakerWorks v2',
-  description: '3D printing model hosting & cost estimation',
+  description: siteDescription,
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent' },
   other: { 'mobile-web-app-capable': 'yes' },
-  icons: { icon: '/favicon.svg', apple: '/favicon.svg' },
+  icons: {
+    icon: [
+      { url: '/makerworks-icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/makerworks-icon.svg',
+  },
+  openGraph: {
+    title: 'MakerWorks v2',
+    description: siteDescription,
+    images: [heroImage],
+    url: siteUrl,
+    siteName: 'MakerWorks',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'MakerWorks v2',
+    description: siteDescription,
+    images: [heroImage],
+  },
 }
 
 export const viewport = {
   themeColor: '#000000',
 }
 
-function GearGlyph() {
+function BrandMark() {
   return (
-    <span className="block text-lg md:text-xl leading-none" aria-hidden="true">
-      ⚙️
+    <span className="flex items-center gap-3 select-none">
+      <span className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-black/30 ring-1 ring-white/10">
+        <img src="/makerworks-icon.svg" alt="" className="h-9 w-9 drop-shadow-lg" />
+      </span>
+      <span className="leading-tight">
+        <span className="block text-xl font-semibold tracking-tight">MakerWorks v2</span>
+        <span className="block text-[0.65rem] uppercase tracking-[0.55em] text-brand-300">
+          Dream &middot; Discover &middot; Deliver
+        </span>
+      </span>
     </span>
   )
 }
@@ -53,23 +84,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="sticky top-0 z-50 border-b border-white/10 bg-black/50 backdrop-blur header-safe">
           <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
             {authed ? (
-              <Link href="/" aria-label="MakerWorks v2" className="text-xl font-semibold tracking-tight">
-                <span>MakerW</span>
-                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
-                  <GearGlyph />
-                </span>
-                <span>rks</span>
-                <span className="text-brand-500"> v2</span>
+              <Link href="/" aria-label="MakerWorks home" className="hover:opacity-90 transition-opacity">
+                <BrandMark />
               </Link>
             ) : (
-              <span className="text-xl font-semibold tracking-tight select-none">
-                <span>MakerW</span>
-                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
-                  <GearGlyph />
-                </span>
-                <span>rks</span>
-                <span className="text-brand-500"> v2</span>
-              </span>
+              <BrandMark />
             )}
             <NavBar authed={authed} isAdmin={isAdmin} avatarUrl={avatarUrl} />
           </div>
