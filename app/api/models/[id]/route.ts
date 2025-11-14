@@ -7,7 +7,7 @@ import path from 'path'
 import { unlink } from 'fs/promises'
 import sharp from 'sharp'
 import { serializeModelImages } from '@/lib/model-images'
-import { ensureProcessableImageBuffer } from '@/lib/images'
+import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const model = await prisma.model.findUnique({
@@ -74,9 +74,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (image) {
     const buf = Buffer.from(await image.arrayBuffer())
-    const safeBuf = await ensureProcessableImageBuffer(buf, { filename: image.name, mimeType: image.type })
+    const prepared = await ensureProcessableImageBuffer(buf, { filename: image.name, mimeType: image.type })
     // Process to reasonable size webp
-    const out = await sharp(safeBuf).rotate().resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
+    const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
+    const out = await pipeline.resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
     // Save cover under userId/thumbnails
     const rel = path.join(userId, 'thumbnails', `${Date.now()}-cover.webp`)
     if (existing.coverImagePath) {

@@ -18,9 +18,16 @@ export type PricingInputs = {
   cfg?: Partial<SiteConfig> | null
 }
 
+function normalizeFillFactor(value?: number | null): number {
+  if (value == null || Number.isNaN(value)) return 1
+  const numeric = Number(value)
+  const normalized = numeric > 2 ? numeric / 100 : numeric
+  return Math.max(0.1, Math.min(1.5, normalized))
+}
+
 export function estimatePrice({ cm3, material, cfg }: PricingInputs): number {
-  const fillFactor = cfg?.fillFactor != null ? Number(cfg.fillFactor) : 1
-  const effCm3 = cm3 * Math.max(0.1, Math.min(1.5, fillFactor))
+  const fillFactor = normalizeFillFactor(cfg?.fillFactor != null ? Number(cfg.fillFactor) : undefined)
+  const effCm3 = cm3 * fillFactor
   const currency = getCurrency()
   const m = (material || 'PLA').toUpperCase()
   const density = MATERIAL_DENSITY_G_PER_CM3[m] ?? MATERIAL_DENSITY_G_PER_CM3.PLA

@@ -9,7 +9,8 @@ import JSZip from 'jszip'
 import { estimatePriceUSD } from '@/lib/pricing'
 import { refreshUserAchievements } from '@/lib/achievements'
 import sharp from 'sharp'
-import { ensureProcessableImageBuffer, isSupportedImageFile } from '@/lib/images'
+import { isSupportedImageFile } from '@/lib/images'
+import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
 
@@ -64,8 +65,9 @@ export async function POST(req: NextRequest) {
     if (image && isSupportedImageFile(image.name, image.type)) {
       try {
         const imgBuf = Buffer.from(await image.arrayBuffer())
-        const safeBuf = await ensureProcessableImageBuffer(imgBuf, { filename: image.name, mimeType: image.type })
-        const processed = await sharp(safeBuf).rotate().resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
+        const prepared = await ensureProcessableImageBuffer(imgBuf, { filename: image.name, mimeType: image.type })
+        const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
+        const processed = await pipeline.resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
         // Store cover images under userId/thumbnails as consistent webp assets
         coverImageRel = path.join(userId, 'thumbnails', `${Date.now()}-${safeName(title) || 'cover'}.webp`)
         await saveBuffer(coverImageRel, processed)
