@@ -4,6 +4,9 @@ import { requireAdmin } from '../../_utils'
 import { slugify } from '@/lib/userpage'
 import { normalizeAmazonAffiliateUrl } from '@/lib/amazon'
 import { extractYouTubeId } from '@/lib/youtube'
+import { storageRoot } from '@/lib/storage'
+import path from 'path'
+import { unlink } from 'fs/promises'
 export const dynamic = 'force-dynamic'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -73,4 +76,55 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   return NextResponse.json({ ok: true })
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  const model = await prisma.model.findUnique({
+    where: { id: params.id },
+    include: { images: true, parts: true },
+  })
+  if (!model) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const files: Array<string | null | undefined> = [
+    model.filePath,
+    model.coverImagePath,
+    ...model.images.map(img => img.filePath),
+    ...model.parts.map(part => part.filePath),
+  ]
+
+  await prisma.model.delete({ where: { id: model.id } })
+  await removeStoredFiles(files)
+  return NextResponse.json({ ok: true })
+}
+
+async function removeStoredFiles(paths: Array<string | null | undefined>) {
+  const unique = new Set<string>()
+  for (const candidate of paths) {
+    const resolved = resolveStorageFilePath(candidate)
+    if (resolved) unique.add(resolved)
+  }
+  await Promise.all(Array.from(unique).map(async (fullPath) => {
+    try { await unlink(fullPath) } catch {}
+  }))
+}
+
+function resolveStorageFilePath(input: string | null | undefined): string | null {
+  if (!input) return null
+  let normalized = String(input).trim()
+  if (!normalized) return null
+  if (/^https?:\/\//i.test(normalized)) return null
+  normalized = normalized.replace(/\\/g, '/')
+  const root = storageRoot()
+  const normalizedRoot = root.replace(/\\/g, '/')
+  if (normalized.toLowerCase().startsWith(normalizedRoot.toLowerCase())) {
+    normalized = normalized.slice(normalizedRoot.length)
+  }
+  normalized = normalized.replace(/^\/+/, '')
+  normalized = normalized.replace(/^(?:[a-z]:)?\/?files\//i, '')
+  normalized = normalized.replace(/^(?:[a-z]:)?\/?app\/storage\//i, '')
+  normalized = normalized.replace(/^(?:[a-z]:)?\/?storage\//i, '')
+  normalized = normalized.replace(/^\/+/, '')
+  if (!normalized || path.isAbsolute(normalized) || normalized.includes('..')) return null
+  return path.join(root, normalized)
 }

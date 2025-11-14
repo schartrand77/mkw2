@@ -21,6 +21,7 @@ export default function ModelManager() {
   const [total, setTotal] = useState(0)
   const [pageSize, setPageSize] = useState(20)
   const [loading, setLoading] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -65,6 +66,27 @@ export default function ModelManager() {
     if (!res.ok) alert('Failed to save model: ' + (await res.text()))
   }
 
+  const deleteRow = async (id: string) => {
+    const target = items.find((m) => m.id === id)
+    const title = target?.title || 'this model'
+    if (!confirm(`Permanently delete "${title}"? This cannot be undone.`)) return
+    setDeletingId(id)
+    try {
+      const res = await fetch(`/api/admin/models/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || 'Failed to delete model')
+      }
+      setItems((prev) => prev.filter((m) => m.id !== id))
+      setTotal((prev) => Math.max(0, prev - 1))
+    } catch (err: any) {
+      console.error('Failed to delete model', err)
+      alert(err?.message || 'Failed to delete model')
+    } finally {
+      setDeletingId((current) => (current === id ? null : current))
+    }
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
@@ -93,8 +115,15 @@ export default function ModelManager() {
             <div className="md:col-span-5">
               <input className="input" value={m.tags.join(', ')} onChange={(e) => updateRow(i, { tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
             </div>
-            <div className="md:col-span-1">
+            <div className="md:col-span-1 flex flex-col gap-2">
               <button className="btn" onClick={() => saveRow(m)}>Save</button>
+              <button
+                className="btn bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => deleteRow(m.id)}
+                disabled={deletingId === m.id}
+              >
+                {deletingId === m.id ? 'Deleting...' : 'Delete'}
+              </button>
             </div>
             <div className="md:col-span-12 grid md:grid-cols-2 gap-3">
               <input
