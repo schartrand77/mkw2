@@ -14,7 +14,7 @@ export default async function AdminPage() {
   const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
   if (!user?.isAdmin) redirect('/')
 
-  const featuredItems = await prisma.featuredModel.findMany({ include: { model: { select: { id: true, title: true, coverImagePath: true } } }, orderBy: [{ position: 'asc' }, { createdAt: 'asc' }] })
+  const featuredItems = await prisma.featuredModel.findMany({ include: { model: { select: { id: true, title: true, coverImagePath: true, visibility: true } } }, orderBy: [{ position: 'asc' }, { createdAt: 'asc' }] })
   const initialFeatured = featuredItems.map(i => i.model)
   const cfg = await prisma.siteConfig.upsert({ where: { id: 'main' }, update: {}, create: { id: 'main' } })
 

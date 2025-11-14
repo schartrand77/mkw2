@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     where: q ? { OR: [ { title: { contains: q, mode: 'insensitive' } }, { description: { contains: q, mode: 'insensitive' } } ] } : {},
     orderBy: { createdAt: 'desc' },
     take: 20,
-    select: { id: true, title: true, coverImagePath: true }
+    select: { id: true, title: true, coverImagePath: true, visibility: true }
   })
   return NextResponse.json({ models })
 }
