@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
 
 async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
   try {
@@ -171,7 +172,7 @@ export default function EditProfilePage() {
               </div>
               <div>
                 <label className="block text-sm mb-1">Avatar</label>
-                <input type="file" accept="image/*" onChange={(e) => setAvatar(e.target.files?.[0] || null)} />
+                <input type="file" accept={IMAGE_ACCEPT_ATTRIBUTE} onChange={(e) => setAvatar(e.target.files?.[0] || null)} />
               </div>
             </div>
             <div>

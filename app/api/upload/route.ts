@@ -8,9 +8,10 @@ import { computeStlVolumeMm3, computeStlStatsMm } from '@/lib/stl'
 import JSZip from 'jszip'
 import { estimatePriceUSD } from '@/lib/pricing'
 import { refreshUserAchievements } from '@/lib/achievements'
+import sharp from 'sharp'
+import { isSupportedImageFile } from '@/lib/images'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
-const isImage = (name: string) => /\.(png|jpe?g|webp)$/i.test(name)
 
 export async function POST(req: NextRequest) {
   try {
@@ -60,12 +61,16 @@ export async function POST(req: NextRequest) {
     if (modelFiles.length === 0) return NextResponse.json({ error: 'No valid model files found' }, { status: 400 })
 
     let coverImageRel: string | undefined
-    if (image && isImage(image.name)) {
-      const imgBuf = Buffer.from(await image.arrayBuffer())
-      const imgExt = path.extname(image.name).toLowerCase() || '.png'
-      // Store cover images under userId/thumbnails
-      coverImageRel = path.join(userId, 'thumbnails', `${Date.now()}-${safeName(title) || 'cover'}${imgExt}`)
-      await saveBuffer(coverImageRel, imgBuf)
+    if (image && isSupportedImageFile(image.name, image.type)) {
+      try {
+        const imgBuf = Buffer.from(await image.arrayBuffer())
+        const processed = await sharp(imgBuf).rotate().resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
+        // Store cover images under userId/thumbnails as consistent webp assets
+        coverImageRel = path.join(userId, 'thumbnails', `${Date.now()}-${safeName(title) || 'cover'}.webp`)
+        await saveBuffer(coverImageRel, processed)
+      } catch (err) {
+        console.error('Failed to process cover image:', err)
+      }
     }
 
     // Save files and create model + parts

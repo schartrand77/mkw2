@@ -1,6 +1,7 @@
 "use client"
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
 
 async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
   try {
@@ -96,7 +97,7 @@ export default function UploadPage() {
         </div>
         <div>
           <label className="block text-sm mb-1">Cover image (optional)</label>
-          <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
+          <input type="file" accept={IMAGE_ACCEPT_ATTRIBUTE} onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
         </div>
         <button className="btn" disabled={loading}>{loading ? 'Uploading…' : 'Upload'}</button>
         <p className="text-xs text-slate-400">Sign in not required for demo; will attach to anonymous user.</p>

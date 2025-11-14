@@ -120,13 +120,17 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
                 </li>
               ))}
             </ul>
-            <div className="mt-3">
-              <a className="btn" href={`/api/models/${model.id}/download.zip`}>Download All</a>
-            </div>
+            <p className="text-xs text-slate-500 mt-3">Need everything? Use the main download button to grab a zipped bundle.</p>
           </div>
         )}
         <div className="flex gap-3">
-          <a href={src} download className="btn">Download</a>
+          <a
+            href={hasParts ? `/api/models/${model.id}/download.zip` : src}
+            {...(!hasParts ? { download: true } : {})}
+            className="btn"
+          >
+            {hasParts ? 'Download All Parts (.zip)' : 'Download Model'}
+          </a>
           {payload && (
             <form action={`/api/models/${model.id}/like`} method="post">
               <button className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20" formAction={`/api/models/${model.id}/like`}>Like</button>

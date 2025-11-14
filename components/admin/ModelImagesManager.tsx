@@ -1,5 +1,6 @@
 "use client"
 import { useCallback, useEffect, useState } from 'react'
+import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
 
 type ModelImage = { id: string; filePath: string; caption: string | null }
 
@@ -115,7 +116,7 @@ export default function ModelImagesManager({ modelId, initialCover }: { modelId:
       <form onSubmit={upload} className="glass p-4 rounded-xl space-y-3">
         <h2 className="text-lg font-semibold">Add image</h2>
         {error && <div className="text-amber-400 text-sm">{error}</div>}
-        <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+        <input type="file" accept={IMAGE_ACCEPT_ATTRIBUTE} onChange={(e) => setFile(e.target.files?.[0] || null)} />
         <input className="input" placeholder="Caption (optional)" value={caption} onChange={(e) => setCaption(e.target.value)} />
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={setCover} onChange={(e) => setSetCover(e.target.checked)} />

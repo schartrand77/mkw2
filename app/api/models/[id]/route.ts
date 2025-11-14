@@ -74,7 +74,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (image) {
     const buf = Buffer.from(await image.arrayBuffer())
     // Process to reasonable size webp
-    const out = await sharp(buf).resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
+    const out = await sharp(buf).rotate().resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
     // Save cover under userId/thumbnails
     const rel = path.join(userId, 'thumbnails', `${Date.now()}-cover.webp`)
     if (existing.coverImagePath) {

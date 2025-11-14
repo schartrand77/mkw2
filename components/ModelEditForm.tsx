@@ -1,6 +1,7 @@
 "use client"
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
 
 type Model = { id: string; title: string; description?: string | null; material?: string | null; coverImagePath?: string | null }
 
@@ -56,7 +57,7 @@ export default function ModelEditForm({ model }: { model: Model }) {
       <div className="grid md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm mb-1">Cover image</label>
-          <input type="file" accept="image/*" onChange={(e) => setCover(e.target.files?.[0] || null)} />
+          <input type="file" accept={IMAGE_ACCEPT_ATTRIBUTE} onChange={(e) => setCover(e.target.files?.[0] || null)} />
         </div>
         <div className="flex items-center gap-2">
           <input id="rm" type="checkbox" checked={removeCover} onChange={(e) => setRemoveCover(e.target.checked)} />

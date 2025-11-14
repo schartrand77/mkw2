@@ -8,8 +8,7 @@ import sharp from 'sharp'
 import { unlink } from 'fs/promises'
 import path from 'path'
 import { ensureUserPage, slugify } from '@/lib/userpage'
-
-const isImage = (name: string) => /\.(png|jpe?g|webp)$/i.test(name)
+import { isSupportedImageFile } from '@/lib/images'
 
 export async function GET() {
   const userId = await getUserIdFromCookie()
@@ -94,10 +93,10 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  if (avatarFile && isImage(avatarFile.name)) {
+  if (avatarFile && isSupportedImageFile(avatarFile.name, avatarFile.type)) {
     const buf = Buffer.from(await avatarFile.arrayBuffer())
     // Process avatar to 512x512 webp, center-crop
-    const out = await sharp(buf).resize(512, 512, { fit: 'cover' }).webp({ quality: 90 }).toBuffer()
+    const out = await sharp(buf).rotate().resize(512, 512, { fit: 'cover' }).webp({ quality: 90 }).toBuffer()
     // Store avatars under {userId}/avatars/{timestamp}.webp for per-user organization
     const rel = path.join(userId, 'avatars', `${Date.now()}.webp`)
     // Cleanup old avatar if any

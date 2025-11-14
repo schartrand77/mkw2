@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const setCover = normalizeFlag(form.get('setCover'))
 
   const buf = Buffer.from(await image.arrayBuffer())
-  const processed = await sharp(buf).resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
+  const processed = await sharp(buf).rotate().resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
   const rel = path.join(model.userId, 'gallery', `${model.id}-${Date.now()}.webp`)
   await saveBuffer(rel, processed)
   const publicPath = `/${rel.replace(/\\/g, '/')}`
