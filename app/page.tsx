@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { formatCurrency } from '@/lib/currency'
 
 async function fetchFeatured() {
@@ -24,18 +23,6 @@ export default async function HomePage() {
           <div className="mt-6 flex items-center justify-center gap-3">
             <Link href="/upload" className="btn">Upload a Model</Link>
             <Link href="/discover" className="px-4 py-2 rounded-md border border-white/10 hover:border-white/20">Browse Library</Link>
-          </div>
-        </div>
-        <div className="glass rounded-3xl border border-white/10 overflow-hidden shadow-2xl shadow-black/40">
-          <div className="relative w-full aspect-[32/13]">
-            <Image
-              src="/makerworks-banner.svg"
-              alt="MakerWorks brand banner"
-              fill
-              priority
-              sizes="(min-width: 1024px) 1024px, 100vw"
-              className="object-cover"
-            />
           </div>
         </div>
       </section>
