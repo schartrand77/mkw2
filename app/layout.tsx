@@ -16,10 +16,13 @@ export const metadata = {
   title: 'MakerWorks v2',
   description: '3D printing model hosting & cost estimation',
   manifest: '/manifest.webmanifest',
-  themeColor: '#000000',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent' },
   other: { 'mobile-web-app-capable': 'yes' },
   icons: { icon: '/favicon.svg', apple: '/favicon.svg' },
+}
+
+export const viewport = {
+  themeColor: '#000000',
 }
 
 function GearGlyph() {

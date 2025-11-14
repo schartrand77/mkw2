@@ -5,6 +5,7 @@ import path from 'path'
 import sharp from 'sharp'
 import { saveBuffer } from '@/lib/storage'
 import { serializeModelImage, serializeModelImages } from '@/lib/model-images'
+import { ensureProcessableImageBuffer } from '@/lib/images'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,7 +43,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const setCover = normalizeFlag(form.get('setCover'))
 
   const buf = Buffer.from(await image.arrayBuffer())
-  const processed = await sharp(buf).rotate().resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
+  const safeBuf = await ensureProcessableImageBuffer(buf, { filename: image.name, mimeType: image.type })
+  const processed = await sharp(safeBuf).rotate().resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
   const rel = path.join(model.userId, 'gallery', `${model.id}-${Date.now()}.webp`)
   await saveBuffer(rel, processed)
   const publicPath = `/${rel.replace(/\\/g, '/')}`

@@ -34,7 +34,11 @@ export async function awardIf(prisma: PrismaClient, userId: string, key: string,
   const ach = await prisma.achievement.findUnique({ where: { key } })
   if (!ach) return
   try {
-    await prisma.userAchievement.create({ data: { userId, achievementId: ach.id } })
+    await prisma.userAchievement.upsert({
+      where: { userId_achievementId: { userId, achievementId: ach.id } },
+      update: {},
+      create: { userId, achievementId: ach.id },
+    })
   } catch {
     // already awarded
   }
