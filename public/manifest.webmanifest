@@ -9,10 +9,6 @@
   "theme_color": "#000000",
   "lang": "en",
   "icons": [
-    { "src": "/makerworks-icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" },
     { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
-  ],
-  "screenshots": [
-    { "src": "/makerworks-banner.svg", "sizes": "1600x650", "type": "image/svg+xml", "label": "MakerWorks hero artwork" }
   ]
 }
