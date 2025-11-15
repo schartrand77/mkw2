@@ -28,7 +28,7 @@ export const viewport = {
 function GearGlyph() {
   return (
     <span className="block text-lg md:text-xl leading-none" aria-hidden="true">
-      ??
+      ⚙️
     </span>
   )
 }
