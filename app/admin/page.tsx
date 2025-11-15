@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import FeaturedManager from '@/components/admin/FeaturedManager'
 import SiteConfigForm from '@/components/admin/SiteConfigForm'
+import BackupControls from '@/components/admin/BackupControls'
 import ModelManager from '@/components/admin/ModelManager'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -25,8 +26,11 @@ export default async function AdminPage() {
         <div className="glass p-6 rounded-xl">
           <FeaturedManager initial={initialFeatured} />
         </div>
-        <div className="glass p-6 rounded-xl">
-          <SiteConfigForm initial={cfg as any} />
+        <div className="space-y-6">
+          <div className="glass p-6 rounded-xl">
+            <SiteConfigForm initial={cfg as any} />
+          </div>
+          <BackupControls />
         </div>
       </div>
       <div className="flex items-center gap-3">

@@ -33,6 +33,7 @@ prisma/*.db-journal
 # Storage
 storage/*
 !storage/.gitkeep
+backups/
 
 # Misc
 .DS_Store

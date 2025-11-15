@@ -32,6 +32,14 @@ Local Dev (without Docker)
 4. Apply schema: `npm run prisma:migrate`
 5. Run dev server: `npm run dev`
 
+Backups
+- Run `npm run backup` to capture a snapshot of the Postgres database and `/storage` uploads.
+- The script creates `backups/<timestamp>/db.sql` (from `pg_dump`) plus a copy of the current `storage/` tree. The `backups/` directory is ignored by git.
+- When Docker Compose is running it uses `docker compose exec db pg_dump`; otherwise it falls back to the local `pg_dump` binary and the configured `DATABASE_URL`.
+- Automate by adding `npm run backup` to cron/Task Scheduler or invoking it from CI before deployments.
+- Admins can also trigger a backup from the dashboard’s Backups card; the snapshot is written to `/files/backups/<timestamp>/`.
+- Restores are scheduled from the same UI: pick a backup, acknowledge the warning, and restart the app/container. On restart the pending restore drops/reloads the database and replaces `/storage` (removing any newer uploads).
+
 Admin Account
 - Configure in env: `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` (optional)
 - On startup, a bootstrap script upserts the admin user and sets `isAdmin=true`.
