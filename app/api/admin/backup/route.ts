@@ -3,7 +3,7 @@ import path from 'path'
 import { requireAdmin } from '../_utils'
 import { storageRoot, toPublicHref } from '@/lib/storage'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { runBackup } = require(path.join(process.cwd(), 'scripts', 'backup.js'))
+const { runBackup } = require('@/lib/backups')
 
 export const dynamic = 'force-dynamic'
 

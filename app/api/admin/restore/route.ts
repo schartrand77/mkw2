@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import path from 'path'
 import { requireAdmin } from '../_utils'
 import { storageRoot, toPublicHref } from '@/lib/storage'
 
-const restoreModule = require(path.join(process.cwd(), 'scripts', 'restore.js'))
+const restoreModule = require('@/lib/backups')
 
 export const dynamic = 'force-dynamic'
 
