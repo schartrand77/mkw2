@@ -13,6 +13,7 @@ export default function BackupControls() {
   const [latestMessage, setLatestMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmRestore, setConfirmRestore] = useState(false)
+  const [retrying, setRetrying] = useState(false)
 
   const loadBackups = async () => {
     setLoading(true)
@@ -32,6 +33,22 @@ export default function BackupControls() {
       setError(err?.message || 'Failed to load backups')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const triggerRetry = async () => {
+    setRetrying(true)
+    setError(null)
+    setLatestMessage(null)
+    try {
+      const res = await fetch('/api/admin/orderworks/retry', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Retry failed')
+      setLatestMessage(`OrderWorks jobs processed: ${data.processed ?? 0}`)
+    } catch (err: any) {
+      setError(err?.message || 'Failed to retry OrderWorks jobs')
+    } finally {
+      setRetrying(false)
     }
   }
 
@@ -138,6 +155,15 @@ export default function BackupControls() {
             Pending restore: {pending.folder} (scheduled {new Date(pending.scheduledAt).toLocaleString()}). Restart the app to apply.
           </div>
         )}
+      </div>
+      <div className="border-t border-white/10 pt-4 space-y-2">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-200">OrderWorks queue</h3>
+          <p className="text-xs text-slate-500">Retries sending job forms to OrderWorks webhook.</p>
+        </div>
+        <button className="px-3 py-2 rounded-md border border-white/10 text-sm hover:border-white/20 disabled:opacity-50" type="button" onClick={triggerRetry} disabled={retrying}>
+          {retrying ? 'Retrying…' : 'Retry pending jobs'}
+        </button>
       </div>
     </div>
   )

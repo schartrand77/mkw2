@@ -9,6 +9,8 @@ Overview
 - Automatic user page creation upon register/login with route `/u/{slug}` and quick link at `/me`.
 - Production/development ready Docker Compose
 - Admin dashboard to manage featured models and basic site settings
+- Each checkout logs an OrderWorks job form with full cart + shipping details for downstream client/invoicing workflows
+- Optional OrderWorks webhook queue pushes each job form to `ORDERWORKS_WEBHOOK_URL` and lets admins retry pending jobs
 - Embedded Stripe Payment Element checkout keeps purchases inside the app (no redirects)
 
 Quick Start (Docker)
@@ -39,6 +41,10 @@ Backups
 - Automate by adding `npm run backup` to cron/Task Scheduler or invoking it from CI before deployments.
 - Admins can also trigger a backup from the dashboard’s Backups card; the snapshot is written to `/files/backups/<timestamp>/`.
 - Restores are scheduled from the same UI: pick a backup, acknowledge the warning, and restart the app/container. On restart the pending restore drops/reloads the database and replaces `/storage` (removing any newer uploads).
+
+OrderWorks Integration
+- Set `ORDERWORKS_WEBHOOK_URL` (and optional `ORDERWORKS_WEBHOOK_SECRET`) so each checkout POSTs a job form to your OrderWorks instance.
+- Jobs are persisted in the `JobForm` table; webhook failures are retried manually from the Admin dashboard.
 
 Admin Account
 - Configure in env: `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` (optional)

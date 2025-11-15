@@ -7,6 +7,7 @@ import { getUserIdFromCookie } from '@/lib/auth'
 import { z } from 'zod'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { clampScale, getColorMultiplier, normalizeColors, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
+import { recordOrderWorksJob } from '@/lib/orderworks'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,14 +71,23 @@ export async function POST(req: NextRequest) {
     if (modelMap.size !== ids.length) {
       return NextResponse.json({ error: 'One or more models are unavailable' }, { status: 404 })
     }
+    const fallbackPrice = (() => {
+      if (cfg?.minimumPriceUsd != null && !Number.isNaN(Number(cfg.minimumPriceUsd))) {
+        return Math.max(1, Number(cfg.minimumPriceUsd))
+      }
+      const fromEnv = getCurrency() === 'CAD'
+        ? parseFloat(process.env.MINIMUM_PRICE_CAD || process.env.MINIMUM_PRICE_USD || '1')
+        : parseFloat(process.env.MINIMUM_PRICE_USD || '1')
+      return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : 1
+    })()
 
     const lineItems: CheckoutLineItem[] = items.map((entry) => {
       const model = modelMap.get(entry.modelId)!
       const cm3 = model.volumeMm3 ? model.volumeMm3 / 1000 : null
       const materialChoice: MaterialType = entry.material || (model.material?.toUpperCase() === 'PETG' ? 'PETG' : 'PLA')
       const colors = normalizeColors(entry.colors)
-      const basePrice = (cm3 != null ? estimatePrice({ cm3, material: materialChoice, cfg }) : null) ?? model.priceUsd
-      if (basePrice == null || !isFinite(basePrice)) {
+      const basePrice = (cm3 != null ? estimatePrice({ cm3, material: materialChoice, cfg }) : null) ?? model.priceUsd ?? fallbackPrice
+      if (!isFinite(basePrice) || basePrice <= 0) {
         throw new Error(`Model ${model.id} is missing pricing data`)
       }
       const clampedScale = clampScale(entry.scale)
@@ -127,6 +137,24 @@ export async function POST(req: NextRequest) {
           : '',
       },
     })
+
+    try {
+      await recordOrderWorksJob({
+        paymentIntentId: intent.id,
+        amountCents: amount,
+        currency: currency.toUpperCase(),
+        lineItems,
+        shipping: shipping || { method: 'pickup' },
+        userId,
+        customerEmail,
+        metadata: {
+          cartItems: items,
+          shipping,
+        },
+      })
+    } catch (jobErr) {
+      console.error('Failed to record OrderWorks job', jobErr)
+    }
 
     return NextResponse.json({
       paymentIntentId: intent.id,
