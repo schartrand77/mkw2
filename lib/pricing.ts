@@ -34,7 +34,15 @@ export function estimatePrice({ cm3, material, cfg }: PricingInputs): number {
   const grams = effCm3 * density
   const materialCost = grams * (resolveMaterialPricePerKg(m === 'PETG' ? 'PETG' : 'PLA', currency, cfg) / KG_IN_GRAMS)
 
-  const speed = cfg?.printSpeedCm3PerHour && cfg.printSpeedCm3PerHour > 0 ? Number(cfg.printSpeedCm3PerHour) : 15
+  const configuredSpeed = cfg?.printSpeedCm3PerHour != null ? Number(cfg.printSpeedCm3PerHour) : NaN
+  let speed = configuredSpeed
+  if (!speed || Number.isNaN(speed) || speed <= 0) {
+    speed = 15
+  } else if (speed > 0 && speed <= 3) {
+    // Many admins think in cm^3/minute; small values lead to wildly high price.
+    // Treat inputs between 0 and 3 as cm^3/minute and convert to hourly throughput.
+    speed = speed * 60
+  }
   const hours = effCm3 / speed
   const laborRate = cfg?.laborPerHourUsd != null
     ? Number(cfg.laborPerHourUsd)

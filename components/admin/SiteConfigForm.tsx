@@ -69,6 +69,7 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
         <div>
           <label className="block text-sm mb-1">Print speed (cm^3/hour)</label>
           <input className="input" type="number" step="0.01" value={cfg.printSpeedCm3PerHour ?? ''} onChange={(e) => setCfg({ ...cfg, printSpeedCm3PerHour: e.target.value === '' ? null : Number(e.target.value) })} />
+          <p className="text-xs text-slate-400 mt-1">Values 0-3 are treated as cm³ per minute for convenience.</p>
         </div>
       </div>
 
