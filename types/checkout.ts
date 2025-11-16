@@ -26,6 +26,8 @@ export type ShippingSelection = {
   address?: ShippingAddress | null
 }
 
+export type CheckoutPaymentMethod = 'card' | 'cash'
+
 export type CheckoutLineItem = {
   modelId: string
   title: string
@@ -47,4 +49,6 @@ export type CheckoutIntentResponse = {
   total: number
   lineItems: CheckoutLineItem[]
   shipping?: ShippingSelection
+  paymentMethod: CheckoutPaymentMethod
+  committed: boolean
 }

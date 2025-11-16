@@ -6,7 +6,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import CheckoutForm from '@/components/checkout/CheckoutForm'
 import OrderSummary from '@/components/checkout/OrderSummary'
 import { useCart } from '@/components/cart/CartProvider'
-import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress } from '@/types/checkout'
+import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, CheckoutPaymentMethod } from '@/types/checkout'
 import type { Appearance, PaymentIntent } from '@stripe/stripe-js'
 import { normalizeColors } from '@/lib/cartPricing'
 
@@ -43,6 +43,10 @@ export default function CheckoutPage() {
   const [successIntent, setSuccessIntent] = useState<PaymentIntent | null>(null)
   const [profile, setProfile] = useState<ProfileResponse | null>(null)
   const [shippingMethod, setShippingMethod] = useState<'pickup' | 'ship'>('pickup')
+  const cardPaymentAvailable = Boolean(stripePromise)
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(cardPaymentAvailable ? 'card' : 'cash')
+  const [cashConfirmationId, setCashConfirmationId] = useState<string | null>(null)
+  const [cashProcessing, setCashProcessing] = useState(false)
 
   const checkoutItems = useMemo<CheckoutItemInput[]>(() => (
     items.map((item) => ({
@@ -77,6 +81,18 @@ export default function CheckoutPage() {
   }), [shippingMethod, shippingAddress])
 
   useEffect(() => {
+    if (shippingMethod === 'ship' && paymentMethod === 'cash') {
+      setPaymentMethod('card')
+    }
+  }, [shippingMethod, paymentMethod])
+
+  useEffect(() => {
+    if (items.length > 0 && cashConfirmationId) {
+      setCashConfirmationId(null)
+    }
+  }, [items.length, cashConfirmationId])
+
+  useEffect(() => {
     let mounted = true
     fetch('/api/profile', { cache: 'no-store' })
       .then(async (res) => {
@@ -94,7 +110,7 @@ export default function CheckoutPage() {
       return
     }
     if (shippingMethod === 'ship' && !shippingAddress) {
-      setError('Add a shipping address under Settings â†’ Profile before selecting shipping.')
+      setError('Add a shipping address under Settings → Profile before selecting shipping.')
       setIntent(null)
       return
     }
@@ -104,7 +120,12 @@ export default function CheckoutPage() {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: checkoutItems, shipping: shippingSelection }),
+        body: JSON.stringify({
+          items: checkoutItems,
+          shipping: shippingSelection,
+          paymentMethod,
+          commit: paymentMethod === 'card',
+        }),
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
@@ -117,7 +138,7 @@ export default function CheckoutPage() {
     } finally {
       setLoading(false)
     }
-  }, [checkoutItems, shippingSelection, shippingAddress, shippingMethod])
+  }, [checkoutItems, shippingSelection, shippingAddress, shippingMethod, paymentMethod])
 
   useEffect(() => {
     fetchIntent()
@@ -125,7 +146,39 @@ export default function CheckoutPage() {
 
   const handleSuccess = (pi: PaymentIntent) => {
     setSuccessIntent(pi)
+    setCashConfirmationId(null)
     clear()
+  }
+
+  const handleCashConfirm = async () => {
+    if (!checkoutItems.length || paymentMethod !== 'cash') return
+    setCashProcessing(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: checkoutItems,
+          shipping: shippingSelection,
+          paymentMethod: 'cash',
+          commit: true,
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Unable to place cash order.')
+      }
+      const data = await res.json() as CheckoutIntentResponse
+      setCashConfirmationId(data.paymentIntentId)
+      setSuccessIntent(null)
+      setIntent(null)
+      clear()
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong.')
+    } finally {
+      setCashProcessing(false)
+    }
   }
 
   const appearance: Appearance = useMemo(() => ({
@@ -138,17 +191,7 @@ export default function CheckoutPage() {
     },
   }), [])
 
-  if (!stripePromise) {
-    return (
-      <div className="max-w-2xl mx-auto space-y-4">
-        <h1 className="text-2xl font-semibold">Checkout</h1>
-        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Securely processed via Stripe</p>
-        <p className="text-sm text-amber-300">Stripe publishable key is not configured. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to enable checkout.</p>
-      </div>
-    )
-  }
-
-  if (!items.length && !successIntent) {
+  if (!items.length && !successIntent && !cashConfirmationId) {
     return (
       <div className="max-w-2xl mx-auto space-y-4">
         <h1 className="text-2xl font-semibold">Checkout</h1>
@@ -223,7 +266,7 @@ export default function CheckoutPage() {
                 value="ship"
                 checked={shippingMethod === 'ship'}
                 onChange={() => setShippingMethod('ship')}
-                disabled={!shippingAddress}
+                disabled={!shippingAddress || !cardPaymentAvailable}
               />
               Ship to saved address
             </label>
@@ -235,33 +278,95 @@ export default function CheckoutPage() {
                 <div>{shippingAddress.line1}</div>
                 {shippingAddress.line2 && <div>{shippingAddress.line2}</div>}
                 <div>{shippingAddress.city}{shippingAddress.state ? `, ${shippingAddress.state}` : ''}</div>
-                <div>{shippingAddress.postalCode}{shippingAddress.country ? ` Â· ${shippingAddress.country}` : ''}</div>
+                <div>{shippingAddress.postalCode}{shippingAddress.country ? ` - ${shippingAddress.country}` : ''}</div>
               </div>
             ) : (
-              <p className="text-xs text-amber-300">Add your shipping address under Settings â†’ Profile to enable shipping.</p>
+              <p className="text-xs text-amber-300">Add your shipping address under Settings {'->'} Profile to enable shipping.</p>
             )
+          )}
+        </div>
+        <div className="glass rounded-xl border border-white/10 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Payment</h2>
+            {!cardPaymentAvailable && (
+              <span className="text-xs text-amber-300">Stripe key missing</span>
+            )}
+          </div>
+          <div className="space-y-2 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="payment"
+                value="card"
+                checked={paymentMethod === 'card'}
+                onChange={() => setPaymentMethod('card')}
+                disabled={!cardPaymentAvailable}
+              />
+              Pay now (credit/debit)
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="payment"
+                value="cash"
+                checked={paymentMethod === 'cash'}
+                onChange={() => setPaymentMethod('cash')}
+                disabled={shippingMethod !== 'pickup'}
+              />
+              Pay cash at pickup
+            </label>
+          </div>
+          {shippingMethod !== 'pickup' && (
+            <p className="text-xs text-slate-400">Switch to local pickup to enable cash payments.</p>
+          )}
+          {paymentMethod === 'card' && !cardPaymentAvailable && (
+            <p className="text-xs text-amber-300">Stripe publishable key is not configured. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to enable card payments.</p>
           )}
         </div>
         {intent && (
           <OrderSummary items={intent.lineItems} currency={intent.currency} total={intent.total} />
         )}
-        {loading && <p className="text-sm text-slate-400">Preparing secure paymentâ€¦</p>}
+        {loading && (
+          <p className="text-sm text-slate-400">
+            {paymentMethod === 'cash' ? 'Calculating total...' : 'Preparing secure payment...'}
+          </p>
+        )}
         {error && <p className="text-sm text-amber-300">{error}</p>}
-        {successIntent && (
+        {(successIntent || cashConfirmationId) && (
           <div className="glass rounded-xl border border-emerald-500/30 p-4 text-sm">
-            <p className="font-semibold text-emerald-300">Payment received!</p>
-            <p>Confirmation: {successIntent.id}</p>
+            <p className="font-semibold text-emerald-300">
+              {successIntent ? 'Payment received!' : 'Cash order placed!'}
+            </p>
+            <p>Confirmation: {successIntent ? successIntent.id : cashConfirmationId}</p>
           </div>
         )}
       </div>
       <div className="glass rounded-2xl border border-white/10 p-6 space-y-4">
-        {!intent && !loading && <p className="text-sm text-slate-400">Add items to your cart to start checkout.</p>}
-        {intent?.clientSecret && stripePromise && !successIntent && (
+        {!intent && !loading && !successIntent && !cashConfirmationId && (
+          <p className="text-sm text-slate-400">Add items to your cart to start checkout.</p>
+        )}
+        {paymentMethod === 'card' && intent?.clientSecret && stripePromise && !successIntent && (
           <Elements stripe={stripePromise} options={{ clientSecret: intent.clientSecret, appearance }}>
             <CheckoutForm amount={intent.amount} currency={intent.currency} onSuccess={handleSuccess} />
           </Elements>
         )}
-        {successIntent && (
+        {paymentMethod === 'card' && (!stripePromise || !cardPaymentAvailable) && (
+          <p className="text-sm text-amber-300">Stripe publishable key is not configured. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to enable card payments.</p>
+        )}
+        {paymentMethod === 'cash' && intent && !cashConfirmationId && (
+          <div className="space-y-3 text-sm text-slate-300">
+            <p>Bring exact cash to MakerWorks lab when you pick up your order. We will email you once printing is complete.</p>
+            <button
+              type="button"
+              onClick={handleCashConfirm}
+              disabled={cashProcessing}
+              className="btn w-full justify-center disabled:opacity-60"
+            >
+              {cashProcessing ? 'Placing order...' : 'Confirm cash order'}
+            </button>
+          </div>
+        )}
+        {(successIntent || cashConfirmationId) && (
           <p className="text-sm text-slate-300">You can close this tab or continue browsing models.</p>
         )}
       </div>

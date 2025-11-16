@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { estimatePrice } from '@/lib/pricing'
@@ -37,22 +38,31 @@ const itemSchema = z.object({
 const payloadSchema = z.object({
   items: z.array(itemSchema).min(1),
   shipping: shippingSchema,
+  paymentMethod: z.enum(['card', 'cash']).default('card'),
+  commit: z.boolean().optional(),
 })
 
 export async function POST(req: NextRequest) {
   try {
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
-    }
-
     const json = await req.json()
     const parsed = payloadSchema.safeParse(json)
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid cart payload' }, { status: 400 })
     }
 
+    const paymentMethod = parsed.data.paymentMethod || 'card'
+    const commit = paymentMethod === 'card' ? true : Boolean(parsed.data.commit)
+    const isCash = paymentMethod === 'cash'
+
+    if (paymentMethod !== 'cash' && !process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
+    }
+
     const items = parsed.data.items
     const shipping = parsed.data.shipping as ShippingSelection | undefined
+    if (isCash && shipping && shipping.method !== 'pickup') {
+      return NextResponse.json({ error: 'Cash payments are only available for local pickup' }, { status: 400 })
+    }
     if (shipping?.method === 'ship') {
       const addr = shipping.address as ShippingSelection['address']
       if (!addr || !addr.name || !addr.line1 || !addr.city || !addr.postalCode || !addr.country) {
@@ -116,54 +126,72 @@ export async function POST(req: NextRequest) {
     const amount = Math.max(1, Math.round(total * 100))
     const currency = getCurrency().toLowerCase()
 
-    const stripe = getStripe()
+    const shippingPayload: ShippingSelection = shipping || { method: 'pickup' }
     const metadataItems = lineItems.slice(0, 20).map((item) => `${item.qty}x ${item.title}`).join(', ')
     const userId = await getUserIdFromCookie()
     const customerEmail = userId
       ? (await prisma.user.findUnique({ where: { id: userId }, select: { email: true } }))?.email
       : undefined
+    const currencyCode = currency.toUpperCase()
 
-    const intent = await stripe.paymentIntents.create({
-      amount,
-      currency,
-      automatic_payment_methods: { enabled: true },
-      receipt_email: customerEmail || undefined,
-      metadata: {
-        cart: metadataItems.slice(0, 500),
-        userId: userId || '',
-        shippingMethod: shipping?.method || 'pickup',
-        shippingAddress: shipping?.method === 'ship' && shipping.address
-          ? `${shipping.address.name || ''} | ${shipping.address.line1 || ''} ${shipping.address.line2 || ''}, ${shipping.address.city || ''}, ${shipping.address.state || ''} ${shipping.address.postalCode || ''}, ${shipping.address.country || ''}`
-          : '',
-      },
-    })
+    let paymentIntentId: string
+    let clientSecret: string | null = null
 
-    try {
-      await recordOrderWorksJob({
-        paymentIntentId: intent.id,
-        amountCents: amount,
-        currency: currency.toUpperCase(),
-        lineItems,
-        shipping: shipping || { method: 'pickup' },
-        userId,
-        customerEmail,
+    if (paymentMethod === 'card') {
+      const stripe = getStripe()
+      const intent = await stripe.paymentIntents.create({
+        amount,
+        currency,
+        automatic_payment_methods: { enabled: true },
+        receipt_email: customerEmail || undefined,
         metadata: {
-          cartItems: items,
-          shipping,
+          cart: metadataItems.slice(0, 500),
+          userId: userId || '',
+          shippingMethod: shipping?.method || 'pickup',
+          shippingAddress: shipping?.method === 'ship' && shipping.address
+            ? `${shipping.address.name || ''} | ${shipping.address.line1 || ''} ${shipping.address.line2 || ''}, ${shipping.address.city || ''}, ${shipping.address.state || ''} ${shipping.address.postalCode || ''}, ${shipping.address.country || ''}`
+            : '',
         },
       })
-    } catch (jobErr) {
-      console.error('Failed to record OrderWorks job', jobErr)
+      paymentIntentId = intent.id
+      clientSecret = intent.client_secret
+    } else if (!commit) {
+      paymentIntentId = `cash_preview_${randomUUID()}`
+    } else {
+      paymentIntentId = `cash_${randomUUID()}`
+    }
+
+    if (commit) {
+      try {
+        await recordOrderWorksJob({
+          paymentIntentId,
+          amountCents: amount,
+          currency: currencyCode,
+          lineItems,
+          shipping: shippingPayload,
+          userId,
+          customerEmail,
+          metadata: {
+            cartItems: items,
+            shipping,
+            paymentMethod,
+          },
+        })
+      } catch (jobErr) {
+        console.error('Failed to record OrderWorks job', jobErr)
+      }
     }
 
     return NextResponse.json({
-      paymentIntentId: intent.id,
-      clientSecret: intent.client_secret,
-      currency: currency.toUpperCase(),
+      paymentIntentId,
+      clientSecret,
+      currency: currencyCode,
       amount,
       total: Number(total.toFixed(2)),
       lineItems,
-      shipping: shipping || { method: 'pickup' },
+      shipping: shippingPayload,
+      paymentMethod,
+      committed: commit,
     })
   } catch (err: any) {
     console.error('Stripe checkout error:', err)
