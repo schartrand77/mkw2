@@ -185,7 +185,10 @@ body.holiday-halloween .btn {
   animation-timing-function: linear;
 }
 .holiday-snowflake[data-variant="0"] { animation-name: holiday-snowfall-left; }
-.holiday-snowflake[data-variant="1"] { animation-name: holiday-snowfall-right; }
+.holiday-snowflake[data-variant="1"] {
+  animation-name: holiday-snowfall-right;
+  animation-direction: normal;
+}
 .holiday-snowflake[data-variant="2"] { animation-name: holiday-snowfall-center; }
 @keyframes holiday-snowfall-left {
   0% { transform: translate3d(-2vw, -20vh, 0); }
