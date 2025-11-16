@@ -78,6 +78,9 @@ Core Endpoints
   - `PATCH /api/admin/site-config` update config
   - `GET /api/admin/search-models?q=` search models
 
+Holiday Theming
+- Flip the `HOLIDAY_THEME` (and optional `NEXT_PUBLIC_HOLIDAY_THEME`) env var to `christmas`, `halloween`, or `easter` to apply matching UI flourishes. Christmas adds falling snow while the others adjust gradients and floating particles. Leave blank/undefined for the default look.
+
 Storage Layout
 - Models: `/app/storage/{userId}/models/{timestamp}-{slug}.{ext}`
 - Thumbnails: `/app/storage/{userId}/thumbnails/{timestamp}-{slug}.{ext}`

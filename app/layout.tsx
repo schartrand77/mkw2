@@ -10,6 +10,8 @@ import Announcements from '@/components/notifications/Announcements'
 import PWARegister from '@/components/PWARegister'
 import ExtensionsGuard from '@/components/ExtensionsGuard'
 import CartProvider from '@/components/cart/CartProvider'
+import HolidayEffects from '@/components/HolidayEffects'
+import type { HolidayTheme } from '@/components/HolidayEffects'
 
 export const dynamic = 'force-dynamic'
 export const metadata = {
@@ -33,12 +35,21 @@ function GearGlyph() {
   )
 }
 
+function resolveHolidayTheme(): HolidayTheme | null {
+  const raw = (process.env.NEXT_PUBLIC_HOLIDAY_THEME || process.env.HOLIDAY_THEME || '').toLowerCase()
+  if (raw === 'christmas' || raw === 'halloween' || raw === 'easter') {
+    return raw
+  }
+  return null
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const token = cookies().get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   const authed = !!payload
   let avatarUrl: string | null = null
   let isAdmin = false
+  const holidayTheme = resolveHolidayTheme()
   if (payload?.sub) {
     const profile = await prisma.profile.findUnique({ where: { userId: payload.sub }, select: { avatarImagePath: true } })
     const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
@@ -47,7 +58,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
   return (
     <html lang="en">
-      <body>
+      <body className={holidayTheme ? `holiday-${holidayTheme}` : undefined}>
         <CartProvider>
         <NotificationsProvider>
         <header className="sticky top-0 z-50 border-b border-white/10 bg-black/50 backdrop-blur header-safe">
@@ -82,6 +93,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </footer>
         <Announcements />
         <ExtensionsGuard />
+        <HolidayEffects theme={holidayTheme} />
         <PWARegister />
         </NotificationsProvider>
         </CartProvider>

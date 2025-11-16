@@ -124,3 +124,138 @@ html.theme-light .marquee-fade-right {
   background: linear-gradient(270deg, rgba(247, 247, 249, 0.95), rgba(247, 247, 249, 0));
 }
 
+/* Holiday theming */
+body.holiday-christmas {
+  background:
+    radial-gradient(1400px 800px at 100% -20%, rgba(56, 189, 248, 0.12), transparent),
+    radial-gradient(900px 700px at 0% 0%, rgba(74, 222, 128, 0.18), transparent),
+    #030712;
+}
+body.holiday-halloween {
+  background:
+    radial-gradient(1000px 600px at 20% -10%, rgba(249, 115, 22, 0.25), transparent),
+    radial-gradient(800px 600px at 100% 20%, rgba(126, 34, 206, 0.24), transparent),
+    #0f0a14;
+}
+body.holiday-easter {
+  background:
+    radial-gradient(1200px 600px at 50% -20%, rgba(232, 121, 249, 0.15), transparent),
+    radial-gradient(600px 400px at 0% 30%, rgba(74, 222, 128, 0.1), transparent),
+    #faf5ff;
+  color: #111827;
+}
+body.holiday-easter .glass {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(15, 23, 42, 0.1);
+}
+body.holiday-easter .btn {
+  box-shadow: 0 10px 35px rgba(109, 40, 217, 0.25);
+}
+body.holiday-christmas .btn {
+  box-shadow: 0 8px 25px rgba(34, 197, 94, 0.3);
+}
+body.holiday-halloween .btn {
+  box-shadow: 0 8px 25px rgba(251, 146, 60, 0.25);
+}
+
+.holiday-effects {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+.holiday-particle {
+  position: absolute;
+  top: -12%;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.holiday-particle[data-variant="1"] {
+  animation-direction: reverse;
+}
+.holiday-particle[data-variant="2"] {
+  animation-timing-function: ease-in-out;
+}
+
+.holiday-snowflake {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 9999px;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.75);
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+.holiday-snowflake[data-variant="0"] { animation-name: holiday-snowfall-left; }
+.holiday-snowflake[data-variant="1"] { animation-name: holiday-snowfall-right; }
+.holiday-snowflake[data-variant="2"] { animation-name: holiday-snowfall-center; }
+@keyframes holiday-snowfall-left {
+  0% { transform: translate3d(-2vw, -20vh, 0); }
+  50% { transform: translate3d(-4vw, 40vh, 0); }
+  100% { transform: translate3d(-6vw, 110vh, 0); }
+}
+@keyframes holiday-snowfall-right {
+  0% { transform: translate3d(2vw, -20vh, 0); }
+  50% { transform: translate3d(4vw, 50vh, 0); }
+  100% { transform: translate3d(6vw, 110vh, 0); }
+}
+@keyframes holiday-snowfall-center {
+  0% { transform: translate3d(0, -20vh, 0); }
+  60% { transform: translate3d(0.5vw, 60vh, 0); }
+  100% { transform: translate3d(0.75vw, 110vh, 0); }
+}
+
+.holiday-halloween-candy {
+  background: linear-gradient(120deg, #f97316, #a855f7);
+  border-radius: 9999px 9999px 0 9999px;
+  box-shadow: 0 0 8px rgba(248, 113, 113, 0.35);
+  animation-iteration-count: infinite;
+}
+.holiday-halloween-candy[data-variant="0"] { animation-name: holiday-halloween-fall-left; }
+.holiday-halloween-candy[data-variant="1"] { animation-name: holiday-halloween-fall-right; }
+.holiday-halloween-candy[data-variant="2"] { animation-name: holiday-halloween-fall-center; }
+@keyframes holiday-halloween-fall-left {
+  0% { transform: translate3d(3vw, -10vh, 0) rotate(-8deg); }
+  40% { transform: translate3d(-1vw, 35vh, 0) rotate(10deg); }
+  100% { transform: translate3d(-4vw, 110vh, 0) rotate(-2deg); }
+}
+@keyframes holiday-halloween-fall-right {
+  0% { transform: translate3d(-3vw, -10vh, 0) rotate(6deg); }
+  50% { transform: translate3d(1.5vw, 45vh, 0) rotate(-9deg); }
+  100% { transform: translate3d(4vw, 110vh, 0) rotate(4deg); }
+}
+@keyframes holiday-halloween-fall-center {
+  0% { transform: translate3d(0, -10vh, 0) rotate(-4deg); }
+  35% { transform: translate3d(1vw, 25vh, 0) rotate(6deg); }
+  70% { transform: translate3d(-1vw, 70vh, 0) rotate(-6deg); }
+  100% { transform: translate3d(0, 110vh, 0) rotate(3deg); }
+}
+
+.holiday-easter-petal {
+  top: auto;
+  bottom: -12%;
+  border-radius: 9999px;
+  background: linear-gradient(160deg, rgba(251, 191, 36, 0.85), rgba(216, 180, 254, 0.85));
+  box-shadow:
+    0 0 12px rgba(14, 165, 233, 0.3),
+    inset 0 0 6px rgba(255, 255, 255, 0.4);
+  animation-iteration-count: infinite;
+}
+.holiday-easter-petal[data-variant="0"] { animation-name: holiday-easter-rise-left; }
+.holiday-easter-petal[data-variant="1"] { animation-name: holiday-easter-rise-right; }
+.holiday-easter-petal[data-variant="2"] { animation-name: holiday-easter-rise-center; }
+@keyframes holiday-easter-rise-left {
+  0% { transform: translate3d(-1vw, 10vh, 0) scale(0.8); opacity: 0; }
+  20% { opacity: 0.65; }
+  100% { transform: translate3d(-4vw, -120vh, 0) scale(1); opacity: 0; }
+}
+@keyframes holiday-easter-rise-right {
+  0% { transform: translate3d(1vw, 10vh, 0) scale(0.85); opacity: 0; }
+  30% { opacity: 0.7; }
+  100% { transform: translate3d(4vw, -120vh, 0) scale(1.05); opacity: 0; }
+}
+@keyframes holiday-easter-rise-center {
+  0% { transform: translate3d(0, 12vh, 0) scale(0.9); opacity: 0; }
+  25% { opacity: 0.65; }
+  75% { opacity: 0.65; }
+  100% { transform: translate3d(0, -120vh, 0) scale(1.05); opacity: 0; }
+}
+
