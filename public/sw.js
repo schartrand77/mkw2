@@ -25,26 +25,35 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
-  // Bypass for non-GET
-  if (req.method !== 'GET') return;
-  // Cache-first for same-origin navigations and static files
-  if (url.origin === location.origin) {
+  if (req.method !== 'GET' || url.origin !== location.origin) return;
+
+  // Let normal navigation flows hit the network so server redirects/auth work.
+  if (req.mode === 'navigate') {
     event.respondWith((async () => {
-      const cached = await caches.match(req);
-      if (cached) return cached;
       try {
-        const res = await fetch(req);
-        const cache = await caches.open(CACHE_NAME);
-        cache.put(req, res.clone());
-        return res;
-      } catch (err) {
-        // Optional: return a simple fallback for navigations
-        if (req.mode === 'navigate') {
-          return caches.match('/') || Response.error();
-        }
-        throw err;
+        return await fetch(req);
+      } catch {
+        return (await caches.match('/')) || Response.error();
       }
     })());
+    return;
   }
-});
 
+  event.respondWith((async () => {
+    const cached = await caches.match(req);
+    if (cached) return cached;
+    try {
+      const res = await fetch(req);
+      // Avoid caching opaque/redirect responses (throws in Cache API).
+      if (res && res.ok && res.type !== 'opaqueredirect' && res.type !== 'opaque') {
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(req, res.clone());
+      }
+      return res;
+    } catch (err) {
+      const fallback = await caches.match('/');
+      if (fallback) return fallback;
+      throw err;
+    }
+  })());
+});
