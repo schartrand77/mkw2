@@ -61,7 +61,7 @@ export default async function HomePage() {
 }
 
 function FeaturedMarquee({ models }: { models: any[] }) {
-  const loop = models.length > 0 ? [...models, ...models] : []
+  const loop = models.length >= 4 ? [...models, ...models] : models
   const durationSeconds = Math.max(18, models.length * 4)
   return (
     <div className="marquee-viewport glass rounded-2xl border border-white/10 p-4">
