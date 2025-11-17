@@ -54,11 +54,17 @@ export default function LoginPage() {
           <label className="block text-sm mb-1">Password</label>
           <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
-        <button className="btn" disabled={loading}>{loading ? 'Signing in…' : 'Sign in'}</button>
+        <div className="space-y-3 pt-2">
+          <button className="btn w-full" disabled={loading}>{loading ? 'Signing in...' : 'Sign in'}</button>
+          <Link
+            href="/register"
+            className="inline-flex w-full items-center justify-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium text-white transition hover:border-white/40 hover:bg-white/10"
+          >
+            Join MakerWorks
+          </Link>
+        </div>
       </form>
-      <p className="text-sm mt-4 text-slate-400">
-        No account? <Link className="underline" href="/register">Register</Link>
-      </p>
     </div>
   )
 }
+
