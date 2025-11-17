@@ -3,6 +3,8 @@ import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import ModelEditForm from '@/components/ModelEditForm'
+import ModelImagesManager from '@/components/ModelImagesManager'
+import { MODEL_IMAGE_LIMIT } from '@/lib/model-images'
 
 export default async function EditModelPage({ params }: { params: { id: string } }) {
   const token = cookies().get('mwv2_token')?.value
@@ -19,7 +21,13 @@ export default async function EditModelPage({ params }: { params: { id: string }
     <div className="max-w-3xl mx-auto space-y-6">
       <h1 className="text-2xl font-semibold">Edit Model</h1>
       <ModelEditForm model={{ id: model.id, title: model.title, description: model.description, material: model.material, coverImagePath: model.coverImagePath }} />
+      <div className="space-y-2">
+        <div>
+          <h2 className="text-xl font-semibold">Real-life photos</h2>
+          <p className="text-sm text-slate-400">Share up to {MODEL_IMAGE_LIMIT} real build shots to help other makers.</p>
+        </div>
+        <ModelImagesManager modelId={model.id} initialCover={model.coverImagePath} />
+      </div>
     </div>
   )
 }
-

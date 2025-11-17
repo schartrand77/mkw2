@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import ModelImagesManager from '@/components/admin/ModelImagesManager'
+import ModelImagesManager from '@/components/ModelImagesManager'
 
 export default async function AdminModelImagesPage({ params }: { params: { id: string } }) {
   const token = cookies().get('mwv2_token')?.value
@@ -17,12 +17,12 @@ export default async function AdminModelImagesPage({ params }: { params: { id: s
 
   return (
     <div className="space-y-6">
-      <Link href="/admin" className="text-sm text-slate-400 hover:text-white">← Back to Admin</Link>
+      <Link href="/admin" className="text-sm text-slate-400 hover:text-white">&larr; Back to Admin</Link>
       <div className="space-y-1">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Model</p>
         <h1 className="text-2xl font-semibold">{model.title}</h1>
       </div>
-      <ModelImagesManager modelId={model.id} initialCover={model.coverImagePath} />
+      <ModelImagesManager modelId={model.id} initialCover={model.coverImagePath} resourceBase="/api/admin/models" />
     </div>
   )
 }

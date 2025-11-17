@@ -1,10 +1,21 @@
 "use client"
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
+import { MODEL_IMAGE_LIMIT } from '@/lib/model-images'
 
 type ModelImage = { id: string; filePath: string; caption: string | null }
 
-export default function ModelImagesManager({ modelId, initialCover }: { modelId: string; initialCover?: string | null }) {
+type Props = {
+  modelId: string
+  initialCover?: string | null
+  resourceBase?: string
+}
+
+export default function ModelImagesManager({ modelId, initialCover, resourceBase = '/api/models' }: Props) {
+  const normalizedBase = useMemo(() => resourceBase.replace(/\/$/, ''), [resourceBase])
+  const collectionEndpoint = useMemo(() => `${normalizedBase}/${modelId}/images`, [normalizedBase, modelId])
+  const itemEndpoint = useCallback((imageId: string) => `${collectionEndpoint}/${imageId}`, [collectionEndpoint])
+
   const [images, setImages] = useState<ModelImage[]>([])
   const [coverPath, setCoverPath] = useState<string | null>(initialCover || null)
   const [captionDrafts, setCaptionDrafts] = useState<Record<string, string>>({})
@@ -15,7 +26,7 @@ export default function ModelImagesManager({ modelId, initialCover }: { modelId:
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/admin/models/${modelId}/images`)
+    const res = await fetch(collectionEndpoint)
     if (!res.ok) throw new Error('Failed to load images')
     const data = await res.json()
     setImages(data.images)
@@ -23,7 +34,7 @@ export default function ModelImagesManager({ modelId, initialCover }: { modelId:
     const drafts: Record<string, string> = {}
     data.images.forEach((img: ModelImage) => { drafts[img.id] = img.caption || '' })
     setCaptionDrafts(drafts)
-  }, [modelId])
+  }, [collectionEndpoint])
 
   useEffect(() => {
     load().catch(() => setError('Failed to load images'))
@@ -53,6 +64,10 @@ export default function ModelImagesManager({ modelId, initialCover }: { modelId:
 
   const upload = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (images.length >= MODEL_IMAGE_LIMIT) {
+      setError(`Maximum of ${MODEL_IMAGE_LIMIT} photos reached. Remove one to add another.`)
+      return
+    }
     if (!file) {
       setError('Select an image first')
       return
@@ -63,7 +78,7 @@ export default function ModelImagesManager({ modelId, initialCover }: { modelId:
       fd.append('image', file)
       if (caption.trim()) fd.append('caption', caption.trim())
       if (setCover) fd.append('setCover', '1')
-      const res = await fetch(`/api/admin/models/${modelId}/images`, { method: 'POST', body: fd })
+      const res = await fetch(collectionEndpoint, { method: 'POST', body: fd })
       if (!res.ok) throw new Error(await readErrorMessage(res))
       await load()
       resetForm()
@@ -76,7 +91,7 @@ export default function ModelImagesManager({ modelId, initialCover }: { modelId:
 
   const updateCaption = async (id: string) => {
     const caption = captionDrafts[id] || ''
-    const res = await fetch(`/api/admin/models/${modelId}/images/${id}`, {
+    const res = await fetch(itemEndpoint(id), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ caption }),
@@ -89,7 +104,7 @@ export default function ModelImagesManager({ modelId, initialCover }: { modelId:
   }
 
   const setAsCover = async (id: string) => {
-    const res = await fetch(`/api/admin/models/${modelId}/images/${id}`, {
+    const res = await fetch(itemEndpoint(id), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ setCover: true }),
@@ -103,7 +118,7 @@ export default function ModelImagesManager({ modelId, initialCover }: { modelId:
 
   const remove = async (id: string) => {
     if (!confirm('Remove this image?')) return
-    const res = await fetch(`/api/admin/models/${modelId}/images/${id}`, { method: 'DELETE' })
+    const res = await fetch(itemEndpoint(id), { method: 'DELETE' })
     if (!res.ok) {
       setError(await readErrorMessage(res))
       return
@@ -111,18 +126,34 @@ export default function ModelImagesManager({ modelId, initialCover }: { modelId:
     await load()
   }
 
+  const limitReached = images.length >= MODEL_IMAGE_LIMIT
+
   return (
     <div className="space-y-6">
       <form onSubmit={upload} className="glass p-4 rounded-xl space-y-3">
-        <h2 className="text-lg font-semibold">Add image</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Add real-life photo</h2>
+          <div className="text-xs text-slate-400">{images.length}/{MODEL_IMAGE_LIMIT}</div>
+        </div>
+        <p className="text-xs text-slate-400">
+          Show actual prints of this model. JPEG, PNG, and other common formats are supported.
+        </p>
         {error && <div className="text-amber-400 text-sm">{error}</div>}
-        <input type="file" accept={IMAGE_ACCEPT_ATTRIBUTE} onChange={(e) => setFile(e.target.files?.[0] || null)} />
+        <input
+          type="file"
+          accept={IMAGE_ACCEPT_ATTRIBUTE}
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          disabled={limitReached}
+        />
         <input className="input" placeholder="Caption (optional)" value={caption} onChange={(e) => setCaption(e.target.value)} />
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={setCover} onChange={(e) => setSetCover(e.target.checked)} />
           Use as cover thumbnail
         </label>
-        <button className="btn" disabled={busy}>{busy ? 'Uploading…' : 'Upload'}</button>
+        {limitReached && (
+          <div className="text-xs text-amber-300">You have reached the {MODEL_IMAGE_LIMIT}-photo limit.</div>
+        )}
+        <button className="btn" disabled={busy || limitReached}>{busy ? 'Uploading…' : 'Upload'}</button>
       </form>
 
       <div className="space-y-3">

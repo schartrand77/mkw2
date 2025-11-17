@@ -1,3 +1,5 @@
+export const MODEL_IMAGE_LIMIT = 5
+
 type ModelImageLike = {
   sortOrder?: bigint | number | null
 }

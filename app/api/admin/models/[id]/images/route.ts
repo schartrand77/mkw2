@@ -4,12 +4,12 @@ import { requireAdmin } from '../../../_utils'
 import path from 'path'
 import sharp from 'sharp'
 import { saveBuffer } from '@/lib/storage'
-import { serializeModelImage, serializeModelImages } from '@/lib/model-images'
+import { MODEL_IMAGE_LIMIT, serializeModelImage, serializeModelImages } from '@/lib/model-images'
 import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
 
 export const dynamic = 'force-dynamic'
 
-const IMAGE_LIMIT = 20
+const IMAGE_LIMIT = MODEL_IMAGE_LIMIT
 
 function normalizeFlag(value: FormDataEntryValue | null): boolean {
   if (!value) return false
