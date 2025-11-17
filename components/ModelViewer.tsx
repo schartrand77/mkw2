@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 
 type Props = {
@@ -23,6 +23,9 @@ function toAbsoluteUrl(url?: string | null) {
 export default function ModelViewer({ src, srcs, className, height = 480, autoRotate = false }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const fitRef = useRef<(() => void) | null>(null)
+  const pivotRef = useRef<THREE.Group | null>(null)
+  const contentRef = useRef<THREE.Group | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const resolvedFiles = useMemo(() => {
     const list = srcs && srcs.length ? srcs : (src ? [src] : [])
     return list
@@ -35,6 +38,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
     let disposed = false
 
     const run = async () => {
+      setError(null)
       const container = mountRef.current!
       // Import example helpers dynamically to avoid any bundling/runtime edge cases
       const [{ OrbitControls }, { STLLoader }] = await Promise.all([
@@ -80,17 +84,26 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       const controls = new OrbitControls(camera as any, renderer.domElement)
       controls.enableDamping = true
       controls.dampingFactor = 0.08
-      controls.screenSpacePanning = true
+      controls.screenSpacePanning = false
+      ;(controls as any).enablePan = false
       controls.autoRotate = autoRotate
       controls.autoRotateSpeed = 1.0
       controls.zoomSpeed = 0.9
+      ;(controls as any).minAzimuthAngle = -Infinity
+      ;(controls as any).maxAzimuthAngle = Infinity
+      ;(controls as any).minPolarAngle = 0
+      ;(controls as any).maxPolarAngle = Math.PI
 
       const stlLoader = new STLLoader()
       try { (stlLoader as any).setCrossOrigin && (stlLoader as any).setCrossOrigin('anonymous') } catch {}
       const objLoader = OBJLoaderModule ? new OBJLoaderModule.OBJLoader() : null
       const tmfLoader = ThreeMFModule ? new ThreeMFModule.ThreeMFLoader() : null
+      const pivot = new THREE.Group()
+      scene.add(pivot)
+      pivotRef.current = pivot
       const group = new THREE.Group()
-      scene.add(group)
+      pivot.add(group)
+      contentRef.current = group
 
       const files = resolvedFiles
       const palette = [0xd0d0d0]
@@ -131,15 +144,10 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         const center = new THREE.Vector3()
         box.getSize(size)
         box.getCenter(center)
-        // Normalize scale so we have a stable camera fit independent of model units
-        const maxDim = Math.max(size.x, size.y, size.z)
-        const radius = maxDim > 0 ? maxDim / 2 : 1
-        const scale = radius > 0 ? 1 / radius : 1
-        group.scale.setScalar(scale)
-        // Translate after scaling so large coordinates shrink consistently
-        group.position.copy(center).multiplyScalar(-scale)
+        const radius = Math.max(size.x, size.y, size.z) / 2 || 1
+        group.position.sub(center)
         group.updateMatrixWorld(true)
-        fitRadius = 1 // after normalization, radius ~1
+        fitRadius = radius
         fitToView()
       }
 
@@ -173,6 +181,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         const color = palette[idx % palette.length]
         const handleError = (err: any) => {
           console.error('Failed to load model', file, err)
+          setError(`Failed to load ${file}: ${err?.message || err}`)
           loaded++
           if (loaded === files.length) onLoaded()
         }
@@ -251,6 +260,8 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         renderer.dispose()
         if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement)
         fitRef.current = null
+        pivotRef.current = null
+        contentRef.current = null
       }
     }
 
@@ -265,13 +276,43 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
   return (
     <div className={`relative ${className || ''}`} style={{ width: '100%', height }}>
       <div ref={mountRef} className="w-full h-full" />
-      <button
-        type="button"
-        onClick={() => fitRef.current?.()}
-        className="absolute top-2 right-2 z-10 px-3 py-1.5 text-xs rounded-md border border-white/20 bg-black/40 backdrop-blur hover:border-white/40"
-      >
-        Center view
-      </button>
+      {error && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 text-center px-4 text-sm text-amber-200">
+          <div>
+            <p>{error}</p>
+            {resolvedFiles[0] && (
+              <p className="mt-2">
+                <a href={resolvedFiles[0]} target="_blank" rel="noreferrer" className="underline">
+                  Open STL directly
+                </a>
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="absolute top-2 right-2 z-10 flex gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            const pivot = pivotRef.current
+            if (pivot) {
+              pivot.rotation.z += Math.PI / 2
+              pivot.updateMatrixWorld(true)
+              fitRef.current?.()
+            }
+          }}
+          className="px-3 py-1.5 text-xs rounded-md border border-white/20 bg-black/40 backdrop-blur hover:border-white/40"
+        >
+          Rotate 90°
+        </button>
+        <button
+          type="button"
+          onClick={() => fitRef.current?.()}
+          className="px-3 py-1.5 text-xs rounded-md border border-white/20 bg-black/40 backdrop-blur hover:border-white/40"
+        >
+          Center view
+        </button>
+      </div>
     </div>
   )
 }

@@ -4,15 +4,274 @@ import path from 'path'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer } from '@/lib/storage'
-import { computeStlVolumeMm3, computeStlStatsMm } from '@/lib/stl'
+import { computeStlStatsMm } from '@/lib/stl'
 import JSZip from 'jszip'
 import { estimatePriceUSD } from '@/lib/pricing'
 import { refreshUserAchievements } from '@/lib/achievements'
 import sharp from 'sharp'
 import { isSupportedImageFile } from '@/lib/images'
 import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
+import { XMLParser } from 'fast-xml-parser'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
+
+const xmlParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '',
+  removeNSPrefix: true,
+})
+
+type Vec3 = { x: number, y: number, z: number }
+type Matrix4x4 = [number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number]
+
+function asArray<T>(value: T | T[] | undefined | null): T[] {
+  if (!value) return []
+  return Array.isArray(value) ? value : [value]
+}
+
+function toNumber(val: any, fallback = 0) {
+  if (val == null) return fallback
+  const n = Number(val)
+  return Number.isFinite(n) ? n : fallback
+}
+
+const IDENTITY_MATRIX: Matrix4x4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+
+function parseTransformMatrix(value?: string | null): Matrix4x4 {
+  if (!value) return IDENTITY_MATRIX.slice() as Matrix4x4
+  const parts = value.trim().split(/\s+/).map(Number)
+  if (parts.length !== 12 || parts.some(v => !Number.isFinite(v))) {
+    return IDENTITY_MATRIX.slice() as Matrix4x4
+  }
+  const [m00, m01, m02, m10, m11, m12, m20, m21, m22, tx, ty, tz] = parts
+  return [
+    m00, m01, m02, tx,
+    m10, m11, m12, ty,
+    m20, m21, m22, tz,
+    0, 0, 0, 1,
+  ]
+}
+
+function multiplyMatrices(a: Matrix4x4, b: Matrix4x4): Matrix4x4 {
+  const out: Matrix4x4 = new Array(16).fill(0) as Matrix4x4
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 4; col++) {
+      let sum = 0
+      for (let k = 0; k < 4; k++) {
+        sum += a[row * 4 + k] * b[k * 4 + col]
+      }
+      out[row * 4 + col] = sum
+    }
+  }
+  return out
+}
+
+function applyMatrix(v: Vec3, m: Matrix4x4): Vec3 {
+  const x = v.x, y = v.y, z = v.z
+  return {
+    x: m[0] * x + m[1] * y + m[2] * z + m[3],
+    y: m[4] * x + m[5] * y + m[6] * z + m[7],
+    z: m[8] * x + m[9] * y + m[10] * z + m[11],
+  }
+}
+
+function cloneTri(tri: Vec3[]): Vec3[] {
+  return tri.map(v => ({ ...v }))
+}
+
+function transformTriangles(tris: Vec3[][], matrix: Matrix4x4): Vec3[][] {
+  return tris.map(tri => tri.map(v => applyMatrix(v, matrix)))
+}
+
+function buildBinaryStl(tris: Vec3[][]): Buffer {
+  const header = Buffer.alloc(80)
+  header.write('MakerWorks STL Preview')
+  const triCount = tris.length
+  const body = Buffer.alloc(4 + triCount * 50)
+  let offset = 0
+  body.writeUInt32LE(triCount, offset); offset += 4
+  for (const [a, b, c] of tris) {
+    const abx = b.x - a.x
+    const aby = b.y - a.y
+    const abz = b.z - a.z
+    const acx = c.x - a.x
+    const acy = c.y - a.y
+    const acz = c.z - a.z
+    let nx = aby * acz - abz * acy
+    let ny = abz * acx - abx * acz
+    let nz = abx * acy - aby * acx
+    const len = Math.hypot(nx, ny, nz) || 1
+    nx /= len; ny /= len; nz /= len
+    body.writeFloatLE(nx, offset); offset += 4
+    body.writeFloatLE(ny, offset); offset += 4
+    body.writeFloatLE(nz, offset); offset += 4
+    ;[a, b, c].forEach((v) => {
+      body.writeFloatLE(v.x, offset); offset += 4
+      body.writeFloatLE(v.y, offset); offset += 4
+      body.writeFloatLE(v.z, offset); offset += 4
+    })
+    body.writeUInt16LE(0, offset); offset += 2
+  }
+  return Buffer.concat([header, body])
+}
+
+type ParsedObject = {
+  key: string
+  meshTriangles: Vec3[][]
+  components: { key: string, transform: Matrix4x4 }[]
+}
+
+function getAttr(obj: any, keys: string[]): any {
+  if (!obj) return undefined
+  for (const key of keys) {
+    if (obj[key] != null) return obj[key]
+  }
+  return undefined
+}
+
+function normalizeZipPath(p: string) {
+  const replaced = p.replace(/\\/g, '/').replace(/^\/+/, '')
+  const normalized = path.posix.normalize(replaced)
+  if (normalized.startsWith('../')) return normalized.replace(/^(\.\.\/)+/, '')
+  return normalized
+}
+
+async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles: number } | null> {
+  try {
+    const zip = await JSZip.loadAsync(buffer)
+    const embeddedStl = Object.values(zip.files).find(entry => !entry.dir && entry.name.toLowerCase().endsWith('.stl'))
+    if (embeddedStl) {
+      const stlBuf = await embeddedStl.async('nodebuffer')
+      console.info('3MF conversion: extracted embedded STL', { entry: embeddedStl.name })
+      return { buf: Buffer.from(stlBuf), triangles: -1 }
+    }
+    const modelEntry = Object.values(zip.files).find(entry => !entry.dir && entry.name.toLowerCase().endsWith('.model'))
+    if (!modelEntry) {
+      console.warn('3MF conversion: .model part not found')
+      return null
+    }
+
+    const objectMap = new Map<string, ParsedObject>()
+    const processedEntries = new Set<string>()
+
+    async function parseModelEntry(entryPathRaw: string): Promise<{ buildItems: { key: string, transform: Matrix4x4 }[] }> {
+      const entryPath = normalizeZipPath(entryPathRaw)
+      if (processedEntries.has(entryPath)) return { buildItems: [] }
+      const entry = zip.file(entryPath)
+      if (!entry) {
+        console.warn('3MF conversion: referenced model entry missing', { entryPath })
+        return { buildItems: [] }
+      }
+      processedEntries.add(entryPath)
+      const xml = await entry.async('string')
+      const data = xmlParser.parse(xml)
+      const model = data?.model || data?.Model
+      if (!model) return { buildItems: [] }
+      const resourcesList = asArray(model.resources || model.Resources)
+
+      for (const obj of resourcesList.flatMap((res) => asArray(res?.object || res?.Object))) {
+        const rawId = getAttr(obj, ['id', 'ID'])
+        if (rawId == null) continue
+        const objectId = String(rawId)
+        const key = `${entryPath}#${objectId}`
+        if (objectMap.has(key)) continue
+        const mesh = obj?.mesh || obj?.Mesh
+        const vertexNodes = asArray(mesh?.vertices?.vertex || mesh?.vertices?.Vertex)
+        const vertices: Vec3[] = vertexNodes.map((v: any) => ({
+          x: toNumber(getAttr(v, ['x', 'X'])),
+          y: toNumber(getAttr(v, ['y', 'Y'])),
+          z: toNumber(getAttr(v, ['z', 'Z'])),
+        }))
+        const triangleNodes = asArray(mesh?.triangles?.triangle || mesh?.triangles?.Triangle)
+        const meshTriangles: Vec3[][] = []
+        if (vertices.length && triangleNodes.length) {
+          for (const tri of triangleNodes) {
+            const indices = [getAttr(tri, ['v1', 'V1']), getAttr(tri, ['v2', 'V2']), getAttr(tri, ['v3', 'V3'])]
+            if (indices.some(idx => idx == null)) continue
+            const v1 = vertices[toNumber(indices[0])]
+            const v2 = vertices[toNumber(indices[1])]
+            const v3 = vertices[toNumber(indices[2])]
+            if (v1 && v2 && v3) {
+              meshTriangles.push([{ ...v1 }, { ...v2 }, { ...v3 }])
+            }
+          }
+        }
+        const componentNodes = asArray(obj?.components?.component || obj?.components?.Component)
+        const components: { key: string, transform: Matrix4x4 }[] = []
+        for (const comp of componentNodes) {
+          const compIdRaw = getAttr(comp, ['objectid', 'objectId', 'objectID', 'object'])
+          if (compIdRaw == null) continue
+          const compId = String(compIdRaw)
+          const compPathRaw = getAttr(comp, ['path', 'Path'])
+          const targetPath = compPathRaw ? normalizeZipPath(compPathRaw) : entryPath
+          if (compPathRaw) await parseModelEntry(compPathRaw)
+          const childKey = `${targetPath}#${compId}`
+          components.push({
+            key: childKey,
+            transform: parseTransformMatrix(getAttr(comp, ['transform', 'Transform'])),
+          })
+        }
+        objectMap.set(key, { key, meshTriangles, components })
+      }
+
+      const buildItems = asArray(model.build?.item || model.build?.Item).map((item) => {
+        const itemId = getAttr(item, ['objectid', 'objectId', 'objectID', 'id', 'ID'])
+        if (itemId == null) return null
+        const key = `${entryPath}#${String(itemId)}`
+        return {
+          key,
+          transform: parseTransformMatrix(getAttr(item, ['transform', 'Transform'])),
+        }
+      }).filter((v): v is { key: string, transform: Matrix4x4 } => !!v)
+
+      return { buildItems }
+    }
+
+    const { buildItems } = await parseModelEntry(modelEntry.name)
+    const triangles: Vec3[][] = []
+    const cache = new Map<string, Vec3[][]>()
+
+    const resolveObjectTriangles = (key: string, stack: Set<string>): Vec3[][] => {
+      if (cache.has(key)) return cache.get(key)!
+      if (stack.has(key)) {
+        console.warn('3MF conversion: detected recursive component reference', { key })
+        return []
+      }
+      const obj = objectMap.get(key)
+      if (!obj) return []
+      stack.add(key)
+      let triList = obj.meshTriangles.map(tri => tri.map(v => ({ ...v })))
+      for (const comp of obj.components) {
+        const childTris = resolveObjectTriangles(comp.key, stack)
+        const transformed = transformTriangles(childTris, comp.transform)
+        triList = triList.concat(transformed)
+      }
+      stack.delete(key)
+      cache.set(key, triList)
+      return triList
+    }
+
+    const itemsToProcess = buildItems.length > 0
+      ? buildItems
+      : Array.from(objectMap.keys()).map((key) => ({ key, transform: IDENTITY_MATRIX }))
+
+    for (const item of itemsToProcess) {
+      const localTris = resolveObjectTriangles(item.key, new Set())
+      if (!localTris.length) continue
+      const transformed = transformTriangles(localTris, item.transform)
+      triangles.push(...transformed)
+    }
+
+    if (triangles.length === 0) {
+      console.warn('3MF conversion: no triangles located in model', { entry: modelEntry.name })
+      return null
+    }
+    return { buf: buildBinaryStl(triangles), triangles: triangles.length }
+  } catch (err) {
+    console.warn('3MF conversion to STL failed', err)
+    return null
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -82,21 +341,37 @@ export async function POST(req: NextRequest) {
     let totalPrice = 0
     const partCreates: any[] = []
     let firstPath: string | null = null
+    let firstViewerPath: string | null = null
+    const storedExts: string[] = []
     // overall bounding box
     let minX = Number.POSITIVE_INFINITY, minY = Number.POSITIVE_INFINITY, minZ = Number.POSITIVE_INFINITY
     let maxX = Number.NEGATIVE_INFINITY, maxY = Number.NEGATIVE_INFINITY, maxZ = Number.NEGATIVE_INFINITY
 
     for (let i = 0; i < modelFiles.length; i++) {
       const f = modelFiles[i]
-      const ext = path.extname(f.name).toLowerCase()
-      // Store model files under userId/models
+      let ext = path.extname(f.name).toLowerCase()
+      let fileBuf = f.buf
+      if (ext === '.3mf') {
+        const extracted = await convert3mfToStl(f.buf)
+        if (extracted) {
+          fileBuf = extracted.buf
+          ext = '.stl'
+          console.info('3MF converted to STL preview', { triangles: extracted.triangles })
+        } else {
+          console.warn('3MF conversion returned no data; keeping original 3MF', { file: f.name })
+        }
+      }
       const rel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}${ext}`)
-      await saveBuffer(rel, f.buf)
-      if (!firstPath) firstPath = `/${rel.replace(/\\/g, '/')}`
+      await saveBuffer(rel, fileBuf)
+      const storedPath = `/${rel.replace(/\\/g, '/')}`
+      storedExts.push(ext.replace('.', '').toUpperCase())
+      if (!firstPath) firstPath = storedPath
+      const previewPath: string | null = ext === '.stl' ? storedPath : null
+      if (!firstViewerPath && previewPath) firstViewerPath = previewPath
       let volMm3: number | null = null
       let sizeXmm: number | undefined, sizeYmm: number | undefined, sizeZmm: number | undefined
       if (ext === '.stl') {
-        const stats = computeStlStatsMm(f.buf)
+        const stats = computeStlStatsMm(fileBuf)
         volMm3 = stats.volumeMm3
         sizeXmm = stats.sizeXmm; sizeYmm = stats.sizeYmm; sizeZmm = stats.sizeZmm
         if (sizeXmm != null && sizeYmm != null && sizeZmm != null) {
@@ -113,7 +388,18 @@ export async function POST(req: NextRequest) {
       const p = cm3 != null ? estimatePriceUSD({ cm3, material, cfg }) : null
       if (volMm3) totalVolMm3 += volMm3
       if (p) totalPrice += p
-      partCreates.push({ name: f.name, index: i, filePath: `/${rel.replace(/\\/g, '/')}`, volumeMm3: volMm3 || undefined, sizeXmm, sizeYmm, sizeZmm, priceUsd: p || undefined })
+      const storedName = ext === '.stl' && f.name.toLowerCase().endsWith('.3mf') ? f.name.replace(/\.3mf$/i, '.stl') : f.name
+      partCreates.push({
+        name: storedName,
+        index: i,
+        filePath: storedPath,
+        previewFilePath: previewPath || undefined,
+        volumeMm3: volMm3 || undefined,
+        sizeXmm,
+        sizeYmm,
+        sizeZmm,
+        priceUsd: p || undefined
+      })
     }
 
     const created = await prisma.model.create({
@@ -125,8 +411,9 @@ export async function POST(req: NextRequest) {
         creditUrl: creditUrl || undefined,
         material,
         filePath: firstPath!,
+        viewerFilePath: firstViewerPath || firstPath!,
         coverImagePath: coverImageRel ? `/${coverImageRel.replace(/\\/g, '/')}` : undefined,
-        fileType: modelFiles.length > 1 ? 'MULTI' : path.extname(modelFiles[0].name).replace('.', '').toUpperCase(),
+        fileType: modelFiles.length > 1 ? 'MULTI' : (storedExts[0] || path.extname(modelFiles[0].name).replace('.', '').toUpperCase()),
         volumeMm3: totalVolMm3 || undefined,
         sizeXmm: isFinite(maxX - minX) ? (maxX - minX) : undefined,
         sizeYmm: isFinite(maxY - minY) ? (maxY - minY) : undefined,

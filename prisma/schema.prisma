@@ -29,6 +29,7 @@ model Model {
   creditName      String?
   creditUrl       String?
   filePath        String
+  viewerFilePath  String?
   coverImagePath  String?
   fileType        String
   unit            String   @default("mm")
@@ -160,6 +161,7 @@ model ModelPart {
   name       String
   index      Int      @default(0)
   filePath   String
+  previewFilePath String?
   volumeMm3  Float?
   sizeXmm    Float?
   sizeYmm    Float?

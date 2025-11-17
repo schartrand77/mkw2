@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { toPublicHref } from '@/lib/public-path'
 import ModelViewer from './ModelViewer'
 
-type Part = { id: string; name: string; filePath: string }
+type Part = { id: string; name: string; filePath: string; previewFilePath?: string | null }
 
 type GalleryImage = { id: string; filePath: string; caption?: string | null }
 
@@ -19,12 +19,17 @@ type Item = { key: string; label: string; kind: 'image' | 'three'; src?: string;
 export default function Gallery({ coverSrc, parts = [], allSrc, images = [] }: Props) {
   const items = useMemo<Item[]>(() => {
     const arr: Item[] = []
-    const partSrcs = parts.map(p => toPublicHref(p.filePath)).filter((src): src is string => !!src)
-    if (partSrcs.length > 0) {
+    const partSrcs = parts.map(p => toPublicHref(p.previewFilePath || p.filePath)).filter((src): src is string => !!src)
+    const normalizedAllSrc = allSrc || (partSrcs.length === 1 ? partSrcs[0] : null)
+
+    if (normalizedAllSrc) {
+      arr.push({ key: 'three:all', label: '3D View', kind: 'three', src: normalizedAllSrc })
+    } else if (partSrcs.length > 0) {
       arr.push({ key: 'three:all', label: '3D View: All parts', kind: 'three', srcs: partSrcs })
+    }
+
+    if (partSrcs.length > 0) {
       parts.forEach((p, i) => arr.push({ key: `three:${i}`, label: p.name, kind: 'three', src: partSrcs[i] }))
-    } else if (allSrc) {
-      arr.push({ key: 'three:single', label: '3D View', kind: 'three', src: allSrc })
     }
     if (coverSrc) arr.push({ key: 'image:cover', label: 'Cover', kind: 'image', src: coverSrc })
     if (images.length > 0) {
