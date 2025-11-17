@@ -11,7 +11,7 @@ type Model = {
 const FEATURE_LIMIT = 24
 
 export default function FeaturedManager({ initial }: { initial: Model[] }) {
-  const [featured, setFeatured] = useState<Model[]>(initial)
+  const [featured, setFeatured] = useState<Model[]>(dedupe(initial))
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Model[]>([])
   const [saving, setSaving] = useState(false)
@@ -45,8 +45,11 @@ export default function FeaturedManager({ initial }: { initial: Model[] }) {
   }, [query])
 
   const add = (model: Model) => {
-    if (ids.has(model.id) || atLimit) return
-    setFeatured((prev) => [...prev, model])
+    setFeatured((prev) => {
+      if (prev.length >= FEATURE_LIMIT) return prev
+      if (prev.some((m) => m.id === model.id)) return prev
+      return [...prev, model]
+    })
   }
 
   const remove = (id: string) => {
@@ -80,7 +83,7 @@ export default function FeaturedManager({ initial }: { initial: Model[] }) {
       })
       const payload = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(payload?.error || 'Failed to save featured list')
-      setFeatured(payload?.featured || [])
+      setFeatured(dedupe(payload?.featured || []))
       setStatus({ type: 'success', message: 'Featured list updated' })
     } catch (err: any) {
       setStatus({ type: 'error', message: err?.message || 'Failed to save featured list' })
@@ -224,4 +227,16 @@ function VisibilityBadge({ visibility }: { visibility?: string | null }) {
       {label} - hidden from home
     </span>
   )
+}
+
+function dedupe(list: Model[] = []) {
+  const seen = new Set<string>()
+  const unique: Model[] = []
+  for (const item of list) {
+    if (!item?.id) continue
+    if (seen.has(item.id)) continue
+    seen.add(item.id)
+    unique.push(item)
+  }
+  return unique.slice(0, FEATURE_LIMIT)
 }
