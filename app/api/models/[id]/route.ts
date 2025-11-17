@@ -8,6 +8,7 @@ import { unlink } from 'fs/promises'
 import sharp from 'sharp'
 import { serializeModelImages } from '@/lib/model-images'
 import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
+import { revalidatePath } from 'next/cache'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const model = await prisma.model.findUnique({
@@ -88,5 +89,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const updated = await prisma.model.update({ where: { id: params.id }, data: updates })
+  try {
+    revalidatePath(`/models/${params.id}`)
+    revalidatePath('/discover')
+    revalidatePath('/')
+  } catch {
+    // ignore revalidation errors
+  }
   return NextResponse.json({ model: updated })
 }

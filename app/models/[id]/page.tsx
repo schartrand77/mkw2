@@ -5,6 +5,7 @@ import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { formatCurrency } from '@/lib/currency'
 import { buildYouTubeEmbedUrl } from '@/lib/youtube'
+import { toPublicHref } from '@/lib/storage'
 
 async function fetchModel(id: string) {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/models/${id}`, { cache: 'no-store' })
@@ -15,12 +16,8 @@ async function fetchModel(id: string) {
 export default async function ModelDetail({ params, searchParams }: { params: { id: string }, searchParams?: { [k: string]: string | string[] | undefined } }) {
   const model = await fetchModel(params.id)
   if (!model) return <div>Not found</div>
-  const toFileUrl = (path?: string | null) => {
-    if (!path) return ''
-    const normalized = path.startsWith('/') ? path : `/${path}`
-    return `/files${normalized}`
-  }
-  const src = toFileUrl(model.filePath)
+  const fileHref = toPublicHref(model.filePath)
+  const coverHref = toPublicHref(model.coverImagePath)
   const hasParts = Array.isArray(model.parts) && model.parts.length > 0
   const videoEmbedUrl = model.videoEmbedId ? buildYouTubeEmbedUrl(model.videoEmbedId) : null
   const affiliateHost = model.affiliateUrl ? (() => {
@@ -39,9 +36,9 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
     <div className="max-w-5xl mx-auto grid lg:grid-cols-2 gap-8">
       <div>
         <Gallery
-          coverSrc={model.coverImagePath ? toFileUrl(model.coverImagePath) : null}
+          coverSrc={coverHref}
           parts={hasParts ? model.parts : []}
-          allSrc={src || null}
+          allSrc={fileHref || null}
           images={model.images || []}
         />
       </div>
@@ -107,26 +104,29 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
           <div className="glass rounded-xl p-4 text-sm">
             <div className="font-semibold mb-2">Parts breakdown</div>
             <ul className="divide-y divide-white/10">
-              {model.parts.map((p: any, i: number) => (
-                <li key={p.id} className="py-2 flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">{p.name}</div>
-                    <div className="text-slate-400 text-xs">{p.volumeMm3 ? `${(p.volumeMm3/1000).toFixed(2)} cm^3` : 'N/A'}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <a className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs" href={toFileUrl(p.filePath)} download>Download</a>
-                    <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs" href={`/models/${model.id}?part=${i}`}>Preview</Link>
-                  </div>
-                </li>
-              ))}
+              {model.parts.map((p: any, i: number) => {
+                const partHref = toPublicHref(p.filePath)
+                return (
+                  <li key={p.id} className="py-2 flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{p.name}</div>
+                      <div className="text-slate-400 text-xs">{p.volumeMm3 ? `${(p.volumeMm3/1000).toFixed(2)} cm^3` : 'N/A'}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs" href={partHref || '#'} {...(partHref ? { download: true } : {})}>Download</a>
+                      <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs" href={`/models/${model.id}?part=${i}`}>Preview</Link>
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
             <p className="text-xs text-slate-500 mt-3">Need everything? Use the main download button to grab a zipped bundle.</p>
           </div>
         )}
         <div className="flex gap-3">
           <a
-            href={hasParts ? `/api/models/${model.id}/download.zip` : src}
-            {...(!hasParts ? { download: true } : {})}
+            href={hasParts ? `/api/models/${model.id}/download.zip` : (fileHref || '#')}
+            {...(!hasParts && fileHref ? { download: true } : {})}
             className="btn"
           >
             {hasParts ? 'Download All Parts (.zip)' : 'Download Model'}

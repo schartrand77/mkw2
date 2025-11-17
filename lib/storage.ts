@@ -34,20 +34,4 @@ export function publicFilePath(relPath: string) {
   return `/files/${relPath}`.replace(/\\/g, '/').replace(/\/+/, '/')
 }
 
-// Normalize any stored path into a public href under `/files/...`.
-// Handles older absolute paths (e.g. `/app/storage/<rel>` or `storage/<rel>`)
-// and ensures forward slashes and a single `/files/` prefix.
-export function toPublicHref(p: string | null | undefined): string | null {
-  if (!p) return null
-  let s = String(p).replace(/\\/g, '/')
-  if (s.startsWith('http://') || s.startsWith('https://')) return s
-  if (s.startsWith('/files/')) return s
-  // Strip any leading known storage roots
-  const storageIdx = s.indexOf('/storage/')
-  if (storageIdx !== -1) s = s.slice(storageIdx + '/storage/'.length)
-  else if (s.startsWith('/app/storage/')) s = s.slice('/app/storage/'.length)
-  else if (s.startsWith('storage/')) s = s.slice('storage/'.length)
-  // Ensure leading slash on relative content path
-  if (!s.startsWith('/')) s = '/' + s
-  return '/files' + s
-}
+export { toPublicHref } from './public-path'

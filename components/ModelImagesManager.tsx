@@ -2,6 +2,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
 import { MODEL_IMAGE_LIMIT } from '@/lib/model-images'
+import { toPublicHref } from '@/lib/public-path'
+
+async function pushNotify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
+  try {
+    const mod = await import('@/components/notifications/NotificationsProvider')
+    mod.pushSessionNotification(payload)
+  } catch {
+    // ignore if notifications aren't available
+  }
+}
 
 type ModelImage = { id: string; filePath: string; caption: string | null }
 
@@ -26,7 +36,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    const res = await fetch(collectionEndpoint)
+    const res = await fetch(collectionEndpoint, { cache: 'no-store' })
     if (!res.ok) throw new Error('Failed to load images')
     const data = await res.json()
     setImages(data.images)
@@ -82,6 +92,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
       if (!res.ok) throw new Error(await readErrorMessage(res))
       await load()
       resetForm()
+      await pushNotify({ type: 'success', title: 'Photo uploaded', message: 'Image added to gallery.' })
     } catch (err: any) {
       setError(err.message || 'Upload failed')
     } finally {
@@ -101,6 +112,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
       return
     }
     await load()
+    await pushNotify({ type: 'success', title: 'Caption saved', message: 'Caption updated.' })
   }
 
   const setAsCover = async (id: string) => {
@@ -114,6 +126,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
       return
     }
     await load()
+    await pushNotify({ type: 'success', title: 'Cover updated', message: 'Photo set as cover image.' })
   }
 
   const remove = async (id: string) => {
@@ -124,6 +137,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
       return
     }
     await load()
+    await pushNotify({ type: 'info', title: 'Photo removed', message: 'Image deleted from gallery.' })
   }
 
   const limitReached = images.length >= MODEL_IMAGE_LIMIT
@@ -160,24 +174,31 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
         <h2 className="text-lg font-semibold">Existing images</h2>
         {images.length === 0 && <p className="text-sm text-slate-400">No images uploaded yet.</p>}
         <div className="grid md:grid-cols-2 gap-4">
-          {images.map((img) => (
-            <div key={img.id} className="glass rounded-xl overflow-hidden border border-white/10">
-              <img src={`/files${img.filePath.startsWith('/') ? img.filePath : `/${img.filePath}`}`} alt={img.caption || 'Model image'} className="w-full aspect-video object-cover" />
-              <div className="p-3 space-y-2">
-                {coverPath === img.filePath && <span className="text-xs px-2 py-0.5 rounded-full bg-brand-600/20 text-brand-200 border border-brand-500/40">Cover</span>}
-                <input
-                  className="input"
-                  value={captionDrafts[img.id] ?? ''}
-                  onChange={(e) => setCaptionDrafts((prev) => ({ ...prev, [img.id]: e.target.value }))}
-                />
-                <div className="flex gap-2 text-sm">
-                  <button type="button" className="btn flex-1" onClick={() => updateCaption(img.id)}>Save caption</button>
-                  <button type="button" className="px-3 py-2 rounded-md border border-white/10 flex-1" onClick={() => setAsCover(img.id)}>Set cover</button>
+          {images.map((img) => {
+            const publicSrc = toPublicHref(img.filePath)
+            return (
+              <div key={img.id} className="glass rounded-xl overflow-hidden border border-white/10">
+                {publicSrc ? (
+                  <img src={publicSrc} alt={img.caption || 'Model image'} className="w-full aspect-video object-cover" />
+                ) : (
+                  <div className="w-full aspect-video bg-slate-900/60 flex items-center justify-center text-slate-500 text-sm">Image unavailable</div>
+                )}
+                <div className="p-3 space-y-2">
+                  {coverPath === img.filePath && <span className="text-xs px-2 py-0.5 rounded-full bg-brand-600/20 text-brand-200 border border-brand-500/40">Cover</span>}
+                  <input
+                    className="input"
+                    value={captionDrafts[img.id] ?? ''}
+                    onChange={(e) => setCaptionDrafts((prev) => ({ ...prev, [img.id]: e.target.value }))}
+                  />
+                  <div className="flex gap-2 text-sm">
+                    <button type="button" className="btn flex-1" onClick={() => updateCaption(img.id)}>Save caption</button>
+                    <button type="button" className="px-3 py-2 rounded-md border border-white/10 flex-1" onClick={() => setAsCover(img.id)}>Set cover</button>
+                  </div>
+                  <button type="button" className="px-3 py-2 rounded-md border border-red-400/40 text-red-300 w-full" onClick={() => remove(img.id)}>Delete</button>
                 </div>
-                <button type="button" className="px-3 py-2 rounded-md border border-red-400/40 text-red-300 w-full" onClick={() => remove(img.id)}>Delete</button>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>
