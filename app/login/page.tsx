@@ -1,4 +1,5 @@
 "use client"
+import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -55,7 +56,9 @@ export default function LoginPage() {
         </div>
         <button className="btn" disabled={loading}>{loading ? 'Signing in…' : 'Sign in'}</button>
       </form>
-      <p className="text-sm mt-4 text-slate-400">No account? <a className="underline" href="/register">Register</a></p>
+      <p className="text-sm mt-4 text-slate-400">
+        No account? <Link className="underline" href="/register">Register</Link>
+      </p>
     </div>
   )
 }
