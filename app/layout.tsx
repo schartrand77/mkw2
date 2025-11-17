@@ -62,7 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <CartProvider>
         <NotificationsProvider>
         <header className="sticky top-0 z-50 border-b border-white/10 bg-black/50 backdrop-blur header-safe">
-          <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
+          <div className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
             {authed ? (
               <Link href="/" aria-label="MakerWorks v2" className="text-xl font-semibold tracking-tight">
                 <span>MakerW</span>

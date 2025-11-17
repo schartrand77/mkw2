@@ -75,10 +75,11 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
       ? 'px-3 py-1.5 rounded-md bg-brand-600 border border-brand-600 text-white'
       : 'px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20'
   }
+  const navContainerCls = 'flex items-center gap-3 text-sm overflow-x-auto whitespace-nowrap w-full min-w-0 sm:w-auto sm:overflow-visible sm:whitespace-normal'
 
   if (!authed) {
     return (
-      <nav className="flex items-center gap-3 text-sm">
+      <nav className={navContainerCls}>
         <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
         <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
         <Link href="/login" className={linkCls('/login')}>Sign in</Link>
@@ -115,7 +116,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   }, [])
 
   return (
-    <nav className="flex items-center gap-3 text-sm">
+    <nav className={navContainerCls}>
       <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
       <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
       <Link href="/upload" className={linkCls('/upload')}>Upload</Link>
