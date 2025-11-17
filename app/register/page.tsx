@@ -23,12 +23,16 @@ export default function RegisterPage() {
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, name, password })
       })
       if (!res.ok) throw new Error(await res.text())
       await notify({ type: 'success', title: 'Account created', message: 'Welcome to MakerWorks!' })
-      router.push('/')
-      router.refresh()
+      if (typeof window !== 'undefined') {
+        window.location.href = '/discover'
+      } else {
+        router.replace('/discover')
+      }
     } catch (err: any) {
       await notify({ type: 'error', title: 'Registration failed', message: err.message || 'Registration failed' })
     } finally {
