@@ -324,7 +324,12 @@ export default function CheckoutPage() {
           )}
         </div>
         {intent && (
-          <OrderSummary items={intent.lineItems} currency={intent.currency} total={intent.total} />
+          <OrderSummary
+            items={intent.lineItems}
+            currency={intent.currency}
+            total={intent.total}
+            discount={intent.discount}
+          />
         )}
         {loading && (
           <p className="text-sm text-slate-400">

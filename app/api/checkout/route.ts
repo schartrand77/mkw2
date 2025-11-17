@@ -9,6 +9,7 @@ import { z } from 'zod'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { clampScale, getColorMultiplier, normalizeColors, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
 import { recordOrderWorksJob } from '@/lib/orderworks'
+import { summarizeDiscount, getDiscountMultiplier } from '@/lib/discounts'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,6 +92,21 @@ export async function POST(req: NextRequest) {
       return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : 1
     })()
 
+    const userId = await getUserIdFromCookie()
+    const userForCheckout = userId
+      ? await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          email: true,
+          discountPercent: true,
+          friendsAndFamilyPercent: true,
+          isFriendsAndFamily: true,
+        },
+      })
+      : null
+    const discountSummary = summarizeDiscount(userForCheckout)
+    const discountMultiplier = getDiscountMultiplier(discountSummary)
+
     const lineItems: CheckoutLineItem[] = items.map((entry) => {
       const model = modelMap.get(entry.modelId)!
       const cm3 = model.volumeMm3 ? model.volumeMm3 / 1000 : null
@@ -102,8 +118,10 @@ export async function POST(req: NextRequest) {
       }
       const clampedScale = clampScale(entry.scale)
       const colorMultiplier = getColorMultiplier(colors)
-      const unitPrice = Number((basePrice * Math.pow(clampedScale, 3) * colorMultiplier).toFixed(2))
+      const rawUnitPrice = Number((basePrice * Math.pow(clampedScale, 3) * colorMultiplier).toFixed(2))
+      const unitPrice = Number((rawUnitPrice * discountMultiplier).toFixed(2))
       const qty = entry.qty || 1
+      const undiscountedLineTotal = Number((rawUnitPrice * qty).toFixed(2))
       const lineTotal = Number((unitPrice * qty).toFixed(2))
       return {
         modelId: model.id,
@@ -112,6 +130,8 @@ export async function POST(req: NextRequest) {
         scale: clampedScale,
         unitPrice,
         lineTotal,
+        undiscountedLineTotal,
+        discountPercent: discountSummary.totalPercent || undefined,
         material: materialChoice,
         colors,
         infillPct: entry.infillPct ?? undefined,
@@ -128,10 +148,7 @@ export async function POST(req: NextRequest) {
 
     const shippingPayload: ShippingSelection = shipping || { method: 'pickup' }
     const metadataItems = lineItems.slice(0, 20).map((item) => `${item.qty}x ${item.title}`).join(', ')
-    const userId = await getUserIdFromCookie()
-    const customerEmail = userId
-      ? (await prisma.user.findUnique({ where: { id: userId }, select: { email: true } }))?.email
-      : undefined
+    const customerEmail = userForCheckout?.email || undefined
     const currencyCode = currency.toUpperCase()
 
     let paymentIntentId: string
@@ -192,6 +209,7 @@ export async function POST(req: NextRequest) {
       shipping: shippingPayload,
       paymentMethod,
       committed: commit,
+      discount: discountSummary,
     })
   } catch (err: any) {
     console.error('Stripe checkout error:', err)

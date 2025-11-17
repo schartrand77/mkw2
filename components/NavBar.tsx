@@ -72,10 +72,10 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   const linkCls = (href: string) => {
     const active = isActivePath(pathname, href)
     return active
-      ? 'px-3 py-1.5 rounded-md bg-brand-600 border border-brand-600 text-white'
-      : 'px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20'
+      ? 'px-3 py-1.5 rounded-md bg-brand-600 border border-brand-600 text-white flex-shrink-0'
+      : 'px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 flex-shrink-0'
   }
-  const navContainerCls = 'flex items-center gap-3 text-sm overflow-x-auto whitespace-nowrap w-full min-w-0 sm:w-auto sm:overflow-visible sm:whitespace-normal'
+  const navContainerCls = 'flex items-center gap-3 text-sm overflow-x-auto whitespace-nowrap w-full min-w-0 pr-4 [-webkit-overflow-scrolling:touch] sm:w-auto sm:overflow-visible sm:whitespace-normal sm:pr-0'
 
   if (!authed) {
     return (
@@ -126,7 +126,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
         {isAdmin && (
           <Link href="/admin" className={linkCls('/admin')}>Admin</Link>
         )}
-        <div className="relative" ref={menuRef}>
+        <div className="relative flex-shrink-0" ref={menuRef}>
           <button
             type="button"
             aria-haspopup="menu"

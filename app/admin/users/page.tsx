@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import Link from 'next/link'
+import UserDiscountControls from '@/components/admin/UserDiscountControls'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +27,9 @@ export default async function AdminUsersPage() {
       createdAt: true,
       profile: { select: { slug: true } },
       badges: { include: { achievement: true } },
+      discountPercent: true,
+      isFriendsAndFamily: true,
+      friendsAndFamilyPercent: true,
     }
   })
 
@@ -56,10 +60,17 @@ export default async function AdminUsersPage() {
                 </span>
               ))}
             </div>
+            <div className="mt-4">
+              <UserDiscountControls
+                userId={u.id}
+                initialDiscount={u.discountPercent ?? 0}
+                initialFriendsAndFamily={u.isFriendsAndFamily ?? false}
+                initialFriendsAndFamilyPercent={u.friendsAndFamilyPercent ?? 0}
+              />
+            </div>
           </div>
         ))}
       </div>
     </div>
   )
 }
-

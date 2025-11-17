@@ -1,5 +1,6 @@
 import type { Currency } from '@/lib/currency'
 import type { MaterialType } from '@/lib/cartPricing'
+import type { DiscountSummary } from '@/lib/discounts'
 
 export type CheckoutItemInput = {
   modelId: string
@@ -35,6 +36,8 @@ export type CheckoutLineItem = {
   scale: number
   unitPrice: number
   lineTotal: number
+  undiscountedLineTotal?: number
+  discountPercent?: number
   material: MaterialType
   colors?: string[]
   infillPct?: number
@@ -51,4 +54,5 @@ export type CheckoutIntentResponse = {
   shipping?: ShippingSelection
   paymentMethod: CheckoutPaymentMethod
   committed: boolean
+  discount?: DiscountSummary
 }
