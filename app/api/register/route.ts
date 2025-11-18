@@ -22,8 +22,9 @@ export async function POST(req: NextRequest) {
     const passwordHash = await hashPassword(password)
     const user = await prisma.user.create({ data: { email, name, passwordHash, isAdmin: false } })
     await ensureUserPage(user.id, user.email, user.name)
-    setAuthCookie(user.id)
-    return NextResponse.json({ user: { id: user.id, email: user.email, name: user.name, isAdmin: user.isAdmin } })
+    const response = NextResponse.json({ user: { id: user.id, email: user.email, name: user.name, isAdmin: user.isAdmin } })
+    setAuthCookie(user.id, response.cookies as any)
+    return response
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
   }
