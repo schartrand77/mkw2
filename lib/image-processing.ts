@@ -20,9 +20,11 @@ async function readOrientation(buffer: Buffer): Promise<number | undefined> {
 
 export async function ensureProcessableImageBuffer(buffer: Buffer, info?: BufferInfo): Promise<PreparedImageBuffer> {
   if (!buffer || buffer.length === 0) return { buffer }
-  if (!info || !isHeicLikeSource(info.filename, info.mimeType)) return { buffer }
-
   const orientation = await readOrientation(buffer)
+  if (!info || !isHeicLikeSource(info.filename, info.mimeType)) {
+    return { buffer, orientation }
+  }
+
   try {
     const mod = await import('heic-convert')
     const heicConvert = (mod as any).default || mod
