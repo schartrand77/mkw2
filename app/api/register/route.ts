@@ -27,7 +27,14 @@ export async function POST(req: NextRequest) {
     }
     const passwordHash = await hashPassword(password)
     const user = await prisma.user.create({
-      data: { email: normalizedEmail, name: name?.trim() || null, passwordHash, isAdmin: false, emailVerified: false },
+      data: {
+        email: normalizedEmail,
+        name: name?.trim() || null,
+        passwordHash,
+        isAdmin: false,
+        emailVerified: false,
+        isSuspended: false,
+      },
     })
     await ensureUserPage(user.id, user.email, user.name)
     const token = await createEmailVerificationToken(user.id, normalizedEmail)

@@ -13,6 +13,7 @@ model User {
   name         String?
   passwordHash String
   emailVerified Boolean  @default(false)
+  isSuspended  Boolean  @default(false)
   isAdmin      Boolean  @default(false)
   discountPercent        Float   @default(0)
   isFriendsAndFamily     Boolean @default(false)

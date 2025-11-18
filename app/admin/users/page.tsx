@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import Link from 'next/link'
 import UserDiscountControls from '@/components/admin/UserDiscountControls'
+import UserAdminActions from '@/components/admin/UserAdminActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +31,8 @@ export default async function AdminUsersPage() {
       discountPercent: true,
       isFriendsAndFamily: true,
       friendsAndFamilyPercent: true,
+      isSuspended: true,
+      isAdmin: true,
     }
   })
 
@@ -59,6 +62,9 @@ export default async function AdminUsersPage() {
                   <span>{b.achievement?.name || 'Badge'}</span>
                 </span>
               ))}
+            </div>
+            <div className="mt-4">
+              <UserAdminActions userId={u.id} initialSuspended={!!u.isSuspended} isAdmin={!!u.isAdmin} />
             </div>
             <div className="mt-4">
               <UserDiscountControls

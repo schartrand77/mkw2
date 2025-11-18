@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
     const { email, password } = schema.parse(json)
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    if (user.isSuspended) return NextResponse.json({ error: 'Account suspended. Contact support.' }, { status: 403 })
     if (!user.emailVerified) {
       return NextResponse.json({ error: 'Please verify your email before signing in.' }, { status: 403 })
     }

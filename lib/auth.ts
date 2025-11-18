@@ -50,8 +50,8 @@ export async function getUserIdFromCookie(): Promise<string | null> {
     if (!token) return null
     const payload = verifyToken(token)
     if (!payload?.sub) return null
-    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true } })
-    if (!user) {
+    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, isSuspended: true } })
+    if (!user || user.isSuspended) {
       clearAuthCookie()
       return null
     }
