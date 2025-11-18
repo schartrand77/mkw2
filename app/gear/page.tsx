@@ -1,4 +1,4 @@
-import { buildAmazonSearchUrl, DEFAULT_AMAZON_QUERY } from '@/lib/amazon'
+import { AMAZON_MARKETPLACE_HOST, normalizeAmazonAffiliateUrl } from '@/lib/amazon'
 import { getAmazonSpotlightCards } from '@/lib/amazonSpotlights'
 
 export const metadata = {
@@ -7,7 +7,9 @@ export const metadata = {
 }
 
 export default async function AmazonStorePage() {
-  const filteredSearchUrl = buildAmazonSearchUrl(DEFAULT_AMAZON_QUERY, 'makerworks_v2_store_primary')
+  const supportShoppingUrl =
+    normalizeAmazonAffiliateUrl(`https://${AMAZON_MARKETPLACE_HOST}`) ||
+    `https://${AMAZON_MARKETPLACE_HOST}`
   const spotlightItems = await getAmazonSpotlightCards()
 
   return (
@@ -23,14 +25,17 @@ export default async function AmazonStorePage() {
             Browse Amazon results already narrowed to <span className="text-white font-medium">3D printing accessories</span>.
             Every card below links to a collection we use in the MakerWorks lab&mdash;dry boxes, nozzle kits, finishing gear, and more.
           </p>
+          <p className="text-slate-300 text-sm md:text-base max-w-3xl mx-auto md:mx-0">
+            Prefer regular shopping? Click the support button before you buy anything on Amazon and a portion of that purchase still helps keep MakerWorks running.
+          </p>
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
             <a
-              href={filteredSearchUrl}
+              href={supportShoppingUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="btn text-base"
             >
-              View filtered results
+              Shop Amazon & support MakerWorks
             </a>
             <a
               href="https://www.amazon.ca/associates"
