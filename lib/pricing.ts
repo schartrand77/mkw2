@@ -1,5 +1,6 @@
 import type { SiteConfig } from '@prisma/client'
 import { getCurrency } from './currency'
+import { getActivePrinterProfile } from './printerProfiles'
 
 const MATERIAL_DENSITY_G_PER_CM3: Record<string, number> = {
   PLA: 1.24,
@@ -11,6 +12,7 @@ const MATERIAL_DENSITY_G_PER_CM3: Record<string, number> = {
 type MaterialKey = 'PLA' | 'PETG'
 
 const KG_IN_GRAMS = 1000
+const ACTIVE_PRINTER_PROFILE = getActivePrinterProfile()
 
 export type PricingInputs = {
   cm3: number
@@ -37,7 +39,7 @@ export function estimatePrice({ cm3, material, cfg }: PricingInputs): number {
   const configuredSpeed = cfg?.printSpeedCm3PerHour != null ? Number(cfg.printSpeedCm3PerHour) : NaN
   let speed = configuredSpeed
   if (!speed || Number.isNaN(speed) || speed <= 0) {
-    speed = 15
+    speed = ACTIVE_PRINTER_PROFILE.volumetricSpeedCm3PerHour
   } else if (speed > 0 && speed <= 3) {
     // Many admins think in cm^3/minute; small values lead to wildly high price.
     // Treat inputs between 0 and 3 as cm^3/minute and convert to hourly throughput.
@@ -51,14 +53,15 @@ export function estimatePrice({ cm3, material, cfg }: PricingInputs): number {
           ? (process.env.LABOR_PER_HOUR_CAD || process.env.LABOR_PER_HOUR_USD || '0')
           : (process.env.LABOR_PER_HOUR_USD || '0')
       )
-  const energyRate = cfg?.energyUsdPerHour != null
-    ? Number(cfg.energyUsdPerHour)
-    : parseFloat(
-        currency === 'CAD'
-          ? (process.env.ENERGY_CAD_PER_HOUR || process.env.ENERGY_USD_PER_HOUR || '0')
-          : (process.env.ENERGY_USD_PER_HOUR || '0')
-      )
   const labor = laborRate * hours
+  const envEnergyRate = parseFloat(
+    currency === 'CAD'
+      ? (process.env.ENERGY_CAD_PER_HOUR || process.env.ENERGY_USD_PER_HOUR || '0')
+      : (process.env.ENERGY_USD_PER_HOUR || '0')
+  )
+  const energyRate = cfg?.energyUsdPerHour != null && !Number.isNaN(Number(cfg.energyUsdPerHour))
+    ? Number(cfg.energyUsdPerHour)
+    : (Number.isFinite(envEnergyRate) && envEnergyRate > 0 ? envEnergyRate : ACTIVE_PRINTER_PROFILE.energyUsdPerHour)
   const energy = energyRate * hours
   const base = materialCost + labor + energy
   const minPrice = cfg?.minimumPriceUsd != null

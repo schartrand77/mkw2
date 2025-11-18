@@ -94,6 +94,12 @@ Notes
 - PLA vs PETG selection and up to four cart colors now draw from the configured spool prices; extra colors apply the `COLOR_SURCHARGE_RATE`.
  - Avatars are resized to 512x512 webp on upload. Old avatars are deleted on replacement.
 
+Printer Profiles
+- Set `PRINTER_PROFILE` to describe the hardware that drives time/energy math. The default is `BAMBU_X1C`.
+- The X1 Carbon profile assumes its 32 mm³/s toolhead (~75 cm³/hr sustained) and ~350 W draw, yielding roughly $0.05/hour of energy at $0.14/kWh.
+- `GENERIC_FDM` keeps the old 15 cm³/hr baseline for slower printers.
+- You can override any piece via the admin pricing form or `PRINTER_ELECTRIC_RATE_PER_KWH`.
+
 Next Steps (nice to have)
 - OAuth providers and user profiles
 - Server-side thumbnail generation with `sharp`
