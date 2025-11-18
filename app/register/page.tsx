@@ -1,6 +1,5 @@
 "use client"
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
   try {
@@ -13,26 +12,45 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPasswords, setShowPasswords] = useState(false)
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const passwordsMatch = confirmPassword === '' || password === confirmPassword
+  const canSubmit = Boolean(email && name.trim() && password && confirmPassword && passwordsMatch)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSuccessMsg(null)
+    if (!passwordsMatch) {
+      await notify({ type: 'error', title: 'Password mismatch', message: 'Passwords must match.' })
+      return
+    }
     setLoading(true)
     try {
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email, name, password })
+        body: JSON.stringify({
+          email,
+          name,
+          password,
+          confirmPassword,
+        })
       })
-      if (!res.ok) throw new Error(await res.text())
-      await notify({ type: 'success', title: 'Account created', message: 'Welcome to MakerWorks!' })
-      if (typeof window !== 'undefined') {
-        window.location.href = '/discover'
-      } else {
-        router.replace('/discover')
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        const message = data?.error || 'Registration failed'
+        throw new Error(message)
       }
+      await notify({ type: 'success', title: 'Account created', message: 'Check your email to verify your account.' })
+      const verifyNote = data?.message || 'Please check your inbox for the verification link.'
+      setSuccessMsg(verifyNote)
+      setEmail('')
+      setName('')
+      setPassword('')
+      setConfirmPassword('')
     } catch (err: any) {
       await notify({ type: 'error', title: 'Registration failed', message: err.message || 'Registration failed' })
     } finally {
@@ -44,6 +62,7 @@ export default function RegisterPage() {
     <div className="max-w-md mx-auto">
       <h1 className="text-2xl font-semibold mb-4">Create an account</h1>
       <form onSubmit={submit} className="space-y-4 glass p-6 rounded-xl">
+        {successMsg && <div className="text-sm text-brand-400">{successMsg}</div>}
         <div>
           <label className="block text-sm mb-1">Email</label>
           <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -53,10 +72,40 @@ export default function RegisterPage() {
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
         <div>
-          <label className="block text-sm mb-1">Password</label>
-          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <div className="flex items-center justify-between text-sm mb-1">
+            <label>Password</label>
+            <button
+              type="button"
+              className="text-xs text-slate-300 hover:text-white"
+              onClick={() => setShowPasswords((prev) => !prev)}
+            >
+              {showPasswords ? 'Hide password' : 'Show password'}
+            </button>
+          </div>
+          <input
+            className="input"
+            type={showPasswords ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="new-password"
+          />
         </div>
-        <button className="btn" disabled={loading}>{loading ? 'Creating…' : 'Create account'}</button>
+        <div>
+          <label className="block text-sm mb-1">Confirm Password</label>
+          <input
+            className="input"
+            type={showPasswords ? 'text' : 'password'}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            autoComplete="new-password"
+          />
+          {confirmPassword && !passwordsMatch && (
+            <p className="text-xs text-amber-400 mt-1">Passwords do not match.</p>
+          )}
+        </div>
+        <button className="btn" disabled={loading || !canSubmit}>{loading ? 'Creating...' : 'Create account'}</button>
       </form>
     </div>
   )

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/db'
+import { setAuthCookie } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -16,9 +17,11 @@ export async function GET(req: NextRequest) {
   if (existing && existing.id !== vt.userId) return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
 
   await prisma.$transaction([
-    prisma.user.update({ where: { id: vt.userId }, data: { email: vt.email } }),
+    prisma.user.update({ where: { id: vt.userId }, data: { email: vt.email, emailVerified: true } }),
     prisma.verificationToken.update({ where: { token }, data: { usedAt: new Date() } })
   ])
 
-  return NextResponse.json({ ok: true })
+  const response = NextResponse.json({ ok: true })
+  setAuthCookie(vt.userId, response.cookies as any)
+  return response
 }

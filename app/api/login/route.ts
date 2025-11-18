@@ -16,6 +16,9 @@ export async function POST(req: NextRequest) {
     const { email, password } = schema.parse(json)
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    if (!user.emailVerified) {
+      return NextResponse.json({ error: 'Please verify your email before signing in.' }, { status: 403 })
+    }
     const ok = await verifyPassword(password, user.passwordHash)
     if (!ok) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     // Ensure the user has a profile page before responding

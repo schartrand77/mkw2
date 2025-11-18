@@ -440,7 +440,7 @@ async function ensureAnonymousUser(): Promise<string> {
   const anonEmail = 'anonymous@local'
   const existing = await prisma.user.findUnique({ where: { email: anonEmail } })
   if (existing) return existing.id
-  const created = await prisma.user.create({ data: { email: anonEmail, passwordHash: '!' } })
+  const created = await prisma.user.create({ data: { email: anonEmail, passwordHash: '!', emailVerified: true } })
   return created.id
 }
 

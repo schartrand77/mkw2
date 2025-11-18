@@ -6,6 +6,7 @@ Overview
 - Simple cost estimate based on material mass (per-kg spool prices) plus labor/energy with PLA/PETG selectors
 - File storage on a Docker volume, served via `/files/*`
 - Auth via email/password using signed HttpOnly cookie (JWT)
+- Registration requires verifying your email via an SMTP link (reuse the OrderWorks SMTP settings)
 - Automatic user page creation upon register/login with route `/u/{slug}` and quick link at `/me`.
 - Production/development ready Docker Compose
 - Admin dashboard to manage featured models and basic site settings
@@ -45,6 +46,12 @@ Backups
 OrderWorks Integration
 - Set `ORDERWORKS_WEBHOOK_URL` (and optional `ORDERWORKS_WEBHOOK_SECRET`) so each checkout POSTs a job form to your OrderWorks instance.
 - Jobs are persisted in the `JobForm` table; webhook failures are retried manually from the Admin dashboard.
+
+Email Verification
+- Provide SMTP credentials so MakerWorks can send verification links (same values as the OrderWorks app: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`).
+- Customize the sender via `RECEIPT_FROM_EMAIL` and optional `RECEIPT_REPLY_TO_EMAIL`.
+- Docker Compose now passes these env vars through automatically, so drop them into your `.env` file (or compose overrides) and restart the `web` service.
+- New registrations stay blocked from login until they click the verification link; email changes also send the same confirmation flow.
 
 Admin Account
 - Configure in env: `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` (optional)
