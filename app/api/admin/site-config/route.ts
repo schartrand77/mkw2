@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../_utils'
 import { z } from 'zod'
@@ -37,6 +38,7 @@ export async function PATCH(req: NextRequest) {
       update: parsed,
       create: { id: CONFIG_ID, ...parsed },
     })
+    revalidatePath('/admin')
     return NextResponse.json({ config: cfg })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
