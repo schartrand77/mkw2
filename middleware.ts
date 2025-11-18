@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server'
 const PUBLIC_EXACT = new Set([
   '/login',
   '/register',
+  '/gear',
   '/manifest.webmanifest',
   '/sw.js',
   '/robots.txt',
