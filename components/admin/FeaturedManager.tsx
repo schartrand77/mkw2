@@ -1,11 +1,13 @@
 "use client"
 import { useEffect, useMemo, useState } from 'react'
+import { buildImageSrc } from '@/lib/public-path'
 
 type Model = {
   id: string
   title: string
   coverImagePath?: string | null
   visibility?: string | null
+  updatedAt?: string | null
 }
 
 const FEATURE_LIMIT = 24
@@ -133,18 +135,19 @@ export default function FeaturedManager({ initial }: { initial: Model[] }) {
             <div className="text-sm text-slate-400">No models match that search.</div>
           ) : (
             <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {results.map((model) => {
-                const alreadyAdded = ids.has(model.id)
-                return (
-                  <button
+                    {results.map((model) => {
+                      const thumb = buildImageSrc(model.coverImagePath, model.updatedAt)
+                      const alreadyAdded = ids.has(model.id)
+                      return (
+                        <button
                     key={model.id}
                     type="button"
                     onClick={() => add(model)}
                     disabled={alreadyAdded || atLimit}
                     className={`text-left glass rounded-lg overflow-hidden border border-white/10 hover:border-white/20 transition disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
-                    {model.coverImagePath ? (
-                      <img src={`/files${model.coverImagePath}`} className="aspect-video w-full object-cover" alt={model.title} />
+                    {thumb ? (
+                      <img src={thumb} className="aspect-video w-full object-cover" alt={model.title} />
                     ) : (
                       <div className="aspect-video w-full bg-slate-900/60" />
                     )}
@@ -167,45 +170,48 @@ export default function FeaturedManager({ initial }: { initial: Model[] }) {
         <div className="text-xs text-slate-400 mb-2">Current featured order (top shows first on home)</div>
         {featured.length === 0 && <div className="text-sm text-slate-400">No featured models selected.</div>}
         <ul className="divide-y divide-white/10">
-          {featured.map((model, index) => (
-            <li key={model.id} className="flex flex-wrap items-center gap-3 py-3">
-              <div className="w-6 text-xs text-slate-500">{index + 1}.</div>
-              {model.coverImagePath ? (
-                <img src={`/files${model.coverImagePath}`} className="w-16 h-12 object-cover rounded border border-white/10" alt={model.title} />
-              ) : (
-                <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
-              )}
-              <div className="flex-1 min-w-[140px]">
-                <div className="text-sm font-medium">{model.title}</div>
-                <VisibilityBadge visibility={model.visibility} />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="px-2 py-1 rounded-md border border-white/10 text-xs hover:border-white/20 disabled:opacity-30"
-                  onClick={() => move(index, -1)}
-                  disabled={index === 0}
-                >
-                  Up
-                </button>
-                <button
-                  type="button"
-                  className="px-2 py-1 rounded-md border border-white/10 text-xs hover:border-white/20 disabled:opacity-30"
-                  onClick={() => move(index, 1)}
-                  disabled={index === featured.length - 1}
-                >
-                  Down
-                </button>
-                <button
-                  type="button"
-                  className="px-2 py-1 rounded-md border border-white/10 text-xs hover:border-white/20"
-                  onClick={() => remove(model.id)}
-                >
-                  Remove
-                </button>
-              </div>
-            </li>
-          ))}
+          {featured.map((model, index) => {
+            const thumb = buildImageSrc(model.coverImagePath, model.updatedAt)
+            return (
+              <li key={model.id} className="flex flex-wrap items-center gap-3 py-3">
+                <div className="w-6 text-xs text-slate-500">{index + 1}.</div>
+                {thumb ? (
+                  <img src={thumb} className="w-16 h-12 object-cover rounded border border-white/10" alt={model.title} />
+                ) : (
+                  <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
+                )}
+                <div className="flex-1 min-w-[140px]">
+                  <div className="text-sm font-medium">{model.title}</div>
+                  <VisibilityBadge visibility={model.visibility} />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded-md border border-white/10 text-xs hover:border-white/20 disabled:opacity-30"
+                    onClick={() => move(index, -1)}
+                    disabled={index === 0}
+                  >
+                    Up
+                  </button>
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded-md border border-white/10 text-xs hover:border-white/20 disabled:opacity-30"
+                    onClick={() => move(index, 1)}
+                    disabled={index === featured.length - 1}
+                  >
+                    Down
+                  </button>
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded-md border border-white/10 text-xs hover:border-white/20"
+                    onClick={() => remove(model.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </li>
+            )
+          })}
         </ul>
         <p className="text-xs text-slate-500 mt-3">Only public models will be shown on the home page.</p>
       </div>

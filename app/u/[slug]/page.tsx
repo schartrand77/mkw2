@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
-import { toPublicHref } from '@/lib/storage'
+import { buildImageSrc, toPublicHref } from '@/lib/storage'
 
 async function getProfile(slug: string) {
   return prisma.profile.findUnique({
@@ -24,7 +24,7 @@ async function getUserModels(userId: string) {
   return prisma.model.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, title: true, coverImagePath: true, priceUsd: true },
+    select: { id: true, title: true, coverImagePath: true, priceUsd: true, updatedAt: true },
   })
 }
 
@@ -123,7 +123,7 @@ export default async function UserPage({ params }: { params: { slug: string } })
         {models.map((m) => (
           <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition">
             {m.coverImagePath ? (
-              <img src={`/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
+              <img src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
             ) : (
               <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
             )}

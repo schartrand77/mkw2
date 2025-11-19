@@ -7,7 +7,7 @@ export async function GET() {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const items = await prisma.featuredModel.findMany({
     orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
-    include: { model: { select: { id: true, title: true, coverImagePath: true, visibility: true } } },
+    include: { model: { select: { id: true, title: true, coverImagePath: true, visibility: true, updatedAt: true } } },
   })
   return NextResponse.json({ featured: items.map(i => i.model) })
 }
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
   const items = await prisma.featuredModel.findMany({
     orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
-    include: { model: { select: { id: true, title: true, coverImagePath: true, visibility: true } } },
+    include: { model: { select: { id: true, title: true, coverImagePath: true, visibility: true, updatedAt: true } } },
   })
 
   return NextResponse.json({ featured: items.map(i => i.model) })

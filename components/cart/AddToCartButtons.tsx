@@ -1,12 +1,14 @@
 "use client"
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useCart } from './CartProvider'
+import { buildImageSrc } from '@/lib/public-path'
 
 type ModelPreview = {
   id: string
   title: string
   priceUsd?: number | null
   coverImagePath?: string | null
+  updatedAt?: string | Date | null
   sizeXmm?: number
   sizeYmm?: number
   sizeZmm?: number
@@ -16,6 +18,7 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
   const { add, inc, dec, items } = useCart()
   const inCart = items.find(i => i.modelId === model.id)
   const qty = inCart?.options.qty || 0
+  const thumbnail = useMemo(() => buildImageSrc(model.coverImagePath ?? null, model.updatedAt ?? null), [model.coverImagePath, model.updatedAt])
 
   const addOne = useCallback(() => {
     add(
@@ -23,12 +26,12 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
         modelId: model.id,
         title: model.title,
         priceUsd: model.priceUsd,
-        thumbnail: model.coverImagePath ? `/files${model.coverImagePath}` : null,
+        thumbnail,
         size: { x: model.sizeXmm, y: model.sizeYmm, z: model.sizeZmm },
       },
       { material: 'PLA', colors: [] },
     )
-  }, [add, model])
+  }, [add, model.id, model.priceUsd, model.sizeXmm, model.sizeYmm, model.sizeZmm, model.title, thumbnail])
 
   const stopPropagation = (e: React.SyntheticEvent) => {
     e.preventDefault()

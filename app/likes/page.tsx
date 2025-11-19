@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import { buildImageSrc } from '@/lib/public-path'
 
 async function getLiked(userId: string) {
   const likes = await prisma.like.findMany({
@@ -25,7 +26,7 @@ export default async function LikedPage() {
         {models.map((m: any) => (
           <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition">
             {m.coverImagePath ? (
-              <img src={`/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
+              <img src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
             ) : (
               <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
             )}

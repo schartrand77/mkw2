@@ -17,6 +17,7 @@ export async function GET() {
             material: true,
             priceUsd: true,
             volumeMm3: true,
+            updatedAt: true,
           },
         },
       },

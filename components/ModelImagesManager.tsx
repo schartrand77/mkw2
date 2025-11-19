@@ -13,6 +13,14 @@ async function pushNotify(payload: { type: 'success' | 'error' | 'info'; title?:
   }
 }
 
+function normalizeTurns(value: number) {
+  if (!Number.isFinite(value)) return 0
+  const steps = Math.round(value)
+  if (steps === 0) return 0
+  const mod = ((steps % 4) + 4) % 4
+  return mod > 2 ? mod - 4 : mod
+}
+
 type ModelImage = { id: string; filePath: string; caption: string | null }
 
 type Props = {
@@ -36,6 +44,10 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cacheBuster, setCacheBuster] = useState(() => Date.now())
+  const [pendingRotations, setPendingRotations] = useState<Record<string, number>>({})
+  const [coverRotation, setCoverRotation] = useState(0)
+  const [savingRotationId, setSavingRotationId] = useState<string | null>(null)
+  const [savingCover, setSavingCover] = useState(false)
 
   const load = useCallback(async () => {
     const res = await fetch(collectionEndpoint, { cache: 'no-store' })
@@ -46,6 +58,8 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
     const drafts: Record<string, string> = {}
     data.images.forEach((img: ModelImage) => { drafts[img.id] = img.caption || '' })
     setCaptionDrafts(drafts)
+    setPendingRotations({})
+    setCoverRotation(0)
     setCacheBuster(Date.now())
   }, [collectionEndpoint])
 
@@ -143,22 +157,68 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
     await pushNotify({ type: 'info', title: 'Photo removed', message: 'Image deleted from gallery.' })
   }
 
-  const rotate = async (id: string, direction: 'left' | 'right') => {
-    const res = await fetch(itemEndpoint(id), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rotate: direction }),
-    })
-    if (!res.ok) {
-      setError(await readErrorMessage(res))
-      return
+  const adjustTurns = (current: number, direction: 'left' | 'right') => normalizeTurns(current + (direction === 'left' ? -1 : 1))
+
+  const queueRotation = (id: string, direction: 'left' | 'right') => {
+    setPendingRotations((prev) => ({
+      ...prev,
+      [id]: adjustTurns(prev[id] || 0, direction),
+    }))
+  }
+
+  const saveRotation = async (id: string) => {
+    const turns = pendingRotations[id] || 0
+    if (!turns || savingRotationId === id) return
+    setSavingRotationId(id)
+    try {
+      const res = await fetch(itemEndpoint(id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rotateTurns: turns }),
+      })
+      if (!res.ok) {
+        setError(await readErrorMessage(res))
+        return
+      }
+      await load()
+      setPendingRotations((prev) => ({ ...prev, [id]: 0 }))
+      await pushNotify({
+        type: 'info',
+        title: 'Image rotated',
+        message: turns < 0 ? 'Rotated counter-clockwise.' : 'Rotated clockwise.',
+      })
+    } finally {
+      setSavingRotationId((current) => (current === id ? null : current))
     }
-    await load()
-    await pushNotify({
-      type: 'info',
-      title: 'Image rotated',
-      message: direction === 'left' ? 'Rotated counter-clockwise.' : 'Rotated clockwise.',
-    })
+  }
+
+  const queueCoverRotation = (direction: 'left' | 'right') => {
+    setCoverRotation((prev) => adjustTurns(prev, direction))
+  }
+
+  const saveCoverRotation = async () => {
+    if (!coverRotation || savingCover) return
+    setSavingCover(true)
+    try {
+      const res = await fetch(coverEndpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rotateTurns: coverRotation }),
+      })
+      if (!res.ok) {
+        setError(await readErrorMessage(res))
+        return
+      }
+      await load()
+      setCoverRotation(0)
+      await pushNotify({
+        type: 'info',
+        title: 'Cover updated',
+        message: coverRotation < 0 ? 'Cover rotated counter-clockwise.' : 'Cover rotated clockwise.',
+      })
+    } finally {
+      setSavingCover(false)
+    }
   }
 
   const rotateCover = async (direction: 'left' | 'right') => {
@@ -215,14 +275,30 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
         <h2 className="text-lg font-semibold">Existing images</h2>
         {coverSrc && (
           <div className="glass rounded-xl overflow-hidden border border-white/10">
-            <img src={`${coverSrc}?v=${cacheBuster}`} alt="Cover image" className="w-full aspect-video object-cover" />
+            <div className="aspect-video w-full bg-black/40 flex items-center justify-center overflow-hidden">
+              <img
+                src={`${coverSrc}?v=${cacheBuster}`}
+                alt="Cover image"
+                className={`transition-transform duration-150 max-h-full max-w-full ${Math.abs(coverRotation) % 2 ? 'object-contain' : 'object-cover'} pointer-events-none select-none`}
+                style={coverRotation ? { transform: `rotate(${coverRotation * 90}deg)` } : undefined}
+              />
+            </div>
             <div className="p-3 space-y-2">
               <span className="text-xs px-2 py-0.5 rounded-full bg-brand-600/20 text-brand-200 border border-brand-500/40">Current cover</span>
               <p className="text-sm text-slate-400">This is the thumbnail shown across Discover and Model pages.</p>
               <div className="flex gap-2 text-xs">
-                <button type="button" className="px-3 py-2 rounded-md border border-white/10 flex-1" onClick={() => rotateCover('left')}>Rotate left</button>
-                <button type="button" className="px-3 py-2 rounded-md border border-white/10 flex-1" onClick={() => rotateCover('right')}>Rotate right</button>
+                <button type="button" className="px-3 py-2 rounded-md border border-white/10 flex-1" onClick={() => queueCoverRotation('left')}>Rotate left</button>
+                <button type="button" className="px-3 py-2 rounded-md border border-white/10 flex-1" onClick={() => queueCoverRotation('right')}>Rotate right</button>
               </div>
+              <button
+                type="button"
+                className="px-3 py-2 rounded-md border border-brand-500/60 text-sm"
+                disabled={!coverRotation || savingCover}
+                onClick={saveCoverRotation}
+              >
+                {savingCover ? 'Saving...' : 'Save rotation'}
+              </button>
+              {coverRotation !== 0 && <p className="text-[11px] text-amber-300">Rotation pending - don't forget to save.</p>}
             </div>
           </div>
         )}
@@ -231,10 +307,19 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
           {galleryImages.map((img) => {
             const publicSrc = toPublicHref(img.filePath)
             const displaySrc = publicSrc ? `${publicSrc}?v=${cacheBuster}` : null
+            const turns = pendingRotations[img.id] || 0
+            const savingThis = savingRotationId === img.id
             return (
               <div key={img.id} className="glass rounded-xl overflow-hidden border border-white/10">
                 {displaySrc ? (
-                  <img src={displaySrc} alt={img.caption || 'Model image'} className="w-full aspect-video object-cover" />
+                  <div className="aspect-video w-full bg-black/30 flex items-center justify-center overflow-hidden">
+                    <img
+                      src={displaySrc}
+                      alt={img.caption || 'Model image'}
+                      className={`transition-transform duration-150 max-h-full max-w-full pointer-events-none select-none ${Math.abs(turns) % 2 ? 'object-contain' : 'object-cover'}`}
+                      style={turns ? { transform: `rotate(${turns * 90}deg)` } : undefined}
+                    />
+                  </div>
                 ) : (
                   <div className="w-full aspect-video bg-slate-900/60 flex items-center justify-center text-slate-500 text-sm">Image unavailable</div>
                 )}
@@ -249,21 +334,32 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
                     <button type="button" className="btn flex-1" onClick={() => updateCaption(img.id)}>Save caption</button>
                     <button type="button" className="px-3 py-2 rounded-md border border-white/10 flex-1" onClick={() => setAsCover(img.id)}>Set cover</button>
                   </div>
-                  <div className="flex gap-2 text-xs">
+                  <div className="flex flex-col gap-2 text-xs">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="px-3 py-2 rounded-md border border-white/10 flex-1"
+                        onClick={() => queueRotation(img.id, 'left')}
+                      >
+                        Rotate left
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 py-2 rounded-md border border-white/10 flex-1"
+                        onClick={() => queueRotation(img.id, 'right')}
+                      >
+                        Rotate right
+                      </button>
+                    </div>
                     <button
                       type="button"
-                      className="px-3 py-2 rounded-md border border-white/10 flex-1"
-                      onClick={() => rotate(img.id, 'left')}
+                      className="px-3 py-2 rounded-md border border-brand-500/60"
+                      disabled={!turns || savingThis}
+                      onClick={() => saveRotation(img.id)}
                     >
-                      Rotate left
+                      {savingThis ? 'Saving...' : 'Save rotation'}
                     </button>
-                    <button
-                      type="button"
-                      className="px-3 py-2 rounded-md border border-white/10 flex-1"
-                      onClick={() => rotate(img.id, 'right')}
-                    >
-                      Rotate right
-                    </button>
+                    {turns !== 0 && <p className="text-[11px] text-amber-300">Rotation pending - save to apply.</p>}
                   </div>
                   <button type="button" className="px-3 py-2 rounded-md border border-red-400/40 text-red-300 w-full" onClick={() => remove(img.id)}>Delete</button>
                 </div>

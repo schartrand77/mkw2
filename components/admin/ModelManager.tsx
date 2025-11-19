@@ -1,11 +1,13 @@
 "use client"
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { buildImageSrc } from '@/lib/public-path'
 
 type Model = {
   id: string
   title: string
   coverImagePath?: string | null
+  updatedAt?: string | null
   visibility: string
   tags: string[]
   affiliateTitle?: string | null
@@ -99,7 +101,7 @@ export default function ModelManager() {
           <div key={m.id} className="p-3 grid md:grid-cols-12 gap-3 items-center">
             <div className="md:col-span-1">
               {m.coverImagePath ? (
-                <img src={`/files${m.coverImagePath}`} className="w-16 h-12 object-cover rounded border border-white/10" />
+                <img src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`} className="w-16 h-12 object-cover rounded border border-white/10" />
               ) : (
                 <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
               )}

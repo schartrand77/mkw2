@@ -36,6 +36,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
   useEffect(() => {
     if (!mountRef.current) return
     let disposed = false
+    let cleanupFn: (() => void) | null = null
 
     const run = async () => {
       setError(null)
@@ -265,11 +266,27 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       }
     }
 
-    const cleanup = run()
+    run()
+      .then((fn) => {
+        if (disposed) {
+          if (fn) {
+            try { fn() } catch {}
+          }
+          return
+        }
+        cleanupFn = fn || null
+      })
+      .catch((err) => {
+        console.error('Model viewer failed to start', err)
+        setError(err?.message || 'Failed to load model')
+      })
 
     return () => {
       disposed = true
-      cleanup.catch(() => {})
+      if (cleanupFn) {
+        try { cleanupFn() } catch {}
+        cleanupFn = null
+      }
     }
   }, [resolvedFiles, height, autoRotate])
 

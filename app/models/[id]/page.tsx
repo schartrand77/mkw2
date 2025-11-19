@@ -5,7 +5,7 @@ import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { formatCurrency } from '@/lib/currency'
 import { buildYouTubeEmbedUrl } from '@/lib/youtube'
-import { toPublicHref } from '@/lib/storage'
+import { buildImageSrc, toPublicHref } from '@/lib/storage'
 
 async function fetchModel(id: string) {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/models/${id}`, { cache: 'no-store' })
@@ -18,8 +18,14 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
   if (!model) return <div>Not found</div>
   const fileHref = toPublicHref(model.filePath)
   const viewerHref = toPublicHref(model.viewerFilePath || model.filePath)
-  const coverHref = toPublicHref(model.coverImagePath)
+  const coverHref = buildImageSrc(model.coverImagePath, model.updatedAt)
   const hasParts = Array.isArray(model.parts) && model.parts.length > 0
+  const partParam = searchParams?.part
+  const partIndexRaw = Array.isArray(partParam) ? partParam[0] : partParam
+  const partIndex = partIndexRaw != null ? Number.parseInt(String(partIndexRaw), 10) : NaN
+  const initialGalleryKey = Number.isFinite(partIndex) && partIndex >= 0 && partIndex < (hasParts ? model.parts.length : 0)
+    ? `three:${partIndex}`
+    : undefined
   const videoEmbedUrl = model.videoEmbedId ? buildYouTubeEmbedUrl(model.videoEmbedId) : null
   const affiliateHost = model.affiliateUrl ? (() => {
     try {
@@ -48,6 +54,7 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
             parts={hasParts ? model.parts : []}
             allSrc={viewerHref || null}
             images={model.images || []}
+            initialKey={initialGalleryKey}
           />
         </div>
         <div className="space-y-4">

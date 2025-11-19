@@ -12,3 +12,21 @@ export function toPublicHref(p: string | null | undefined): string | null {
   if (!s.startsWith('/')) s = '/' + s
   return '/files' + s
 }
+
+export function buildImageSrc(p: string | null | undefined, version?: string | number | Date | null): string | null {
+  const base = toPublicHref(p)
+  if (!base) return null
+  if (version == null) return base
+  let stamp: number | null = null
+  if (typeof version === 'number') {
+    stamp = Number.isFinite(version) ? Math.round(version) : null
+  } else if (version instanceof Date) {
+    stamp = Number.isFinite(version.getTime()) ? version.getTime() : null
+  } else if (typeof version === 'string') {
+    const parsed = Date.parse(version)
+    stamp = Number.isFinite(parsed) ? parsed : null
+  }
+  if (!stamp || stamp <= 0) return base
+  const sep = base.includes('?') ? '&' : '?'
+  return `${base}${sep}v=${stamp}`
+}

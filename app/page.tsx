@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/currency'
+import { buildImageSrc } from '@/lib/public-path'
 
 async function fetchFeatured() {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/featured`, { cache: 'no-store' })
@@ -77,13 +78,14 @@ function FeaturedMarquee({ models }: { models: any[] }) {
 }
 
 function FeaturedCard({ model }: { model: any }) {
+  const coverSrc = buildImageSrc(model.coverImagePath, model.updatedAt)
   return (
     <Link
       href={`/models/${model.id}`}
       className="w-[280px] sm:w-[320px] md:w-[360px] flex-shrink-0 glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition"
     >
-      {model.coverImagePath ? (
-        <img src={`/files${model.coverImagePath}`} alt={model.title} className="aspect-video w-full object-cover" />
+      {coverSrc ? (
+        <img src={coverSrc} alt={model.title} className="aspect-video w-full object-cover" />
       ) : (
         <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
       )}

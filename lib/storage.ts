@@ -34,4 +34,4 @@ export function publicFilePath(relPath: string) {
   return `/files/${relPath}`.replace(/\\/g, '/').replace(/\/+/, '/')
 }
 
-export { toPublicHref } from './public-path'
+export { toPublicHref, buildImageSrc } from './public-path'

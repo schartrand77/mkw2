@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
         likes: true,
         downloads: true,
         createdAt: true,
+        updatedAt: true,
         _count: { select: { parts: true } },
         modelTags: { include: { tag: true } }
       }
@@ -96,6 +97,7 @@ export async function GET(req: NextRequest) {
     likes: m.likes,
     downloads: m.downloads,
     createdAt: m.createdAt,
+    updatedAt: m.updatedAt,
     partsCount: (m as any)._count?.parts || 0,
     tags: (m as any).modelTags?.map((mt: any) => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug })) || []
   }))

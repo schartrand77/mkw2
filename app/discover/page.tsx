@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/currency'
 import AddToCartButtons from '@/components/cart/AddToCartButtons'
+import { buildImageSrc } from '@/lib/public-path'
 
 type SearchParams = { [key: string]: string | string[] | undefined }
 
@@ -59,31 +60,34 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
         {models.length === 0 && (
           <p className="text-slate-400">No models matched your filters.</p>
         )}
-        {models.map((m: any) => (
-          <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
-            {m.coverImagePath ? (
-              <img src={`/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
-            ) : (
-              <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
-            )}
-            <div className="p-4 space-y-2">
-              <h3 className="text-lg font-semibold line-clamp-2">{m.title}</h3>
-              <div className="text-xs text-slate-400 flex gap-4">
-                <span>{m.fileType || 'Unknown format'}</span>
-                {m.partsCount > 0 && <span>{m.partsCount} part{m.partsCount === 1 ? '' : 's'}</span>}
+        {models.map((m: any) => {
+          const coverSrc = buildImageSrc(m.coverImagePath, m.updatedAt)
+          return (
+            <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+              {coverSrc ? (
+                <img src={coverSrc} alt={m.title} className="aspect-video w-full object-cover" />
+              ) : (
+                <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
+              )}
+              <div className="p-4 space-y-2">
+                <h3 className="text-lg font-semibold line-clamp-2">{m.title}</h3>
+                <div className="text-xs text-slate-400 flex gap-4">
+                  <span>{m.fileType || 'Unknown format'}</span>
+                  {m.partsCount > 0 && <span>{m.partsCount} part{m.partsCount === 1 ? '' : 's'}</span>}
+                </div>
+                <AddToCartButtons model={{ id: m.id, title: m.title, priceUsd: m.priceUsd, coverImagePath: m.coverImagePath, updatedAt: m.updatedAt, sizeXmm: m.sizeXmm, sizeYmm: m.sizeYmm, sizeZmm: m.sizeZmm }} />
+                <div className="flex justify-between text-sm text-slate-400">
+                  <span>{m.priceUsd ? formatCurrency(m.priceUsd) : 'N/A'}</span>
+                  <span>{m.sizeXmm && m.sizeYmm && m.sizeZmm ? `${Math.round(m.sizeXmm)} x ${Math.round(m.sizeYmm)} x ${Math.round(m.sizeZmm)} mm` : 'N/A'}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Likes: {m.likes}</span>
+                  <span>Downloads: {m.downloads}</span>
+                </div>
               </div>
-              <AddToCartButtons model={{ id: m.id, title: m.title, priceUsd: m.priceUsd, coverImagePath: m.coverImagePath, sizeXmm: m.sizeXmm, sizeYmm: m.sizeYmm, sizeZmm: m.sizeZmm }} />
-              <div className="flex justify-between text-sm text-slate-400">
-                <span>{m.priceUsd ? formatCurrency(m.priceUsd) : 'N/A'}</span>
-                <span>{m.sizeXmm && m.sizeYmm && m.sizeZmm ? `${Math.round(m.sizeXmm)}×${Math.round(m.sizeYmm)}×${Math.round(m.sizeZmm)} mm` : 'N/A'}</span>
-              </div>
-              <div className="flex justify-between text-xs text-slate-500">
-                <span>Likes: {m.likes}</span>
-                <span>Downloads: {m.downloads}</span>
-              </div>
-            </div>
-          </Link>
-        ))}
+            </Link>
+          )
+        })}
       </section>
 
       {totalPages > 1 && (

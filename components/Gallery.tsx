@@ -1,5 +1,5 @@
 "use client"
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toPublicHref } from '@/lib/public-path'
 import ModelViewer from './ModelViewer'
 
@@ -12,11 +12,12 @@ type Props = {
   parts?: Part[]
   allSrc?: string | null
   images?: GalleryImage[]
+  initialKey?: string
 }
 
 type Item = { key: string; label: string; kind: 'image' | 'three'; src?: string; srcs?: string[] }
 
-export default function Gallery({ coverSrc, parts = [], allSrc, images = [] }: Props) {
+export default function Gallery({ coverSrc, parts = [], allSrc, images = [], initialKey }: Props) {
   const items = useMemo<Item[]>(() => {
     const arr: Item[] = []
     const partSrcs = parts.map(p => toPublicHref(p.previewFilePath || p.filePath)).filter((src): src is string => !!src)
@@ -43,7 +44,37 @@ export default function Gallery({ coverSrc, parts = [], allSrc, images = [] }: P
     return arr
   }, [coverSrc, parts, allSrc, images])
 
-  const [active, setActive] = useState(items[0]?.key)
+  const initialActiveKey = useMemo(() => {
+    if (initialKey && items.some(i => i.key === initialKey)) return initialKey
+    return items[0]?.key
+  }, [initialKey, items])
+
+  const [active, setActive] = useState<string | undefined>(initialActiveKey)
+  const prevInitialKeyRef = useRef(initialKey)
+
+  useEffect(() => {
+    const initialChanged = prevInitialKeyRef.current !== initialKey
+    prevInitialKeyRef.current = initialKey
+
+    if (!items.length) {
+      if (active !== undefined) setActive(undefined)
+      return
+    }
+    const preferred = initialKey && items.find(i => i.key === initialKey)?.key
+    const activeValid = active && items.some(i => i.key === active)
+    if (initialChanged) {
+      if (preferred) {
+        if (preferred !== active) setActive(preferred)
+        return
+      }
+      if (!preferred && active !== items[0]?.key) {
+        setActive(items[0]?.key)
+        return
+      }
+    }
+    if (!activeValid) setActive(preferred || items[0]?.key)
+  }, [initialKey, items, active])
+
   const activeItem = items.find(i => i.key === active) || items[0]
 
   return (

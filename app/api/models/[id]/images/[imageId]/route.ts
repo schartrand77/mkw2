@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { serializeModelImage } from '@/lib/model-images'
 import { storageRoot } from '@/lib/storage'
+import { revalidatePath } from 'next/cache'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +14,7 @@ async function guardModelEditor(modelId: string) {
   const userId = await getUserIdFromCookie()
   if (!userId) return { response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   const [model, me] = await Promise.all([
-    prisma.model.findUnique({ where: { id: modelId }, select: { id: true, userId: true } }),
+    prisma.model.findUnique({ where: { id: modelId }, select: { id: true, userId: true, coverImagePath: true } }),
     prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } }),
   ])
   if (!model) return { response: NextResponse.json({ error: 'Model not found' }, { status: 404 }) }
@@ -21,6 +22,33 @@ async function guardModelEditor(modelId: string) {
     return { response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
   }
   return { model }
+}
+
+function normalizeTurns(value: number) {
+  if (!Number.isFinite(value)) return 0
+  const steps = Math.round(value)
+  if (steps === 0) return 0
+  const mod = ((steps % 4) + 4) % 4
+  return mod > 2 ? mod - 4 : mod
+}
+
+function extractRotateTurns(body: any, rotateDirection: 'left' | 'right' | null) {
+  if (typeof body?.rotateTurns === 'number' && Number.isFinite(body.rotateTurns)) {
+    const turns = normalizeTurns(body.rotateTurns)
+    if (turns !== 0) return turns
+  }
+  if (rotateDirection) return rotateDirection === 'left' ? -1 : 1
+  return 0
+}
+
+function revalidateModelPaths(id: string) {
+  try {
+    revalidatePath('/')
+    revalidatePath('/discover')
+    revalidatePath(`/models/${id}`)
+  } catch {
+    // ignore revalidation failures
+  }
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string; imageId: string } }) {
@@ -38,6 +66,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (dir === 'right' || dir === 'cw' || dir === 'clockwise') return 'right'
     return null
   })()
+  const rotateTurns = extractRotateTurns(body, rotateDirection)
   if ('caption' in body) {
     const raw = typeof body.caption === 'string' ? body.caption : ''
     updates.caption = raw ? raw.slice(0, 160) : null
@@ -49,7 +78,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: 'Invalid sort order' }, { status: 400 })
     }
   }
-  if (Object.keys(updates).length === 0 && !body.setCover && !rotateDirection) {
+  if (Object.keys(updates).length === 0 && !body.setCover && !rotateTurns) {
     return NextResponse.json({ image: serializeModelImage(image) })
   }
   const updated = Object.keys(updates).length
@@ -58,20 +87,26 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         data: updates,
       })
     : image
+  const filePath = updated.filePath || image.filePath
+  const isCoverImage = !!(body.setCover || (guard.model.coverImagePath && filePath === guard.model.coverImagePath))
   if (body.setCover) {
     await prisma.model.update({ where: { id: guard.model.id }, data: { coverImagePath: updated.filePath } })
+    revalidateModelPaths(guard.model.id)
   }
-  if (rotateDirection) {
-    const filePath = updated.filePath || image.filePath
+  if (rotateTurns) {
     if (!filePath) return NextResponse.json({ error: 'Image file missing' }, { status: 400 })
     const abs = path.join(storageRoot(), filePath.replace(/^\/+/, ''))
     try {
       const buf = await readFile(abs)
-      const rotated = await sharp(buf).rotate(rotateDirection === 'left' ? -90 : 90).toBuffer()
+      const rotated = await sharp(buf).rotate(rotateTurns * 90).toBuffer()
       await writeFile(abs, rotated)
     } catch (err) {
       console.error('Failed to rotate model image', err)
       return NextResponse.json({ error: 'Failed to rotate image' }, { status: 500 })
+    }
+    if (isCoverImage) {
+      await prisma.model.update({ where: { id: guard.model.id }, data: { coverImagePath: guard.model.coverImagePath } })
+      revalidateModelPaths(guard.model.id)
     }
   }
   return NextResponse.json({ image: serializeModelImage(updated) })
