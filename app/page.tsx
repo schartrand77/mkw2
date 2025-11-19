@@ -15,7 +15,7 @@ export default async function HomePage() {
     <div className="space-y-8">
       <section className="text-center py-10">
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Dream. Discover. Deliver.</h1>
-        <p className="mt-3 text-slate-300">3D print services, Model Creation, all with a smile.</p>
+        <p className="mt-3 text-slate-300">Bringing your ideas to life, one layer at a time.</p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <Link href="/upload" className="btn">Upload a Model</Link>
           <Link href="/discover" className="px-4 py-2 rounded-md border border-white/10 hover:border-white/20">Browse Library</Link>
