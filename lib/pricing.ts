@@ -13,6 +13,7 @@ type MaterialKey = 'PLA' | 'PETG'
 
 const KG_IN_GRAMS = 1000
 const ACTIVE_PRINTER_PROFILE = getActivePrinterProfile()
+const DEFAULT_FILL_FACTOR = 0.18 // Typical 15–20% infill for hobby prints
 
 export type PricingInputs = {
   cm3: number
@@ -21,7 +22,7 @@ export type PricingInputs = {
 }
 
 function normalizeFillFactor(value?: number | null): number {
-  if (value == null || Number.isNaN(value)) return 1
+  if (value == null || Number.isNaN(value)) return DEFAULT_FILL_FACTOR
   const numeric = Number(value)
   const normalized = numeric > 2 ? numeric / 100 : numeric
   return Math.max(0.1, Math.min(1.5, normalized))
