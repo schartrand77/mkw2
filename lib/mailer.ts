@@ -85,7 +85,9 @@ function getTransporter() {
       auth: {
         user: config.user,
         pass: config.pass,
+        type: process.env.SMTP_AUTH_TYPE as any,
       },
+      authMethod: process.env.SMTP_AUTH_METHOD,
     })
   }
   return transporter
