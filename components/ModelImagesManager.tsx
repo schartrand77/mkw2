@@ -25,6 +25,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
   const normalizedBase = useMemo(() => resourceBase.replace(/\/$/, ''), [resourceBase])
   const collectionEndpoint = useMemo(() => `${normalizedBase}/${modelId}/images`, [normalizedBase, modelId])
   const itemEndpoint = useCallback((imageId: string) => `${collectionEndpoint}/${imageId}`, [collectionEndpoint])
+  const coverEndpoint = useMemo(() => `${normalizedBase}/${modelId}/cover`, [normalizedBase, modelId])
 
   const [images, setImages] = useState<ModelImage[]>([])
   const [coverPath, setCoverPath] = useState<string | null>(initialCover || null)
@@ -34,6 +35,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
   const [setCover, setSetCover] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cacheBuster, setCacheBuster] = useState(() => Date.now())
 
   const load = useCallback(async () => {
     const res = await fetch(collectionEndpoint, { cache: 'no-store' })
@@ -44,6 +46,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
     const drafts: Record<string, string> = {}
     data.images.forEach((img: ModelImage) => { drafts[img.id] = img.caption || '' })
     setCaptionDrafts(drafts)
+    setCacheBuster(Date.now())
   }, [collectionEndpoint])
 
   useEffect(() => {
@@ -140,7 +143,45 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
     await pushNotify({ type: 'info', title: 'Photo removed', message: 'Image deleted from gallery.' })
   }
 
+  const rotate = async (id: string, direction: 'left' | 'right') => {
+    const res = await fetch(itemEndpoint(id), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rotate: direction }),
+    })
+    if (!res.ok) {
+      setError(await readErrorMessage(res))
+      return
+    }
+    await load()
+    await pushNotify({
+      type: 'info',
+      title: 'Image rotated',
+      message: direction === 'left' ? 'Rotated counter-clockwise.' : 'Rotated clockwise.',
+    })
+  }
+
+  const rotateCover = async (direction: 'left' | 'right') => {
+    const res = await fetch(coverEndpoint, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rotate: direction }),
+    })
+    if (!res.ok) {
+      setError(await readErrorMessage(res))
+      return
+    }
+    await load()
+    await pushNotify({
+      type: 'info',
+      title: 'Cover rotated',
+      message: direction === 'left' ? 'Cover rotated counter-clockwise.' : 'Cover rotated clockwise.',
+    })
+  }
+
   const limitReached = images.length >= MODEL_IMAGE_LIMIT
+  const galleryImages = coverPath ? images.filter((img) => img.filePath !== coverPath) : images
+  const coverSrc = coverPath ? toPublicHref(coverPath) : null
 
   return (
     <div className="space-y-6">
@@ -172,14 +213,28 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">Existing images</h2>
-        {images.length === 0 && <p className="text-sm text-slate-400">No images uploaded yet.</p>}
+        {coverSrc && (
+          <div className="glass rounded-xl overflow-hidden border border-white/10">
+            <img src={`${coverSrc}?v=${cacheBuster}`} alt="Cover image" className="w-full aspect-video object-cover" />
+            <div className="p-3 space-y-2">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-600/20 text-brand-200 border border-brand-500/40">Current cover</span>
+              <p className="text-sm text-slate-400">This is the thumbnail shown across Discover and Model pages.</p>
+              <div className="flex gap-2 text-xs">
+                <button type="button" className="px-3 py-2 rounded-md border border-white/10 flex-1" onClick={() => rotateCover('left')}>Rotate left</button>
+                <button type="button" className="px-3 py-2 rounded-md border border-white/10 flex-1" onClick={() => rotateCover('right')}>Rotate right</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {galleryImages.length === 0 && <p className="text-sm text-slate-400">No additional gallery images uploaded yet.</p>}
         <div className="grid md:grid-cols-2 gap-4">
-          {images.map((img) => {
+          {galleryImages.map((img) => {
             const publicSrc = toPublicHref(img.filePath)
+            const displaySrc = publicSrc ? `${publicSrc}?v=${cacheBuster}` : null
             return (
               <div key={img.id} className="glass rounded-xl overflow-hidden border border-white/10">
-                {publicSrc ? (
-                  <img src={publicSrc} alt={img.caption || 'Model image'} className="w-full aspect-video object-cover" />
+                {displaySrc ? (
+                  <img src={displaySrc} alt={img.caption || 'Model image'} className="w-full aspect-video object-cover" />
                 ) : (
                   <div className="w-full aspect-video bg-slate-900/60 flex items-center justify-center text-slate-500 text-sm">Image unavailable</div>
                 )}
@@ -193,6 +248,22 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
                   <div className="flex gap-2 text-sm">
                     <button type="button" className="btn flex-1" onClick={() => updateCaption(img.id)}>Save caption</button>
                     <button type="button" className="px-3 py-2 rounded-md border border-white/10 flex-1" onClick={() => setAsCover(img.id)}>Set cover</button>
+                  </div>
+                  <div className="flex gap-2 text-xs">
+                    <button
+                      type="button"
+                      className="px-3 py-2 rounded-md border border-white/10 flex-1"
+                      onClick={() => rotate(img.id, 'left')}
+                    >
+                      Rotate left
+                    </button>
+                    <button
+                      type="button"
+                      className="px-3 py-2 rounded-md border border-white/10 flex-1"
+                      onClick={() => rotate(img.id, 'right')}
+                    >
+                      Rotate right
+                    </button>
                   </div>
                   <button type="button" className="px-3 py-2 rounded-md border border-red-400/40 text-red-300 w-full" onClick={() => remove(img.id)}>Delete</button>
                 </div>

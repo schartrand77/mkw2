@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import path from 'path'
-import { unlink } from 'fs/promises'
+import { readFile, unlink, writeFile } from 'fs/promises'
+import sharp from 'sharp'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { serializeModelImage } from '@/lib/model-images'
@@ -30,6 +31,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!image) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const updates: any = {}
+  const rotateDirection = (() => {
+    if (typeof body.rotate !== 'string') return null
+    const dir = body.rotate.toLowerCase()
+    if (dir === 'left' || dir === 'ccw' || dir === 'counterclockwise') return 'left'
+    if (dir === 'right' || dir === 'cw' || dir === 'clockwise') return 'right'
+    return null
+  })()
   if ('caption' in body) {
     const raw = typeof body.caption === 'string' ? body.caption : ''
     updates.caption = raw ? raw.slice(0, 160) : null
@@ -41,15 +49,30 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: 'Invalid sort order' }, { status: 400 })
     }
   }
-  if (Object.keys(updates).length === 0 && !body.setCover) {
+  if (Object.keys(updates).length === 0 && !body.setCover && !rotateDirection) {
     return NextResponse.json({ image: serializeModelImage(image) })
   }
-  const updated = await prisma.modelImage.update({
-    where: { id: image.id },
-    data: updates,
-  })
+  const updated = Object.keys(updates).length
+    ? await prisma.modelImage.update({
+        where: { id: image.id },
+        data: updates,
+      })
+    : image
   if (body.setCover) {
     await prisma.model.update({ where: { id: guard.model.id }, data: { coverImagePath: updated.filePath } })
+  }
+  if (rotateDirection) {
+    const filePath = updated.filePath || image.filePath
+    if (!filePath) return NextResponse.json({ error: 'Image file missing' }, { status: 400 })
+    const abs = path.join(storageRoot(), filePath.replace(/^\/+/, ''))
+    try {
+      const buf = await readFile(abs)
+      const rotated = await sharp(buf).rotate(rotateDirection === 'left' ? -90 : 90).toBuffer()
+      await writeFile(abs, rotated)
+    } catch (err) {
+      console.error('Failed to rotate model image', err)
+      return NextResponse.json({ error: 'Failed to rotate image' }, { status: 500 })
+    }
   }
   return NextResponse.json({ image: serializeModelImage(updated) })
 }
