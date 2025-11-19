@@ -52,6 +52,7 @@ Email Verification
 - Customize the sender via `RECEIPT_FROM_EMAIL` and optional `RECEIPT_REPLY_TO_EMAIL`.
 - Docker Compose now passes these env vars through automatically, so drop them into your `.env` file (or compose overrides) and restart the `web` service.
 - New registrations stay blocked from login until they click the verification link; email changes also send the same confirmation flow.
+- The signup screen offers a "Resend verification email" action if the user didn't receive the first link, which calls `POST /api/register/resend`.
 
 Admin Account
 - Configure in env: `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` (optional)
@@ -60,6 +61,7 @@ Admin Account
 
 Core Endpoints
 - `POST /api/register` { email, name?, password }
+- `POST /api/register/resend` { email } (resend verification link if not yet confirmed)
 - `POST /api/login` { email, password }
 - `POST /api/logout`
 - `GET /api/me` current session user

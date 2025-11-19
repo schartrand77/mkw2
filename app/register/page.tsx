@@ -16,16 +16,22 @@ export default function RegisterPage() {
   const [showPasswords, setShowPasswords] = useState(false)
   const [loading, setLoading] = useState(false)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [lastEmail, setLastEmail] = useState<string | null>(null)
+  const [resending, setResending] = useState(false)
+  const [resendMsg, setResendMsg] = useState<string | null>(null)
+  const [resendErr, setResendErr] = useState<string | null>(null)
   const passwordsMatch = confirmPassword === '' || password === confirmPassword
   const canSubmit = Boolean(email && name.trim() && password && confirmPassword && passwordsMatch)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSuccessMsg(null)
+    setResendMsg(null); setResendErr(null)
     if (!passwordsMatch) {
       await notify({ type: 'error', title: 'Password mismatch', message: 'Passwords must match.' })
       return
     }
+    const normalizedEmail = email.trim().toLowerCase()
     setLoading(true)
     try {
       const res = await fetch('/api/register', {
@@ -33,7 +39,7 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          email,
+          email: normalizedEmail,
           name,
           password,
           confirmPassword,
@@ -47,6 +53,7 @@ export default function RegisterPage() {
       await notify({ type: 'success', title: 'Account created', message: 'Check your email to verify your account.' })
       const verifyNote = data?.message || 'Please check your inbox for the verification link.'
       setSuccessMsg(verifyNote)
+      setLastEmail(normalizedEmail)
       setEmail('')
       setName('')
       setPassword('')
@@ -62,7 +69,41 @@ export default function RegisterPage() {
     <div className="max-w-md mx-auto">
       <h1 className="text-2xl font-semibold mb-4">Create an account</h1>
       <form onSubmit={submit} className="space-y-4 glass p-6 rounded-xl">
-        {successMsg && <div className="text-sm text-brand-400">{successMsg}</div>}
+        {successMsg && (
+          <div className="space-y-2">
+            <div className="text-sm text-brand-400">{successMsg}</div>
+            {lastEmail && (
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  className="text-xs text-slate-200 underline hover:text-white disabled:opacity-60"
+                  onClick={async () => {
+                    setResending(true); setResendMsg(null); setResendErr(null)
+                    try {
+                      const res = await fetch('/api/register/resend', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: lastEmail }),
+                      })
+                      const data = await res.json().catch(() => null)
+                      if (!res.ok) throw new Error(data?.error || 'Failed to resend verification email')
+                      setResendMsg(data?.message || 'Verification email resent.')
+                    } catch (err: any) {
+                      setResendErr(err.message || 'Failed to resend verification email')
+                    } finally {
+                      setResending(false)
+                    }
+                  }}
+                  disabled={resending}
+                >
+                  {resending ? 'Resending...' : 'Didn’t get it? Resend verification email'}
+                </button>
+                {resendErr && <div className="text-xs text-amber-400">{resendErr}</div>}
+                {resendMsg && <div className="text-xs text-emerald-300">{resendMsg}</div>}
+              </div>
+            )}
+          </div>
+        )}
         <div>
           <label className="block text-sm mb-1">Email</label>
           <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />

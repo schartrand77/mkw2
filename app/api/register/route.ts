@@ -39,10 +39,18 @@ export async function POST(req: NextRequest) {
     await ensureUserPage(user.id, user.email, user.name)
     const token = await createEmailVerificationToken(user.id, normalizedEmail)
     const verifyUrl = buildVerificationUrl(token)
-    await sendVerificationEmail(normalizedEmail, verifyUrl, { reason: 'register', userName: user.name || undefined })
+    let emailSent = false
+    try {
+      emailSent = await sendVerificationEmail(normalizedEmail, verifyUrl, { reason: 'register', userName: user.name || undefined })
+    } catch (mailErr) {
+      console.error('Verification email send failed:', mailErr)
+    }
     return NextResponse.json({
       ok: true,
-      message: 'Verification email sent. Please confirm to finish signing up.',
+      message: emailSent
+        ? 'Verification email sent. Please confirm to finish signing up.'
+        : 'Account created but we could not send the verification email automatically. Use “Resend verification email” once email is configured.',
+      mailError: !emailSent,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
