@@ -9,7 +9,6 @@ const schema = z.object({
   plaPricePerKgUsd: z.number().nonnegative().optional(),
   petgPricePerKgUsd: z.number().nonnegative().optional(),
   allowAnonymousUploads: z.boolean().optional(),
-  laborPerHourUsd: z.number().nonnegative().optional(),
   printSpeedCm3PerHour: z.number().nonnegative().optional(),
   energyUsdPerHour: z.number().nonnegative().optional(),
   minimumPriceUsd: z.number().nonnegative().optional(),

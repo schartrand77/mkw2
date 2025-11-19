@@ -3,7 +3,7 @@
 Overview
 - Fullâ€‘stack Next.js 14 app with Prisma + Postgres
 - Upload STL/OBJ/3MF, optional cover image, 3D viewer for STL (three.js)
-- Simple cost estimate based on material mass (per-kg spool prices) plus labor/energy with PLA/PETG selectors
+- Simple cost estimate based on material mass (per-kg spool prices) plus energy with PLA/PETG selectors
 - File storage on a Docker volume, served via `/files/*`
 - Auth via email/password using signed HttpOnly cookie (JWT)
 - Registration requires verifying your email via an SMTP link (reuse the OrderWorks SMTP settings)
@@ -97,11 +97,10 @@ Storage Layout
 
 Notes
 - Volume estimation supports binary and ASCII STL; OBJ/3MF volume not computed.
-- Default pricing: `$0.30 / cmÂ³ + $1.00 fixed` (env configurable).
 - Anonymous uploads are attached to a stable `anonymous@local` user for demo.
 - Admin flag is stored on users (`isAdmin`). Registration never grants admin.
 - PLA vs PETG selection and up to four cart colors now draw from the configured spool prices; extra colors apply the `COLOR_SURCHARGE_RATE`.
- - Avatars are resized to 512x512 webp on upload. Old avatars are deleted on replacement.
+- Avatars are resized to 512x512 webp on upload. Old avatars are deleted on replacement.
 
 Printer Profiles
 - Set `PRINTER_PROFILE` to describe the hardware that drives time/energy math. The default is `BAMBU_X1C`.

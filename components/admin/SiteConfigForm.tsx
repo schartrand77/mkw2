@@ -1,11 +1,10 @@
-﻿"use client"
+"use client"
 import { useState } from 'react'
 
 type Config = {
   plaPricePerKgUsd?: number | null
   petgPricePerKgUsd?: number | null
   allowAnonymousUploads?: boolean | null
-  laborPerHourUsd?: number | null
   printSpeedCm3PerHour?: number | null
   energyUsdPerHour?: number | null
   minimumPriceUsd?: number | null
@@ -30,7 +29,6 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
           plaPricePerKgUsd: cfg.plaPricePerKgUsd != null ? Number(cfg.plaPricePerKgUsd) : undefined,
           petgPricePerKgUsd: cfg.petgPricePerKgUsd != null ? Number(cfg.petgPricePerKgUsd) : undefined,
           allowAnonymousUploads: cfg.allowAnonymousUploads != null ? Boolean(cfg.allowAnonymousUploads) : undefined,
-          laborPerHourUsd: cfg.laborPerHourUsd != null ? Number(cfg.laborPerHourUsd) : undefined,
           printSpeedCm3PerHour: cfg.printSpeedCm3PerHour != null ? Number(cfg.printSpeedCm3PerHour) : undefined,
           energyUsdPerHour: cfg.energyUsdPerHour != null ? Number(cfg.energyUsdPerHour) : undefined,
           minimumPriceUsd: cfg.minimumPriceUsd != null ? Number(cfg.minimumPriceUsd) : undefined,
@@ -63,17 +61,10 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
 
       <div className="grid sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm mb-1">Labor per hour ({currency})</label>
-          <input className="input" type="number" step="0.01" value={cfg.laborPerHourUsd ?? ''} onChange={(e) => setCfg({ ...cfg, laborPerHourUsd: e.target.value === '' ? null : Number(e.target.value) })} />
-        </div>
-        <div>
           <label className="block text-sm mb-1">Print speed (cm^3/hour)</label>
           <input className="input" type="number" step="0.01" value={cfg.printSpeedCm3PerHour ?? ''} onChange={(e) => setCfg({ ...cfg, printSpeedCm3PerHour: e.target.value === '' ? null : Number(e.target.value) })} />
-          <p className="text-xs text-slate-400 mt-1">Values 0-3 are treated as cm³ per minute for convenience.</p>
+          <p className="text-xs text-slate-400 mt-1">Values 0-3 are treated as cm3 per minute for convenience.</p>
         </div>
-      </div>
-
-      <div className="grid sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-sm mb-1">Energy cost per hour ({currency})</label>
           <input className="input" type="number" step="0.01" value={cfg.energyUsdPerHour ?? ''} onChange={(e) => setCfg({ ...cfg, energyUsdPerHour: e.target.value === '' ? null : Number(e.target.value) })} />
