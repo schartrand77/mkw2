@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     prisma.verificationToken.update({ where: { token }, data: { usedAt: new Date() } })
   ])
 
-  const response = NextResponse.json({ ok: true })
+  const response = NextResponse.redirect(new URL('/login?verified=1', req.url))
   setAuthCookie(vt.userId, response.cookies as any)
   return response
 }
