@@ -9,8 +9,14 @@ What you get
 - Admin dashboard for pricing, site settings, backups, and optional OrderWorks webhook retries.
 - Email verification for new signups and a bootstrap admin account set via container variables.
 
-Screenshots
-![MakerWorks v2 Unraid template icon](public/screenshots/unraidicon.PNG)
+Interface highlights
+<img src="public/screenshots/shop.png" width="900" alt="MakerWorks storefront showing featured models" />
+<img src="public/screenshots/modelviewer.png" width="900" alt="STL model viewer and download panel" />
+<img src="public/screenshots/uploads.png" width="900" alt="Upload form for STL, OBJ, and 3MF files" />
+<img src="public/screenshots/cart.png" width="900" alt="Cart showing multi-color pricing and estimated totals" />
+<img src="public/screenshots/checkout.png" width="900" alt="Stripe Payment Element embedded checkout" />
+<img src="public/screenshots/admin.png" width="900" alt="Admin dashboard with pricing and backups" />
+<img src="public/screenshots/featured.png" width="900" alt="Admin featured models management interface" />
 
 After you install from Community Applications
 - Set the storage path to a persistent share (e.g., `/mnt/user/appdata/makerworks/storage`).
