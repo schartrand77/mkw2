@@ -54,6 +54,16 @@ export function estimatePrice({ cm3, material, cfg }: PricingInputs): number {
     speed = speed * 60
   }
   const hours = effCm3 / speed
+  const extraHourlyRateEnv = parseFloat(
+    currency === 'CAD'
+      ? (process.env.EXTRA_HOURLY_AFTER_FIRST_CAD || process.env.EXTRA_HOURLY_AFTER_FIRST_USD || '0')
+      : (process.env.EXTRA_HOURLY_AFTER_FIRST_USD || '0')
+  )
+  const extraHourlyRate = cfg?.extraHourlyUsdAfterFirst != null && Number.isFinite(Number(cfg.extraHourlyUsdAfterFirst))
+    ? Number(cfg.extraHourlyUsdAfterFirst)
+    : (Number.isFinite(extraHourlyRateEnv) && extraHourlyRateEnv > 0 ? extraHourlyRateEnv : 0)
+  const extraHours = Math.max(0, hours - 1)
+
   const envEnergyRate = parseFloat(
     currency === 'CAD'
       ? (process.env.ENERGY_CAD_PER_HOUR || process.env.ENERGY_USD_PER_HOUR || '0')
@@ -63,7 +73,7 @@ export function estimatePrice({ cm3, material, cfg }: PricingInputs): number {
     ? Number(cfg.energyUsdPerHour)
     : (Number.isFinite(envEnergyRate) && envEnergyRate > 0 ? envEnergyRate : ACTIVE_PRINTER_PROFILE.energyUsdPerHour)
   const energy = energyRate * hours
-  const base = materialCost + energy
+  const base = materialCost + energy + (extraHourlyRate * extraHours)
   const minPrice = cfg?.minimumPriceUsd != null
     ? Number(cfg.minimumPriceUsd)
     : parseFloat(

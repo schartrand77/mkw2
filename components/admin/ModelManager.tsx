@@ -25,6 +25,8 @@ export default function ModelManager() {
   const [pageSize, setPageSize] = useState(20)
   const [loading, setLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -50,14 +52,20 @@ export default function ModelManager() {
     return () => { active = false; clearTimeout(t) }
   }, [query, page, pageSize])
 
-  const updateRow = (i: number, patch: Partial<Model>) => {
-    setItems(prev => prev.map((m, idx) => idx === i ? { ...m, ...patch } : m))
+  useEffect(() => {
+    if (activeId && !items.find((m) => m.id === activeId)) setActiveId(null)
+  }, [items, activeId])
+
+  const updateModel = (id: string, patch: Partial<Model>) => {
+    setItems(prev => prev.map((m) => m.id === id ? { ...m, ...patch } : m))
   }
 
   const saveRow = async (m: Model) => {
-    const res = await fetch(`/api/admin/models/${m.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+    setSavingId(m.id)
+    try {
+      const res = await fetch(`/api/admin/models/${m.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           visibility: m.visibility,
           tags: m.tags.join(','),
@@ -67,7 +75,10 @@ export default function ModelManager() {
           priceOverrideUsd: m.priceOverrideUsd,
         })
       })
-    if (!res.ok) alert('Failed to save model: ' + (await res.text()))
+      if (!res.ok) alert('Failed to save model: ' + (await res.text()))
+    } finally {
+      setSavingId((current) => current === m.id ? null : current)
+    }
   }
 
   const deleteRow = async (id: string) => {
@@ -83,6 +94,7 @@ export default function ModelManager() {
       }
       setItems((prev) => prev.filter((m) => m.id !== id))
       setTotal((prev) => Math.max(0, prev - 1))
+      if (activeId === id) setActiveId(null)
     } catch (err: any) {
       console.error('Failed to delete model', err)
       alert(err?.message || 'Failed to delete model')
@@ -92,25 +104,79 @@ export default function ModelManager() {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const activeModel = activeId ? items.find((m) => m.id === activeId) || null : null
 
   return (
     <div className="space-y-3">
-      <h2 className="text-xl font-semibold">Model manager</h2>
-      <input className="input" placeholder="Search models…" value={query} onChange={(e) => { setQuery(e.target.value); setPage(1) }} />
-      {loading && <div className="text-slate-400 text-sm">Loading…</div>}
-      <div className="glass rounded-xl border border-white/10 divide-y divide-white/10">
-        {items.map((m, i) => (
-          <div key={m.id} className="p-3 grid md:grid-cols-12 gap-3 items-center">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">Model manager</h2>
+          <p className="text-sm text-slate-400">Find a model, then open it to edit details.</p>
+        </div>
+        {activeModel && (
+          <button className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20 text-sm" onClick={() => setActiveId(null)}>
+            Back to list
+          </button>
+        )}
+      </div>
+      <input className="input" placeholder="Search models..." value={query} onChange={(e) => { setQuery(e.target.value); setPage(1) }} />
+      {loading && <div className="text-slate-400 text-sm">Loading...</div>}
+
+      {!activeModel && (
+        <>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {items.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                className="flex items-start gap-3 p-3 rounded-lg border border-white/10 hover:border-white/20 bg-slate-900/40 text-left transition-colors"
+                onClick={() => setActiveId(m.id)}
+              >
+                {m.coverImagePath ? (
+                  <img
+                    src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`}
+                    className="w-16 h-12 object-cover rounded border border-white/10"
+                  />
+                ) : (
+                  <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
+                )}
+                <div className="flex-1 space-y-1">
+                  <div className="font-semibold text-sm">{m.title}</div>
+                  <div className="text-xs uppercase tracking-wide text-slate-400">{m.visibility}</div>
+                  {m.tags?.length > 0 && <div className="text-xs text-slate-400 truncate">{m.tags.join(', ')}</div>}
+                </div>
+              </button>
+            ))}
+            {!loading && items.length === 0 && (
+              <div className="col-span-full text-slate-400 text-sm">No models found.</div>
+            )}
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button className="px-3 py-1.5 rounded-md border border-white/10" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Prev</button>
+              <div className="text-sm text-slate-400">Page {page} / {totalPages}</div>
+              <button className="px-3 py-1.5 rounded-md border border-white/10" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+            </div>
+          )}
+        </>
+      )}
+
+      {activeModel && (
+        <div className="glass rounded-xl border border-white/10 divide-y divide-white/10">
+          <div className="p-3 grid md:grid-cols-12 gap-3 items-center">
             <div className="md:col-span-1">
-              {m.coverImagePath ? (
-                <img src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`} className="w-16 h-12 object-cover rounded border border-white/10" />
+              {activeModel.coverImagePath ? (
+                <img src={buildImageSrc(activeModel.coverImagePath, activeModel.updatedAt) || `/files${activeModel.coverImagePath}`} className="w-16 h-12 object-cover rounded border border-white/10" />
               ) : (
                 <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
               )}
             </div>
-            <div className="md:col-span-3 text-sm">{m.title}</div>
+            <div className="md:col-span-3 text-sm">
+              <div className="font-semibold mb-1">{activeModel.title}</div>
+              <div className="text-xs text-slate-400 break-all">{activeModel.id}</div>
+            </div>
             <div className="md:col-span-2">
-              <select className="input" value={m.visibility} onChange={(e) => updateRow(i, { visibility: e.target.value })}>
+              <select className="input" value={activeModel.visibility} onChange={(e) => updateModel(activeModel.id, { visibility: e.target.value })}>
                 <option value="public">public</option>
                 <option value="unlisted">unlisted</option>
                 <option value="private">private</option>
@@ -122,55 +188,50 @@ export default function ModelManager() {
                 className="input"
                 type="number"
                 step="0.01"
-                value={m.priceOverrideUsd ?? ''}
-                onChange={(e) => updateRow(i, { priceOverrideUsd: e.target.value === '' ? null : Number(e.target.value) })}
+                value={activeModel.priceOverrideUsd ?? ''}
+                onChange={(e) => updateModel(activeModel.id, { priceOverrideUsd: e.target.value === '' ? null : Number(e.target.value) })}
                 placeholder="Leave blank for automatic estimate"
               />
             </div>
             <div className="md:col-span-3">
-              <input className="input" value={m.tags.join(', ')} onChange={(e) => updateRow(i, { tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+              <input className="input" value={activeModel.tags.join(', ')} onChange={(e) => updateModel(activeModel.id, { tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
             </div>
             <div className="md:col-span-1 flex flex-col gap-2">
-              <button className="btn" onClick={() => saveRow(m)}>Save</button>
+              <button className="btn disabled:opacity-50 disabled:cursor-not-allowed" onClick={() => saveRow(activeModel)} disabled={savingId === activeModel.id}>
+                {savingId === activeModel.id ? 'Saving...' : 'Save'}
+              </button>
               <button
                 className="btn bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => deleteRow(m.id)}
-                disabled={deletingId === m.id}
+                onClick={() => deleteRow(activeModel.id)}
+                disabled={deletingId === activeModel.id}
               >
-                {deletingId === m.id ? 'Deleting...' : 'Delete'}
+                {deletingId === activeModel.id ? 'Deleting...' : 'Delete'}
               </button>
             </div>
             <div className="md:col-span-12 grid md:grid-cols-2 gap-3">
               <input
                 className="input"
                 placeholder="Affiliate label e.g. Springs kit"
-                value={m.affiliateTitle || ''}
-                onChange={(e) => updateRow(i, { affiliateTitle: e.target.value })}
+                value={activeModel.affiliateTitle || ''}
+                onChange={(e) => updateModel(activeModel.id, { affiliateTitle: e.target.value })}
               />
               <input
                 className="input"
                 placeholder="Amazon.ca link (dp/ASIN)"
-                value={m.affiliateUrl || ''}
-                onChange={(e) => updateRow(i, { affiliateUrl: e.target.value })}
+                value={activeModel.affiliateUrl || ''}
+                onChange={(e) => updateModel(activeModel.id, { affiliateUrl: e.target.value })}
               />
               <input
                 className="input md:col-span-2"
                 placeholder="YouTube URL or video ID"
-                value={m.videoUrl || ''}
-                onChange={(e) => updateRow(i, { videoUrl: e.target.value })}
+                value={activeModel.videoUrl || ''}
+                onChange={(e) => updateModel(activeModel.id, { videoUrl: e.target.value })}
               />
-              <Link href={`/admin/models/${m.id}/images`} className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20 md:col-span-2">
+              <Link href={`/admin/models/${activeModel.id}/images`} className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20 md:col-span-2">
                 Manage images
               </Link>
             </div>
           </div>
-        ))}
-      </div>
-      {totalPages > 1 && (
-        <div className="flex items-center gap-2">
-          <button className="px-3 py-1.5 rounded-md border border-white/10" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Prev</button>
-          <div className="text-sm text-slate-400">Page {page} / {totalPages}</div>
-          <button className="px-3 py-1.5 rounded-md border border-white/10" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
         </div>
       )}
     </div>

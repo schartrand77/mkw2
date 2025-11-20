@@ -12,6 +12,7 @@ const schema = z.object({
   printSpeedCm3PerHour: z.number().nonnegative().optional(),
   energyUsdPerHour: z.number().nonnegative().optional(),
   minimumPriceUsd: z.number().nonnegative().optional(),
+  extraHourlyUsdAfterFirst: z.number().nonnegative().optional(),
   fillFactor: z.number().positive().max(2).optional(),
 })
 

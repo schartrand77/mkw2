@@ -8,6 +8,7 @@ type Config = {
   printSpeedCm3PerHour?: number | null
   energyUsdPerHour?: number | null
   minimumPriceUsd?: number | null
+  extraHourlyUsdAfterFirst?: number | null
   fillFactor?: number | null
 }
 
@@ -32,6 +33,7 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
           printSpeedCm3PerHour: cfg.printSpeedCm3PerHour != null ? Number(cfg.printSpeedCm3PerHour) : undefined,
           energyUsdPerHour: cfg.energyUsdPerHour != null ? Number(cfg.energyUsdPerHour) : undefined,
           minimumPriceUsd: cfg.minimumPriceUsd != null ? Number(cfg.minimumPriceUsd) : undefined,
+          extraHourlyUsdAfterFirst: cfg.extraHourlyUsdAfterFirst != null ? Number(cfg.extraHourlyUsdAfterFirst) : undefined,
           fillFactor: cfg.fillFactor != null ? Number(cfg.fillFactor) : undefined,
         })
       })
@@ -44,61 +46,110 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
 
   return (
     <form onSubmit={save} className="space-y-3">
-      <h2 className="text-xl font-semibold">Pricing settings</h2>
+      <h2 className="text-xl font-semibold">Site settings</h2>
       {err && <div className="text-amber-400 text-sm">{err}</div>}
       {msg && <div className="text-brand-400 text-sm">{msg}</div>}
 
-      <div className="grid sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm mb-1">PLA price per kg ({currency})</label>
-          <input className="input" type="number" step="0.01" value={cfg.plaPricePerKgUsd ?? ''} onChange={(e) => setCfg({ ...cfg, plaPricePerKgUsd: e.target.value === '' ? null : Number(e.target.value) })} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">PETG price per kg ({currency})</label>
-          <input className="input" type="number" step="0.01" value={cfg.petgPricePerKgUsd ?? ''} onChange={(e) => setCfg({ ...cfg, petgPricePerKgUsd: e.target.value === '' ? null : Number(e.target.value) })} />
-        </div>
-      </div>
+      <TabSwitcher
+        tabs={[
+          {
+            key: 'pricing',
+            label: 'Pricing',
+            content: (
+              <div className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm mb-1">PLA price per kg ({currency})</label>
+                    <input className="input" type="number" step="0.01" value={cfg.plaPricePerKgUsd ?? ''} onChange={(e) => setCfg({ ...cfg, plaPricePerKgUsd: e.target.value === '' ? null : Number(e.target.value) })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">PETG price per kg ({currency})</label>
+                    <input className="input" type="number" step="0.01" value={cfg.petgPricePerKgUsd ?? ''} onChange={(e) => setCfg({ ...cfg, petgPricePerKgUsd: e.target.value === '' ? null : Number(e.target.value) })} />
+                  </div>
+                </div>
 
-      <div className="grid sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm mb-1">Print speed (cm^3/hour)</label>
-          <input className="input" type="number" step="0.01" value={cfg.printSpeedCm3PerHour ?? ''} onChange={(e) => setCfg({ ...cfg, printSpeedCm3PerHour: e.target.value === '' ? null : Number(e.target.value) })} />
-          <p className="text-xs text-slate-400 mt-1">Values 0-3 are treated as cm3 per minute for convenience.</p>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Energy cost per hour ({currency})</label>
-          <input className="input" type="number" step="0.01" value={cfg.energyUsdPerHour ?? ''} onChange={(e) => setCfg({ ...cfg, energyUsdPerHour: e.target.value === '' ? null : Number(e.target.value) })} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Minimum price ({currency})</label>
-          <input className="input" type="number" step="0.01" value={cfg.minimumPriceUsd ?? ''} onChange={(e) => setCfg({ ...cfg, minimumPriceUsd: e.target.value === '' ? null : Number(e.target.value) })} />
-        </div>
-      </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm mb-1">Print speed (cm^3/hour)</label>
+                    <input className="input" type="number" step="0.01" value={cfg.printSpeedCm3PerHour ?? ''} onChange={(e) => setCfg({ ...cfg, printSpeedCm3PerHour: e.target.value === '' ? null : Number(e.target.value) })} />
+                    <p className="text-xs text-slate-400 mt-1">Values 0-3 are treated as cm3 per minute for convenience.</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Energy cost per hour ({currency})</label>
+                    <input className="input" type="number" step="0.01" value={cfg.energyUsdPerHour ?? ''} onChange={(e) => setCfg({ ...cfg, energyUsdPerHour: e.target.value === '' ? null : Number(e.target.value) })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Extra per-hour charge after first hour ({currency})</label>
+                    <input className="input" type="number" step="0.01" value={cfg.extraHourlyUsdAfterFirst ?? ''} onChange={(e) => setCfg({ ...cfg, extraHourlyUsdAfterFirst: e.target.value === '' ? null : Number(e.target.value) })} />
+                    <p className="text-xs text-slate-400 mt-1">Apply a surcharge for long prints; first hour is excluded.</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Minimum price ({currency})</label>
+                    <input className="input" type="number" step="0.01" value={cfg.minimumPriceUsd ?? ''} onChange={(e) => setCfg({ ...cfg, minimumPriceUsd: e.target.value === '' ? null : Number(e.target.value) })} />
+                  </div>
+                </div>
 
-      <p className="text-xs text-slate-400">Material costs are now derived directly from their per-kg prices; no multipliers needed.</p>
+                <p className="text-xs text-slate-400">Material costs are derived from the per-kg prices; no multipliers needed.</p>
 
-      <div>
-        <label className="block text-sm mb-1">Infill (%)</label>
-        <select
-          className="input"
-          value={cfg.fillFactor != null ? String(Math.round(Number(cfg.fillFactor) * 100)) : ''}
-          onChange={(e) => setCfg({ ...cfg, fillFactor: e.target.value === '' ? null : Number(e.target.value) / 100 })}
-        >
-          <option value="">Select...</option>
-          <option value="15">15%</option>
-          <option value="30">30%</option>
-          <option value="45">45%</option>
-          <option value="60">60%</option>
-          <option value="75">75%</option>
-          <option value="90">90%</option>
-        </select>
-      </div>
+                <div>
+                  <label className="block text-sm mb-1">Infill (%)</label>
+                  <select
+                    className="input"
+                    value={cfg.fillFactor != null ? String(Math.round(Number(cfg.fillFactor) * 100)) : ''}
+                    onChange={(e) => setCfg({ ...cfg, fillFactor: e.target.value === '' ? null : Number(e.target.value) / 100 })}
+                  >
+                    <option value="">Select...</option>
+                    <option value="15">15%</option>
+                    <option value="30">30%</option>
+                    <option value="45">45%</option>
+                    <option value="60">60%</option>
+                    <option value="75">75%</option>
+                    <option value="90">90%</option>
+                  </select>
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: 'uploads',
+            label: 'Uploads',
+            content: (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <input id="anu" type="checkbox" checked={!!cfg.allowAnonymousUploads} onChange={(e) => setCfg({ ...cfg, allowAnonymousUploads: e.target.checked })} />
+                  <label htmlFor="anu" className="text-sm">Allow anonymous uploads</label>
+                </div>
+              </div>
+            ),
+          },
+        ]}
+      />
 
-      <div className="flex items-center gap-2">
-        <input id="anu" type="checkbox" checked={!!cfg.allowAnonymousUploads} onChange={(e) => setCfg({ ...cfg, allowAnonymousUploads: e.target.checked })} />
-        <label htmlFor="anu" className="text-sm">Allow anonymous uploads</label>
-      </div>
       <button className="btn" disabled={saving}>{saving ? 'Saving...' : 'Save Settings'}</button>
     </form>
+  )
+}
+
+function TabSwitcher({ tabs }: { tabs: { key: string, label: string, content: React.ReactNode }[] }) {
+  const [active, setActive] = useState(tabs[0]?.key)
+  const current = tabs.find((t) => t.key === active) || tabs[0]
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActive(tab.key)}
+            className={`px-3 py-1.5 rounded-md border text-sm ${tab.key === active ? 'border-white/40 bg-white/10' : 'border-white/10 hover:border-white/20'}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <div className="glass border border-white/10 rounded-lg p-4">
+        {current?.content}
+      </div>
+    </div>
   )
 }

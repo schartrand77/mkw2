@@ -153,6 +153,7 @@ model SiteConfig {
   printSpeedCm3PerHour  Float?
   energyUsdPerHour      Float?
   minimumPriceUsd       Float?
+  extraHourlyUsdAfterFirst Float?
   plaPricePerKgUsd      Float?
   petgPricePerKgUsd     Float?
   fillFactor            Float?
