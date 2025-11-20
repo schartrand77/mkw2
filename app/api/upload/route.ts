@@ -153,20 +153,23 @@ async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles
 
     const objectMap = new Map<string, ParsedObject>()
     const processedEntries = new Set<string>()
+    const buildItems: { key: string, transform: Matrix4x4 }[] = []
+    const queue: { path: string, collectBuild: boolean }[] = [{ path: modelEntry.name, collectBuild: true }]
 
-    async function parseModelEntry(entryPathRaw: string): Promise<{ buildItems: { key: string, transform: Matrix4x4 }[] }> {
+    while (queue.length) {
+      const { path: entryPathRaw, collectBuild } = queue.pop()!
       const entryPath = normalizeZipPath(entryPathRaw)
-      if (processedEntries.has(entryPath)) return { buildItems: [] }
+      if (processedEntries.has(entryPath)) continue
       const entry = zip.file(entryPath)
       if (!entry) {
         console.warn('3MF conversion: referenced model entry missing', { entryPath })
-        return { buildItems: [] }
+        continue
       }
       processedEntries.add(entryPath)
       const xml = await entry.async('string')
       const data = xmlParser.parse(xml)
       const model = data?.model || data?.Model
-      if (!model) return { buildItems: [] }
+      if (!model) continue
       const resourcesList = asArray(model.resources || model.Resources)
 
       for (const obj of resourcesList.flatMap((res) => asArray(res?.object || res?.Object))) {
@@ -204,7 +207,7 @@ async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles
           const compId = String(compIdRaw)
           const compPathRaw = getAttr(comp, ['path', 'Path'])
           const targetPath = compPathRaw ? normalizeZipPath(compPathRaw) : entryPath
-          if (compPathRaw) await parseModelEntry(compPathRaw)
+          if (compPathRaw) queue.push({ path: compPathRaw, collectBuild: false })
           const childKey = `${targetPath}#${compId}`
           components.push({
             key: childKey,
@@ -214,41 +217,71 @@ async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles
         objectMap.set(key, { key, meshTriangles, components })
       }
 
-      const buildItems = asArray(model.build?.item || model.build?.Item).map((item) => {
-        const itemId = getAttr(item, ['objectid', 'objectId', 'objectID', 'id', 'ID'])
-        if (itemId == null) return null
-        const key = `${entryPath}#${String(itemId)}`
-        return {
-          key,
-          transform: parseTransformMatrix(getAttr(item, ['transform', 'Transform'])),
-        }
-      }).filter((v): v is { key: string, transform: Matrix4x4 } => !!v)
-
-      return { buildItems }
+      if (collectBuild) {
+        const buildList = asArray(model.build?.item || model.build?.Item).map((item) => {
+          const itemId = getAttr(item, ['objectid', 'objectId', 'objectID', 'id', 'ID'])
+          if (itemId == null) return null
+          const key = `${entryPath}#${String(itemId)}`
+          return {
+            key,
+            transform: parseTransformMatrix(getAttr(item, ['transform', 'Transform'])),
+          }
+        }).filter((v): v is { key: string, transform: Matrix4x4 } => !!v)
+        buildItems.push(...buildList)
+      }
     }
-
-    const { buildItems } = await parseModelEntry(modelEntry.name)
     const triangles: Vec3[][] = []
     const cache = new Map<string, Vec3[][]>()
 
-    const resolveObjectTriangles = (key: string, stack: Set<string>): Vec3[][] => {
-      if (cache.has(key)) return cache.get(key)!
-      if (stack.has(key)) {
-        console.warn('3MF conversion: detected recursive component reference', { key })
-        return []
+    // Resolve triangles iteratively to avoid deep recursion on complex component graphs
+    const resolveObjectTriangles = (rootKey: string): Vec3[][] => {
+      if (cache.has(rootKey)) return cache.get(rootKey)!
+
+      type Frame = { key: string, phase: 'enter' | 'exit' }
+      const frames: Frame[] = [{ key: rootKey, phase: 'enter' }]
+      const active = new Set<string>()
+
+      while (frames.length) {
+        const frame = frames.pop()!
+        const key = frame.key
+
+        if (frame.phase === 'enter') {
+          if (cache.has(key)) continue
+          if (active.has(key)) {
+            console.warn('3MF conversion: detected recursive component reference', { key })
+            cache.set(key, [])
+            continue
+          }
+          active.add(key)
+          const obj = objectMap.get(key)
+          if (!obj) {
+            cache.set(key, [])
+            active.delete(key)
+            continue
+          }
+          frames.push({ key, phase: 'exit' })
+          for (let i = obj.components.length - 1; i >= 0; i--) {
+            const child = obj.components[i]
+            frames.push({ key: child.key, phase: 'enter' })
+          }
+        } else {
+          active.delete(key)
+          const obj = objectMap.get(key)
+          if (!obj) {
+            cache.set(key, [])
+            continue
+          }
+          let triList = obj.meshTriangles.map(tri => tri.map(v => ({ ...v })))
+          for (const comp of obj.components) {
+            const childTris = cache.get(comp.key) || []
+            const transformed = transformTriangles(childTris, comp.transform)
+            triList = triList.concat(transformed)
+          }
+          cache.set(key, triList)
+        }
       }
-      const obj = objectMap.get(key)
-      if (!obj) return []
-      stack.add(key)
-      let triList = obj.meshTriangles.map(tri => tri.map(v => ({ ...v })))
-      for (const comp of obj.components) {
-        const childTris = resolveObjectTriangles(comp.key, stack)
-        const transformed = transformTriangles(childTris, comp.transform)
-        triList = triList.concat(transformed)
-      }
-      stack.delete(key)
-      cache.set(key, triList)
-      return triList
+
+      return cache.get(rootKey) || []
     }
 
     const itemsToProcess = buildItems.length > 0
@@ -256,10 +289,10 @@ async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles
       : Array.from(objectMap.keys()).map((key) => ({ key, transform: IDENTITY_MATRIX }))
 
     for (const item of itemsToProcess) {
-      const localTris = resolveObjectTriangles(item.key, new Set())
+      const localTris = resolveObjectTriangles(item.key)
       if (!localTris.length) continue
       const transformed = transformTriangles(localTris, item.transform)
-      triangles.push(...transformed)
+      for (const tri of transformed) triangles.push(tri)
     }
 
     if (triangles.length === 0) {
