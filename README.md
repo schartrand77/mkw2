@@ -1,123 +1,51 @@
-﻿MakerWorks v2 â€” 3D Model Hosting & Cost Estimation
+MakerWorks v2 - self-hosted 3D print hub
 
-Overview
-- Fullâ€‘stack Next.js 14 app with Prisma + Postgres
-- Upload STL/OBJ/3MF, optional cover image, 3D viewer for STL (three.js)
-- Simple cost estimate based on material mass (per-kg spool prices) plus energy with PLA/PETG selectors; optional extra hourly charge kicks in after the first print hour
-- File storage on a Docker volume, served via `/files/*`
-- Auth via email/password using signed HttpOnly cookie (JWT)
-- Registration requires verifying your email via an SMTP link (reuse the OrderWorks SMTP settings)
-- Automatic user page creation upon register/login with route `/u/{slug}` and quick link at `/me`.
-- Production/development ready Docker Compose
-- Admin dashboard to manage featured models and basic site settings
-- Each checkout logs an OrderWorks job form with full cart + shipping details for downstream client/invoicing workflows
-- Optional OrderWorks webhook queue pushes each job form to `ORDERWORKS_WEBHOOK_URL` and lets admins retry pending jobs
-- Embedded Stripe Payment Element checkout keeps purchases inside the app (no redirects)
+MakerWorks v2 is a self-hosted library for sharing printable models, estimating print jobs, and (optionally) taking payments. This guide is aimed at Unraid Community Applications users.
 
-Quick Start (Docker)
-- Copy `.env.example` to `.env` (optional; compose sets sane defaults)
-- Build and run: `docker-compose up --build`
-- App: `http://localhost:3000`
-- Postgres: `postgres://postgres:postgres@localhost:5432/makerworks`
+What you get
+- Upload STL/OBJ/3MF files with optional cover images; STL files preview in-browser.
+- Automatic weight and cost estimator with material and color options; Stripe checkout stays inside the app when enabled.
+- Personal profile pages (`/u/{slug}`) plus featured models curated by admins.
+- Admin dashboard for pricing, site settings, backups, and optional OrderWorks webhook retries.
+- Email verification for new signups and a bootstrap admin account set via container variables.
 
-Unraid (Community Applications)
-1. Ensure the GitHub Action **Publish container image** pushed `ghcr.io/schartrand77/mkw2:latest` (happens on every push to `main` and any `v*` tag).
-2. On Unraid go to `Apps â†’ Settings â†’ Additional Repositories` and add `https://raw.githubusercontent.com/schartrand77/mkw2/main/unraid/templates`. The feed exposes the **MakerWorks v2** template inside Community Applications.
-3. When installing, map `/app/storage` to a persistent share such as `/mnt/user/appdata/makerworks/storage`, and pick the external port you want (defaults to 3000).
-4. Point `DATABASE_URL` at any reachable Postgres 15+ instance. If you deploy the official `postgres` container on the same host, place both containers on a custom user-defined bridge (e.g. `makerworks_net`) and use `postgresql://postgres:postgres@postgres:5432/makerworks?schema=public`.
-5. Set `BASE_URL` to the public URL (e.g. `https://makerworks.example.com`), set `JWT_SECRET` to a long random value, and define the bootstrap `ADMIN_EMAIL` / `ADMIN_PASSWORD`. First launch runs migrations and seeds that admin user automatically.
-6. Leave `STORAGE_DIR` at `/app/storage` unless you have a special layout, and flip `COOKIE_SECURE=true` whenever you serve the site behind HTTPS so auth cookies remain secure.
+Install on Unraid
+1) In Community Applications go to Settings > Additional Repositories and add `https://raw.githubusercontent.com/schartrand77/mkw2/main/unraid/templates`.
+2) Ensure a Postgres 15+ database is reachable. If running it on the same host, create a custom Docker network first: `docker network create makerworks-net`, then place both containers on it.
+3) Install MakerWorks v2 from Community Applications.
+4) During install fill the required fields:
+   - Web Port: keep 3000 unless you prefer another.
+   - Storage: persistent path such as `/mnt/user/appdata/makerworks/storage`.
+   - DATABASE_URL: connection string to your Postgres instance.
+   - BASE_URL: the URL users reach (e.g., `https://makerworks.example.com`).
+   - JWT_SECRET: any long random string.
+   - ADMIN_EMAIL / ADMIN_PASSWORD: seeds the first admin user on start.
+   - Stripe keys (optional): `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` to accept payments.
+   - SMTP (optional but recommended): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE` so verification emails send correctly.
+5) Start the container. First boot runs migrations and creates the admin account. Visit `http://<server-ip>:<port>`.
 
-Local Dev (without Docker)
-1. Install deps: `npm ci`
-2. Start Postgres and set `DATABASE_URL`
-3. Generate client: `npm run prisma:generate`
-4. Apply schema: `npm run prisma:migrate`
-5. Run dev server: `npm run dev`
+First login & setup
+- Sign in with the admin email/password you set; this account is already verified.
+- Open Admin > Site Settings to set your shop name, currency, and price adjustments.
+- Add spool costs and optional color surcharge rates in Admin > Pricing so estimates match your material costs.
+- Connect Stripe in the env vars to enable checkout, or leave blank to use MakerWorks as a catalog only.
+- If you use OrderWorks, add the webhook URL/secret in the admin panel to forward new jobs.
 
-Backups
-- Run `npm run backup` to capture a snapshot of the Postgres database and `/storage` uploads.
-- The script creates `backups/<timestamp>/db.sql` (from `pg_dump`) plus a copy of the current `storage/` tree. The `backups/` directory is ignored by git.
-- When Docker Compose is running it uses `docker compose exec db pg_dump`; otherwise it falls back to the local `pg_dump` binary and the configured `DATABASE_URL`.
-- Automate by adding `npm run backup` to cron/Task Scheduler or invoking it from CI before deployments.
-- Admins can also trigger a backup from the dashboard’s Backups card; the snapshot is written to `/files/backups/<timestamp>/`.
-- Restores are scheduled from the same UI: pick a backup, acknowledge the warning, and restart the app/container. On restart the pending restore drops/reloads the database and replaces `/storage` (removing any newer uploads).
+Daily use
+- Upload models from the Upload page (supports STL, OBJ, 3MF) and optionally add a cover image; STL files render in a 3D viewer.
+- Each model gets a shareable page; `/u/{slug}` lists a user's uploads and `/me` jumps to your own page.
+- Carts show weight, material choice (PLA/PETG), and estimated time/energy costs; Stripe's Payment Element keeps checkout on-site when configured.
+- Users receive a verification link by email and can resend it from the signup screen.
 
-OrderWorks Integration
-- Set `ORDERWORKS_WEBHOOK_URL` (and optional `ORDERWORKS_WEBHOOK_SECRET`) so each checkout POSTs a job form to your OrderWorks instance.
-- Jobs are persisted in the `JobForm` table; webhook failures are retried manually from the Admin dashboard.
+Backups & restore
+- In Admin > Backups create a snapshot of the database and uploads; files land under `/files/backups/<timestamp>/` on your storage share.
+- Restore from the same card when needed; the app restarts to apply the snapshot. Keep your storage share backed up regularly.
 
-Email Verification
-- Provide SMTP credentials so MakerWorks can send verification links (same values as the OrderWorks app: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`).
-- Customize the sender via `RECEIPT_FROM_EMAIL` and optional `RECEIPT_REPLY_TO_EMAIL`.
-- Docker Compose now passes these env vars through automatically, so drop them into your `.env` file (or compose overrides) and restart the `web` service.
-- New registrations stay blocked from login until they click the verification link; email changes also send the same confirmation flow.
-- The signup screen offers a "Resend verification email" action if the user didn't receive the first link, which calls `POST /api/register/resend`.
+Updating
+- In Unraid, stop the container, click Update on MakerWorks v2, then start it again. Data persists through the mapped storage path and your database.
 
-Admin Account
-- Configure in env: `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` (optional)
-- On startup, a bootstrap script upserts the admin user and sets `isAdmin=true`.
-- Change credentials in the environment to rotate the admin password.
+Running without Unraid (optional)
+- Copy `.env.example` to `.env`, set the same variables, then run `docker-compose up --build` to start the app and Postgres locally. The app lives at `http://localhost:3000/`.
 
-Core Endpoints
-- `POST /api/register` { email, name?, password }
-- `POST /api/register/resend` { email } (resend verification link if not yet confirmed)
-- `POST /api/login` { email, password }
-- `POST /api/logout`
-- `GET /api/me` current session user
-- `GET /api/profile` fetch current profile
-- `PATCH /api/profile` update name, slug, bio, avatar (multipart or JSON)
-- `PATCH /api/account/email` change email (requires auth, unique)
-- `PATCH /api/account/password` change password (requires currentPassword)
-- `GET /api/profile` fetch current profile
-- `PATCH /api/profile` update name, slug, bio, avatar (multipart or JSON)
-- `POST /api/upload` multipart form: title, description?, material?, model(.stl|.obj|.3mf), image(optional)
-- `GET /api/models` list latest public models
-- `GET /api/models/:id` model details
-- `POST /api/models/:id/like` toggle like (auth)
-- `GET /files/...` serve stored files
-- `GET /api/tags` list popular tags
-- `POST /api/checkout` build totals from the cart and create a Stripe PaymentIntent
-- `POST /api/account/email/request` request email change (returns verifyUrl in dev)
-- `GET /api/account/email/verify?token=...` verify email change token
-- Admin:
-  - `GET /api/admin/featured` list featured models
-  - `POST /api/admin/featured` set featured order
-  - `GET /api/admin/site-config` fetch config
-  - `PATCH /api/admin/site-config` update config
-  - `GET /api/admin/search-models?q=` search models
-
-Holiday Theming
-- Flip the `HOLIDAY_THEME` (and optional `NEXT_PUBLIC_HOLIDAY_THEME`) env var to `christmas`, `halloween`, or `easter` to apply matching UI flourishes. Christmas adds falling snow while the others adjust gradients and floating particles. Leave blank/undefined for the default look.
-
-Storage Layout
-- Models: `/app/storage/{userId}/models/{timestamp}-{slug}.{ext}`
-- Thumbnails: `/app/storage/{userId}/thumbnails/{timestamp}-{slug}.{ext}`
-- Avatars: `/app/storage/{userId}/avatars/{timestamp}.webp`
-
-Notes
-- Volume estimation supports binary and ASCII STL; OBJ/3MF volume not computed.
-- Optional extra-hour surcharge can be applied after the first print hour (configurable in Admin).
-- Anonymous uploads are attached to a stable `anonymous@local` user for demo.
-- Admin flag is stored on users (`isAdmin`). Registration never grants admin.
-- PLA vs PETG selection and up to four cart colors now draw from the configured spool prices; extra colors apply the `COLOR_SURCHARGE_RATE`.
-- Avatars are resized to 512x512 webp on upload. Old avatars are deleted on replacement.
-
-Printer Profiles
-- Set `PRINTER_PROFILE` to describe the hardware that drives time/energy math. The default is `BAMBU_X1C`.
-- The X1 Carbon profile assumes its 32 mm³/s toolhead (~75 cm³/hr sustained) and ~350 W draw, yielding roughly $0.05/hour of energy at $0.14/kWh.
-- `GENERIC_FDM` keeps the old 15 cm³/hr baseline for slower printers.
-- You can override any piece via the admin pricing form or `PRINTER_ELECTRIC_RATE_PER_KWH`.
-
-Next Steps (nice to have)
-- OAuth providers and user profiles
-- Server-side thumbnail generation with `sharp`
-- Likes/downloads, comments, tags, search facets
-- MinIO/S3 storage backend option
-- Advanced cost model (material/time/layer height)
-Stripe Checkout
-- Provide `STRIPE_SECRET_KEY` (server) and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (client) in your environment.
-- Use Stripe test keys (`sk_test_...`, `pk_test_...`) for development; switch to live keys and HTTPS in production.
-- The in-app checkout screen calls `POST /api/checkout` to create PaymentIntents and renders Stripe’s Payment Element without redirecting users.
-
-
+Support
+- Issues and questions: https://github.com/schartrand77/mkw2/issues
