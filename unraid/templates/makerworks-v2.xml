@@ -48,4 +48,6 @@ MakerWorks v2 is a self-hosted 3D model hub built with Next.js 14, Prisma, and P
 
   <Config Name="DISCORD_BOT_TOKEN" Target="DISCORD_BOT_TOKEN" Default="" Mode="" Description="Optional bot token used for Discord announcements" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
   <Config Name="DISCORD_CHANNEL_ID" Target="DISCORD_CHANNEL_ID" Default="" Mode="" Description="Discord channel ID used for announcements" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="DISCORD_ADMIN_BOT_TOKEN" Target="DISCORD_ADMIN_BOT_TOKEN" Default="" Mode="" Description="Bot token used for admin notifications (falls back to DISCORD_BOT_TOKEN when unset)" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="DISCORD_ADMIN_CHANNEL_ID" Target="DISCORD_ADMIN_CHANNEL_ID" Default="" Mode="" Description="Discord channel ID for admin-only alerts (new users/uploads)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
 </Container>

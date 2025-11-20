@@ -12,6 +12,7 @@ import sharp from 'sharp'
 import { isSupportedImageFile } from '@/lib/images'
 import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
 import { XMLParser } from 'fast-xml-parser'
+import { sendAdminDiscordNotification } from '@/lib/discord'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
 
@@ -315,6 +316,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Sign in required to upload' }, { status: 401 })
     }
     const userId = uidFromCookie || (await ensureAnonymousUser())
+    const uploader = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true, profile: { select: { slug: true } } },
+    })
 
     const form = await req.formData()
     const title = String(form.get('title') || '').slice(0, 200)
@@ -457,6 +462,27 @@ export async function POST(req: NextRequest) {
       }
     })
     try { await refreshUserAchievements(prisma, userId) } catch {}
+    try {
+      const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+      const uploaderLabel = uploader?.name || uploader?.email || 'anonymous'
+      const profileUrl = uploader?.profile?.slug ? `${baseUrl}/u/${uploader.profile.slug}` : undefined
+      await sendAdminDiscordNotification({
+        title: 'New upload',
+        body: [
+          `Title: ${title || '(untitled)'}`,
+          `By: ${uploaderLabel}`,
+          profileUrl ? `Profile: ${profileUrl}` : null,
+          `${baseUrl}/models/${created.id}`,
+        ],
+        meta: {
+          modelId: created.id,
+          files: modelFiles.length,
+          types: storedExts.length ? storedExts.join(', ') : undefined,
+        },
+      })
+    } catch (notifyErr) {
+      console.error('Admin Discord notification failed for upload:', notifyErr)
+    }
     return NextResponse.json({ model: created })
   } catch (e: any) {
     console.error('Upload failed:', e)

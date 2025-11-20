@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { hashPassword } from '@/lib/auth'
 import { ensureUserPage } from '@/lib/userpage'
 import { createEmailVerificationToken, buildVerificationUrl, sendVerificationEmail } from '@/lib/emailVerification'
+import { sendAdminDiscordNotification } from '@/lib/discord'
 
 const schema = z.object({
   email: z.string().email(),
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
         isSuspended: false,
       },
     })
-    await ensureUserPage(user.id, user.email, user.name)
+    const profile = await ensureUserPage(user.id, user.email, user.name)
     const token = await createEmailVerificationToken(user.id, normalizedEmail)
     const verifyUrl = buildVerificationUrl(token)
     let emailSent = false
@@ -44,6 +45,24 @@ export async function POST(req: NextRequest) {
       emailSent = await sendVerificationEmail(normalizedEmail, verifyUrl, { reason: 'register', userName: user.name || undefined })
     } catch (mailErr) {
       console.error('Verification email send failed:', mailErr)
+    }
+    try {
+      const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+      const profileUrl = profile?.slug ? `${baseUrl}/u/${profile.slug}` : undefined
+      await sendAdminDiscordNotification({
+        title: 'New user registered',
+        body: [
+          `Email: ${normalizedEmail}`,
+          user.name ? `Name: ${user.name}` : null,
+          profileUrl ? `Profile: ${profileUrl}` : null,
+        ],
+        meta: {
+          id: user.id,
+          verification: emailSent ? 'email sent' : 'email pending',
+        },
+      })
+    } catch (notifyErr) {
+      console.error('Admin Discord notification failed for signup:', notifyErr)
     }
     return NextResponse.json({
       ok: true,
