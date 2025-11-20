@@ -10,7 +10,7 @@ What you get
 - Email verification for new signups and a bootstrap admin account set via container variables.
 
 After you install from Community Applications
-- Set the storage path to a persistent share (e.g., `/mnt/user/appdata/makerworks/storage`).
+- Set the storage path to a persistent share (e.g., `/mnt/user/makerworks/storage`).
 - Point `DATABASE_URL` to your Postgres 15+ instance.
 - Set `BASE_URL` to the public URL users will visit and `JWT_SECRET` to a long random string.
 - Define `ADMIN_EMAIL` / `ADMIN_PASSWORD` to seed the first admin user (created on first start).
