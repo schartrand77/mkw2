@@ -6,14 +6,14 @@
   <Network>bridge</Network>
   <Shell>bash</Shell>
   <Privileged>false</Privileged>
-  <Support>https://github.com/schartrand77/mkw2/issues</Support>
+  <Support>https://forums.unraid.net/topic/195232-support-makerw%E2%9A%99%EF%B8%8Frks-3d-print-hub/</Support>
   <Project>https://github.com/schartrand77/mkw2</Project>
   <Overview><![CDATA[
 MakerWorks v2 is a self-hosted 3D model hub with STL previews, price estimation, optional Stripe checkout, and an admin dashboard for site settings, pricing, backups, and OrderWorks webhooks. Point it at any reachable Postgres 15+ instance and map a persistent storage share for uploaded models, covers, avatars, and backups.
   ]]></Overview>
   <Category>Productivity:Tools</Category>
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
-  <Icon>https://raw.githubusercontent.com/schartrand77/mkw2/main/public/favicon.svg</Icon>
+  <Icon>https://i.imgur.com/L0PFZvlm.png</Icon>
 
   <Config Name="Web Port" Target="3000" Default="3000" Mode="tcp" Description="Port the MakerWorks Next.js server listens on" Type="Port" Display="always" Required="true" Mask="false">3000</Config>
   <Config Name="Storage" Target="/app/storage" Default="/mnt/user/appdata/makerworks/storage" Mode="rw" Description="Persistent directory for uploaded models, covers, avatars, and backups" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/makerworks/storage</Config>
