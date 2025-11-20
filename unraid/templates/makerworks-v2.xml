@@ -3,48 +3,70 @@
   <Name>MakerWorks v2</Name>
   <Repository>ghcr.io/schartrand77/mkw2:latest</Repository>
   <Registry>https://ghcr.io/schartrand77/mkw2</Registry>
-  <Network>makerworks-net</Network>
+  <Network>bridge</Network>
   <Shell>bash</Shell>
   <Privileged>false</Privileged>
   <Support>https://github.com/schartrand77/mkw2/issues</Support>
   <Project>https://github.com/schartrand77/mkw2</Project>
   <Overview><![CDATA[
-MakerWorks v2 is a self-hosted 3D model hub built with Next.js 14, Prisma, and Postgres. The template deploys the web application container from GitHub Container Registry; pair it with any reachable Postgres instance (local container, remote VM, managed service) and map a persistent storage share for uploaded STL/OBJ/3MF assets plus thumbnails. **Important:** create a custom Docker network named `makerworks-net` (e.g., `docker network create makerworks-net`) before deploying so the web and database containers share the same isolated network.
+MakerWorks v2 is a self-hosted 3D model hub with STL previews, price estimation, optional Stripe checkout, and an admin dashboard for site settings, pricing, backups, and OrderWorks webhooks. Point it at any reachable Postgres 15+ instance and map a persistent storage share for uploaded models, covers, avatars, and backups.
   ]]></Overview>
   <Category>Productivity:Tools</Category>
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
   <Icon>https://raw.githubusercontent.com/schartrand77/mkw2/main/public/favicon.svg</Icon>
 
   <Config Name="Web Port" Target="3000" Default="3000" Mode="tcp" Description="Port the MakerWorks Next.js server listens on" Type="Port" Display="always" Required="true" Mask="false">3000</Config>
-  <Config Name="Storage" Target="/app/storage" Default="/mnt/user/appdata/makerworks/storage" Mode="rw" Description="Persistent directory for uploaded models, covers, and avatars" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/makerworks/storage</Config>
+  <Config Name="Storage" Target="/app/storage" Default="/mnt/user/appdata/makerworks/storage" Mode="rw" Description="Persistent directory for uploaded models, covers, avatars, and backups" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/makerworks/storage</Config>
 
   <Config Name="DATABASE_URL" Target="DATABASE_URL" Default="postgresql://postgres:postgres@postgres:5432/makerworks?schema=public" Mode="" Description="Postgres connection string (must be reachable from the container)" Type="Variable" Display="always" Required="true" Mask="false">postgresql://postgres:postgres@postgres:5432/makerworks?schema=public</Config>
-  <Config Name="POSTGRES_HOST" Target="POSTGRES_HOST" Default="postgres" Mode="" Description="Postgres hostname when not using docker-compose (e.g., the IP/host of your DB)" Type="Variable" Display="advanced" Required="false" Mask="false">postgres</Config>
-  <Config Name="POSTGRES_PORT" Target="POSTGRES_PORT" Default="5432" Mode="" Description="Postgres port" Type="Variable" Display="advanced" Required="false" Mask="false">5432</Config>
-  <Config Name="POSTGRES_DB" Target="POSTGRES_DB" Default="makerworks" Mode="" Description="Postgres database name" Type="Variable" Display="advanced" Required="false" Mask="false">makerworks</Config>
-  <Config Name="POSTGRES_USER" Target="POSTGRES_USER" Default="postgres" Mode="" Description="Postgres user" Type="Variable" Display="advanced" Required="false" Mask="false">postgres</Config>
-  <Config Name="POSTGRES_PASSWORD" Target="POSTGRES_PASSWORD" Default="" Mode="" Description="Postgres password (required when not using docker-compose)" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
-  <Config Name="JWT_SECRET" Target="JWT_SECRET" Default="" Mode="" Description="Secret used to sign user sessions (set to a long random string)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
   <Config Name="BASE_URL" Target="BASE_URL" Default="https://makerworks.example.com" Mode="" Description="Public URL users access (used for redirects/cookies)" Type="Variable" Display="always" Required="true" Mask="false">https://makerworks.example.com</Config>
+  <Config Name="JWT_SECRET" Target="JWT_SECRET" Default="" Mode="" Description="Secret used to sign user sessions (set to a long random string)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="ADMIN_EMAIL" Target="ADMIN_EMAIL" Default="admin@example.com" Mode="" Description="Email for the bootstrap administrator account" Type="Variable" Display="always" Required="true" Mask="false">admin@example.com</Config>
+  <Config Name="ADMIN_PASSWORD" Target="ADMIN_PASSWORD" Default="" Mode="" Description="Password for the bootstrap administrator (rotated on change)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="ADMIN_NAME" Target="ADMIN_NAME" Default="Admin" Mode="" Description="Display name for the bootstrap administrator account" Type="Variable" Display="advanced" Required="false" Mask="false">Admin</Config>
+
+  <Config Name="STORAGE_DIR" Target="STORAGE_DIR" Default="/app/storage" Mode="" Description="Internal storage path (leave at /app/storage unless customizing)" Type="Variable" Display="advanced" Required="false" Mask="false">/app/storage</Config>
   <Config Name="COOKIE_SECURE" Target="COOKIE_SECURE" Default="true" Mode="" Description="Set to true when BASE_URL is HTTPS so auth cookies are secure" Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
-  <Config Name="STORAGE_DIR" Target="STORAGE_DIR" Default="/app/storage" Mode="" Description="Internal storage path (normally leave at /app/storage)" Type="Variable" Display="advanced" Required="false" Mask="false">/app/storage</Config>
+
+  <Config Name="PRINTER_PROFILE" Target="PRINTER_PROFILE" Default="BAMBU_X1C" Mode="" Description="Base printer preset for speed/energy math (BAMBU_X1C or GENERIC_FDM)" Type="Variable" Display="advanced" Required="false" Mask="false">BAMBU_X1C</Config>
+  <Config Name="PRINTER_ELECTRIC_RATE_PER_KWH" Target="PRINTER_ELECTRIC_RATE_PER_KWH" Default="0.14" Mode="" Description="Electricity rate (per kWh) used for energy estimates" Type="Variable" Display="advanced" Required="false" Mask="false">0.14</Config>
 
   <Config Name="PLA_PRICE_PER_KG_USD" Target="PLA_PRICE_PER_KG_USD" Default="25.00" Mode="" Description="Price of a 1kg PLA spool (USD) used for estimator" Type="Variable" Display="advanced" Required="false" Mask="false">25.00</Config>
   <Config Name="PETG_PRICE_PER_KG_USD" Target="PETG_PRICE_PER_KG_USD" Default="28.00" Mode="" Description="Price of a 1kg PETG spool (USD) used for estimator" Type="Variable" Display="advanced" Required="false" Mask="false">28.00</Config>
-  <Config Name="PLA_PRICE_PER_KG_CAD" Target="PLA_PRICE_PER_KG_CAD" Default="30.00" Mode="" Description="Optional CAD override for PLA per-kg cost" Type="Variable" Display="advanced" Required="false" Mask="false">30.00</Config>
-  <Config Name="PETG_PRICE_PER_KG_CAD" Target="PETG_PRICE_PER_KG_CAD" Default="34.00" Mode="" Description="Optional CAD override for PETG per-kg cost" Type="Variable" Display="advanced" Required="false" Mask="false">34.00</Config>
   <Config Name="NEXT_PUBLIC_PLA_PRICE_PER_KG" Target="NEXT_PUBLIC_PLA_PRICE_PER_KG" Default="25.00" Mode="" Description="Expose PLA per-kg cost to the client (used for cart price previews)" Type="Variable" Display="advanced" Required="false" Mask="false">25.00</Config>
   <Config Name="NEXT_PUBLIC_PETG_PRICE_PER_KG" Target="NEXT_PUBLIC_PETG_PRICE_PER_KG" Default="28.00" Mode="" Description="Expose PETG per-kg cost to the client" Type="Variable" Display="advanced" Required="false" Mask="false">28.00</Config>
   <Config Name="COLOR_SURCHARGE_RATE" Target="COLOR_SURCHARGE_RATE" Default="0.05" Mode="" Description="Extra cost rate per additional color beyond the first (server-side)" Type="Variable" Display="advanced" Required="false" Mask="false">0.05</Config>
   <Config Name="NEXT_PUBLIC_COLOR_SURCHARGE_RATE" Target="NEXT_PUBLIC_COLOR_SURCHARGE_RATE" Default="0.05" Mode="" Description="Expose the color surcharge rate to the client UI" Type="Variable" Display="advanced" Required="false" Mask="false">0.05</Config>
-  <Config Name="STRIPE_SECRET_KEY" Target="STRIPE_SECRET_KEY" Default="" Mode="" Description="Stripe secret key (starts with sk_live_ or sk_test_)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
-  <Config Name="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" Target="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" Default="" Mode="" Description="Stripe publishable key used by the in-app checkout UI" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+
   <Config Name="CURRENCY" Target="CURRENCY" Default="USD" Mode="" Description="Back-end currency (USD or CAD)" Type="Variable" Display="advanced" Required="false" Mask="false">USD</Config>
   <Config Name="NEXT_PUBLIC_CURRENCY" Target="NEXT_PUBLIC_CURRENCY" Default="USD" Mode="" Description="Client-facing currency label (must match CURRENCY)" Type="Variable" Display="advanced" Required="false" Mask="false">USD</Config>
+  <Config Name="PLA_PRICE_PER_KG_CAD" Target="PLA_PRICE_PER_KG_CAD" Default="" Mode="" Description="Optional CAD override for PLA per-kg cost" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="PETG_PRICE_PER_KG_CAD" Target="PETG_PRICE_PER_KG_CAD" Default="" Mode="" Description="Optional CAD override for PETG per-kg cost" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="ENERGY_CAD_PER_HOUR" Target="ENERGY_CAD_PER_HOUR" Default="" Mode="" Description="Optional CAD override for energy rate per hour" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="MINIMUM_PRICE_CAD" Target="MINIMUM_PRICE_CAD" Default="" Mode="" Description="Optional CAD minimum price override" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="EXTRA_HOURLY_AFTER_FIRST_USD" Target="EXTRA_HOURLY_AFTER_FIRST_USD" Default="" Mode="" Description="Extra hourly surcharge after first hour (USD context)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="EXTRA_HOURLY_AFTER_FIRST_CAD" Target="EXTRA_HOURLY_AFTER_FIRST_CAD" Default="" Mode="" Description="Extra hourly surcharge after first hour (CAD context)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
 
-  <Config Name="ADMIN_EMAIL" Target="ADMIN_EMAIL" Default="admin@example.com" Mode="" Description="Email for the bootstrap administrator account" Type="Variable" Display="always" Required="true" Mask="false">admin@example.com</Config>
-  <Config Name="ADMIN_PASSWORD" Target="ADMIN_PASSWORD" Default="" Mode="" Description="Password for the bootstrap administrator (rotated on change)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
-  <Config Name="ADMIN_NAME" Target="ADMIN_NAME" Default="Admin" Mode="" Description="Display name for the bootstrap administrator account" Type="Variable" Display="advanced" Required="false" Mask="false">Admin</Config>
+  <Config Name="STRIPE_SECRET_KEY" Target="STRIPE_SECRET_KEY" Default="" Mode="" Description="Stripe secret key (starts with sk_live_ or sk_test_)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" Target="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" Default="" Mode="" Description="Stripe publishable key used by the in-app checkout UI" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+
+  <Config Name="ORDERWORKS_WEBHOOK_URL" Target="ORDERWORKS_WEBHOOK_URL" Default="" Mode="" Description="Webhook endpoint to forward cart/job forms to OrderWorks" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="ORDERWORKS_WEBHOOK_SECRET" Target="ORDERWORKS_WEBHOOK_SECRET" Default="" Mode="" Description="Secret used to sign OrderWorks webhook payloads" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+
+  <Config Name="HOLIDAY_THEME" Target="HOLIDAY_THEME" Default="" Mode="" Description="Optional seasonal theme: christmas, halloween, or easter" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="NEXT_PUBLIC_HOLIDAY_THEME" Target="NEXT_PUBLIC_HOLIDAY_THEME" Default="" Mode="" Description="Expose seasonal theme to the client UI" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+
+  <Config Name="NEXT_PUBLIC_AMAZON_TAG" Target="NEXT_PUBLIC_AMAZON_TAG" Default="makerworks20-20" Mode="" Description="Amazon associates tag for the /gear affiliate links" Type="Variable" Display="advanced" Required="false" Mask="false">makerworks20-20</Config>
+  <Config Name="NEXT_PUBLIC_AMAZON_DOMAIN" Target="NEXT_PUBLIC_AMAZON_DOMAIN" Default="amazon.ca" Mode="" Description="Amazon domain for affiliate links (e.g., amazon.com, amazon.ca)" Type="Variable" Display="advanced" Required="false" Mask="false">amazon.ca</Config>
+  <Config Name="NEXT_PUBLIC_CONTACT_EMAIL" Target="NEXT_PUBLIC_CONTACT_EMAIL" Default="info@makerworks.app" Mode="" Description="Contact email shown on the site" Type="Variable" Display="advanced" Required="false" Mask="false">info@makerworks.app</Config>
+
+  <Config Name="SMTP_HOST" Target="SMTP_HOST" Default="" Mode="" Description="SMTP host for verification emails" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="SMTP_PORT" Target="SMTP_PORT" Default="" Mode="" Description="SMTP port" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="SMTP_USER" Target="SMTP_USER" Default="" Mode="" Description="SMTP username" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="SMTP_PASSWORD" Target="SMTP_PASSWORD" Default="" Mode="" Description="SMTP password" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="SMTP_SECURE" Target="SMTP_SECURE" Default="" Mode="" Description="Use TLS/SSL (true/false) depending on your SMTP provider" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="RECEIPT_FROM_EMAIL" Target="RECEIPT_FROM_EMAIL" Default="MakerWorks Receipts <receipts@makerworks.app>" Mode="" Description="From address for verification/receipt emails" Type="Variable" Display="advanced" Required="false" Mask="false">MakerWorks Receipts &lt;receipts@makerworks.app&gt;</Config>
+  <Config Name="RECEIPT_REPLY_TO_EMAIL" Target="RECEIPT_REPLY_TO_EMAIL" Default="MakerWorks <info@makerworks.app>" Mode="" Description="Reply-to address for outgoing emails" Type="Variable" Display="advanced" Required="false" Mask="false">MakerWorks &lt;info@makerworks.app&gt;</Config>
 
   <Config Name="DISCORD_BOT_TOKEN" Target="DISCORD_BOT_TOKEN" Default="" Mode="" Description="Optional bot token used for Discord announcements" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
   <Config Name="DISCORD_CHANNEL_ID" Target="DISCORD_CHANNEL_ID" Default="" Mode="" Description="Discord channel ID used for announcements" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
