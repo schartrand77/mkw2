@@ -10,9 +10,6 @@ import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, Checko
 import type { Appearance, PaymentIntent } from '@stripe/stripe-js'
 import { normalizeColors } from '@/lib/cartPricing'
 
-const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
-const stripePromise = publishableKey ? loadStripe(publishableKey) : null
-
 type ProfileResponse = {
   profile: {
     contactEmail?: string | null
@@ -37,13 +34,15 @@ type ProfileResponse = {
 
 export default function CheckoutPage() {
   const { items, clear, remove } = useCart()
+  const [publishableKey, setPublishableKey] = useState<string>(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
+  const stripePromise = useMemo(() => (publishableKey ? loadStripe(publishableKey) : null), [publishableKey])
+  const cardPaymentAvailable = Boolean(stripePromise)
   const [intent, setIntent] = useState<CheckoutIntentResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successIntent, setSuccessIntent] = useState<PaymentIntent | null>(null)
   const [profile, setProfile] = useState<ProfileResponse | null>(null)
   const [shippingMethod, setShippingMethod] = useState<'pickup' | 'ship'>('pickup')
-  const cardPaymentAvailable = Boolean(stripePromise)
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(cardPaymentAvailable ? 'card' : 'cash')
   const [cashConfirmationId, setCashConfirmationId] = useState<string | null>(null)
   const [cashProcessing, setCashProcessing] = useState(false)
@@ -85,6 +84,23 @@ export default function CheckoutPage() {
       setPaymentMethod('card')
     }
   }, [shippingMethod, paymentMethod])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadKey = async () => {
+      try {
+        const res = await fetch('/api/public-config', { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json().catch(() => null) as { stripePublishableKey?: string } | null
+        const runtimeKey = data?.stripePublishableKey || ''
+        if (cancelled || !runtimeKey || runtimeKey === publishableKey) return
+        setPublishableKey(runtimeKey)
+        setPaymentMethod((current) => (current === 'cash' ? 'card' : current))
+      } catch {}
+    }
+    loadKey()
+    return () => { cancelled = true }
+  }, [publishableKey])
 
   useEffect(() => {
     if (items.length > 0 && cashConfirmationId) {
@@ -222,11 +238,11 @@ export default function CheckoutPage() {
                   <div>
                     <div className="font-medium">{item.title}</div>
                     <div className="text-xs text-slate-400 space-y-0.5">
-                      <div>Qty {item.options.qty} Â· Scale {(item.options.scale || 1).toFixed(2)}</div>
+                      <div>Qty {item.options.qty} {'\u00b7'} Scale {(item.options.scale || 1).toFixed(2)}</div>
                       <div>
                         Material {item.options.material || 'PLA'}
                         {normalizeColors(item.options.colors).length > 0 && (
-                          <> Â· Colors: {normalizeColors(item.options.colors).join(', ')}</>
+                          <> {'\u00b7'} Colors: {normalizeColors(item.options.colors).join(', ')}</>
                         )}
                       </div>
                     </div>
