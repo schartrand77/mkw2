@@ -33,10 +33,11 @@ type ProfileResponse = {
 }
 
 export default function CheckoutPage() {
-  const { items, clear, remove } = useCart()
+  const { items, clear } = useCart()
   const [publishableKey, setPublishableKey] = useState<string>(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
   const stripePromise = useMemo(() => (publishableKey ? loadStripe(publishableKey) : null), [publishableKey])
   const cardPaymentAvailable = Boolean(stripePromise)
+  const [checkoutItemsState, setCheckoutItemsState] = useState(items)
   const [intent, setIntent] = useState<CheckoutIntentResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,8 +48,12 @@ export default function CheckoutPage() {
   const [cashConfirmationId, setCashConfirmationId] = useState<string | null>(null)
   const [cashProcessing, setCashProcessing] = useState(false)
 
+  useEffect(() => {
+    setCheckoutItemsState(items)
+  }, [items])
+
   const checkoutItems = useMemo<CheckoutItemInput[]>(() => (
-    items.map((item) => ({
+    checkoutItemsState.map((item) => ({
       modelId: item.modelId,
       qty: Math.max(1, item.options.qty || 1),
       scale: item.options.scale || 1,
@@ -57,7 +62,7 @@ export default function CheckoutPage() {
       infillPct: item.options.infillPct ?? null,
       customText: item.options.customText || null,
     }))
-  ), [items])
+  ), [checkoutItemsState])
 
   const shippingAddress: ShippingAddress | null = useMemo(() => {
     const data = profile?.profile
@@ -103,10 +108,10 @@ export default function CheckoutPage() {
   }, [publishableKey])
 
   useEffect(() => {
-    if (items.length > 0 && cashConfirmationId) {
+    if (checkoutItemsState.length > 0 && cashConfirmationId) {
       setCashConfirmationId(null)
     }
-  }, [items.length, cashConfirmationId])
+  }, [checkoutItemsState.length, cashConfirmationId])
 
   useEffect(() => {
     let mounted = true
@@ -207,7 +212,7 @@ export default function CheckoutPage() {
     },
   }), [])
 
-  if (!items.length && !successIntent && !cashConfirmationId) {
+  if (!checkoutItemsState.length && !successIntent && !cashConfirmationId) {
     return (
       <div className="max-w-2xl mx-auto space-y-4">
         <h1 className="text-2xl font-semibold">Checkout</h1>
@@ -226,14 +231,14 @@ export default function CheckoutPage() {
           </div>
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500 mt-1">Securely processed via Stripe</p>
         </div>
-        {items.length > 0 && (
+        {checkoutItemsState.length > 0 && (
           <div className="glass rounded-xl border border-white/10">
             <div className="flex items-center justify-between px-4 py-3 text-xs uppercase tracking-[0.3em] text-slate-400">
               <span>Cart Items</span>
               <span>Remove</span>
             </div>
             <div className="divide-y divide-white/10">
-              {items.map((item) => (
+              {checkoutItemsState.map((item) => (
                 <div key={item.modelId} className="px-4 py-3 flex items-center justify-between text-sm">
                   <div>
                     <div className="font-medium">{item.title}</div>
@@ -249,7 +254,7 @@ export default function CheckoutPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => remove(item.modelId)}
+                    onClick={() => setCheckoutItemsState((prev) => prev.filter((entry) => entry.modelId !== item.modelId))}
                     className="text-xs text-amber-300 hover:text-amber-200"
                   >
                     Remove
