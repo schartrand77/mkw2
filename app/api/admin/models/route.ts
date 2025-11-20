@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
     title: m.title,
     coverImagePath: m.coverImagePath,
     visibility: m.visibility,
+    priceOverrideUsd: (m as any).priceOverrideUsd ?? null,
     updatedAt: m.updatedAt,
     tags: m.modelTags.map(mt => mt.tag.name),
     affiliateTitle: (m as any).affiliateTitle,

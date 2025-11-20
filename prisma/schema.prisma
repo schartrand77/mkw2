@@ -44,6 +44,7 @@ model Model {
   sizeYmm         Float?
   sizeZmm         Float?
   priceUsd        Float?
+  priceOverrideUsd Float?
   visibility      String   @default("public")
   downloads       Int      @default(0)
   likes           Int      @default(0)

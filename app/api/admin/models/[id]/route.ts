@@ -51,6 +51,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const tagsInput: string[] | string | undefined = body.tags
+  if (body.priceOverrideUsd !== undefined) {
+    const raw = Number(body.priceOverrideUsd)
+    if (body.priceOverrideUsd === null || !Number.isFinite(raw) || raw <= 0) {
+      updates.priceOverrideUsd = null
+    } else {
+      updates.priceOverrideUsd = raw
+    }
+  }
 
   // Apply updates
   await prisma.model.update({ where: { id }, data: updates })

@@ -9,6 +9,7 @@ type Model = {
   coverImagePath?: string | null
   updatedAt?: string | null
   visibility: string
+  priceOverrideUsd?: number | null
   tags: string[]
   affiliateTitle?: string | null
   affiliateUrl?: string | null
@@ -57,14 +58,15 @@ export default function ModelManager() {
     const res = await fetch(`/api/admin/models/${m.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        visibility: m.visibility,
-        tags: m.tags.join(','),
-        affiliateTitle: m.affiliateTitle ?? '',
-        affiliateUrl: m.affiliateUrl ?? '',
-        videoUrl: m.videoUrl ?? '',
+        body: JSON.stringify({
+          visibility: m.visibility,
+          tags: m.tags.join(','),
+          affiliateTitle: m.affiliateTitle ?? '',
+          affiliateUrl: m.affiliateUrl ?? '',
+          videoUrl: m.videoUrl ?? '',
+          priceOverrideUsd: m.priceOverrideUsd,
+        })
       })
-    })
     if (!res.ok) alert('Failed to save model: ' + (await res.text()))
   }
 
@@ -114,7 +116,18 @@ export default function ModelManager() {
                 <option value="private">private</option>
               </select>
             </div>
-            <div className="md:col-span-5">
+            <div className="md:col-span-2">
+              <label className="block text-xs text-slate-400 mb-1">Price override (manual)</label>
+              <input
+                className="input"
+                type="number"
+                step="0.01"
+                value={m.priceOverrideUsd ?? ''}
+                onChange={(e) => updateRow(i, { priceOverrideUsd: e.target.value === '' ? null : Number(e.target.value) })}
+                placeholder="Leave blank for automatic estimate"
+              />
+            </div>
+            <div className="md:col-span-3">
               <input className="input" value={m.tags.join(', ')} onChange={(e) => updateRow(i, { tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
             </div>
             <div className="md:col-span-1 flex flex-col gap-2">

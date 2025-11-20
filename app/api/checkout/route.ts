@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     const [models, cfg] = await Promise.all([
       prisma.model.findMany({
         where: { id: { in: ids } },
-        select: { id: true, title: true, priceUsd: true, volumeMm3: true, material: true },
+        select: { id: true, title: true, priceUsd: true, priceOverrideUsd: true, volumeMm3: true, material: true },
       }),
       prisma.siteConfig.findUnique({ where: { id: 'main' } }),
     ])
@@ -112,7 +112,15 @@ export async function POST(req: NextRequest) {
       const cm3 = model.volumeMm3 ? model.volumeMm3 / 1000 : null
       const materialChoice: MaterialType = entry.material || (model.material?.toUpperCase() === 'PETG' ? 'PETG' : 'PLA')
       const colors = normalizeColors(entry.colors)
-      const basePrice = (cm3 != null ? estimatePrice({ cm3, material: materialChoice, cfg }) : null) ?? model.priceUsd ?? fallbackPrice
+      const basePrice = (() => {
+        if (model.priceOverrideUsd != null && Number.isFinite(Number(model.priceOverrideUsd))) {
+          return Number(model.priceOverrideUsd)
+        }
+        if (cm3 != null) {
+          return estimatePrice({ cm3, material: materialChoice, cfg })
+        }
+        return model.priceUsd ?? fallbackPrice
+      })()
       if (!isFinite(basePrice) || basePrice <= 0) {
         throw new Error(`Model ${model.id} is missing pricing data`)
       }

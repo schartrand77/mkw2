@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { buildImageSrc, toPublicHref } from '@/lib/storage'
+import { resolveModelPrice } from '@/lib/pricing'
 
 async function getProfile(slug: string) {
   return prisma.profile.findUnique({
@@ -21,11 +22,27 @@ async function getProfile(slug: string) {
 }
 
 async function getUserModels(userId: string) {
-  return prisma.model.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, title: true, coverImagePath: true, priceUsd: true, updatedAt: true },
-  })
+  const [models, cfg] = await Promise.all([
+    prisma.model.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        coverImagePath: true,
+        priceUsd: true,
+        priceOverrideUsd: true,
+        volumeMm3: true,
+        material: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.siteConfig.findUnique({ where: { id: 'main' } }),
+  ])
+  return models.map((m) => ({
+    ...m,
+    priceUsd: resolveModelPrice(m as any, cfg),
+  }))
 }
 
 export default async function UserPage({ params }: { params: { slug: string } }) {

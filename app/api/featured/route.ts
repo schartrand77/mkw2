@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { estimatePrice } from '@/lib/pricing'
+import { resolveModelPrice } from '@/lib/pricing'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
@@ -16,6 +16,7 @@ export async function GET() {
             coverImagePath: true,
             material: true,
             priceUsd: true,
+            priceOverrideUsd: true,
             volumeMm3: true,
             updatedAt: true,
           },
@@ -25,18 +26,9 @@ export async function GET() {
     }),
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
   ])
-  const models = items.map(({ model }) => {
-    const computedPrice = (() => {
-      if (model.volumeMm3) {
-        const cm3 = model.volumeMm3 / 1000
-        return estimatePrice({ cm3, material: model.material, cfg })
-      }
-      return model.priceUsd
-    })()
-    return {
-      ...model,
-      priceUsd: computedPrice,
-    }
-  })
+  const models = items.map(({ model }) => ({
+    ...model,
+    priceUsd: resolveModelPrice(model as any, cfg),
+  }))
   return NextResponse.json({ models })
 }

@@ -2,6 +2,13 @@ import type { SiteConfig } from '@prisma/client'
 import { getCurrency } from './currency'
 import { getActivePrinterProfile } from './printerProfiles'
 
+type PricedModel = {
+  volumeMm3?: number | null
+  material?: string | null
+  priceUsd?: number | null
+  priceOverrideUsd?: number | null
+}
+
 const MATERIAL_DENSITY_G_PER_CM3: Record<string, number> = {
   PLA: 1.24,
   PETG: 1.27,
@@ -90,3 +97,18 @@ function resolveMaterialPricePerKg(material: MaterialKey, currency: string, cfg?
 
 // Backward-compatible export for existing imports
 export const estimatePriceUSD = estimatePrice
+
+export function resolveModelPrice(model: PricedModel, cfg?: Partial<SiteConfig> | null): number | null {
+  if (model.priceOverrideUsd != null && Number.isFinite(Number(model.priceOverrideUsd))) {
+    const override = Number(model.priceOverrideUsd)
+    return override >= 0 ? override : null
+  }
+  if (model.volumeMm3 != null && Number.isFinite(Number(model.volumeMm3))) {
+    const cm3 = Number(model.volumeMm3) / 1000
+    return estimatePrice({ cm3, material: model.material || undefined, cfg })
+  }
+  if (model.priceUsd != null && Number.isFinite(Number(model.priceUsd))) {
+    return Number(model.priceUsd)
+  }
+  return null
+}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import type { Prisma } from '@prisma/client'
-import { estimatePrice } from '@/lib/pricing'
+import { resolveModelPrice } from '@/lib/pricing'
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
@@ -37,12 +37,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const orderBy: Prisma.ModelOrderByWithRelationInput = (() => {
+  const orderBy: Prisma.ModelOrderByWithRelationInput | Prisma.ModelOrderByWithRelationInput[] = (() => {
     switch (sort) {
       case 'price_asc':
-        return { priceUsd: 'asc' }
+        return [{ priceOverrideUsd: 'asc' as const }, { priceUsd: 'asc' }] as any
       case 'price_desc':
-        return { priceUsd: 'desc' }
+        return [{ priceOverrideUsd: 'desc' as const }, { priceUsd: 'desc' }] as any
       case 'popular':
         return [{ likes: 'desc' }, { downloads: 'desc' }, { createdAt: 'desc' }] as any
       case 'latest':
@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
         sizeZmm: true,
         fileType: true,
         priceUsd: true,
+        priceOverrideUsd: true,
         volumeMm3: true,
         material: true,
         likes: true,
@@ -87,13 +88,7 @@ export async function GET(req: NextRequest) {
     sizeYmm: (m as any).sizeYmm,
     sizeZmm: (m as any).sizeZmm,
     fileType: (m as any).fileType,
-    priceUsd: (() => {
-      if (m.volumeMm3) {
-        const cm3 = m.volumeMm3 / 1000
-        return estimatePrice({ cm3, material: m.material, cfg })
-      }
-      return m.priceUsd
-    })(),
+    priceUsd: resolveModelPrice(m, cfg),
     likes: m.likes,
     downloads: m.downloads,
     createdAt: m.createdAt,
