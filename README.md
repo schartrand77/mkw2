@@ -1,6 +1,6 @@
 MakerWorks v2 - self-hosted 3D print hub
 
-MakerWorks v2 is a self-hosted library for sharing printable models, estimating print jobs, and (optionally) taking payments. This guide is aimed at Unraid Community Applications users.
+MakerWorks v2 is a self-hosted library for sharing printable models, estimating print jobs, and (optionally) taking payments. This page is a user guide for the Unraid Community Applications listing.
 
 What you get
 - Upload STL/OBJ/3MF files with optional cover images; STL files preview in-browser.
@@ -9,20 +9,12 @@ What you get
 - Admin dashboard for pricing, site settings, backups, and optional OrderWorks webhook retries.
 - Email verification for new signups and a bootstrap admin account set via container variables.
 
-Install on Unraid
-1) In Community Applications go to Settings > Additional Repositories and add `https://raw.githubusercontent.com/schartrand77/mkw2/main/unraid/templates`.
-2) Ensure a Postgres 15+ database is reachable. If running it on the same host, create a custom Docker network first: `docker network create makerworks-net`, then place both containers on it.
-3) Install MakerWorks v2 from Community Applications.
-4) During install fill the required fields:
-   - Web Port: keep 3000 unless you prefer another.
-   - Storage: persistent path such as `/mnt/user/appdata/makerworks/storage`.
-   - DATABASE_URL: connection string to your Postgres instance.
-   - BASE_URL: the URL users reach (e.g., `https://makerworks.example.com`).
-   - JWT_SECRET: any long random string.
-   - ADMIN_EMAIL / ADMIN_PASSWORD: seeds the first admin user on start.
-   - Stripe keys (optional): `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` to accept payments.
-   - SMTP (optional but recommended): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE` so verification emails send correctly.
-5) Start the container. First boot runs migrations and creates the admin account. Visit `http://<server-ip>:<port>`.
+After you install from Community Applications
+- Set the storage path to a persistent share (e.g., `/mnt/user/appdata/makerworks/storage`).
+- Point `DATABASE_URL` to your Postgres 15+ instance.
+- Set `BASE_URL` to the public URL users will visit and `JWT_SECRET` to a long random string.
+- Define `ADMIN_EMAIL` / `ADMIN_PASSWORD` to seed the first admin user (created on first start).
+- Optional: add Stripe keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`) for payments and SMTP settings for verification emails.
 
 First login & setup
 - Sign in with the admin email/password you set; this account is already verified.
@@ -44,7 +36,7 @@ Backups & restore
 Updating
 - In Unraid, stop the container, click Update on MakerWorks v2, then start it again. Data persists through the mapped storage path and your database.
 
-Running without Unraid (optional)
+Running outside Unraid (optional)
 - Copy `.env.example` to `.env`, set the same variables, then run `docker-compose up --build` to start the app and Postgres locally. The app lives at `http://localhost:3000/`.
 
 Support
