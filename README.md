@@ -9,6 +9,9 @@ What you get
 - Admin dashboard for pricing, site settings, backups, and optional OrderWorks webhook retries.
 - Email verification for new signups and a bootstrap admin account set via container variables.
 
+Screenshots
+![MakerWorks v2 Unraid template icon](public/screenshots/unraidicon.PNG)
+
 After you install from Community Applications
 - Set the storage path to a persistent share (e.g., `/mnt/user/appdata/makerworks/storage`).
 - Point `DATABASE_URL` to your Postgres 15+ instance.
