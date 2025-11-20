@@ -10,7 +10,7 @@ What you get
 - Email verification for new signups and a bootstrap admin account set via container variables.
 
 After you install from Community Applications
-- Set the storage path to a persistent share (e.g., `/mnt/user/makerworks/storage`).
+- Set the storage path to a persistent share (e.g., `/mnt/user/appdata/makerworks/storage`).
 - Point `DATABASE_URL` to your Postgres 15+ instance.
 - Set `BASE_URL` to the public URL users will visit and `JWT_SECRET` to a long random string.
 - Define `ADMIN_EMAIL` / `ADMIN_PASSWORD` to seed the first admin user (created on first start).
@@ -35,6 +35,25 @@ Backups & restore
 
 Updating
 - In Unraid, stop the container, click Update on MakerWorks v2, then start it again. Data persists through the mapped storage path and your database.
+
+Environment variables (what they do)
+- `DATABASE_URL` (required): Postgres connection string the app uses.
+- `JWT_SECRET` (required): long random string to sign sessions.
+- `BASE_URL` (required): public URL of the app (used for links/cookies).
+- `STORAGE_DIR`: in-container storage path; leave `/app/storage` for Unraid.
+- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`: seeds the first admin on start (email + password required).
+- `PRINTER_PROFILE`: base printer preset (`BAMBU_X1C` default; `GENERIC_FDM` for slower machines).
+- `PRINTER_ELECTRIC_RATE_PER_KWH`: override kWh cost if your power rate differs.
+- Pricing (USD defaults): `PLA_PRICE_PER_KG_USD`, `PETG_PRICE_PER_KG_USD`, `NEXT_PUBLIC_PLA_PRICE_PER_KG`, `NEXT_PUBLIC_PETG_PRICE_PER_KG`.
+- Optional CAD overrides: `PLA_PRICE_PER_KG_CAD`, `PETG_PRICE_PER_KG_CAD`, `ENERGY_CAD_PER_HOUR`, `MINIMUM_PRICE_CAD`, `EXTRA_HOURLY_AFTER_FIRST_USD`, `EXTRA_HOURLY_AFTER_FIRST_CAD`.
+- Color surcharge: `COLOR_SURCHARGE_RATE` (server) and `NEXT_PUBLIC_COLOR_SURCHARGE_RATE` (UI).
+- Currency labels: `CURRENCY` and `NEXT_PUBLIC_CURRENCY` (`USD` or `CAD`).
+- Stripe (optional): `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
+- OrderWorks webhook (optional): `ORDERWORKS_WEBHOOK_URL`, `ORDERWORKS_WEBHOOK_SECRET`.
+- Holiday theming (optional): `HOLIDAY_THEME`, `NEXT_PUBLIC_HOLIDAY_THEME` set to `christmas`, `halloween`, or `easter`.
+- Contact/referral (optional): `NEXT_PUBLIC_AMAZON_TAG`, `NEXT_PUBLIC_AMAZON_DOMAIN`, `NEXT_PUBLIC_CONTACT_EMAIL`.
+- SMTP (optional but recommended): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, `RECEIPT_FROM_EMAIL`, `RECEIPT_REPLY_TO_EMAIL`.
+- Discord (optional): `DISCORD_BOT_TOKEN`, `DISCORD_CHANNEL_ID` for announcements; `DISCORD_ADMIN_BOT_TOKEN`, `DISCORD_ADMIN_CHANNEL_ID` for admin alerts.
 
 Running outside Unraid (optional)
 - Copy `.env.example` to `.env`, set the same variables, then run `docker-compose up --build` to start the app and Postgres locally. The app lives at `http://localhost:3000/`.
