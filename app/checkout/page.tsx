@@ -19,7 +19,7 @@ type ProfileResponse = {
     socialInstagram?: string | null
     socialTikTok?: string | null
     socialYoutube?: string | null
-    socialLinkedin?: string | null
+    socialBluesky?: string | null
     socialFacebook?: string | null
     shippingName?: string | null
     shippingAddress1?: string | null

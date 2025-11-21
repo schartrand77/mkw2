@@ -61,9 +61,9 @@ export default async function UserPage({ params }: { params: { slug: string } })
   const socials = [
     profile.socialInstagram && { label: 'Instagram', href: formatSocialUrl('instagram', profile.socialInstagram), display: cleanHandle(profile.socialInstagram) },
     profile.socialTwitter && { label: 'Twitter / X', href: formatSocialUrl('twitter', profile.socialTwitter), display: cleanHandle(profile.socialTwitter) },
+    profile.socialBluesky && { label: 'Bluesky', href: formatSocialUrl('bluesky', profile.socialBluesky), display: cleanHandle(profile.socialBluesky) },
     profile.socialTikTok && { label: 'TikTok', href: formatSocialUrl('tiktok', profile.socialTikTok), display: cleanHandle(profile.socialTikTok) },
     profile.socialYoutube && { label: 'YouTube', href: formatSocialUrl('youtube', profile.socialYoutube), display: cleanHandle(profile.socialYoutube) },
-    profile.socialLinkedin && { label: 'LinkedIn', href: formatSocialUrl('linkedin', profile.socialLinkedin), display: cleanHandle(profile.socialLinkedin) },
     profile.socialFacebook && { label: 'Facebook', href: formatSocialUrl('facebook', profile.socialFacebook), display: cleanHandle(profile.socialFacebook) },
   ].filter((s) => s && s.href) as { label: string, href: string, display: string }[]
 
@@ -163,7 +163,7 @@ function cleanHandle(value: string) {
   return value.startsWith('@') ? value : value.replace(/^https?:\/\//i, '')
 }
 
-function formatSocialUrl(kind: 'instagram' | 'twitter' | 'tiktok' | 'youtube' | 'linkedin' | 'facebook', value: string) {
+function formatSocialUrl(kind: 'instagram' | 'twitter' | 'bluesky' | 'tiktok' | 'youtube' | 'facebook', value: string) {
   if (!value) return ''
   const trimmed = value.trim()
   if (/^https?:\/\//i.test(trimmed)) return trimmed
@@ -173,12 +173,12 @@ function formatSocialUrl(kind: 'instagram' | 'twitter' | 'tiktok' | 'youtube' | 
       return `https://instagram.com/${handle}`
     case 'twitter':
       return `https://twitter.com/${handle}`
+    case 'bluesky':
+      return `https://bsky.app/profile/${handle}`
     case 'tiktok':
       return `https://www.tiktok.com/@${handle}`
     case 'youtube':
       return `https://www.youtube.com/${handle}`
-    case 'linkedin':
-      return `https://www.linkedin.com/in/${handle}`
     case 'facebook':
       return `https://www.facebook.com/${handle}`
     default:

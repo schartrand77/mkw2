@@ -20,7 +20,7 @@ type ProfileExtras = {
   socialInstagram?: string | null
   socialTikTok?: string | null
   socialYoutube?: string | null
-  socialLinkedin?: string | null
+  socialBluesky?: string | null
   socialFacebook?: string | null
   shippingName?: string | null
   shippingAddress1?: string | null
@@ -46,7 +46,7 @@ export default function EditProfilePage() {
   const [socialInstagram, setSocialInstagram] = useState('')
   const [socialTikTok, setSocialTikTok] = useState('')
   const [socialYoutube, setSocialYoutube] = useState('')
-  const [socialLinkedin, setSocialLinkedin] = useState('')
+  const [socialBluesky, setSocialBluesky] = useState('')
   const [socialFacebook, setSocialFacebook] = useState('')
   const [shippingName, setShippingName] = useState('')
   const [shippingAddress1, setShippingAddress1] = useState('')
@@ -75,7 +75,7 @@ export default function EditProfilePage() {
         setSocialInstagram(data.profile?.socialInstagram || '')
         setSocialTikTok(data.profile?.socialTikTok || '')
         setSocialYoutube(data.profile?.socialYoutube || '')
-        setSocialLinkedin(data.profile?.socialLinkedin || '')
+        setSocialBluesky(data.profile?.socialBluesky || '')
         setSocialFacebook(data.profile?.socialFacebook || '')
         setShippingName(data.profile?.shippingName || data.user?.name || '')
         setShippingAddress1(data.profile?.shippingAddress1 || '')
@@ -109,7 +109,7 @@ export default function EditProfilePage() {
       fd.append('socialInstagram', socialInstagram)
       fd.append('socialTikTok', socialTikTok)
       fd.append('socialYoutube', socialYoutube)
-      fd.append('socialLinkedin', socialLinkedin)
+      fd.append('socialBluesky', socialBluesky)
       fd.append('socialFacebook', socialFacebook)
       fd.append('shippingName', shippingName)
       fd.append('shippingAddress1', shippingAddress1)
@@ -230,8 +230,8 @@ export default function EditProfilePage() {
         <input className="input" value={socialYoutube} onChange={(e) => setSocialYoutube(e.target.value)} placeholder="https://youtube.com/..." />
       </div>
       <div>
-        <label className="block text-sm mb-1">LinkedIn</label>
-        <input className="input" value={socialLinkedin} onChange={(e) => setSocialLinkedin(e.target.value)} placeholder="https://linkedin.com/in/..." />
+        <label className="block text-sm mb-1">Bluesky</label>
+        <input className="input" value={socialBluesky} onChange={(e) => setSocialBluesky(e.target.value)} placeholder="@handle.bsky.social" />
       </div>
       <div>
         <label className="block text-sm mb-1">Facebook</label>

@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest) {
     socialInstagram: 120,
     socialTikTok: 120,
     socialYoutube: 200,
-    socialLinkedin: 200,
+    socialBluesky: 200,
     socialFacebook: 200,
     shippingName: 120,
     shippingAddress1: 200,

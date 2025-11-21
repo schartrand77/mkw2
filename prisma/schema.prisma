@@ -124,7 +124,7 @@ model Profile {
   socialInstagram  String?
   socialTikTok     String?
   socialYoutube    String?
-  socialLinkedin   String?
+  socialBluesky    String?
   socialFacebook   String?
   shippingName     String?
   shippingAddress1 String?
