@@ -1,7 +1,9 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { toPublicHref } from '@/lib/public-path'
-import ModelViewer from './ModelViewer'
+
+const LazyModelViewer = dynamic(() => import('./ModelViewer'), { ssr: false })
 
 type Part = { id: string; name: string; filePath: string; previewFilePath?: string | null }
 
@@ -23,15 +25,6 @@ export default function Gallery({ coverSrc, parts = [], allSrc, images = [], ini
     const partSrcs = parts.map(p => toPublicHref(p.previewFilePath || p.filePath)).filter((src): src is string => !!src)
     const normalizedAllSrc = allSrc || (partSrcs.length === 1 ? partSrcs[0] : null)
 
-    if (normalizedAllSrc) {
-      arr.push({ key: 'three:all', label: '3D View', kind: 'three', src: normalizedAllSrc })
-    } else if (partSrcs.length > 0) {
-      arr.push({ key: 'three:all', label: '3D View: All parts', kind: 'three', srcs: partSrcs })
-    }
-
-    if (partSrcs.length > 0) {
-      parts.forEach((p, i) => arr.push({ key: `three:${i}`, label: p.name, kind: 'three', src: partSrcs[i] }))
-    }
     if (coverSrc) arr.push({ key: 'image:cover', label: 'Cover', kind: 'image', src: coverSrc })
     if (images.length > 0) {
       images.forEach((img, idx) => {
@@ -40,6 +33,16 @@ export default function Gallery({ coverSrc, parts = [], allSrc, images = [], ini
         const label = img.caption?.trim() || `Photo ${idx + 1}`
         arr.push({ key: `gallery:${img.id}`, label, kind: 'image', src })
       })
+    }
+
+    if (normalizedAllSrc) {
+      arr.push({ key: 'three:all', label: '3D View', kind: 'three', src: normalizedAllSrc })
+    } else if (partSrcs.length > 0) {
+      arr.push({ key: 'three:all', label: '3D View: All parts', kind: 'three', srcs: partSrcs })
+    }
+
+    if (partSrcs.length > 0) {
+      parts.forEach((p, i) => arr.push({ key: `three:${i}`, label: p.name, kind: 'three', src: partSrcs[i] }))
     }
     return arr
   }, [coverSrc, parts, allSrc, images])
@@ -50,6 +53,7 @@ export default function Gallery({ coverSrc, parts = [], allSrc, images = [], ini
   }, [initialKey, items])
 
   const [active, setActive] = useState<string | undefined>(initialActiveKey)
+  const [viewerEnabled, setViewerEnabled] = useState<boolean>(() => Boolean(initialActiveKey && initialActiveKey.startsWith('three:')))
   const prevInitialKeyRef = useRef(initialKey)
 
   useEffect(() => {
@@ -65,6 +69,7 @@ export default function Gallery({ coverSrc, parts = [], allSrc, images = [], ini
     if (initialChanged) {
       if (preferred) {
         if (preferred !== active) setActive(preferred)
+        if (preferred.startsWith('three:')) setViewerEnabled(true)
         return
       }
       if (!preferred && active !== items[0]?.key) {
@@ -75,7 +80,17 @@ export default function Gallery({ coverSrc, parts = [], allSrc, images = [], ini
     if (!activeValid) setActive(preferred || items[0]?.key)
   }, [initialKey, items, active])
 
+  useEffect(() => {
+    if (active && active.startsWith('three:')) setViewerEnabled(true)
+  }, [active])
+
   const activeItem = items.find(i => i.key === active) || items[0]
+  const enableViewer = () => setViewerEnabled(true)
+
+  const handleSelect = (item: Item) => {
+    setActive(item.key)
+    if (item.kind === 'three') setViewerEnabled(true)
+  }
 
   return (
     <div className="w-full">
@@ -83,14 +98,31 @@ export default function Gallery({ coverSrc, parts = [], allSrc, images = [], ini
         <div className="relative">
           {activeItem ? (
             activeItem.kind === 'three' ? (
-              activeItem.srcs ? (
-                <ModelViewer srcs={activeItem.srcs} height={540} className="bg-black/30" />
+              viewerEnabled ? (
+                activeItem.srcs ? (
+                  <LazyModelViewer srcs={activeItem.srcs} height={540} className="bg-black/30" />
+                ) : (
+                  <LazyModelViewer src={activeItem.src} height={540} className="bg-black/30" />
+                )
               ) : (
-                <ModelViewer src={activeItem.src} height={540} className="bg-black/30" />
+                <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-center px-6">
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={enableViewer}
+                  >
+                    Load interactive 3D preview
+                  </button>
+                </div>
               )
             ) : activeItem.src ? (
-              // image
-              <img src={activeItem.src} alt={activeItem.label} className="w-full aspect-video object-cover" />
+              <img
+                src={activeItem.src}
+                alt={activeItem.label}
+                className="w-full aspect-video object-cover"
+                loading="lazy"
+                decoding="async"
+              />
             ) : (
               <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No preview</div>
             )
@@ -108,7 +140,7 @@ export default function Gallery({ coverSrc, parts = [], allSrc, images = [], ini
             <button
               key={it.key}
               type="button"
-              onClick={() => setActive(it.key)}
+              onClick={() => handleSelect(it)}
               className={`px-2 py-1 rounded-md border text-xs ${active === it.key ? 'bg-brand-600 border-brand-600 text-white' : 'border-white/10 hover:border-white/20'}`}
             >
               {it.label}

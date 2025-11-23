@@ -1,6 +1,42 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from 'react'
-import * as THREE from 'three'
+
+type ThreeLib = typeof import('three')
+type OrbitControlsModule = typeof import('three/examples/jsm/controls/OrbitControls')
+type STLLoaderModule = typeof import('three/examples/jsm/loaders/STLLoader')
+type OBJLoaderModule = typeof import('three/examples/jsm/loaders/OBJLoader.js')
+type ThreeMFLoaderModule = typeof import('three/examples/jsm/loaders/3MFLoader.js')
+
+let threePromise: Promise<ThreeLib> | null = null
+let orbitPromise: Promise<OrbitControlsModule> | null = null
+let stlPromise: Promise<STLLoaderModule> | null = null
+let objPromise: Promise<OBJLoaderModule> | null = null
+let threeMfPromise: Promise<ThreeMFLoaderModule> | null = null
+
+function loadThree() {
+  if (!threePromise) threePromise = import('three')
+  return threePromise
+}
+
+function loadOrbitControls() {
+  if (!orbitPromise) orbitPromise = import('three/examples/jsm/controls/OrbitControls')
+  return orbitPromise
+}
+
+function loadStl() {
+  if (!stlPromise) stlPromise = import('three/examples/jsm/loaders/STLLoader')
+  return stlPromise
+}
+
+function loadObj() {
+  if (!objPromise) objPromise = import('three/examples/jsm/loaders/OBJLoader.js')
+  return objPromise
+}
+
+function loadThreeMf() {
+  if (!threeMfPromise) threeMfPromise = import('three/examples/jsm/loaders/3MFLoader.js')
+  return threeMfPromise
+}
 
 type Props = {
   src?: string
@@ -20,11 +56,37 @@ function toAbsoluteUrl(url?: string | null) {
   }
 }
 
+function disposeObject(THREE: ThreeLib, object: InstanceType<ThreeLib['Object3D']>) {
+  object.traverse((child: any) => {
+    if (child.geometry?.dispose) {
+      try { child.geometry.dispose() } catch {}
+    }
+    const material = child.material
+    if (Array.isArray(material)) {
+      material.forEach((mat) => disposeMaterial(mat))
+    } else if (material) {
+      disposeMaterial(material)
+    }
+    if (child.texture?.dispose) {
+      try { child.texture.dispose() } catch {}
+    }
+  })
+
+  function disposeMaterial(mat: any) {
+    if (!mat) return
+    if (mat.map?.dispose) {
+      try { mat.map.dispose() } catch {}
+    }
+    if (mat.dispose) {
+      try { mat.dispose() } catch {}
+    }
+  }
+}
+
 export default function ModelViewer({ src, srcs, className, height = 480, autoRotate = false }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const fitRef = useRef<(() => void) | null>(null)
-  const pivotRef = useRef<THREE.Group | null>(null)
-  const contentRef = useRef<THREE.Group | null>(null)
+  const pivotRef = useRef<InstanceType<ThreeLib['Group']> | null>(null)
   const [error, setError] = useState<string | null>(null)
   const resolvedFiles = useMemo(() => {
     const list = srcs && srcs.length ? srcs : (src ? [src] : [])
@@ -41,26 +103,18 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
     const run = async () => {
       setError(null)
       const container = mountRef.current!
-      // Import example helpers dynamically to avoid any bundling/runtime edge cases
-      const [{ OrbitControls }, { STLLoader }] = await Promise.all([
-        import('three/examples/jsm/controls/OrbitControls'),
-        import('three/examples/jsm/loaders/STLLoader'),
-      ])
+      const [THREE, OrbitControlsMod, STLLoaderMod] = await Promise.all([loadThree(), loadOrbitControls(), loadStl()])
 
-      let OBJLoaderModule: any = null
-      let ThreeMFModule: any = null
-      try {
-        OBJLoaderModule = await import('three/examples/jsm/loaders/OBJLoader.js')
-      } catch (err) {
+      const OBJLoaderModule = await loadObj().catch((err) => {
         console.warn('OBJ loader unavailable, OBJ previews disabled', err)
-      }
-      try {
-        ThreeMFModule = await import('three/examples/jsm/loaders/3MFLoader.js')
-      } catch (err) {
+        return null
+      })
+      const ThreeMFModule = await loadThreeMf().catch((err) => {
         console.warn('3MF loader unavailable, 3MF previews disabled', err)
-      }
+        return null
+      })
 
-      if (disposed) return
+      if (disposed || !mountRef.current) return
 
       const width = Math.max(1, container.clientWidth || container.offsetWidth || 1)
       const h = height
@@ -72,8 +126,6 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       renderer.setSize(width, h)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
       container.appendChild(renderer.domElement)
-      // Ensure correct initial size after mount
-      renderer.setSize(width, h)
 
       const light1 = new THREE.DirectionalLight(0xffffff, 1)
       light1.position.set(5, 10, 7.5)
@@ -82,7 +134,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       const hemi = new THREE.HemisphereLight(0xffffff, 0x222222, 0.6)
       scene.add(hemi)
 
-      const controls = new OrbitControls(camera as any, renderer.domElement)
+      const controls = new OrbitControlsMod.OrbitControls(camera as any, renderer.domElement)
       controls.enableDamping = true
       controls.dampingFactor = 0.08
       controls.screenSpacePanning = false
@@ -95,7 +147,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       ;(controls as any).minPolarAngle = 0
       ;(controls as any).maxPolarAngle = Math.PI
 
-      const stlLoader = new STLLoader()
+      const stlLoader = new STLLoaderMod.STLLoader()
       try { (stlLoader as any).setCrossOrigin && (stlLoader as any).setCrossOrigin('anonymous') } catch {}
       const objLoader = OBJLoaderModule ? new OBJLoaderModule.OBJLoader() : null
       const tmfLoader = ThreeMFModule ? new ThreeMFModule.ThreeMFLoader() : null
@@ -104,22 +156,18 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       pivotRef.current = pivot
       const group = new THREE.Group()
       pivot.add(group)
-      contentRef.current = group
 
       const files = resolvedFiles
       const palette = [0xd0d0d0]
       let loaded = 0
 
-      // We cache fit parameters to recompute on resize
       let fitRadius = 1
       const viewDir = new THREE.Vector3(2, 1.5, 2).normalize()
       const paddingFactor = 1.08
-      const minZoomFraction = 0.004 // allow users to get very close to the model
+      const minZoomFraction = 0.004
       const maxZoomMultiplier = 80
       const fitToView = () => {
-        // Object is centered at origin and scaled so its bounding sphere radius = fitRadius
         const vFov = THREE.MathUtils.degToRad(camera.fov)
-        // Compute distance to fit object vertically and horizontally
         const distV = fitRadius / Math.tan(vFov / 2)
         const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect)
         const distH = fitRadius / Math.tan(hFov / 2)
@@ -128,7 +176,6 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         const maxDist = Math.max(distance * maxZoomMultiplier, minDist * 400)
         camera.position.copy(viewDir).multiplyScalar(distance)
         controls.target.set(0, 0, 0)
-        // Tighten near/far around scene for better depth precision
         controls.minDistance = minDist
         controls.maxDistance = maxDist
         camera.near = Math.max(0.0001, minDist * 0.5)
@@ -157,13 +204,17 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         onLoaded()
       }
 
-      const addObject = (object: THREE.Object3D) => {
+      const addObject = (object: InstanceType<ThreeLib['Object3D']>) => {
+        if (disposed) {
+          disposeObject(THREE, object)
+          return
+        }
         group.add(object)
         loaded++
         if (loaded === files.length) onLoaded()
       }
 
-      const meshify = (object: THREE.Object3D, color: number) => {
+      const meshify = (object: InstanceType<ThreeLib['Object3D']>, color: number) => {
         object.traverse((child: any) => {
           if (child instanceof THREE.Mesh) {
             child.material = new THREE.MeshStandardMaterial({
@@ -211,7 +262,6 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
           console.warn('Missing loader for', ext, 'files')
         }
 
-        // Default to STL
         stlLoader.load(
           file,
           (geometry: any) => {
@@ -237,7 +287,6 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         fitToView()
       }
       window.addEventListener('resize', onResize)
-      // React to container size changes (layout, sidebar toggles, etc.)
       let ro: ResizeObserver | null = null
       if (typeof ResizeObserver !== 'undefined') {
         ro = new ResizeObserver(() => onResize())
@@ -258,11 +307,14 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         window.removeEventListener('resize', onResize)
         if (ro) ro.disconnect()
         controls.dispose?.()
+        disposeObject(THREE, group)
+        pivot.clear()
         renderer.dispose()
+        renderer.forceContextLoss?.()
         if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement)
         fitRef.current = null
         pivotRef.current = null
-        contentRef.current = null
+        scene.clear()
       }
     }
 

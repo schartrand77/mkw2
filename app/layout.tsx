@@ -92,7 +92,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <footer className="border-t border-white/10 text-center text-sm text-slate-400 py-6 footer-safe">
           &copy; {new Date().getFullYear()} {BRAND_FULL_NAME} &middot; Proudly made in Canada
         </footer>
-        <Announcements />
+        <Announcements enabled={authed} />
         <ExtensionsGuard />
         <HolidayEffects theme={holidayTheme} />
         <PWARegister />

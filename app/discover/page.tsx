@@ -65,7 +65,13 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
           return (
             <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
               {coverSrc ? (
-                <img src={coverSrc} alt={m.title} className="aspect-video w-full object-cover" />
+                <img
+                  src={coverSrc}
+                  alt={m.title}
+                  className="aspect-video w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
               )}

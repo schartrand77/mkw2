@@ -23,27 +23,35 @@ function useDismissed() {
   }
 }
 
-export default function Announcements() {
+type Props = { enabled?: boolean }
+
+export default function Announcements({ enabled = true }: Props) {
   const [items, setItems] = useState<Item[]>([])
   const { notify } = useNotifications()
   const { isDismissed, dismiss } = useDismissed()
 
   useEffect(() => {
+    if (!enabled) return
     let t: any
+    let cancelled = false
     const load = async () => {
       try {
         const res = await fetch('/api/announcements', { cache: 'no-store' })
         const data = await res.json()
         const list: Item[] = Array.isArray(data.items) ? data.items : []
-        setItems(list)
+        if (!cancelled) setItems(list)
         // Optionally bubble a passive heads-up on first mount
       } catch {}
     }
     load()
     t = setInterval(load, 60000)
-    return () => { if (t) clearInterval(t) }
-  }, [])
+    return () => {
+      cancelled = true
+      if (t) clearInterval(t)
+    }
+  }, [enabled])
 
+  if (!enabled) return null
   const visible = items.filter(i => !isDismissed(i.id))
   if (visible.length === 0) return null
   return (
@@ -63,4 +71,3 @@ export default function Announcements() {
     </div>
   )
 }
-
