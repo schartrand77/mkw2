@@ -12,10 +12,11 @@ import ExtensionsGuard from '@/components/ExtensionsGuard'
 import CartProvider from '@/components/cart/CartProvider'
 import HolidayEffects from '@/components/HolidayEffects'
 import type { HolidayTheme } from '@/components/HolidayEffects'
+import { BRAND_FULL_NAME, BRAND_NAME, BRAND_VERSION } from '@/lib/brand'
 
 export const dynamic = 'force-dynamic'
 export const metadata = {
-  title: 'MakerWorks v2',
+  title: BRAND_FULL_NAME,
   description: '3D printing model hosting & cost estimation',
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent' },
@@ -64,22 +65,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="sticky top-0 z-50 border-b border-white/10 bg-black/50 backdrop-blur header-safe">
           <div className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
             {authed ? (
-              <Link href="/" aria-label="MakerWorks v2" className="text-xl font-semibold tracking-tight">
-                <span>MakerW</span>
+              <Link href="/" aria-label={BRAND_FULL_NAME} className="text-xl font-semibold tracking-tight">
+                <span>{BRAND_NAME}</span>
                 <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
                   <GearGlyph />
                 </span>
-                <span>rks</span>
-                <span className="text-brand-500"> v2</span>
+                {BRAND_VERSION && <span className="text-brand-500"> {BRAND_VERSION}</span>}
               </Link>
             ) : (
               <span className="text-xl font-semibold tracking-tight select-none">
-                <span>MakerW</span>
+                <span>{BRAND_NAME}</span>
                 <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
                   <GearGlyph />
                 </span>
-                <span>rks</span>
-                <span className="text-brand-500"> v2</span>
+                {BRAND_VERSION && <span className="text-brand-500"> {BRAND_VERSION}</span>}
               </span>
             )}
             <NavBar authed={authed} isAdmin={isAdmin} avatarUrl={avatarUrl} />
@@ -89,7 +88,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
         </main>
         <footer className="border-t border-white/10 text-center text-sm text-slate-400 py-6 footer-safe">
-          &copy; {new Date().getFullYear()} MakerWorks v2 &middot; Proudly made in Canada
+          &copy; {new Date().getFullYear()} {BRAND_FULL_NAME} &middot; Proudly made in Canada
         </footer>
         <Announcements />
         <ExtensionsGuard />

@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto'
 import { prisma } from './db'
 import { sendMail } from './mailer'
+import { BRAND_NAME } from './brand'
 
 type Reason = 'register' | 'change'
 
@@ -29,7 +30,7 @@ export function buildVerificationUrl(token: string) {
 
 export async function sendVerificationEmail(to: string, verifyUrl: string, opts?: { reason?: Reason; userName?: string }) {
   const reason = opts?.reason || 'register'
-  const subject = reason === 'change' ? 'Confirm your MakerWorks email change' : 'Confirm your MakerWorks email'
+  const subject = reason === 'change' ? `Confirm your ${BRAND_NAME} email change` : `Confirm your ${BRAND_NAME} email`
   const greeting = opts?.userName ? `Hi ${opts.userName},` : 'Hi there,'
   const actionLine =
     reason === 'change'

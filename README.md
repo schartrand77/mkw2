@@ -25,6 +25,12 @@ After you install from Community Applications
 - Define `ADMIN_EMAIL` / `ADMIN_PASSWORD` to seed the first admin user (created on first start).
 - Optional: add Stripe keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`) for payments and SMTP settings for verification emails.
 
+Brand it for your shop
+- Set `NEXT_PUBLIC_BRAND_NAME` to your print service's public name (e.g., `NEXT_PUBLIC_BRAND_NAME="Print Foundry"`).
+- Adjust or clear `NEXT_PUBLIC_BRAND_VERSION` if you do not want the default `v2` suffix shown next to the logo.
+- Override `NEXT_PUBLIC_BRAND_LAB_NAME` (defaults to `<brand> lab`) to change the lab/pickup wording in checkout copy.
+- Update `NEXT_PUBLIC_BRAND_HANDLE` if you prefer a different default handle in the social profile placeholders.
+
 First login & setup
 - Sign in with the admin email/password you set; this account is already verified.
 - Open Admin > Site Settings to set your shop name, currency, and price adjustments.
@@ -61,6 +67,7 @@ Environment variables (what they do)
 - OrderWorks webhook (optional): `ORDERWORKS_WEBHOOK_URL`, `ORDERWORKS_WEBHOOK_SECRET`.
 - Holiday theming (optional): `HOLIDAY_THEME`, `NEXT_PUBLIC_HOLIDAY_THEME` set to `christmas`, `halloween`, or `easter`.
 - Contact/referral (optional): `NEXT_PUBLIC_AMAZON_TAG`, `NEXT_PUBLIC_AMAZON_DOMAIN`, `NEXT_PUBLIC_CONTACT_EMAIL`.
+- Branding: `NEXT_PUBLIC_BRAND_NAME`, `NEXT_PUBLIC_BRAND_VERSION`, `NEXT_PUBLIC_BRAND_LAB_NAME`, `NEXT_PUBLIC_BRAND_HANDLE` (leave `NEXT_PUBLIC_BRAND_VERSION` blank to hide the suffix).
 - SMTP (optional but recommended): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, `RECEIPT_FROM_EMAIL`, `RECEIPT_REPLY_TO_EMAIL`.
 - Discord (optional): `DISCORD_BOT_TOKEN`, `DISCORD_CHANNEL_ID` for announcements; `DISCORD_ADMIN_BOT_TOKEN`, `DISCORD_ADMIN_CHANNEL_ID` for admin alerts.
 

@@ -9,6 +9,7 @@ import { useCart } from '@/components/cart/CartProvider'
 import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, CheckoutPaymentMethod } from '@/types/checkout'
 import type { Appearance, PaymentIntent } from '@stripe/stripe-js'
 import { normalizeColors } from '@/lib/cartPricing'
+import { BRAND_LAB_NAME } from '@/lib/brand'
 
 type ProfileResponse = {
   profile: {
@@ -278,7 +279,7 @@ export default function CheckoutPage() {
                 checked={shippingMethod === 'pickup'}
                 onChange={() => setShippingMethod('pickup')}
               />
-              Local pickup (MakerWorks lab)
+              Local pickup ({BRAND_LAB_NAME})
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -381,7 +382,7 @@ export default function CheckoutPage() {
         )}
         {paymentMethod === 'cash' && intent && !cashConfirmationId && (
           <div className="space-y-3 text-sm text-slate-300">
-            <p>Bring exact cash to MakerWorks lab when you pick up your order. We will email you once printing is complete.</p>
+            <p>Bring exact cash to {BRAND_LAB_NAME} when you pick up your order. We will email you once printing is complete.</p>
             <button
               type="button"
               onClick={handleCashConfirm}

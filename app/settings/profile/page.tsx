@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
+import { BRAND_HANDLE } from '@/lib/brand'
 
 async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
   try {
@@ -215,15 +216,15 @@ export default function EditProfilePage() {
     <div className="grid sm:grid-cols-2 gap-3">
       <div>
         <label className="block text-sm mb-1">Instagram</label>
-        <input className="input" value={socialInstagram} onChange={(e) => setSocialInstagram(e.target.value)} placeholder="@makerworks" />
+        <input className="input" value={socialInstagram} onChange={(e) => setSocialInstagram(e.target.value)} placeholder={BRAND_HANDLE} />
       </div>
       <div>
         <label className="block text-sm mb-1">Twitter / X</label>
-        <input className="input" value={socialTwitter} onChange={(e) => setSocialTwitter(e.target.value)} placeholder="@makerworks" />
+        <input className="input" value={socialTwitter} onChange={(e) => setSocialTwitter(e.target.value)} placeholder={BRAND_HANDLE} />
       </div>
       <div>
         <label className="block text-sm mb-1">TikTok</label>
-        <input className="input" value={socialTikTok} onChange={(e) => setSocialTikTok(e.target.value)} placeholder="@makerworks" />
+        <input className="input" value={socialTikTok} onChange={(e) => setSocialTikTok(e.target.value)} placeholder={BRAND_HANDLE} />
       </div>
       <div>
         <label className="block text-sm mb-1">YouTube</label>

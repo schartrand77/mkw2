@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import { BRAND_NAME } from './brand'
 
 type EmailPayload = {
   to: string
@@ -68,7 +69,7 @@ function resolveConfig(): LoadedConfig | null {
     cachedConfig = null
     return cachedConfig
   }
-  const from = process.env.RECEIPT_FROM_EMAIL || `MakerWorks <${user}>`
+  const from = process.env.RECEIPT_FROM_EMAIL || `${BRAND_NAME} <${user}>`
   const replyTo = process.env.RECEIPT_REPLY_TO_EMAIL || undefined
   cachedConfig = { host, port: parsedPort, secure, user, pass, from, replyTo }
   return cachedConfig

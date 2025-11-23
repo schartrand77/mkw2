@@ -1,8 +1,9 @@
 import { AMAZON_MARKETPLACE_HOST, normalizeAmazonAffiliateUrl } from '@/lib/amazon'
 import { getAmazonSpotlightCards } from '@/lib/amazonSpotlights'
+import { BRAND_FULL_NAME, BRAND_LAB_NAME, BRAND_NAME } from '@/lib/brand'
 
 export const metadata = {
-  title: 'Amazon Accessories Shop | MakerWorks v2',
+  title: `Amazon Accessories Shop | ${BRAND_FULL_NAME}`,
   description: 'Curated Amazon affiliate picks for 3D printing accessories, tools, and workspace upgrades.',
 }
 
@@ -23,10 +24,10 @@ export default async function AmazonStorePage() {
           </h1>
           <p className="text-slate-300 md:text-lg max-w-3xl mx-auto md:mx-0">
             Browse Amazon results already narrowed to <span className="text-white font-medium">3D printing accessories</span>.
-            Every card below links to a collection we use in the MakerWorks lab&mdash;dry boxes, nozzle kits, finishing gear, and more.
+            Every card below links to a collection we use in the {BRAND_LAB_NAME}&mdash;dry boxes, nozzle kits, finishing gear, and more.
           </p>
           <p className="text-slate-300 text-sm md:text-base max-w-3xl mx-auto md:mx-0">
-            Prefer regular shopping? Click the support button before you buy anything on Amazon and a portion of that purchase still helps keep MakerWorks running.
+            Prefer regular shopping? Click the support button before you buy anything on Amazon and a portion of that purchase still helps keep {BRAND_NAME} running.
           </p>
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
             <a
@@ -35,7 +36,7 @@ export default async function AmazonStorePage() {
               rel="noopener noreferrer"
               className="btn text-base"
             >
-              Shop Amazon & support MakerWorks
+              Shop Amazon & support {BRAND_NAME}
             </a>
             <a
               href="https://www.amazon.ca/associates"
@@ -47,7 +48,7 @@ export default async function AmazonStorePage() {
             </a>
           </div>
           <p className="text-xs text-slate-400 pt-2">
-            As an Amazon Associate, MakerWorks may earn from qualifying purchases. Pricing and availability update on Amazon in real time.
+            As an Amazon Associate, {BRAND_NAME} may earn from qualifying purchases. Pricing and availability update on Amazon in real time.
           </p>
         </div>
       </section>

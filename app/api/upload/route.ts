@@ -13,6 +13,7 @@ import { isSupportedImageFile } from '@/lib/images'
 import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
 import { XMLParser } from 'fast-xml-parser'
 import { sendAdminDiscordNotification } from '@/lib/discord'
+import { BRAND_NAME } from '@/lib/brand'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
 
@@ -86,7 +87,8 @@ function transformTriangles(tris: Vec3[][], matrix: Matrix4x4): Vec3[][] {
 
 function buildBinaryStl(tris: Vec3[][]): Buffer {
   const header = Buffer.alloc(80)
-  header.write('MakerWorks STL Preview')
+  const title = `${BRAND_NAME} STL Preview`.slice(0, 79)
+  header.write(title)
   const triCount = tris.length
   const body = Buffer.alloc(4 + triCount * 50)
   let offset = 0

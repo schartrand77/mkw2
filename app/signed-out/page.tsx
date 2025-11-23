@@ -1,17 +1,18 @@
 import Link from 'next/link'
 import { buildAmazonSearchUrl, DEFAULT_AMAZON_QUERY } from '@/lib/amazon'
+import { BRAND_FULL_NAME, BRAND_LAB_NAME, BRAND_NAME, BRAND_SLUG } from '@/lib/brand'
 
 export const metadata = {
-  title: 'Signed out | MakerWorks v2',
-  description: 'You are now signed out of MakerWorks v2. Rejoin or browse our Amazon affiliate picks.',
+  title: `Signed out | ${BRAND_FULL_NAME}`,
+  description: `You are now signed out of ${BRAND_FULL_NAME}. Rejoin or browse our Amazon affiliate picks.`,
 }
 
 export default function SignedOutPage() {
-  const affiliateUrl = buildAmazonSearchUrl(DEFAULT_AMAZON_QUERY, 'makerworks_v2_signed_out_cta')
+  const affiliateUrl = buildAmazonSearchUrl(DEFAULT_AMAZON_QUERY, `${BRAND_SLUG}_signed_out_cta`)
   return (
     <div className="max-w-2xl mx-auto text-center space-y-6">
       <div className="glass rounded-3xl border border-white/10 px-6 py-10 space-y-4">
-        <p className="text-xs uppercase tracking-[0.35em] text-slate-400">MakerWorks v2</p>
+        <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{BRAND_FULL_NAME}</p>
         <h1 className="text-3xl font-semibold">You are signed out</h1>
         <p className="text-slate-300">
           Thanks for stopping by. You can sign back in anytime, or browse our curated Amazon picks for tools
@@ -29,14 +30,14 @@ export default function SignedOutPage() {
           </a>
         </div>
         <p className="text-xs text-slate-500 pt-2">
-          As an Amazon Associate, MakerWorks may earn from qualifying purchases. Pricing and availability update on Amazon.
+          As an Amazon Associate, {BRAND_NAME} may earn from qualifying purchases. Pricing and availability update on Amazon.
         </p>
       </div>
       <div className="glass rounded-2xl border border-white/10 p-5 text-left space-y-2">
         <h2 className="text-lg font-semibold">Why shop from our affiliate picks?</h2>
         <ul className="list-disc list-inside text-sm text-slate-300 space-y-1">
           <li>Every collection is filtered for maker-ready supplies.</li>
-          <li>Purchases help support the MakerWorks lab at no extra cost to you.</li>
+          <li>Purchases help support the {BRAND_LAB_NAME} at no extra cost to you.</li>
           <li>Handy for restocking filament, magnets, LEDs, and finishing tools between uploads.</li>
         </ul>
         <div className="text-xs text-slate-500">

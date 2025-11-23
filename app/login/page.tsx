@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { BRAND_NAME } from '@/lib/brand'
 
 async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
   try {
@@ -60,7 +61,7 @@ export default function LoginPage() {
             href="/register"
             className="inline-flex w-full items-center justify-center rounded-md border border-white/20 px-4 py-2 text-sm font-medium text-white transition hover:border-white/40 hover:bg-white/10"
           >
-            Join MakerWorks
+            Join {BRAND_NAME}
           </Link>
         </div>
       </form>

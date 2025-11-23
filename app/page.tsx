@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/currency'
 import { buildImageSrc } from '@/lib/public-path'
+import { BRAND_SLUG } from '@/lib/brand'
 
 async function fetchFeatured() {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/featured`, { cache: 'no-store' })
@@ -11,7 +12,8 @@ async function fetchFeatured() {
 
 export default async function HomePage() {
   const featured = await fetchFeatured()
-  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'info@makerworks.app'
+  const defaultContactEmail = `info@${BRAND_SLUG}.app`
+  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || defaultContactEmail
   return (
     <div className="space-y-8">
       <section className="text-center py-10">

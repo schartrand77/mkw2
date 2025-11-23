@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db'
 import { formatCurrency } from '@/lib/currency'
 import { buildYouTubeEmbedUrl } from '@/lib/youtube'
 import { buildImageSrc, toPublicHref } from '@/lib/storage'
+import { BRAND_NAME } from '@/lib/brand'
 
 async function fetchModel(id: string) {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/models/${id}`, { cache: 'no-store' })
@@ -111,7 +112,7 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
               Shop on {affiliateHost || 'Amazon'}
             </a>
             <p className="text-xs text-slate-500">
-              As an Amazon Associate, MakerWorks may earn from qualifying purchases. Pricing/availability updates instantly on Amazon.
+              As an Amazon Associate, {BRAND_NAME} may earn from qualifying purchases. Pricing/availability updates instantly on Amazon.
             </p>
           </div>
         )}
