@@ -19,6 +19,7 @@ const DEFAULT_BRAND_VERSION = 'v2'
 
 const resolvedBrandName = resolveEnv(['BRAND_NAME', 'NEXT_PUBLIC_BRAND_NAME'])
 export const BRAND_NAME = resolvedBrandName && resolvedBrandName.length > 0 ? resolvedBrandName : DEFAULT_BRAND_NAME
+const isDefaultBrand = BRAND_NAME.trim().toLowerCase() === DEFAULT_BRAND_NAME.toLowerCase()
 
 const resolvedBrandVersion = resolveEnv(['BRAND_VERSION', 'NEXT_PUBLIC_BRAND_VERSION'])
 export const BRAND_VERSION = resolvedBrandVersion !== undefined ? resolvedBrandVersion : DEFAULT_BRAND_VERSION
@@ -35,3 +36,6 @@ const resolvedHandle = resolveEnv(['BRAND_HANDLE', 'NEXT_PUBLIC_BRAND_HANDLE'])
 export const BRAND_HANDLE = resolvedHandle && resolvedHandle.length > 0 ? resolvedHandle : handleDefault
 
 export const BRAND_FULL_NAME = BRAND_VERSION ? `${BRAND_NAME} ${BRAND_VERSION}`.trim() : BRAND_NAME
+
+export const BRAND_LOGO_PREFIX = isDefaultBrand ? 'MakerW' : BRAND_NAME
+export const BRAND_LOGO_SUFFIX = isDefaultBrand ? 'rks' : ''

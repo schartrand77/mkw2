@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 const PUBLIC_EXACT = new Set([
+  '/',
+  '/discover',
   '/login',
   '/register',
   '/gear',
