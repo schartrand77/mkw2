@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { prisma } from '@/lib/db'
 
 const COOKIE_NAME = 'mwv2_token'
@@ -9,14 +9,41 @@ type CookieStore = {
   set: (name: string, value: string, options?: Record<string, any>) => void
 }
 
+type CookieOptions = {
+  secureHint?: boolean
+}
+
 function resolveCookieStore(store?: CookieStore): CookieStore {
   return (store ?? (cookies() as unknown as CookieStore))
 }
 
-function shouldUseSecureCookies() {
-  const base = (process.env.BASE_URL || '').toLowerCase()
+function inferSecureFromHeaders(): boolean | undefined {
+  try {
+    const hdrs = headers()
+    const forwardedProto = hdrs.get('x-forwarded-proto')
+    if (forwardedProto) {
+      const first = forwardedProto.split(',')[0]?.trim()
+      if (first) return first === 'https'
+    }
+    const forwarded = hdrs.get('forwarded')
+    if (forwarded) {
+      const match = forwarded.match(/proto=(https?)/i)
+      if (match?.[1]) return match[1].toLowerCase() === 'https'
+    }
+  } catch {
+    // headers() throws outside of request handling; ignore and fall back to env hints
+  }
+  return undefined
+}
+
+function shouldUseSecureCookies(hint?: boolean) {
   const cookieSecureEnv = (process.env.COOKIE_SECURE || '').toLowerCase()
-  return cookieSecureEnv === 'true' || (process.env.NODE_ENV === 'production' && base.startsWith('https'))
+  if (cookieSecureEnv === 'true') return true
+  if (cookieSecureEnv === 'false') return false
+  if (typeof hint === 'boolean') return hint
+  const base = (process.env.BASE_URL || '').toLowerCase()
+  if (base.startsWith('https://')) return true
+  return false
 }
 
 export async function hashPassword(password: string) {
@@ -61,10 +88,10 @@ export async function getUserIdFromCookie(): Promise<string | null> {
   }
 }
 
-export function setAuthCookie(userId: string, store?: CookieStore) {
+export function setAuthCookie(userId: string, store?: CookieStore, options?: CookieOptions) {
   const token = signToken(userId)
   const c = resolveCookieStore(store)
-  const secure = shouldUseSecureCookies()
+  const secure = shouldUseSecureCookies(options?.secureHint ?? inferSecureFromHeaders())
   c.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -74,9 +101,9 @@ export function setAuthCookie(userId: string, store?: CookieStore) {
   })
 }
 
-export function clearAuthCookie(store?: CookieStore) {
+export function clearAuthCookie(store?: CookieStore, options?: CookieOptions) {
   const c = resolveCookieStore(store)
-  const secure = shouldUseSecureCookies()
+  const secure = shouldUseSecureCookies(options?.secureHint ?? inferSecureFromHeaders())
   c.set(COOKIE_NAME, '', {
     maxAge: 0,
     path: '/',

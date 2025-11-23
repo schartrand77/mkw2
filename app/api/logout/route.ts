@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
   const response = prefersHtml
     ? NextResponse.redirect(redirectUrl, { status: 303 })
     : NextResponse.json({ ok: true, redirect: '/signed-out' })
-  clearAuthCookie(response.cookies as any)
+  const secureHint = req.nextUrl.protocol === 'https:'
+  clearAuthCookie(response.cookies as any, { secureHint })
   return response
 }
