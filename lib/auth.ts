@@ -36,11 +36,25 @@ function inferSecureFromHeaders(): boolean | undefined {
   return undefined
 }
 
-function shouldUseSecureCookies(hint?: boolean) {
-  const cookieSecureEnv = (process.env.COOKIE_SECURE || '').toLowerCase()
-  if (cookieSecureEnv === 'true') return true
-  if (cookieSecureEnv === 'false') return false
+function resolveSecureHint(hint?: boolean) {
+  const forwarded = inferSecureFromHeaders()
+  if (typeof forwarded === 'boolean') return forwarded
   if (typeof hint === 'boolean') return hint
+  return undefined
+}
+
+function shouldUseSecureCookies(hint?: boolean) {
+  const resolvedHint = resolveSecureHint(hint)
+  const cookieSecureEnv = (process.env.COOKIE_SECURE || '').toLowerCase()
+  if (cookieSecureEnv === 'true') {
+    if (resolvedHint === false) {
+      // Avoid forcing secure cookies when the current request is definitely HTTP (common during local testing)
+      return false
+    }
+    return true
+  }
+  if (cookieSecureEnv === 'false') return false
+  if (typeof resolvedHint === 'boolean') return resolvedHint
   const base = (process.env.BASE_URL || '').toLowerCase()
   if (base.startsWith('https://')) return true
   return false
