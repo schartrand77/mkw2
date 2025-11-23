@@ -9,36 +9,36 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Company palette: black, amber orange, gunmetal grey, lime green
+        // Dark Side palette: deep black, crimson, gunmetal, desaturated steel
         brand: {
-          50: '#fffbeb',
-          100: '#fef3c7',
-          200: '#fde68a',
-          300: '#fcd34d',
-          400: '#fbbf24',
-          500: '#f59e0b', // amber
-          600: '#d97706',
-          700: '#b45309',
-          800: '#92400e',
-          900: '#78350f',
+          50: '#fff1f2',
+          100: '#ffe4e6',
+          200: '#fecdd3',
+          300: '#fda4af',
+          400: '#fb7185',
+          500: '#f43f5e',
+          600: '#e11d48',
+          700: '#be123c',
+          800: '#9f1239',
+          900: '#881337',
         },
         accent: {
-          50: '#f7fee7',
-          100: '#ecfccb',
-          200: '#d9f99d',
-          300: '#bef264',
-          400: '#a3e635',
-          500: '#84cc16', // lime
-          600: '#65a30d',
-          700: '#4d7c0f',
-          800: '#3f6212',
-          900: '#365314',
+          50: '#f7f7fb',
+          100: '#ededf5',
+          200: '#dcdceb',
+          300: '#b7b8d1',
+          400: '#8e8fae',
+          500: '#6c6d8c',
+          600: '#565872',
+          700: '#45465b',
+          800: '#2f2f3f',
+          900: '#1e1e28',
         },
-        gunmetal: '#2a3439',
-        dark: '#000000',
+        gunmetal: '#1b1f2b',
+        dark: '#050409',
       },
       boxShadow: {
-        'soft': '0 10px 30px -15px rgba(0,0,0,0.3)'
+        'soft': '0 35px 65px -25px rgba(0,0,0,0.65)'
       }
     },
   },

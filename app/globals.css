@@ -3,11 +3,14 @@
 @tailwind utilities;
 
 :root {
-  /* Company colors */
-  --bg: #000000; /* black */
-  --card: #2a3439; /* gunmetal */
-  --card-rgb: 42 52 57; /* gunmetal rgb */
-  --muted: #9aa5ad;
+  /* Dark Side / Empire palette tokens */
+  --bg: #030308;
+  --bg-secondary: #050409;
+  --card: #11111b;
+  --card-rgb: 17 17 27;
+  --muted: #a1a0bf;
+  --empire-crimson: #e11d48;
+  --empire-crimson-rgb: 225 29 72;
 }
 
 html, body {
@@ -16,31 +19,47 @@ html, body {
 
 body {
   background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(245, 158, 11, 0.22), transparent), /* amber */
-    var(--bg);
-  color: white;
+    radial-gradient(1200px 680px at 85% -10%, rgba(var(--empire-crimson-rgb) / 0.35), transparent),
+    radial-gradient(900px 540px at 10% 0%, rgba(59, 7, 100, 0.28), transparent),
+    linear-gradient(135deg, var(--bg) 0%, var(--bg-secondary) 55%, #020106 100%);
+  color: #f4f4f5;
 }
 
 .glass {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(10px);
+  background: linear-gradient(155deg, rgba(var(--card-rgb) / 0.92), rgba(4 3 10 / 0.78));
+  border: 1px solid rgba(var(--empire-crimson-rgb) / 0.18);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
+}
+.header-shell {
+  border-bottom: 1px solid rgba(var(--empire-crimson-rgb) / 0.22);
+  background: linear-gradient(180deg, rgba(5, 4, 9, 0.92), rgba(5, 4, 9, 0.78));
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(18px);
+}
+.footer-shell {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, rgba(5, 4, 9, 0.65), rgba(5, 4, 9, 0.85));
 }
 
 .btn {
   @apply inline-flex items-center justify-center rounded-md bg-brand-600 hover:bg-brand-700 transition px-4 py-2 text-sm font-medium text-white shadow-soft;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 35px rgba(var(--empire-crimson-rgb) / 0.35);
 }
 
 .input {
-  @apply w-full rounded-md border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 placeholder:text-slate-400;
-  background-color: rgb(var(--card-rgb) / 0.6);
+  @apply w-full rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 placeholder:text-slate-400;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(var(--card-rgb) / 0.72);
+  color: #f8fafc;
 }
 
 /* Light theme overrides */
 html.theme-light body {
   background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(245, 158, 11, 0.12), transparent),
-    #f7f7f9;
+    radial-gradient(1200px 600px at 80% -10%, rgba(244, 63, 94, 0.12), transparent),
+    #f8f5ff;
   color: #0b0f17;
 }
 html.theme-light .glass {
@@ -111,11 +130,11 @@ html.theme-light .btn {
 }
 .marquee-fade-left {
   left: 0;
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0));
+  background: linear-gradient(90deg, rgba(3, 3, 8, 0.92), rgba(3, 3, 8, 0));
 }
 .marquee-fade-right {
   right: 0;
-  background: linear-gradient(270deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0));
+  background: linear-gradient(270deg, rgba(3, 3, 8, 0.92), rgba(3, 3, 8, 0));
 }
 html.theme-light .marquee-fade-left {
   background: linear-gradient(90deg, rgba(247, 247, 249, 0.95), rgba(247, 247, 249, 0));

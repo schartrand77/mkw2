@@ -62,7 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className={holidayTheme ? `holiday-${holidayTheme}` : undefined}>
         <CartProvider>
         <NotificationsProvider>
-        <header className="sticky top-0 z-50 border-b border-white/10 bg-black/50 backdrop-blur header-safe">
+        <header className="sticky top-0 z-50 header-shell header-safe">
           <div className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
             {authed ? (
               <Link href="/" aria-label={BRAND_FULL_NAME} className="text-xl font-semibold tracking-tight">
@@ -89,7 +89,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <main className="mx-auto max-w-6xl px-4 py-8 safe-padded">
           {children}
         </main>
-        <footer className="border-t border-white/10 text-center text-sm text-slate-400 py-6 footer-safe">
+        <footer className="footer-shell text-center text-sm text-slate-400/80 py-6 footer-safe">
           &copy; {new Date().getFullYear()} {BRAND_FULL_NAME} &middot; Proudly made in Canada
         </footer>
         <Announcements enabled={authed} />
