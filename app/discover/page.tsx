@@ -29,7 +29,12 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
       else if (v) params.set(k, v)
     }
   }
-  const { models, total, page, pageSize } = await fetchModels(params)
+  const page = Math.max(1, parseInt(params.get('page') || '1', 10) || 1)
+  const pageSize = Math.min(60, Math.max(6, parseInt(params.get('pageSize') || '24', 10) || 24))
+  params.set('page', String(page))
+  params.set('pageSize', String(pageSize))
+
+  const { models, total } = await fetchModels(params)
   const q = params.get('q') || ''
   const sort = params.get('sort') || 'latest'
   const totalPages = Math.max(1, Math.ceil((total || 0) / (pageSize || 24)))
@@ -37,7 +42,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-semibold">Discover Models</h1>
-      <form method="get" className="grid md:grid-cols-3 gap-3 items-end">
+      <form method="get" className="grid md:grid-cols-4 gap-3 items-end">
         <div className="md:col-span-2">
           <label className="block text-sm mb-1">Search</label>
           <input className="input" type="search" name="q" defaultValue={q} placeholder="Search models..." />
@@ -51,6 +56,15 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
             <option value="price_desc">Price: High to Low</option>
           </select>
         </div>
+        <div>
+          <label className="block text-sm mb-1">Per page</label>
+          <select name="pageSize" defaultValue={pageSize} className="input">
+            {[12, 24, 36, 48, 60].map((size) => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+        </div>
+        <input type="hidden" name="page" value="1" />
         <div className="md:col-span-3">
           <button className="btn">Apply Filters</button>
         </div>
@@ -97,17 +111,38 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
       </section>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-2">
-          {Array.from({ length: totalPages }).map((_, i) => {
-            const p = i + 1
-            const href = buildQS({ page: p }, params)
-            const active = p === page
-            return (
-              <Link key={p} href={href} className={`px-3 py-1.5 rounded-md border ${active ? 'bg-brand-600 border-brand-600 text-white' : 'border-white/10 hover:border-white/20'}`}>
-                {p}
-              </Link>
-            )
-          })}
+        <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
+          <Link
+            href={buildQS({ page: 1 }, params)}
+            className={`px-3 py-1.5 rounded-md border ${page === 1 ? 'opacity-60 cursor-default' : 'hover:border-white/20'} border-white/10`}
+            aria-disabled={page === 1}
+          >
+            « First
+          </Link>
+          <Link
+            href={buildQS({ page: Math.max(1, page - 1) }, params)}
+            className={`px-3 py-1.5 rounded-md border ${page === 1 ? 'opacity-60 cursor-default' : 'hover:border-white/20'} border-white/10`}
+            aria-disabled={page === 1}
+          >
+            ‹ Prev
+          </Link>
+          <div className="px-3 py-1.5 rounded-md border border-white/10 text-sm text-slate-300">
+            Page {page} / {totalPages}
+          </div>
+          <Link
+            href={buildQS({ page: Math.min(totalPages, page + 1) }, params)}
+            className={`px-3 py-1.5 rounded-md border ${page === totalPages ? 'opacity-60 cursor-default' : 'hover:border-white/20'} border-white/10`}
+            aria-disabled={page === totalPages}
+          >
+            Next ›
+          </Link>
+          <Link
+            href={buildQS({ page: totalPages }, params)}
+            className={`px-3 py-1.5 rounded-md border ${page === totalPages ? 'opacity-60 cursor-default' : 'hover:border-white/20'} border-white/10`}
+            aria-disabled={page === totalPages}
+          >
+            Last »
+          </Link>
         </div>
       )}
     </div>
