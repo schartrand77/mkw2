@@ -1,107 +1,11 @@
-"use client"
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
+import UploadForm from './UploadForm'
+import { prisma } from '@/lib/db'
 
-async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
-  try {
-    const mod = await import('@/components/notifications/NotificationsProvider')
-    mod.pushSessionNotification(payload)
-  } catch {}
-}
+export const dynamic = 'force-dynamic'
 
-export default function UploadPage() {
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [creditName, setCreditName] = useState('')
-  const [creditUrl, setCreditUrl] = useState('')
-  const [material, setMaterial] = useState('PLA')
-  const [modelFiles, setModelFiles] = useState<FileList | null>(null)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [tags, setTags] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const router = useRouter()
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!modelFiles || modelFiles.length === 0) {
-      setErrorMsg('Please select one or more 3D model files (STL/OBJ/3MF/ZIP).')
-      return
-    }
-    setLoading(true)
-    try {
-      setErrorMsg(null)
-      const fd = new FormData()
-      if (creditName) fd.append('creditName', creditName)
-      if (creditUrl) fd.append('creditUrl', creditUrl)
-      fd.append('title', title)
-      fd.append('description', description)
-      fd.append('material', material)
-      fd.append('tags', tags)
-      Array.from(modelFiles).forEach((f) => fd.append('files', f))
-      if (imageFile) fd.append('image', imageFile)
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
-      if (!res.ok) {
-        try { const j = await res.json(); throw new Error(j.error || 'Upload failed') } catch { throw new Error('Upload failed') }
-      }
-      const data = await res.json()
-      await notify({ type: 'success', title: 'Upload complete', message: 'Your model is ready to view.' })
-      router.push(`/models/${data.model.id}`)
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Upload failed')
-      await notify({ type: 'error', title: 'Upload failed', message: err.message || 'Upload failed' })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Upload a Model</h1>
-      <form onSubmit={submit} className="space-y-4 glass p-6 rounded-xl">
-        {errorMsg && <div className="text-amber-400 text-sm">{errorMsg}</div>}
-        <div>
-          <label className="block text-sm mb-1">Title</label>
-          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} required />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Tags (comma separated)</label>
-          <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g., gadget, mount, cosplay" />
-        </div>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm mb-1">Credit model creator</label>
-            <input className="input" value={creditName} onChange={(e) => setCreditName(e.target.value)} placeholder="Creator name" />
-          </div>
-          <div>
-            <label className="block text-sm mb-1">Credit URL</label>
-            <input className="input" type="url" value={creditUrl} onChange={(e) => setCreditUrl(e.target.value)} placeholder="https://..." />
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Description</label>
-          <textarea className="input h-24" value={description} onChange={(e) => setDescription(e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Material</label>
-          <select className="input" value={material} onChange={(e) => setMaterial(e.target.value)}>
-            <option>PLA</option>
-            <option>ABS</option>
-            <option>PETG</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Model files (.stl, .obj, .3mf, or .zip)</label>
-          <input type="file" multiple accept=".stl,.obj,.3mf,.zip" onChange={(e) => setModelFiles(e.target.files)} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Cover image (optional)</label>
-          <input type="file" accept={IMAGE_ACCEPT_ATTRIBUTE} onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
-        </div>
-        <button className="btn" disabled={loading}>{loading ? 'Uploading…' : 'Upload'}</button>
-        <p className="text-xs text-slate-400">Sign in not required for demo; will attach to anonymous user.</p>
-      </form>
-    </div>
-  )
+export default async function UploadPage() {
+  const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' }, select: { directUploadUrl: true } })
+  const fallback = process.env.DIRECT_UPLOAD_URL || null
+  const directUploadUrl = cfg?.directUploadUrl || fallback
+  return <UploadForm directUploadUrl={directUploadUrl} />
 }

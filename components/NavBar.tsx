@@ -56,16 +56,33 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   }, [])
 
   // Theme toggle (light/dark)
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window === 'undefined') return 'dark'
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark')
+  useEffect(() => {
+    if (typeof window === 'undefined') return
     const saved = localStorage.getItem('mwv2:theme') as 'light' | 'dark' | null
-    return saved === 'light' ? 'light' : 'dark'
-  })
+    if (saved === 'light' || saved === 'dark') {
+      setTheme(saved)
+      return
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      setTheme('light')
+    }
+  }, [])
   useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement
-    if (theme === 'light') root.classList.add('theme-light')
-    else root.classList.remove('theme-light')
+    const body = document.body
+    if (theme === 'light') {
+      root.classList.add('theme-light')
+      body?.classList.add('theme-light')
+      root.classList.remove('theme-dark')
+      body?.classList.remove('theme-dark')
+    } else {
+      root.classList.add('theme-dark')
+      body?.classList.add('theme-dark')
+      root.classList.remove('theme-light')
+      body?.classList.remove('theme-light')
+    }
     try { localStorage.setItem('mwv2:theme', theme) } catch {}
   }, [theme])
 
@@ -75,7 +92,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
       ? 'px-3 py-1.5 rounded-md bg-brand-600 border border-brand-600 text-white flex-shrink-0'
       : 'px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 flex-shrink-0'
   }
-  const navContainerCls = 'flex items-center gap-3 text-sm overflow-x-auto whitespace-nowrap w-full min-w-0 pr-4 [-webkit-overflow-scrolling:touch] sm:w-auto sm:overflow-visible sm:whitespace-normal sm:pr-0'
+  const navContainerCls = 'flex items-center gap-3 text-sm overflow-x-auto overflow-y-visible whitespace-nowrap w-full min-w-0 pr-4 [-webkit-overflow-scrolling:touch] sm:w-auto sm:overflow-visible sm:whitespace-normal sm:pr-0'
 
   if (!authed) {
     return (

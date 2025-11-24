@@ -150,6 +150,7 @@ model FeaturedModel {
 model SiteConfig {
   id                    String   @id
   allowAnonymousUploads Boolean? @default(true)
+  directUploadUrl       String?
   printSpeedCm3PerHour  Float?
   energyUsdPerHour      Float?
   minimumPriceUsd       Float?

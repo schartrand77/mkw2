@@ -10,6 +10,7 @@ type Config = {
   minimumPriceUsd?: number | null
   extraHourlyUsdAfterFirst?: number | null
   fillFactor?: number | null
+  directUploadUrl?: string | null
 }
 
 export default function SiteConfigForm({ initial }: { initial: Config }) {
@@ -35,6 +36,7 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
           minimumPriceUsd: cfg.minimumPriceUsd != null ? Number(cfg.minimumPriceUsd) : undefined,
           extraHourlyUsdAfterFirst: cfg.extraHourlyUsdAfterFirst != null ? Number(cfg.extraHourlyUsdAfterFirst) : undefined,
           fillFactor: cfg.fillFactor != null ? Number(cfg.fillFactor) : undefined,
+          directUploadUrl: cfg.directUploadUrl != null ? cfg.directUploadUrl : null,
         })
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to save config')
@@ -118,6 +120,17 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                 <div className="flex items-center gap-2">
                   <input id="anu" type="checkbox" checked={!!cfg.allowAnonymousUploads} onChange={(e) => setCfg({ ...cfg, allowAnonymousUploads: e.target.checked })} />
                   <label htmlFor="anu" className="text-sm">Allow anonymous uploads</label>
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Direct upload URL (optional)</label>
+                  <input
+                    className="input"
+                    type="url"
+                    placeholder="https://upload.example.com"
+                    value={cfg.directUploadUrl ?? ''}
+                    onChange={(e) => setCfg({ ...cfg, directUploadUrl: e.target.value === '' ? null : e.target.value })}
+                  />
+                  <p className="text-xs text-slate-400 mt-1">When provided, the Upload page will POST to this host&apos;s `/api/upload`, bypassing Cloudflare/Tunnel limits.</p>
                 </div>
               </div>
             ),

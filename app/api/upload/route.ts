@@ -23,6 +23,45 @@ const xmlParser = new XMLParser({
   removeNSPrefix: true,
 })
 
+function normalizeOrigin(url?: string | null) {
+  if (!url) return null
+  try {
+    const parsed = new URL(url)
+    return parsed.origin
+  } catch {
+    return null
+  }
+}
+
+function applyCorsHeaders(req: NextRequest, res: NextResponse, directUploadUrl?: string | null) {
+  const allowedOrigin = normalizeOrigin(directUploadUrl)
+  const requestOrigin = req.headers.get('origin')
+  if (allowedOrigin && requestOrigin && requestOrigin === allowedOrigin) {
+    res.headers.set('Access-Control-Allow-Origin', requestOrigin)
+    res.headers.set('Access-Control-Allow-Credentials', 'true')
+  }
+  return res
+}
+
+function applyPreflightCors(req: NextRequest, res: NextResponse, directUploadUrl?: string | null) {
+  const allowedOrigin = normalizeOrigin(directUploadUrl)
+  const requestOrigin = req.headers.get('origin')
+  if (allowedOrigin && requestOrigin && requestOrigin === allowedOrigin) {
+    const requestedHeaders = req.headers.get('access-control-request-headers') || 'content-type'
+    res.headers.set('Access-Control-Allow-Origin', requestOrigin)
+    res.headers.set('Access-Control-Allow-Credentials', 'true')
+    res.headers.set('Access-Control-Allow-Methods', 'POST,OPTIONS')
+    res.headers.set('Access-Control-Allow-Headers', requestedHeaders)
+    res.headers.set('Access-Control-Max-Age', '86400')
+  }
+  return res
+}
+
+function jsonWithCors(req: NextRequest, body: any, init: ResponseInit | undefined, directUploadUrl?: string | null) {
+  const res = NextResponse.json(body, init)
+  return applyCorsHeaders(req, res, directUploadUrl)
+}
+
 type Vec3 = { x: number, y: number, z: number }
 type Matrix4x4 = [number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number]
 
@@ -309,13 +348,27 @@ async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles
   }
 }
 
+export async function OPTIONS(req: NextRequest) {
+  try {
+    const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' }, select: { directUploadUrl: true } })
+    const directUploadUrl = cfg?.directUploadUrl || process.env.DIRECT_UPLOAD_URL || null
+    const res = new NextResponse(null, { status: 204 })
+    return applyPreflightCors(req, res, directUploadUrl)
+  } catch {
+    return new NextResponse(null, { status: 204 })
+  }
+}
+
 export async function POST(req: NextRequest) {
+  let directUploadUrl: string | null = process.env.DIRECT_UPLOAD_URL || null
   try {
     // Check site config for anonymous upload policy
     const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
+    directUploadUrl = cfg?.directUploadUrl || directUploadUrl
+    const json = (body: any, init?: ResponseInit) => jsonWithCors(req, body, init, directUploadUrl)
     const uidFromCookie = await getUserIdFromCookie()
     if (cfg && cfg.allowAnonymousUploads === false && !uidFromCookie) {
-      return NextResponse.json({ error: 'Sign in required to upload' }, { status: 401 })
+      return json({ error: 'Sign in required to upload' }, { status: 401 })
     }
     const userId = uidFromCookie || (await ensureAnonymousUser())
     const uploader = await prisma.user.findUnique({
@@ -337,7 +390,7 @@ export async function POST(req: NextRequest) {
     // Collect candidate model files (support zip or multiple file inputs)
     const modelFiles: { name: string, buf: Buffer }[] = []
     const inputs = files && files.length > 0 ? files : (model ? [model] : [])
-    if (!inputs || inputs.length === 0) return NextResponse.json({ error: 'Missing model files' }, { status: 400 })
+    if (!inputs || inputs.length === 0) return json({ error: 'Missing model files' }, { status: 400 })
 
     for (const f of inputs) {
       const lower = f.name.toLowerCase()
@@ -358,7 +411,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (modelFiles.length === 0) return NextResponse.json({ error: 'No valid model files found' }, { status: 400 })
+    if (modelFiles.length === 0) return json({ error: 'No valid model files found' }, { status: 400 })
 
     let coverImageRel: string | undefined
     if (image && isSupportedImageFile(image.name, image.type)) {
@@ -485,10 +538,10 @@ export async function POST(req: NextRequest) {
     } catch (notifyErr) {
       console.error('Admin Discord notification failed for upload:', notifyErr)
     }
-    return NextResponse.json({ model: created })
+    return json({ model: created })
   } catch (e: any) {
     console.error('Upload failed:', e)
-    return NextResponse.json({ error: e.message || 'Upload failed' }, { status: 400 })
+    return jsonWithCors(req, { error: e.message || 'Upload failed' }, { status: 400 }, directUploadUrl)
   }
 }
 

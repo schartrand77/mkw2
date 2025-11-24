@@ -200,9 +200,6 @@ body.holiday-halloween .btn {
   pointer-events: none;
   will-change: transform, opacity;
 }
-.holiday-particle[data-variant="1"] {
-  animation-direction: reverse;
-}
 .holiday-particle[data-variant="2"] {
   animation-timing-function: ease-in-out;
 }

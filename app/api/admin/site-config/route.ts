@@ -14,6 +14,7 @@ const schema = z.object({
   minimumPriceUsd: z.number().nonnegative().optional(),
   extraHourlyUsdAfterFirst: z.number().nonnegative().optional(),
   fillFactor: z.number().positive().max(2).optional(),
+  directUploadUrl: z.union([z.string().url(), z.null()]).optional(),
 })
 
 const CONFIG_ID = 'main'

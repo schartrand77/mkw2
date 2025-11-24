@@ -26,6 +26,7 @@ MakerWorks v2 is a self-hosted 3D model hub with STL previews, price estimation,
   <Config Name="ADMIN_NAME" Target="ADMIN_NAME" Default="Admin" Mode="" Description="Display name for the bootstrap administrator account" Type="Variable" Display="advanced" Required="false" Mask="false">Admin</Config>
 
   <Config Name="STORAGE_DIR" Target="STORAGE_DIR" Default="/app/storage" Mode="" Description="Internal storage path (leave at /app/storage unless customizing)" Type="Variable" Display="advanced" Required="false" Mask="false">/app/storage</Config>
+  <Config Name="DIRECT_UPLOAD_URL" Target="DIRECT_UPLOAD_URL" Default="" Mode="" Description="Optional direct hostname (e.g., https://upload.example.com) used only for uploads to bypass Cloudflare/Tunnel size limits" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
   <Config Name="COOKIE_SECURE" Target="COOKIE_SECURE" Default="true" Mode="" Description="Set to true when BASE_URL is HTTPS so auth cookies are secure" Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
 
   <Config Name="PRINTER_PROFILE" Target="PRINTER_PROFILE" Default="BAMBU_X1C" Mode="" Description="Printer preset for speed/energy math (BAMBU_X1C, BAMBU_P1S, PRUSA_MK4, PRUSA_MK3S, CREALITY_K1_MAX, CREALITY_ENDER3_V2, ANYCUBIC_KOBRA2, GENERIC_FDM)" Type="Variable" Display="advanced" Required="false" Mask="false">BAMBU_X1C</Config>

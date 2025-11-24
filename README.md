@@ -24,6 +24,7 @@ After you install from Community Applications
 - Set `BASE_URL` to the public URL users will visit and `JWT_SECRET` to a long random string.
 - Define `ADMIN_EMAIL` / `ADMIN_PASSWORD` to seed the first admin user (created on first start).
 - Optional: add Stripe keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`) for payments and SMTP settings for verification emails.
+- Optional: if you expose a direct hostname (bypassing Cloudflare/Tunnels) for uploads, enter it under Admin > Site Settings > Uploads so the UI can post large files straight to that path.
 
 Brand it for your shop
 - Set `NEXT_PUBLIC_BRAND_NAME` to your print service's public name (e.g., `NEXT_PUBLIC_BRAND_NAME="Print Foundry"`).
@@ -56,6 +57,7 @@ Environment variables (what they do)
 - `JWT_SECRET` (required): long random string to sign sessions.
 - `BASE_URL` (required): public URL of the app (used for links/cookies).
 - `STORAGE_DIR`: in-container storage path; leave `/app/storage` for Unraid.
+- `DIRECT_UPLOAD_URL`: optional base URL just for `/api/upload` (e.g., `https://upload.example.com`) when you expose a non-Cloudflare hostname for large files.
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`: seeds the first admin on start (email + password required).
 - `PRINTER_PROFILE`: base printer preset (`BAMBU_X1C` default) - see the table below for more options and their assumptions.
 - `PRINTER_ELECTRIC_RATE_PER_KWH`: override kWh cost if your power rate differs.
