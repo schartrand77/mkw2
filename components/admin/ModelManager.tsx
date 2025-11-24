@@ -17,12 +17,48 @@ type Model = {
   videoUrl?: string
 }
 
+function PaginationControls({
+  page,
+  totalPages,
+  onFirst,
+  onPrev,
+  onNext,
+  onLast,
+}: {
+  page: number
+  totalPages: number
+  onFirst: () => void
+  onPrev: () => void
+  onNext: () => void
+  onLast: () => void
+}) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <button className="px-2 py-1 rounded-md border border-white/10 disabled:opacity-40" onClick={onFirst} disabled={page <= 1}>
+        « First
+      </button>
+      <button className="px-2 py-1 rounded-md border border-white/10 disabled:opacity-40" onClick={onPrev} disabled={page <= 1}>
+        ‹ Prev
+      </button>
+      <div className="px-2 py-1 rounded-md border border-white/10 text-slate-300">
+        Page {page} / {totalPages}
+      </div>
+      <button className="px-2 py-1 rounded-md border border-white/10 disabled:opacity-40" onClick={onNext} disabled={page >= totalPages}>
+        Next ›
+      </button>
+      <button className="px-2 py-1 rounded-md border border-white/10 disabled:opacity-40" onClick={onLast} disabled={page >= totalPages}>
+        Last »
+      </button>
+    </div>
+  )
+}
+
 export default function ModelManager() {
   const [query, setQuery] = useState('')
   const [items, setItems] = useState<Model[]>([])
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(12)
   const [loading, setLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
@@ -119,45 +155,79 @@ export default function ModelManager() {
           </button>
         )}
       </div>
-      <input className="input" placeholder="Search models..." value={query} onChange={(e) => { setQuery(e.target.value); setPage(1) }} />
+      <div className="flex flex-col sm:flex-row gap-3">
+        <input className="input flex-1" placeholder="Search models..." value={query} onChange={(e) => { setQuery(e.target.value); setPage(1) }} />
+        <label className="text-sm text-slate-400 flex items-center gap-2">
+          Page size
+          <select
+            className="input w-28"
+            value={pageSize}
+            onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}
+          >
+            {[12, 24, 36, 48].map((size) => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+        </label>
+      </div>
       {loading && <div className="text-slate-400 text-sm">Loading...</div>}
 
       {!activeModel && (
         <>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {items.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                className="flex items-start gap-3 p-3 rounded-lg border border-white/10 hover:border-white/20 bg-slate-900/40 text-left transition-colors"
-                onClick={() => setActiveId(m.id)}
-              >
-                {m.coverImagePath ? (
-                  <img
-                    src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`}
-                    className="w-16 h-12 object-cover rounded border border-white/10"
-                  />
-                ) : (
-                  <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
-                )}
-                <div className="flex-1 space-y-1">
-                  <div className="font-semibold text-sm">{m.title}</div>
-                  <div className="text-xs uppercase tracking-wide text-slate-400">{m.visibility}</div>
-                  {m.tags?.length > 0 && <div className="text-xs text-slate-400 truncate">{m.tags.join(', ')}</div>}
-                </div>
-              </button>
-            ))}
-            {!loading && items.length === 0 && (
-              <div className="col-span-full text-slate-400 text-sm">No models found.</div>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <div className="text-xs uppercase tracking-[0.3em] text-slate-500">Results</div>
+              {totalPages > 1 && (
+                <PaginationControls
+                  page={page}
+                  totalPages={totalPages}
+                  onFirst={() => setPage(1)}
+                  onPrev={() => setPage((p) => Math.max(1, p - 1))}
+                  onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  onLast={() => setPage(totalPages)}
+                />
+              )}
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {items.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className="flex items-start gap-3 p-3 rounded-lg border border-white/10 hover:border-white/20 bg-slate-900/40 text-left transition-colors"
+                  onClick={() => setActiveId(m.id)}
+                >
+                  {m.coverImagePath ? (
+                    <img
+                      src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`}
+                      className="w-16 h-12 object-cover rounded border border-white/10"
+                    />
+                  ) : (
+                    <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
+                  )}
+                  <div className="flex-1 space-y-1">
+                    <div className="font-semibold text-sm">{m.title}</div>
+                    <div className="text-xs uppercase tracking-wide text-slate-400">{m.visibility}</div>
+                    {m.tags?.length > 0 && <div className="text-xs text-slate-400 truncate">{m.tags.join(', ')}</div>}
+                  </div>
+                </button>
+              ))}
+              {!loading && items.length === 0 && (
+                <div className="col-span-full text-slate-400 text-sm">No models found.</div>
+              )}
+            </div>
+            {totalPages > 1 && (
+              <div className="flex justify-center">
+                <PaginationControls
+                  page={page}
+                  totalPages={totalPages}
+                  onFirst={() => setPage(1)}
+                  onPrev={() => setPage((p) => Math.max(1, p - 1))}
+                  onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  onLast={() => setPage(totalPages)}
+                />
+              </div>
             )}
           </div>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <button className="px-3 py-1.5 rounded-md border border-white/10" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Prev</button>
-              <div className="text-sm text-slate-400">Page {page} / {totalPages}</div>
-              <button className="px-3 py-1.5 rounded-md border border-white/10" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
-            </div>
-          )}
         </>
       )}
 
