@@ -80,6 +80,58 @@ export function normalizeAmazonAffiliateUrl(input: string): string | null {
   return parsed.toString()
 }
 
+const ASIN_REGEX = /^[A-Z0-9]{10}$/
+
+export function extractAmazonAsin(input: string | null | undefined): string | null {
+  if (!input) return null
+  try {
+    const url = new URL(input)
+    const segments = url.pathname.split('/').filter(Boolean)
+    for (let i = 0; i < segments.length; i += 1) {
+      const seg = segments[i].toUpperCase()
+      if (ASIN_REGEX.test(seg)) return seg
+      if ((segments[i] === 'dp' || segments[i] === 'product' || segments[i] === 'gp') && segments[i + 1]) {
+        const next = segments[i + 1].toUpperCase()
+        if (ASIN_REGEX.test(next)) return next
+      }
+    }
+    const asinParam = url.searchParams.get('asin') || url.searchParams.get('ASIN')
+    if (asinParam) {
+      const uppercase = asinParam.toUpperCase()
+      if (ASIN_REGEX.test(uppercase)) return uppercase
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+function resolveMarketplaceCode(domain: string): string {
+  if (domain.endsWith('.ca')) return 'CA'
+  if (domain.endsWith('.co.uk')) return 'UK'
+  if (domain.endsWith('.de')) return 'DE'
+  if (domain.endsWith('.fr')) return 'FR'
+  if (domain.endsWith('.jp')) return 'JP'
+  if (domain.endsWith('.com.au')) return 'AU'
+  return 'US'
+}
+
+const AMAZON_MARKETPLACE_CODE = resolveMarketplaceCode(AMAZON_DOMAIN)
+
+export function buildAmazonImageUrl(asin: string, size = 500): string {
+  const clamped = Math.min(1000, Math.max(100, Math.round(size / 50) * 50))
+  const url = new URL('https://ws-na.amazon-adsystem.com/widgets/q')
+  url.searchParams.set('_encoding', 'UTF8')
+  url.searchParams.set('ASIN', asin)
+  url.searchParams.set('Format', `_SL${clamped}_`)
+  url.searchParams.set('ID', 'AsinImage')
+  url.searchParams.set('MarketPlace', AMAZON_MARKETPLACE_CODE)
+  url.searchParams.set('ServiceVersion', '20070822')
+  url.searchParams.set('WS', '1')
+  if (AMAZON_TAG) url.searchParams.set('tag', AMAZON_TAG)
+  return url.toString()
+}
+
 export function buildAmazonSearchUrl(
   query: string = DEFAULT_AMAZON_QUERY,
   ref: string = 'makerworks_v2_store',

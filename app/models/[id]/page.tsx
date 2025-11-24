@@ -37,6 +37,7 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
       return 'amazon.ca'
     }
   })() : null
+  const affiliateImage = model.affiliateImage || null
   const token = cookies().get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   const me = payload?.sub ? await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } }) : null
@@ -98,23 +99,40 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
         {model.affiliateUrl && (
           <div className="glass rounded-xl p-4 space-y-3">
             <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Required parts</div>
-            <div>
-              <p className="text-lg font-semibold">{model.affiliateTitle || 'Recommended hardware'}</p>
-              <p className="text-sm text-slate-300">
-                Link provided by the maker so you can grab the exact companion parts (springs, screws, electronics, etc.) this model expects.
-              </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              {affiliateImage && (
+                <a
+                  href={model.affiliateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 inline-flex items-center justify-center"
+                >
+                  <img
+                    src={affiliateImage}
+                    alt={model.affiliateTitle ? `Amazon preview of ${model.affiliateTitle}` : 'Amazon preview'}
+                    className="w-24 h-24 object-contain rounded-lg border border-white/10 bg-white/5 p-2"
+                    loading="lazy"
+                  />
+                </a>
+              )}
+              <div className="space-y-2">
+                <p className="text-lg font-semibold">{model.affiliateTitle || 'Recommended hardware'}</p>
+                <p className="text-sm text-slate-300">
+                  Link provided by the maker so you can grab the exact companion parts (springs, screws, electronics, etc.) this model expects.
+                </p>
+                <a
+                  href={model.affiliateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn w-full md:w-auto text-center"
+                >
+                  Shop on {affiliateHost || 'Amazon'}
+                </a>
+                <p className="text-xs text-slate-500">
+                  As an Amazon Associate, {BRAND_NAME} may earn from qualifying purchases. Pricing/availability updates instantly on Amazon.
+                </p>
+              </div>
             </div>
-            <a
-              href={model.affiliateUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn w-full md:w-auto text-center"
-            >
-              Shop on {affiliateHost || 'Amazon'}
-            </a>
-            <p className="text-xs text-slate-500">
-              As an Amazon Associate, {BRAND_NAME} may earn from qualifying purchases. Pricing/availability updates instantly on Amazon.
-            </p>
           </div>
         )}
         {hasParts && (
