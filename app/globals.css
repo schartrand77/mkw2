@@ -4,13 +4,13 @@
 
 :root {
   /* Dark Side / Empire palette tokens */
-  --bg: #030308;
-  --bg-secondary: #050409;
-  --card: #11111b;
-  --card-rgb: 17 17 27;
+  --bg: #030203;
+  --bg-secondary: #050506;
+  --card: #0d0d13;
+  --card-rgb: 13 13 19;
   --muted: #a1a0bf;
-  --empire-crimson: #e11d48;
-  --empire-crimson-rgb: 225 29 72;
+  --empire-crimson: #f3562f;
+  --empire-crimson-rgb: 243 86 47;
 }
 
 html, body {
@@ -19,15 +19,15 @@ html, body {
 
 body {
   background:
-    radial-gradient(1200px 680px at 85% -10%, rgba(var(--empire-crimson-rgb) / 0.35), transparent),
-    radial-gradient(900px 540px at 10% 0%, rgba(59, 7, 100, 0.28), transparent),
-    linear-gradient(135deg, var(--bg) 0%, var(--bg-secondary) 55%, #020106 100%);
+    radial-gradient(900px 520px at 82% -15%, rgba(243, 86, 47, 0.25), transparent),
+    radial-gradient(700px 420px at 15% -10%, rgba(76, 29, 149, 0.15), transparent),
+    linear-gradient(145deg, #010101 0%, var(--bg) 45%, #0b0614 100%);
   color: #f4f4f5;
 }
 
 .glass {
-  background: linear-gradient(155deg, rgba(var(--card-rgb) / 0.92), rgba(4 3 10 / 0.78));
-  border: 1px solid rgba(var(--empire-crimson-rgb) / 0.18);
+  background: linear-gradient(155deg, rgba(var(--card-rgb) / 0.95), rgba(8 4 14 / 0.85));
+  border: 1px solid rgba(var(--empire-crimson-rgb) / 0.22);
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(18px);
 }
