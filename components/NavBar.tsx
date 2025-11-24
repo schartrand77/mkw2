@@ -86,15 +86,18 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
       ? 'px-3 py-1.5 rounded-md bg-brand-600 border border-brand-600 text-white flex-shrink-0'
       : 'px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 flex-shrink-0'
   }
-  const navContainerCls = 'flex items-center gap-3 text-sm overflow-x-auto overflow-y-visible whitespace-nowrap w-full min-w-0 pr-4 [-webkit-overflow-scrolling:touch] sm:w-auto sm:overflow-visible sm:whitespace-normal sm:pr-0'
+  const navContainerCls = 'flex items-center gap-3 text-sm w-full min-w-0 sm:w-auto text-left'
+  const scrollCls = 'flex items-center gap-3 overflow-x-auto overflow-y-visible whitespace-nowrap pr-4 [-webkit-overflow-scrolling:touch] sm:overflow-visible sm:whitespace-normal sm:pr-0'
 
   if (!authed) {
     return (
       <nav className={navContainerCls}>
-        <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
-        <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
-        <Link href="/login" className={linkCls('/login')}>Sign in</Link>
-        <Link href="/register" className={linkCls('/register')}>Join</Link>
+        <div className={scrollCls}>
+          <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
+          <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
+          <Link href="/login" className={linkCls('/login')}>Sign in</Link>
+          <Link href="/register" className={linkCls('/register')}>Join</Link>
+        </div>
       </nav>
     )
   }
@@ -128,15 +131,17 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
 
   return (
     <nav className={navContainerCls}>
-      <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
-      <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
-      <Link href="/upload" className={linkCls('/upload')}>Upload</Link>
-      <>
+      <div className={scrollCls}>
+        <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
+        <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
+        <Link href="/upload" className={linkCls('/upload')}>Upload</Link>
         <Link href="/cart" className={linkCls('/cart')}>Cart{count > 0 ? ` (${count})` : ''}</Link>
         <Link href="/checkout" className={linkCls('/checkout')}>Checkout</Link>
         {isAdmin && (
           <Link href="/admin" className={linkCls('/admin')}>Admin</Link>
         )}
+      </div>
+      <>
         <div className="relative flex-shrink-0" ref={menuRef}>
           <button
             type="button"
