@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/currency'
 import { buildYouTubeEmbedUrl } from '@/lib/youtube'
 import { buildImageSrc, toPublicHref } from '@/lib/storage'
 import { BRAND_NAME } from '@/lib/brand'
+import ModelPartsList from '@/components/ModelPartsList'
 
 async function fetchModel(id: string) {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/models/${id}`, { cache: 'no-store' })
@@ -117,27 +118,22 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
           </div>
         )}
         {hasParts && (
-          <div className="glass rounded-xl p-4 text-sm">
-            <div className="font-semibold mb-2">Parts breakdown</div>
-            <ul className="divide-y divide-white/10">
-              {model.parts.map((p: any, i: number) => {
-                const partHref = toPublicHref(p.filePath)
-                return (
-                  <li key={p.id} className="py-2 flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{p.name}</div>
-                      <div className="text-slate-400 text-xs">{p.volumeMm3 ? `${(p.volumeMm3/1000).toFixed(2)} cm^3` : 'N/A'}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <a className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs" href={partHref || '#'} {...(partHref ? { download: true } : {})}>Download</a>
-                      <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs" href={`/models/${model.id}?part=${i}`}>Preview</Link>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-            <p className="text-xs text-slate-500 mt-3">Need everything? Use the main download button to grab a zipped bundle.</p>
-          </div>
+          <ModelPartsList
+            modelId={model.id}
+            modelTitle={model.title}
+            thumbnail={coverHref}
+            parts={model.parts.map((p: any, i: number) => ({
+              id: p.id,
+              name: p.name,
+              volumeMm3: p.volumeMm3,
+              priceUsd: p.priceUsd,
+              downloadUrl: toPublicHref(p.filePath),
+              index: i,
+              sizeXmm: p.sizeXmm,
+              sizeYmm: p.sizeYmm,
+              sizeZmm: p.sizeZmm,
+            }))}
+          />
         )}
         <div className="flex gap-3">
           <a

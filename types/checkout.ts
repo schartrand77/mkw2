@@ -4,6 +4,7 @@ import type { DiscountSummary } from '@/lib/discounts'
 
 export type CheckoutItemInput = {
   modelId: string
+  partId?: string | null
   qty: number
   scale: number
   material: MaterialType
@@ -31,6 +32,8 @@ export type CheckoutPaymentMethod = 'card' | 'cash'
 
 export type CheckoutLineItem = {
   modelId: string
+  partId?: string | null
+  partName?: string | null
   title: string
   qty: number
   scale: number

@@ -28,6 +28,7 @@ const shippingSchema = z.object({
 
 const itemSchema = z.object({
   modelId: z.string().min(1),
+  partId: z.string().min(1).optional(),
   qty: z.number().int().positive().max(50),
   scale: z.number().positive().max(5).default(1),
   material: z.enum(['PLA', 'PETG']).optional().default('PLA'),
@@ -71,17 +72,25 @@ export async function POST(req: NextRequest) {
       }
     }
     const ids = Array.from(new Set(items.map(i => i.modelId)))
-    const [models, cfg] = await Promise.all([
+    const partIds = Array.from(new Set(items.map(i => i.partId).filter((id): id is string => typeof id === 'string' && id.length > 0)))
+    const [models, cfg, parts] = await Promise.all([
       prisma.model.findMany({
         where: { id: { in: ids } },
         select: { id: true, title: true, priceUsd: true, priceOverrideUsd: true, volumeMm3: true, material: true },
       }),
       prisma.siteConfig.findUnique({ where: { id: 'main' } }),
+      partIds.length > 0
+        ? prisma.modelPart.findMany({
+            where: { id: { in: partIds } },
+            select: { id: true, modelId: true, name: true, priceUsd: true, volumeMm3: true },
+          })
+        : Promise.resolve([]),
     ])
     const modelMap = new Map(models.map(m => [m.id, m]))
     if (modelMap.size !== ids.length) {
       return NextResponse.json({ error: 'One or more models are unavailable' }, { status: 404 })
     }
+    const partMap = new Map(parts.map((p) => [p.id, p]))
     const fallbackPrice = (() => {
       if (cfg?.minimumPriceUsd != null && !Number.isNaN(Number(cfg.minimumPriceUsd))) {
         return Math.max(1, Number(cfg.minimumPriceUsd))
@@ -112,7 +121,20 @@ export async function POST(req: NextRequest) {
       const cm3 = model.volumeMm3 ? model.volumeMm3 / 1000 : null
       const materialChoice: MaterialType = entry.material || (model.material?.toUpperCase() === 'PETG' ? 'PETG' : 'PLA')
       const colors = normalizeColors(entry.colors)
+      const part = entry.partId ? partMap.get(entry.partId) || null : null
+      if (entry.partId && (!part || part.modelId !== model.id)) {
+        throw new Error('Invalid part specified for model')
+      }
       const basePrice = (() => {
+        if (part) {
+          if (part.priceUsd != null && Number.isFinite(Number(part.priceUsd))) {
+            return Number(part.priceUsd)
+          }
+          if (part.volumeMm3 != null && Number.isFinite(Number(part.volumeMm3))) {
+            return estimatePrice({ cm3: Number(part.volumeMm3) / 1000, material: materialChoice, cfg })
+          }
+          throw new Error(`Part ${part.id} is missing pricing data`)
+        }
         if (model.priceOverrideUsd != null && Number.isFinite(Number(model.priceOverrideUsd))) {
           return Number(model.priceOverrideUsd)
         }
@@ -133,6 +155,8 @@ export async function POST(req: NextRequest) {
       const lineTotal = Number((unitPrice * qty).toFixed(2))
       return {
         modelId: model.id,
+        partId: part?.id || undefined,
+        partName: part?.name || undefined,
         title: model.title,
         qty,
         scale: clampedScale,
@@ -155,7 +179,7 @@ export async function POST(req: NextRequest) {
     const currency = getCurrency().toLowerCase()
 
     const shippingPayload: ShippingSelection = shipping || { method: 'pickup' }
-    const metadataItems = lineItems.slice(0, 20).map((item) => `${item.qty}x ${item.title}`).join(', ')
+    const metadataItems = lineItems.slice(0, 20).map((item) => `${item.qty}x ${item.title}${item.partName ? ` (${item.partName})` : ''}`).join(', ')
     const customerEmail = userForCheckout?.email || undefined
     const currencyCode = currency.toUpperCase()
 

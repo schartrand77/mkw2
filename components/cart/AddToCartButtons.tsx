@@ -16,7 +16,7 @@ type ModelPreview = {
 
 export default function AddToCartButtons({ model }: { model: ModelPreview }) {
   const { add, inc, dec, items } = useCart()
-  const inCart = items.find(i => i.modelId === model.id)
+  const inCart = items.find(i => i.modelId === model.id && !i.partId)
   const qty = inCart?.options.qty || 0
   const thumbnail = useMemo(() => buildImageSrc(model.coverImagePath ?? null, model.updatedAt ?? null), [model.coverImagePath, model.updatedAt])
 

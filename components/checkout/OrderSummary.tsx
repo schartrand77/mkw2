@@ -23,12 +23,15 @@ export default function OrderSummary({ items, currency, total, discount }: Props
         const savings = item.undiscountedLineTotal ? Math.max(0, item.undiscountedLineTotal - item.lineTotal) : 0
         return (
           <div
-            key={`${item.modelId}-${item.scale}-${item.material}-${palette.join('-')}-${item.customText ?? ''}-${item.infillPct ?? 'na'}`}
+            key={`${item.modelId}-${item.partId || 'whole'}-${item.scale}-${item.material}-${palette.join('-')}-${item.customText ?? ''}-${item.infillPct ?? 'na'}`}
             className="p-4 space-y-1 text-sm"
           >
             <div className="flex items-center justify-between">
               <div>
-                <div className="font-medium">{item.title}</div>
+                <div className="font-medium">
+                  {item.title}
+                  {item.partName && <span className="text-xs text-slate-400 ml-2">(Part: {item.partName})</span>}
+                </div>
                 <div className="text-xs text-slate-400">
                   {item.qty} x scale {item.scale.toFixed(2)} | {item.material}
                   {palette.length > 0 && <> | Colors: {palette.join(', ')}</>}

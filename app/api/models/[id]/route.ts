@@ -9,7 +9,7 @@ import sharp from 'sharp'
 import { serializeModelImages } from '@/lib/model-images'
 import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
 import { revalidatePath } from 'next/cache'
-import { resolveModelPrice } from '@/lib/pricing'
+import { resolveModelPrice, estimatePrice } from '@/lib/pricing'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const model = await prisma.model.findUnique({
@@ -32,7 +32,16 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       ...rest,
       priceUsd: computedPrice,
       tags,
-      parts,
+      parts: parts.map((part) => {
+        const rawPrice = part.priceUsd != null ? Number(part.priceUsd) : null
+        const computedPrice = (rawPrice != null && Number.isFinite(rawPrice))
+          ? rawPrice
+          : (part.volumeMm3 != null ? estimatePrice({ cm3: Number(part.volumeMm3) / 1000, material: rest.material, cfg }) : null)
+        return {
+          ...part,
+          priceUsd: computedPrice,
+        }
+      }),
       images: serializeModelImages(images),
     },
   })

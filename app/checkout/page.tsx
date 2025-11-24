@@ -56,6 +56,7 @@ export default function CheckoutPage() {
   const checkoutItems = useMemo<CheckoutItemInput[]>(() => (
     checkoutItemsState.map((item) => ({
       modelId: item.modelId,
+      partId: item.partId || undefined,
       qty: Math.max(1, item.options.qty || 1),
       scale: item.options.scale || 1,
       material: item.options.material || 'PLA',
@@ -240,9 +241,12 @@ export default function CheckoutPage() {
             </div>
             <div className="divide-y divide-white/10">
               {checkoutItemsState.map((item) => (
-                <div key={item.modelId} className="px-4 py-3 flex items-center justify-between text-sm">
+                <div key={`${item.modelId}-${item.partId || 'whole'}`} className="px-4 py-3 flex items-center justify-between text-sm">
                   <div>
-                    <div className="font-medium">{item.title}</div>
+                    <div className="font-medium">
+                      {item.title}
+                      {item.partName && <span className="text-xs text-slate-400 ml-2">(Part: {item.partName})</span>}
+                    </div>
                     <div className="text-xs text-slate-400 space-y-0.5">
                       <div>Qty {item.options.qty} {'\u00b7'} Scale {(item.options.scale || 1).toFixed(2)}</div>
                       <div>
@@ -255,7 +259,7 @@ export default function CheckoutPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setCheckoutItemsState((prev) => prev.filter((entry) => entry.modelId !== item.modelId))}
+                    onClick={() => setCheckoutItemsState((prev) => prev.filter((entry) => !(entry.modelId === item.modelId && (entry.partId || null) === (item.partId || null))))}
                     className="text-xs text-amber-300 hover:text-amber-200"
                   >
                     Remove

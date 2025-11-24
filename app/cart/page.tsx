@@ -66,7 +66,7 @@ export default function CartPage() {
               const lineSavings = Math.max(0, baseTotal - discountedTotal)
 
               return (
-                <div key={item.modelId} className="p-4 grid grid-cols-[80px_1fr] gap-3 items-center">
+                <div key={`${item.modelId}-${item.partId || 'whole'}`} className="p-4 grid grid-cols-[80px_1fr] gap-3 items-center">
                   <div>
                     {item.thumbnail ? (
                       <img src={item.thumbnail} className="w-20 h-14 object-cover rounded border border-white/10" alt="" />
@@ -76,18 +76,21 @@ export default function CartPage() {
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Link href={`/models/${item.modelId}`} className="font-medium hover:underline">
+                      <Link href={`/models/${item.modelId}${typeof item.partIndex === 'number' ? `?part=${item.partIndex}` : ''}`} className="font-medium hover:underline">
                         {item.title}
                       </Link>
-                      <button className="text-xs text-slate-400 hover:text-white" onClick={() => remove(item.modelId)}>
+                      <button className="text-xs text-slate-400 hover:text-white" onClick={() => remove(item.modelId, item.partId)}>
                         Remove
                       </button>
                     </div>
+                    {item.partName && (
+                      <div className="text-xs text-slate-400">Part: {item.partName}</div>
+                    )}
                     <div className="flex flex-wrap items-center gap-3 text-sm">
                       <div className="flex items-center gap-2">
-                        <button className="px-2 py-1 rounded-md border border-white/10" onClick={() => dec(item.modelId)}>-</button>
+                        <button className="px-2 py-1 rounded-md border border-white/10" onClick={() => dec(item.modelId, item.partId)}>-</button>
                         <span>{item.options.qty}</span>
-                        <button className="px-2 py-1 rounded-md border border-white/10" onClick={() => inc(item.modelId)}>+</button>
+                        <button className="px-2 py-1 rounded-md border border-white/10" onClick={() => inc(item.modelId, item.partId)}>+</button>
                       </div>
                       <label className="flex items-center gap-2">
                         <span>Scale</span>
@@ -98,7 +101,7 @@ export default function CartPage() {
                           min="0.1"
                           max="5"
                           value={item.options.scale}
-                          onChange={(e) => update(item.modelId, { scale: Math.max(0.1, Math.min(5, Number(e.target.value) || 1)) })}
+                          onChange={(e) => update(item.modelId, { scale: Math.max(0.1, Math.min(5, Number(e.target.value) || 1)) }, item.partId)}
                         />
                       </label>
                       <label className="flex items-center gap-2">
@@ -110,7 +113,7 @@ export default function CartPage() {
                           min="0"
                           max="100"
                           value={item.options.infillPct ?? 20}
-                          onChange={(e) => update(item.modelId, { infillPct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+                          onChange={(e) => update(item.modelId, { infillPct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }, item.partId)}
                         />
                       </label>
                       <label className="flex items-center gap-2">
@@ -118,7 +121,7 @@ export default function CartPage() {
                         <select
                           className="w-32 input"
                           value={item.options.material || 'PLA'}
-                          onChange={(e) => update(item.modelId, { material: e.target.value as MaterialType })}
+                          onChange={(e) => update(item.modelId, { material: e.target.value as MaterialType }, item.partId)}
                         >
                           <option value="PLA">PLA</option>
                           <option value="PETG">PETG</option>
@@ -129,14 +132,14 @@ export default function CartPage() {
                         <div className="flex flex-wrap gap-2">
                           {Array.from({ length: MAX_CART_COLORS }).map((_, idx) => (
                             <input
-                              key={`${item.modelId}-color-${idx}`}
+                              key={`${item.modelId}-${item.partId || 'whole'}-color-${idx}`}
                               className="w-28 input text-sm"
                               value={item.options.colors?.[idx] || ''}
                               placeholder={`Color ${idx + 1}`}
                               onChange={(e) => {
                                 const next = [...(item.options.colors || [])]
                                 next[idx] = e.target.value
-                                update(item.modelId, { colors: next })
+                                update(item.modelId, { colors: next }, item.partId)
                               }}
                             />
                           ))}
@@ -147,7 +150,7 @@ export default function CartPage() {
                         <input
                           className="w-40 input"
                           value={item.options.customText || ''}
-                          onChange={(e) => update(item.modelId, { customText: e.target.value || null })}
+                          onChange={(e) => update(item.modelId, { customText: e.target.value || null }, item.partId)}
                           placeholder="optional engraving"
                         />
                       </label>
