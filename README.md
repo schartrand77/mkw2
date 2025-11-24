@@ -71,11 +71,6 @@ Environment variables (what they do)
 - SMTP (optional but recommended): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, `RECEIPT_FROM_EMAIL`, `RECEIPT_REPLY_TO_EMAIL`.
 - Discord (optional): `DISCORD_BOT_TOKEN`, `DISCORD_CHANNEL_ID` for announcements; `DISCORD_ADMIN_BOT_TOKEN`, `DISCORD_ADMIN_CHANNEL_ID` for admin alerts.
 
-Large uploads & Cloudflare
-- Cloudflare proxies and Tunnels cap HTTP uploads at 100 MB on Free/Pro/Business plans (Enterprise extends to 500 MB). Large STLs or ZIPs will fail before they reach MakerWorks if they traverse the proxy.
-- If you need Cloudflare for the storefront but handle bigger files, either bypass Cloudflare for `/upload` + `/api/upload` (use a second hostname with direct TLS) or send uploads straight to object storage (S3/R2) via signed URLs.
-- Document the pattern you choose for contributors/self-hosters so they know uploads larger than 100 MB need a direct path that skips Cloudflare’s request-size limit.
-
 Printer profiles (speed/cost assumptions)
 Key | Printer / notes | Flow assumption | cm^3/hr throughput | Energy USD/hr*
 --- | --- | --- | --- | ---
