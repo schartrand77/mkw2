@@ -60,13 +60,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const saved = localStorage.getItem('mwv2:theme') as 'light' | 'dark' | null
-    if (saved === 'light' || saved === 'dark') {
-      setTheme(saved)
-      return
-    }
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-      setTheme('light')
-    }
+    if (saved === 'light') setTheme('light')
   }, [])
   useEffect(() => {
     if (typeof document === 'undefined') return
