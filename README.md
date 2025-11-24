@@ -57,7 +57,7 @@ Environment variables (what they do)
 - `BASE_URL` (required): public URL of the app (used for links/cookies).
 - `STORAGE_DIR`: in-container storage path; leave `/app/storage` for Unraid.
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`: seeds the first admin on start (email + password required).
-- `PRINTER_PROFILE`: base printer preset (`BAMBU_X1C` default; `GENERIC_FDM` for slower machines).
+- `PRINTER_PROFILE`: base printer preset (`BAMBU_X1C` default) - see the table below for more options and their assumptions.
 - `PRINTER_ELECTRIC_RATE_PER_KWH`: override kWh cost if your power rate differs.
 - Pricing (USD defaults): `PLA_PRICE_PER_KG_USD`, `PETG_PRICE_PER_KG_USD`, `NEXT_PUBLIC_PLA_PRICE_PER_KG`, `NEXT_PUBLIC_PETG_PRICE_PER_KG`.
 - Optional CAD overrides: `PLA_PRICE_PER_KG_CAD`, `PETG_PRICE_PER_KG_CAD`, `ENERGY_CAD_PER_HOUR`, `MINIMUM_PRICE_CAD`, `EXTRA_HOURLY_AFTER_FIRST_USD`, `EXTRA_HOURLY_AFTER_FIRST_CAD`.
@@ -70,6 +70,20 @@ Environment variables (what they do)
 - Branding: `NEXT_PUBLIC_BRAND_NAME`, `NEXT_PUBLIC_BRAND_VERSION`, `NEXT_PUBLIC_BRAND_LAB_NAME`, `NEXT_PUBLIC_BRAND_HANDLE` (leave `NEXT_PUBLIC_BRAND_VERSION` blank to hide the suffix).
 - SMTP (optional but recommended): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, `RECEIPT_FROM_EMAIL`, `RECEIPT_REPLY_TO_EMAIL`.
 - Discord (optional): `DISCORD_BOT_TOKEN`, `DISCORD_CHANNEL_ID` for announcements; `DISCORD_ADMIN_BOT_TOKEN`, `DISCORD_ADMIN_CHANNEL_ID` for admin alerts.
+
+Printer profiles (speed/cost assumptions)
+Key | Printer / notes | Flow assumption | cm^3/hr throughput | Energy USD/hr*
+--- | --- | --- | --- | ---
+`BAMBU_X1C` | Bambu Lab X1 Carbon - CoreXY AMS flagship | 32 mm^3/s @ 65% | 74.88 | 0.0490
+`BAMBU_P1S` | Bambu Lab P1S/P1P - AMS lite ready | 28 mm^3/s @ 65% | 65.52 | 0.0448
+`PRUSA_MK4` | Prusa MK4 - input-shaper bedslinger | 16 mm^3/s @ 60% | 34.56 | 0.0364
+`PRUSA_MK3S` | Prusa MK3S+ - classic bedslinger | 11 mm^3/s @ 55% | 21.78 | 0.0322
+`CREALITY_K1_MAX` | Creality K1 Max - enclosed CoreXY | 30 mm^3/s @ 60% | 64.80 | 0.0588
+`CREALITY_ENDER3_V2` | Creality Ender 3 V2/Neo - tuned bowden | 9 mm^3/s @ 55% | 17.82 | 0.0308
+`ANYCUBIC_KOBRA2` | Anycubic Kobra 2 - high-flow bedslinger | 20 mm^3/s @ 60% | 43.20 | 0.0490
+`GENERIC_FDM` | Generic 0.4 mm FDM - safe default for slower rigs | 8 mm^3/s @ 55% | 15.84 | 0.0308
+
+*Energy cost figures assume the default `$0.14/kWh` rate; override with `PRINTER_ELECTRIC_RATE_PER_KWH` if your utility price is different.
 
 Running outside Unraid (optional)
 - Copy `.env.example` to `.env`, set the same variables, then run `docker-compose up --build` to start the app and Postgres locally. The app lives at `http://localhost:3000/`.

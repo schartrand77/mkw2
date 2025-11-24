@@ -28,7 +28,7 @@ MakerWorks v2 is a self-hosted 3D model hub with STL previews, price estimation,
   <Config Name="STORAGE_DIR" Target="STORAGE_DIR" Default="/app/storage" Mode="" Description="Internal storage path (leave at /app/storage unless customizing)" Type="Variable" Display="advanced" Required="false" Mask="false">/app/storage</Config>
   <Config Name="COOKIE_SECURE" Target="COOKIE_SECURE" Default="true" Mode="" Description="Set to true when BASE_URL is HTTPS so auth cookies are secure" Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
 
-  <Config Name="PRINTER_PROFILE" Target="PRINTER_PROFILE" Default="BAMBU_X1C" Mode="" Description="Base printer preset for speed/energy math (BAMBU_X1C or GENERIC_FDM)" Type="Variable" Display="advanced" Required="false" Mask="false">BAMBU_X1C</Config>
+  <Config Name="PRINTER_PROFILE" Target="PRINTER_PROFILE" Default="BAMBU_X1C" Mode="" Description="Printer preset for speed/energy math (BAMBU_X1C, BAMBU_P1S, PRUSA_MK4, PRUSA_MK3S, CREALITY_K1_MAX, CREALITY_ENDER3_V2, ANYCUBIC_KOBRA2, GENERIC_FDM)" Type="Variable" Display="advanced" Required="false" Mask="false">BAMBU_X1C</Config>
   <Config Name="PRINTER_ELECTRIC_RATE_PER_KWH" Target="PRINTER_ELECTRIC_RATE_PER_KWH" Default="0.14" Mode="" Description="Electricity rate (per kWh) used for energy estimates" Type="Variable" Display="advanced" Required="false" Mask="false">0.14</Config>
 
   <Config Name="PLA_PRICE_PER_KG_USD" Target="PLA_PRICE_PER_KG_USD" Default="25.00" Mode="" Description="Price of a 1kg PLA spool (USD) used for estimator" Type="Variable" Display="advanced" Required="false" Mask="false">25.00</Config>
