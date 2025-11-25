@@ -28,35 +28,35 @@ model User {
 }
 
 model Model {
-  id              String   @id @default(cuid())
-  title           String
-  description     String?
-  creditName      String?
-  creditUrl       String?
-  filePath        String
-  viewerFilePath  String?
-  coverImagePath  String?
-  fileType        String
-  unit            String   @default("mm")
-  material        String   @default("PLA")
-  volumeMm3       Float?
-  sizeXmm         Float?
-  sizeYmm         Float?
-  sizeZmm         Float?
-  priceUsd        Float?
-  priceOverrideUsd Float?
-  visibility      String   @default("public")
-  downloads       Int      @default(0)
-  likes           Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  affiliateTitle  String?
-  affiliateUrl    String?
-  videoEmbedId    String?
-  images          ModelImage[]
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  creditName     String?
+  creditUrl      String?
+  filePath       String
+  viewerFilePath String?
+  coverImagePath String?
+  fileType       String
+  unit           String   @default("mm")
+  material       String   @default("PLA")
+  volumeMm3      Float?
+  sizeXmm        Float?
+  sizeYmm        Float?
+  sizeZmm        Float?
+  priceUsd       Float?
+  salePriceUsd   Float?
+  visibility     String   @default("public")
+  downloads      Int      @default(0)
+  likes          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  affiliateTitle String?
+  affiliateUrl   String?
+  videoEmbedId   String?
+  images         ModelImage[]
 
-  user     User   @relation(fields: [userId], references: [id])
-  userId   String
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
 
   modelTags ModelTag[]
   likesList Like[]
@@ -148,18 +148,20 @@ model FeaturedModel {
 }
 
 model SiteConfig {
-  id                    String   @id
-  allowAnonymousUploads Boolean? @default(true)
-  directUploadUrl       String?
-  printSpeedCm3PerHour  Float?
-  energyUsdPerHour      Float?
-  minimumPriceUsd       Float?
+  id                       String   @id
+  allowAnonymousUploads    Boolean? @default(true)
+  directUploadUrl          String?
+  printSpeedCm3PerHour     Float?
+  energyUsdPerHour         Float?
+  minimumPriceUsd          Float?
   extraHourlyUsdAfterFirst Float?
-  plaPricePerKgUsd      Float?
-  petgPricePerKgUsd     Float?
-  fillFactor            Float?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  plaPricePerKgUsd         Float?
+  petgPricePerKgUsd        Float?
+  fillFactor               Float?
+  printerProfileKey        String?
+  printerProfileOverrides  Json?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 }
 
 model ModelPart {

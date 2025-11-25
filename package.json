@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/ensure-env-local.js",
     "dev": "next dev",
     "build": "next build",
     "prestart": "node scripts/restore.js",

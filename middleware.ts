@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getSetupStatus } from './lib/setupStatus'
 
 const PUBLIC_EXACT = new Set([
   '/',
@@ -7,6 +8,7 @@ const PUBLIC_EXACT = new Set([
   '/login',
   '/register',
   '/gear',
+  '/setup',
   '/manifest.webmanifest',
   '/sw.js',
   '/robots.txt',
@@ -21,6 +23,13 @@ function isPublicPath(pathname: string) {
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
+  const setupStatus = getSetupStatus()
+  if (setupStatus.hasBlockingIssues && pathname !== '/setup') {
+    const url = req.nextUrl.clone()
+    url.pathname = '/setup'
+    url.search = ''
+    return NextResponse.redirect(url)
+  }
   // Allow login page, manifest, service worker, and favicons to bypass auth
   if (isPublicPath(pathname)) return NextResponse.next()
 

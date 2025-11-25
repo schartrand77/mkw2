@@ -96,8 +96,13 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
                   {m.partsCount > 0 && <span>{m.partsCount} part{m.partsCount === 1 ? '' : 's'}</span>}
                 </div>
                 <AddToCartButtons model={{ id: m.id, title: m.title, priceUsd: m.priceUsd, coverImagePath: m.coverImagePath, updatedAt: m.updatedAt, sizeXmm: m.sizeXmm, sizeYmm: m.sizeYmm, sizeZmm: m.sizeZmm }} />
-                <div className="flex justify-between text-sm text-slate-400">
-                  <span>{m.priceUsd ? formatCurrency(m.priceUsd) : 'N/A'}</span>
+                <div className="flex justify-between text-sm text-slate-300">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{m.priceUsd ? formatCurrency(m.priceUsd) : 'N/A'}</span>
+                    {m.saleActive && m.basePriceUsd && (
+                      <span className="text-xs text-slate-500 line-through">{formatCurrency(m.basePriceUsd)}</span>
+                    )}
+                  </div>
                   <span>{m.sizeXmm && m.sizeYmm && m.sizeZmm ? `${Math.round(m.sizeXmm)} x ${Math.round(m.sizeYmm)} x ${Math.round(m.sizeZmm)} mm` : 'N/A'}</span>
                 </div>
                 <div className="flex justify-between text-xs text-slate-500">

@@ -9,7 +9,7 @@ import sharp from 'sharp'
 import { serializeModelImages } from '@/lib/model-images'
 import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
 import { revalidatePath } from 'next/cache'
-import { resolveModelPrice, estimatePrice } from '@/lib/pricing'
+import { resolveModelPricing, estimatePricingDetails } from '@/lib/pricing'
 import { extractAmazonAsin, buildAmazonImageUrl } from '@/lib/amazon'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -27,7 +27,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   ])
   const tags = model.modelTags.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug }))
   const { modelTags, images, ...rest } = model as any
-  const computedPrice = resolveModelPrice(model as any, cfg)
+  const pricingSummary = resolveModelPricing(model as any, cfg)
   let affiliateImage: string | null = null
   if (rest.affiliateUrl) {
     const asin = extractAmazonAsin(rest.affiliateUrl)
@@ -36,17 +36,24 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({
     model: {
       ...rest,
-      priceUsd: computedPrice,
+      priceUsd: pricingSummary.priceUsd,
+      basePriceUsd: pricingSummary.basePriceUsd,
+      salePriceUsd: pricingSummary.salePriceUsd,
+      pricing: pricingSummary.breakdown,
       affiliateImage,
       tags,
       parts: parts.map((part) => {
         const rawPrice = part.priceUsd != null ? Number(part.priceUsd) : null
+        const partPricing = part.volumeMm3 != null && Number.isFinite(Number(part.volumeMm3))
+          ? estimatePricingDetails({ cm3: Number(part.volumeMm3) / 1000, material: rest.material, cfg })
+          : null
         const computedPrice = (rawPrice != null && Number.isFinite(rawPrice))
           ? rawPrice
-          : (part.volumeMm3 != null ? estimatePrice({ cm3: Number(part.volumeMm3) / 1000, material: rest.material, cfg }) : null)
+          : (partPricing?.price ?? null)
         return {
           ...part,
           priceUsd: computedPrice,
+          pricing: partPricing,
         }
       }),
       images: serializeModelImages(images),

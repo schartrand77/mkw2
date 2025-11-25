@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import type { Prisma } from '@prisma/client'
-import { resolveModelPrice } from '@/lib/pricing'
+import { resolveModelPricing } from '@/lib/pricing'
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
@@ -40,9 +40,9 @@ export async function GET(req: NextRequest) {
   const orderBy: Prisma.ModelOrderByWithRelationInput | Prisma.ModelOrderByWithRelationInput[] = (() => {
     switch (sort) {
       case 'price_asc':
-        return [{ priceOverrideUsd: 'asc' as const }, { priceUsd: 'asc' }] as any
+        return [{ salePriceUsd: 'asc' as const }, { priceUsd: 'asc' }] as any
       case 'price_desc':
-        return [{ priceOverrideUsd: 'desc' as const }, { priceUsd: 'desc' }] as any
+        return [{ salePriceUsd: 'desc' as const }, { priceUsd: 'desc' }] as any
       case 'popular':
         return [{ likes: 'desc' }, { downloads: 'desc' }, { createdAt: 'desc' }] as any
       case 'latest':
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
         sizeZmm: true,
         fileType: true,
         priceUsd: true,
-        priceOverrideUsd: true,
+        salePriceUsd: true,
         volumeMm3: true,
         material: true,
         likes: true,
@@ -80,21 +80,27 @@ export async function GET(req: NextRequest) {
     }),
     prisma.siteConfig.findUnique({ where: { id: 'main' } })
   ])
-  const mapped = models.map(m => ({
-    id: m.id,
-    title: m.title,
-    coverImagePath: m.coverImagePath,
-    sizeXmm: (m as any).sizeXmm,
-    sizeYmm: (m as any).sizeYmm,
-    sizeZmm: (m as any).sizeZmm,
-    fileType: (m as any).fileType,
-    priceUsd: resolveModelPrice(m, cfg),
-    likes: m.likes,
-    downloads: m.downloads,
-    createdAt: m.createdAt,
-    updatedAt: m.updatedAt,
-    partsCount: (m as any)._count?.parts || 0,
-    tags: (m as any).modelTags?.map((mt: any) => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug })) || []
-  }))
+  const mapped = models.map(m => {
+    const summary = resolveModelPricing(m as any, cfg)
+    return {
+      id: m.id,
+      title: m.title,
+      coverImagePath: m.coverImagePath,
+      sizeXmm: (m as any).sizeXmm,
+      sizeYmm: (m as any).sizeYmm,
+      sizeZmm: (m as any).sizeZmm,
+      fileType: (m as any).fileType,
+      priceUsd: summary.priceUsd,
+      basePriceUsd: summary.basePriceUsd,
+      salePriceUsd: summary.salePriceUsd,
+      saleActive: summary.saleActive,
+      likes: m.likes,
+      downloads: m.downloads,
+      createdAt: m.createdAt,
+      updatedAt: m.updatedAt,
+      partsCount: (m as any)._count?.parts || 0,
+      tags: (m as any).modelTags?.map((mt: any) => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug })) || []
+    }
+  })
   return NextResponse.json({ models: mapped, total, page, pageSize })
 }

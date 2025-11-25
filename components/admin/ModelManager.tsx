@@ -9,7 +9,7 @@ type Model = {
   coverImagePath?: string | null
   updatedAt?: string | null
   visibility: string
-  priceOverrideUsd?: number | null
+  salePriceUsd?: number | null
   tags: string[]
   affiliateTitle?: string | null
   affiliateUrl?: string | null
@@ -108,7 +108,7 @@ export default function ModelManager() {
           affiliateTitle: m.affiliateTitle ?? '',
           affiliateUrl: m.affiliateUrl ?? '',
           videoUrl: m.videoUrl ?? '',
-          priceOverrideUsd: m.priceOverrideUsd,
+          salePriceUsd: (m as any).salePriceUsd ?? null,
         })
       })
       if (!res.ok) alert('Failed to save model: ' + (await res.text()))
@@ -253,14 +253,14 @@ export default function ModelManager() {
               </select>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs text-slate-400 mb-1">Price override (manual)</label>
+              <label className="block text-xs text-slate-400 mb-1">Sale price (optional)</label>
               <input
                 className="input"
                 type="number"
                 step="0.01"
-                value={activeModel.priceOverrideUsd ?? ''}
-                onChange={(e) => updateModel(activeModel.id, { priceOverrideUsd: e.target.value === '' ? null : Number(e.target.value) })}
-                placeholder="Leave blank for automatic estimate"
+                value={activeModel.salePriceUsd ?? ''}
+                onChange={(e) => updateModel(activeModel.id, { salePriceUsd: e.target.value === '' ? null : Number(e.target.value) })}
+                placeholder="Leave blank to use automatic estimate"
               />
             </div>
             <div className="md:col-span-3">

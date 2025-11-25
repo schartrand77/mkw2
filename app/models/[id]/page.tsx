@@ -94,7 +94,26 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
           <div className="text-slate-400">Volume</div>
           <div>{model.volumeMm3 ? `${(model.volumeMm3/1000).toFixed(2)} cm^3` : 'N/A'}</div>
           <div className="text-slate-400">Estimated Price</div>
-          <div>{model.priceUsd ? formatCurrency(model.priceUsd) : 'N/A'}</div>
+          <div>
+            {model.salePriceUsd != null && model.basePriceUsd != null && model.salePriceUsd < model.basePriceUsd && (
+              <div className="text-xs text-rose-300">On sale</div>
+            )}
+            <div className="flex items-center gap-3">
+              {model.salePriceUsd != null && model.basePriceUsd != null && model.salePriceUsd < model.basePriceUsd && (
+                <span className="text-sm text-slate-400 line-through">
+                  {formatCurrency(model.basePriceUsd)}
+                </span>
+              )}
+              <span className="text-lg font-semibold">
+                {model.priceUsd ? formatCurrency(model.priceUsd) : 'N/A'}
+              </span>
+            </div>
+            {model.pricing && (
+              <p className="text-xs text-slate-400 mt-1">
+                ≈ {model.pricing.grams} g · {model.pricing.hours} h @ {model.pricing.nozzleDiameterMm} mm ({model.pricing.printerProfile.label})
+              </p>
+            )}
+          </div>
         </div>
         {model.affiliateUrl && (
           <div className="glass rounded-xl p-4 space-y-3">
@@ -145,6 +164,7 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
               name: p.name,
               volumeMm3: p.volumeMm3,
               priceUsd: p.priceUsd,
+              pricing: p.pricing,
               downloadUrl: toPublicHref(p.filePath),
               index: i,
               sizeXmm: p.sizeXmm,

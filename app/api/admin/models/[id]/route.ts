@@ -51,12 +51,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const tagsInput: string[] | string | undefined = body.tags
-  if (body.priceOverrideUsd !== undefined) {
-    const raw = Number(body.priceOverrideUsd)
-    if (body.priceOverrideUsd === null || !Number.isFinite(raw) || raw <= 0) {
-      updates.priceOverrideUsd = null
+  if (body.salePriceUsd !== undefined) {
+    const raw = Number(body.salePriceUsd)
+    if (body.salePriceUsd === null || !Number.isFinite(raw) || raw <= 0) {
+      updates.salePriceUsd = null
     } else {
-      updates.priceOverrideUsd = raw
+      updates.salePriceUsd = raw
     }
   }
 

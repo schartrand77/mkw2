@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { formatCurrency } from '@/lib/currency'
 import { useCart } from '@/components/cart/CartProvider'
 import { useMemo } from 'react'
+import type { PricingDetails } from '@/lib/pricing'
 
 type Part = {
   id: string
@@ -15,6 +16,7 @@ type Part = {
   sizeXmm?: number | null
   sizeYmm?: number | null
   sizeZmm?: number | null
+  pricing?: PricingDetails | null
 }
 
 type Props = {
@@ -40,6 +42,7 @@ export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }
           {memoizedParts.map((part, i) => {
             const price = typeof part.priceUsd === 'number' && part.priceUsd > 0 ? part.priceUsd : null
             const volume = part.volumeMm3 ? `${(part.volumeMm3 / 1000).toFixed(2)} cm^3` : 'N/A'
+            const breakdown = part.pricing
             return (
               <li key={part.id} className="py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div className="space-y-1">
@@ -48,6 +51,11 @@ export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }
                     Volume: {volume}
                     {price != null && ` - Price: ${formatCurrency(price)}`}
                   </div>
+                  {breakdown && (
+                    <div className="text-xs text-slate-500">
+                      ≈ {breakdown.grams} g · {breakdown.hours} h
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {part.downloadUrl && (

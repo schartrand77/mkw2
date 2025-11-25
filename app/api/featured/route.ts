@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { resolveModelPrice } from '@/lib/pricing'
+import { resolveModelPricing } from '@/lib/pricing'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
@@ -16,7 +16,7 @@ export async function GET() {
             coverImagePath: true,
             material: true,
             priceUsd: true,
-            priceOverrideUsd: true,
+            salePriceUsd: true,
             volumeMm3: true,
             updatedAt: true,
           },
@@ -26,9 +26,15 @@ export async function GET() {
     }),
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
   ])
-  const models = items.map(({ model }) => ({
-    ...model,
-    priceUsd: resolveModelPrice(model as any, cfg),
-  }))
+  const models = items.map(({ model }) => {
+    const summary = resolveModelPricing(model as any, cfg)
+    return {
+      ...model,
+      priceUsd: summary.priceUsd,
+      basePriceUsd: summary.basePriceUsd,
+      salePriceUsd: summary.salePriceUsd,
+      saleActive: summary.saleActive,
+    }
+  })
   return NextResponse.json({ models })
 }

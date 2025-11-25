@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../_utils'
 import { z } from 'zod'
+import { resolvePrinterProfile } from '@/lib/printerProfiles'
 export const dynamic = 'force-dynamic'
 
 const schema = z.object({
@@ -15,6 +16,13 @@ const schema = z.object({
   extraHourlyUsdAfterFirst: z.number().nonnegative().optional(),
   fillFactor: z.number().positive().max(2).optional(),
   directUploadUrl: z.union([z.string().url(), z.null()]).optional(),
+  printerProfileKey: z.string().min(2).optional(),
+  printerProfileOverrides: z.record(
+    z.object({
+      nozzleDiameterMm: z.number().min(0.05).max(1.5).optional(),
+      materialDensities: z.record(z.number().positive().max(5)).optional(),
+    }).strict()
+  ).optional(),
 })
 
 const CONFIG_ID = 'main'
@@ -34,10 +42,19 @@ export async function PATCH(req: NextRequest) {
   try {
     const json = await req.json()
     const parsed = schema.parse(json)
+    const printerProfileKey = parsed.printerProfileKey ? resolvePrinterProfile(parsed.printerProfileKey).key : undefined
+    const overrides = parsed.printerProfileOverrides
+      ? JSON.parse(JSON.stringify(parsed.printerProfileOverrides))
+      : undefined
+    const payload = {
+      ...parsed,
+      printerProfileKey,
+      printerProfileOverrides: overrides,
+    }
     const cfg = await prisma.siteConfig.upsert({
       where: { id: CONFIG_ID },
-      update: parsed,
-      create: { id: CONFIG_ID, ...parsed },
+      update: payload,
+      create: { id: CONFIG_ID, ...payload },
     })
     revalidatePath('/admin')
     return NextResponse.json({ config: cfg })

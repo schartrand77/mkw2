@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     const [models, cfg, parts] = await Promise.all([
       prisma.model.findMany({
         where: { id: { in: ids } },
-        select: { id: true, title: true, priceUsd: true, priceOverrideUsd: true, volumeMm3: true, material: true },
+        select: { id: true, title: true, priceUsd: true, salePriceUsd: true, volumeMm3: true, material: true },
       }),
       prisma.siteConfig.findUnique({ where: { id: 'main' } }),
       partIds.length > 0
@@ -135,8 +135,8 @@ export async function POST(req: NextRequest) {
           }
           throw new Error(`Part ${part.id} is missing pricing data`)
         }
-        if (model.priceOverrideUsd != null && Number.isFinite(Number(model.priceOverrideUsd))) {
-          return Number(model.priceOverrideUsd)
+        if (model.salePriceUsd != null && Number.isFinite(Number(model.salePriceUsd)) && Number(model.salePriceUsd) > 0) {
+          return Number(model.salePriceUsd)
         }
         if (cm3 != null) {
           return estimatePrice({ cm3, material: materialChoice, cfg })

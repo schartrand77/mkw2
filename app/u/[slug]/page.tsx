@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { buildImageSrc, toPublicHref } from '@/lib/storage'
-import { resolveModelPrice } from '@/lib/pricing'
+import { resolveModelPricing } from '@/lib/pricing'
 
 async function getProfile(slug: string) {
   return prisma.profile.findUnique({
@@ -31,7 +31,7 @@ async function getUserModels(userId: string) {
         title: true,
         coverImagePath: true,
         priceUsd: true,
-        priceOverrideUsd: true,
+        salePriceUsd: true,
         volumeMm3: true,
         material: true,
         updatedAt: true,
@@ -39,10 +39,16 @@ async function getUserModels(userId: string) {
     }),
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
   ])
-  return models.map((m) => ({
-    ...m,
-    priceUsd: resolveModelPrice(m as any, cfg),
-  }))
+  return models.map((m) => {
+    const summary = resolveModelPricing(m as any, cfg)
+    return {
+      ...m,
+      priceUsd: summary.priceUsd,
+      basePriceUsd: summary.basePriceUsd,
+      salePriceUsd: summary.salePriceUsd,
+      saleActive: summary.saleActive,
+    }
+  })
 }
 
 export default async function UserPage({ params }: { params: { slug: string } }) {
@@ -147,7 +153,12 @@ export default async function UserPage({ params }: { params: { slug: string } })
             <div className="p-4">
               <h3 className="font-semibold">{m.title}</h3>
               {m.priceUsd ? (
-                <p className="text-sm text-slate-400">Est. ${m.priceUsd.toFixed(2)}</p>
+                <div className="text-sm text-slate-300">
+                  <span className="font-medium">${m.priceUsd.toFixed(2)}</span>
+                  {m.salePriceUsd != null && m.basePriceUsd != null && m.salePriceUsd < m.basePriceUsd && (
+                    <span className="text-xs text-slate-500 ml-2 line-through">${m.basePriceUsd.toFixed(2)}</span>
+                  )}
+                </div>
               ) : (
                 <p className="text-sm text-slate-400">No estimate</p>
               )}
