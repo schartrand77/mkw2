@@ -4,13 +4,16 @@ export type JobWithUser = JobForm & {
   user: Pick<User, 'id' | 'name' | 'email'> | null
 }
 
+type SerializedStatus = 'pending' | 'sent'
+
 export function serializeJob(job: JobWithUser) {
+  const status: SerializedStatus = job.status === 'sent' ? 'sent' : 'pending'
   return {
     id: job.id,
     paymentIntentId: job.paymentIntentId,
     userId: job.userId,
     customerEmail: job.customerEmail,
-    status: job.status,
+    status,
     totalCents: job.totalCents,
     currency: job.currency,
     lineItems: job.lineItems,
