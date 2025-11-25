@@ -41,7 +41,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-semibold">Discover Models</h1>
+      <h1 className="page-title text-3xl font-semibold">Discover Models</h1>
       <form method="get" className="grid md:grid-cols-4 gap-3 items-end">
         <div className="md:col-span-2">
           <label className="block text-sm mb-1">Search</label>
