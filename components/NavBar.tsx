@@ -89,16 +89,6 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   const navContainerCls = 'flex items-center gap-3 text-sm w-full min-w-0 sm:w-auto text-left'
   const scrollCls = 'flex items-center gap-3 overflow-x-auto overflow-y-visible whitespace-nowrap pr-4 [-webkit-overflow-scrolling:touch] sm:overflow-visible sm:whitespace-normal sm:pr-0'
   const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'))
-  const themeButton = (
-    <button
-      type="button"
-      onClick={toggleTheme}
-      className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 text-xs flex-shrink-0"
-    >
-      {theme === 'light' ? 'Dark mode' : 'Light mode'}
-    </button>
-  )
-
   if (!authed) {
     return (
       <nav className={navContainerCls}>
@@ -108,7 +98,6 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
           <Link href="/login" className={linkCls('/login')}>Sign in</Link>
           <Link href="/register" className={linkCls('/register')}>Join</Link>
         </div>
-        {themeButton}
       </nav>
     )
   }
@@ -152,7 +141,6 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
           <Link href="/admin" className={linkCls('/admin')}>Admin</Link>
         )}
       </div>
-      {themeButton}
       <>
         <div className="relative flex-shrink-0" ref={menuRef}>
           <button
@@ -173,6 +161,14 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
               <Link href="/settings/profile" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Edit Profile</Link>
               <Link href="/me" role="menuitem" className="block px-3 py-2 hover:bg-white/10">My Page</Link>
               <Link href="/settings/account" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Account</Link>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={toggleTheme}
+                className="block w-full text-left px-3 py-2 hover:bg-white/10 text-sm"
+              >
+                {theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+              </button>
               <button role="menuitem" onClick={logout} className="block w-full text-left px-3 py-2 hover:bg-white/10">Sign out</button>
             </div>
           )}

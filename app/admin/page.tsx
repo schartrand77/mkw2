@@ -69,6 +69,7 @@ export default async function AdminPage() {
       </div>
       <div className="flex items-center gap-3">
         <Link href="/admin/users" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 text-sm">View Users & Badges</Link>
+        <Link href="/admin/jobs" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 text-sm">View Job Queue</Link>
       </div>
       <div className="glass p-6 rounded-xl">
         <ModelManager />
