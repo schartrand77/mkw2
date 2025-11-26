@@ -2,6 +2,8 @@ MakerWorks v2 - self-hosted 3D print hub
 
 MakerWorks v2 is a self-hosted library for sharing printable models, estimating print jobs, and (optionally) taking payments. This page is a user guide for the Unraid Community Applications listing.
 
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="schartrand77" data-color="#FFDD00" data-emoji="☕" data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff"></script>
+
 What you get
 - Upload STL/OBJ/3MF files with optional cover images; STL files preview in-browser.
 - Automatic weight and cost estimator with material and color options; Stripe checkout stays inside the app when enabled.
