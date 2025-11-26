@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react'
 type Props = {
   amount: number
   currency: string
-  onSuccess: (intent: PaymentIntent) => void
+  onSuccess: (intent: PaymentIntent) => Promise<void> | void
 }
 
 const paymentElementOptions: StripePaymentElementOptions = {
@@ -45,11 +45,22 @@ export default function CheckoutForm({ amount, currency, onSuccess }: Props) {
     }
 
     if (paymentIntent) {
-      if (paymentIntent.status === 'succeeded') {
-        onSuccess(paymentIntent)
-        setMessage('Payment successful! Thank you for your order.')
-      } else if (paymentIntent.status === 'processing') {
-        setMessage('Your payment is processing. This page will update when it completes.')
+      const successStatuses = new Set(['succeeded', 'processing', 'requires_capture'])
+      if (successStatuses.has(paymentIntent.status)) {
+        try {
+          await onSuccess(paymentIntent)
+        } catch (err: any) {
+          setMessage(err?.message || 'Payment completed but we could not finalize your order.')
+          setProcessing(false)
+          return
+        }
+        if (paymentIntent.status === 'processing') {
+          setMessage('Your payment is processing. This page will update when it completes.')
+        } else if (paymentIntent.status === 'requires_capture') {
+          setMessage('Payment authorized! We will capture it shortly.')
+        } else {
+          setMessage('Payment successful! Thank you for your order.')
+        }
       } else {
         setMessage(`Payment status: ${paymentIntent.status}`)
       }

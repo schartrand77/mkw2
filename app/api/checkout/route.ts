@@ -42,6 +42,7 @@ const payloadSchema = z.object({
   shipping: shippingSchema,
   paymentMethod: z.enum(['card', 'cash']).default('card'),
   commit: z.boolean().optional(),
+  paymentIntentId: z.string().max(200).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -53,8 +54,9 @@ export async function POST(req: NextRequest) {
     }
 
     const paymentMethod = parsed.data.paymentMethod || 'card'
-    const commit = paymentMethod === 'card' ? true : Boolean(parsed.data.commit)
+    const commit = Boolean(parsed.data.commit)
     const isCash = paymentMethod === 'cash'
+    const providedPaymentIntentId = (parsed.data.paymentIntentId || '').trim()
 
     if (paymentMethod !== 'cash' && !process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
@@ -183,37 +185,53 @@ export async function POST(req: NextRequest) {
     const customerEmail = userForCheckout?.email || undefined
     const currencyCode = currency.toUpperCase()
 
-    let paymentIntentId: string
+    let paymentIntentId: string | null = providedPaymentIntentId || null
     let clientSecret: string | null = null
 
     if (paymentMethod === 'card') {
-      const stripe = getStripe()
-      const intent = await stripe.paymentIntents.create({
-        amount,
-        currency,
-        automatic_payment_methods: { enabled: true },
-        receipt_email: customerEmail || undefined,
-        metadata: {
-          cart: metadataItems.slice(0, 500),
-          userId: userId || '',
-          shippingMethod: shipping?.method || 'pickup',
-          shippingAddress: shipping?.method === 'ship' && shipping.address
-            ? `${shipping.address.name || ''} | ${shipping.address.line1 || ''} ${shipping.address.line2 || ''}, ${shipping.address.city || ''}, ${shipping.address.state || ''} ${shipping.address.postalCode || ''}, ${shipping.address.country || ''}`
-            : '',
-        },
-      })
-      paymentIntentId = intent.id
-      clientSecret = intent.client_secret
+      if (!commit) {
+        const stripe = getStripe()
+        const intent = await stripe.paymentIntents.create({
+          amount,
+          currency,
+          automatic_payment_methods: { enabled: true },
+          receipt_email: customerEmail || undefined,
+          metadata: {
+            cart: metadataItems.slice(0, 500),
+            userId: userId || '',
+            shippingMethod: shipping?.method || 'pickup',
+            shippingAddress: shipping?.method === 'ship' && shipping.address
+              ? `${shipping.address.name || ''} | ${shipping.address.line1 || ''} ${shipping.address.line2 || ''}, ${shipping.address.city || ''}, ${shipping.address.state || ''} ${shipping.address.postalCode || ''}, ${shipping.address.country || ''}`
+              : '',
+          },
+        })
+        paymentIntentId = intent.id
+        clientSecret = intent.client_secret
+      } else {
+        if (!paymentIntentId) {
+          return NextResponse.json({ error: 'paymentIntentId is required to finalize checkout.' }, { status: 400 })
+        }
+        const stripe = getStripe()
+        const intent = await stripe.paymentIntents.retrieve(paymentIntentId)
+        if (!intent) {
+          return NextResponse.json({ error: 'Payment intent not found.' }, { status: 404 })
+        }
+        const allowedStatuses = new Set(['succeeded', 'processing', 'requires_capture'])
+        if (!allowedStatuses.has(intent.status)) {
+          return NextResponse.json({ error: `Payment not completed (${intent.status}).` }, { status: 400 })
+        }
+        clientSecret = intent.client_secret || null
+      }
     } else if (!commit) {
       paymentIntentId = `cash_preview_${randomUUID()}`
     } else {
-      paymentIntentId = `cash_${randomUUID()}`
+      paymentIntentId = paymentIntentId || `cash_${randomUUID()}`
     }
 
     if (commit) {
       try {
         await recordOrderWorksJob({
-          paymentIntentId,
+          paymentIntentId: paymentIntentId!,
           amountCents: amount,
           currency: currencyCode,
           lineItems,
@@ -232,7 +250,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      paymentIntentId,
+      paymentIntentId: paymentIntentId!,
       clientSecret,
       currency: currencyCode,
       amount,

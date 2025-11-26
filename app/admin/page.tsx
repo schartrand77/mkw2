@@ -8,6 +8,9 @@ import SiteConfigForm from '@/components/admin/SiteConfigForm'
 import BackupControls from '@/components/admin/BackupControls'
 import ModelManager from '@/components/admin/ModelManager'
 import CollapsibleCard from '@/components/admin/CollapsibleCard'
+import UsersAndBadgesPanel from '@/components/admin/UsersAndBadgesPanel'
+import JobQueue from '@/components/admin/JobQueue'
+import { fetchAdminUsersWithBadges, fetchJobQueueSnapshot } from '@/lib/admin/queries'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
@@ -34,6 +37,11 @@ export default async function AdminPage() {
   const pendingRestore = backupModule.getPendingRestore?.() ?? null
   const lastBackupDate = latestBackup ? new Date(latestBackup.createdAt) : null
   const pendingRestoreDate = pendingRestore ? new Date(pendingRestore.createdAt) : null
+  const [usersWithBadges, jobSnapshot] = await Promise.all([
+    fetchAdminUsersWithBadges(),
+    fetchJobQueueSnapshot(100),
+  ])
+  const orderWorksEnabled = Boolean(process.env.ORDERWORKS_WEBHOOK_URL)
 
   return (
     <div className="space-y-8">
@@ -79,17 +87,39 @@ export default async function AdminPage() {
         </div>
       </div>
       <div className="grid md:grid-cols-2 gap-6">
-        <CollapsibleCard title="Users & badges" subtitle="Manage accounts, permissions, and badge awards">
-          <p className="text-sm text-slate-400 mb-3">
-            Review registered users, adjust admin access, and curate the badge showcase from a dedicated panel.
+        <CollapsibleCard
+          title="Users & badges"
+          subtitle="Manage accounts, permissions, and badge awards"
+          bodyClassName="space-y-4 p-6"
+        >
+          <p className="text-sm text-slate-400">
+            Review registered users, adjust admin access, and curate the badge showcase without leaving the dashboard.
           </p>
-          <Link href="/admin/users" className="btn inline-flex">Open user manager</Link>
+          <UsersAndBadgesPanel
+            users={usersWithBadges}
+            className="rounded-xl border border-white/10 bg-black/20 overflow-hidden"
+          />
+          <Link href="/admin/users" className="inline-flex text-xs text-brand-300 underline">
+            Open full user manager
+          </Link>
         </CollapsibleCard>
-        <CollapsibleCard title="Job queue" subtitle="Inspect background tasks and OrderWorks webhooks">
-          <p className="text-sm text-slate-400 mb-3">
+        <CollapsibleCard
+          title="Job queue"
+          subtitle="Inspect background tasks and OrderWorks webhooks"
+          bodyClassName="space-y-4 p-6"
+        >
+          <p className="text-sm text-slate-400">
             Monitor queued or failed jobs, retry stuck webhooks, and confirm OrderWorks automation is healthy.
           </p>
-          <Link href="/admin/jobs" className="btn inline-flex">Open job queue</Link>
+          <JobQueue
+            initialJobs={jobSnapshot.jobs}
+            pendingCount={jobSnapshot.pendingCount}
+            totalCount={jobSnapshot.totalCount}
+            orderWorksEnabled={orderWorksEnabled}
+          />
+          <Link href="/admin/jobs" className="inline-flex text-xs text-brand-300 underline">
+            Open full job console
+          </Link>
         </CollapsibleCard>
       </div>
       <CollapsibleCard title="Model library" subtitle="Search, curate, or moderate user uploads">

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import JobQueue from '@/components/admin/JobQueue'
-import { serializeJob, type JobWithUser } from '@/app/api/admin/orderworks/jobs/_helpers'
+import { fetchJobQueueSnapshot } from '@/lib/admin/queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,17 +19,7 @@ export default async function AdminJobsPage() {
   const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
   if (!user?.isAdmin) redirect('/')
 
-  const [jobs, pendingCount, totalCount] = await Promise.all([
-    prisma.jobForm.findMany({
-      orderBy: [{ createdAt: 'desc' }],
-      take: 100,
-      include: { user: { select: { id: true, name: true, email: true } } },
-    }),
-    prisma.jobForm.count({ where: { status: 'pending' } }),
-    prisma.jobForm.count(),
-  ])
-
-  const serializedJobs = (jobs as JobWithUser[]).map(serializeJob)
+  const { jobs, pendingCount, totalCount } = await fetchJobQueueSnapshot(100)
 
   return (
     <div className="space-y-6">
@@ -47,7 +37,7 @@ export default async function AdminJobsPage() {
       </div>
       <div className="glass rounded-xl border border-white/10 p-6">
         <JobQueue
-          initialJobs={serializedJobs}
+          initialJobs={jobs}
           pendingCount={pendingCount}
           totalCount={totalCount}
           orderWorksEnabled={Boolean(process.env.ORDERWORKS_WEBHOOK_URL)}

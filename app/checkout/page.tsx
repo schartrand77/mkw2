@@ -48,6 +48,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(cardPaymentAvailable ? 'card' : 'cash')
   const [cashConfirmationId, setCashConfirmationId] = useState<string | null>(null)
   const [cashProcessing, setCashProcessing] = useState(false)
+  const [finalizingJob, setFinalizingJob] = useState(false)
 
   useEffect(() => {
     setCheckoutItemsState(items)
@@ -147,7 +148,7 @@ export default function CheckoutPage() {
           items: checkoutItems,
           shipping: shippingSelection,
           paymentMethod,
-          commit: paymentMethod === 'card',
+          commit: false,
         }),
       })
       if (!res.ok) {
@@ -167,40 +168,58 @@ export default function CheckoutPage() {
     fetchIntent()
   }, [fetchIntent])
 
-  const handleSuccess = (pi: PaymentIntent) => {
-    setSuccessIntent(pi)
+  const finalizeJob = useCallback(async ({ paymentIntentId, method }: { paymentIntentId?: string; method: CheckoutPaymentMethod }) => {
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: checkoutItems,
+        shipping: shippingSelection,
+        paymentMethod: method,
+        commit: true,
+        paymentIntentId,
+      }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || 'Unable to finalize checkout.')
+    }
+    return res.json() as Promise<CheckoutIntentResponse>
+  }, [checkoutItems, shippingSelection])
+
+  const handleSuccess = useCallback(async (pi: PaymentIntent) => {
+    setFinalizingJob(true)
     setCashConfirmationId(null)
-    clear()
-  }
+    try {
+      await finalizeJob({ paymentIntentId: pi.id, method: 'card' })
+      setSuccessIntent(pi)
+    } catch (err: any) {
+      console.error('Payment succeeded but OrderWorks job failed', err)
+      setError(err?.message || 'Payment completed but we could not queue your job. Contact support.')
+      setSuccessIntent(pi)
+    } finally {
+      setIntent(null)
+      clear()
+      setFinalizingJob(false)
+    }
+  }, [clear, finalizeJob])
 
   const handleCashConfirm = async () => {
     if (!checkoutItems.length || paymentMethod !== 'cash') return
     setCashProcessing(true)
+    setFinalizingJob(true)
     setError(null)
     try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: checkoutItems,
-          shipping: shippingSelection,
-          paymentMethod: 'cash',
-          commit: true,
-        }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || 'Unable to place cash order.')
-      }
-      const data = await res.json() as CheckoutIntentResponse
+      const data = await finalizeJob({ method: 'cash' })
       setCashConfirmationId(data.paymentIntentId)
       setSuccessIntent(null)
       setIntent(null)
       clear()
     } catch (err: any) {
-      setError(err.message || 'Something went wrong.')
+      setError(err.message || 'Unable to place cash order.')
     } finally {
       setCashProcessing(false)
+      setFinalizingJob(false)
     }
   }
 
@@ -357,9 +376,13 @@ export default function CheckoutPage() {
             discount={intent.discount}
           />
         )}
-        {loading && (
+        {(loading || finalizingJob) && (
           <p className="text-sm text-slate-400">
-            {paymentMethod === 'cash' ? 'Calculating total...' : 'Preparing secure payment...'}
+            {finalizingJob
+              ? 'Wrapping up your order...'
+              : paymentMethod === 'cash'
+                ? 'Calculating total...'
+                : 'Preparing secure payment...'}
           </p>
         )}
         {error && <p className="text-sm text-amber-300">{error}</p>}
@@ -390,7 +413,7 @@ export default function CheckoutPage() {
             <button
               type="button"
               onClick={handleCashConfirm}
-              disabled={cashProcessing}
+              disabled={cashProcessing || finalizingJob}
               className="btn w-full justify-center disabled:opacity-60"
             >
               {cashProcessing ? 'Placing order...' : 'Confirm cash order'}
