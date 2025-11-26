@@ -16,7 +16,7 @@ MakerWorks v2 is a self-hosted 3D model hub with STL previews, price estimation,
   <Icon>https://i.imgur.com/L0PFZvlm.png</Icon>
 
   <Config Name="Web Port" Target="3000" Default="3000" Mode="tcp" Description="Port the MakerWorks Next.js server listens on" Type="Port" Display="always" Required="true" Mask="false">3000</Config>
-  <Config Name="Storage" Target="/app/storage" Default="/mnt/user/appdata/makerworks/storage" Mode="rw" Description="Persistent directory for uploaded models, covers, avatars, and backups" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/makerworks/storage</Config>
+  <Config Name="Storage" Target="/app/storage" Default="/mnt/user/makerworks/storage" Mode="rw" Description="Persistent directory for uploaded models, covers, avatars, and backups" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/makerworks/storage</Config>
 
   <Config Name="DATABASE_URL" Target="DATABASE_URL" Default="postgresql://postgres:postgres@postgres:5432/makerworks?schema=public" Mode="" Description="Postgres connection string (must be reachable from the container)" Type="Variable" Display="always" Required="true" Mask="false">postgresql://postgres:postgres@postgres:5432/makerworks?schema=public</Config>
   <Config Name="BASE_URL" Target="BASE_URL" Default="https://makerworks.example.com" Mode="" Description="Public URL users access (used for redirects/cookies)" Type="Variable" Display="always" Required="true" Mask="false">https://makerworks.example.com</Config>
