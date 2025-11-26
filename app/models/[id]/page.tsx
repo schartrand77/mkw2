@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { formatCurrency } from '@/lib/currency'
+import { formatPriceLabel } from '@/lib/price-label'
 import { buildYouTubeEmbedUrl } from '@/lib/youtube'
 import { buildImageSrc, toPublicHref } from '@/lib/storage'
 import { BRAND_NAME } from '@/lib/brand'
@@ -38,6 +39,8 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
     }
   })() : null
   const affiliateImage = model.affiliateImage || null
+  const onSale = model.salePriceUsd != null && model.basePriceUsd != null && model.salePriceUsd < model.basePriceUsd
+  const priceLabel = formatPriceLabel(model.priceUsd, { from: model.salePriceIsFrom, unit: model.salePriceUnit })
   const token = cookies().get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   const me = payload?.sub ? await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } }) : null
@@ -95,17 +98,17 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
           <div>{model.volumeMm3 ? `${(model.volumeMm3/1000).toFixed(2)} cm^3` : 'N/A'}</div>
           <div className="text-slate-400">Estimated Price</div>
           <div>
-            {model.salePriceUsd != null && model.basePriceUsd != null && model.salePriceUsd < model.basePriceUsd && (
+            {onSale && (
               <div className="text-xs text-rose-300">On sale</div>
             )}
             <div className="flex items-center gap-3">
-              {model.salePriceUsd != null && model.basePriceUsd != null && model.salePriceUsd < model.basePriceUsd && (
+              {onSale && model.basePriceUsd != null && (
                 <span className="text-sm text-slate-400 line-through">
                   {formatCurrency(model.basePriceUsd)}
                 </span>
               )}
               <span className="text-lg font-semibold">
-                {model.priceUsd ? formatCurrency(model.priceUsd) : 'N/A'}
+                {priceLabel || 'N/A'}
               </span>
             </div>
             {model.pricing && (

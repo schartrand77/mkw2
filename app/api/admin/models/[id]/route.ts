@@ -9,6 +9,8 @@ import path from 'path'
 import { unlink } from 'fs/promises'
 export const dynamic = 'force-dynamic'
 
+const SALE_PRICE_UNITS = new Set(['ea', 'bx', 'complete'])
+
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const id = params.id
@@ -57,6 +59,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       updates.salePriceUsd = null
     } else {
       updates.salePriceUsd = raw
+    }
+  }
+
+  if (body.salePriceIsFrom !== undefined) {
+    updates.salePriceIsFrom = Boolean(body.salePriceIsFrom)
+  }
+
+  if (body.salePriceUnit !== undefined) {
+    const raw = String(body.salePriceUnit ?? '').trim().toLowerCase()
+    if (!raw) {
+      updates.salePriceUnit = null
+    } else if (!SALE_PRICE_UNITS.has(raw)) {
+      return NextResponse.json({ error: 'Invalid sale price unit' }, { status: 400 })
+    } else {
+      updates.salePriceUnit = raw
     }
   }
 

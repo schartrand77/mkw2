@@ -4,6 +4,8 @@ import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { buildImageSrc, toPublicHref } from '@/lib/storage'
 import { resolveModelPricing } from '@/lib/pricing'
+import { formatPriceLabel } from '@/lib/price-label'
+import { formatCurrency } from '@/lib/currency'
 
 async function getProfile(slug: string) {
   return prisma.profile.findUnique({
@@ -32,6 +34,8 @@ async function getUserModels(userId: string) {
         coverImagePath: true,
         priceUsd: true,
         salePriceUsd: true,
+        salePriceIsFrom: true,
+        salePriceUnit: true,
         volumeMm3: true,
         material: true,
         updatedAt: true,
@@ -47,6 +51,8 @@ async function getUserModels(userId: string) {
       basePriceUsd: summary.basePriceUsd,
       salePriceUsd: summary.salePriceUsd,
       saleActive: summary.saleActive,
+      salePriceIsFrom: (m as any).salePriceIsFrom ?? false,
+      salePriceUnit: (m as any).salePriceUnit ?? null,
     }
   })
 }
@@ -143,28 +149,31 @@ export default async function UserPage({ params }: { params: { slug: string } })
       )}
       <section className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
         {models.length === 0 && <p className="text-slate-400">No models yet.</p>}
-        {models.map((m) => (
-          <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition">
-            {m.coverImagePath ? (
-              <img src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
-            ) : (
-              <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
-            )}
-            <div className="p-4">
-              <h3 className="font-semibold">{m.title}</h3>
-              {m.priceUsd ? (
-                <div className="text-sm text-slate-300">
-                  <span className="font-medium">${m.priceUsd.toFixed(2)}</span>
-                  {m.salePriceUsd != null && m.basePriceUsd != null && m.salePriceUsd < m.basePriceUsd && (
-                    <span className="text-xs text-slate-500 ml-2 line-through">${m.basePriceUsd.toFixed(2)}</span>
-                  )}
-                </div>
+        {models.map((m) => {
+          const priceLabel = formatPriceLabel(m.priceUsd, { from: m.salePriceIsFrom, unit: m.salePriceUnit })
+          return (
+            <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition">
+              {m.coverImagePath ? (
+                <img src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
               ) : (
-                <p className="text-sm text-slate-400">No estimate</p>
+                <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
               )}
-            </div>
-          </Link>
-        ))}
+              <div className="p-4">
+                <h3 className="font-semibold">{m.title}</h3>
+                {priceLabel ? (
+                  <div className="text-sm text-slate-300">
+                    <span className="font-medium">{priceLabel}</span>
+                    {m.saleActive && m.basePriceUsd && (
+                      <span className="text-xs text-slate-500 ml-2 line-through">{formatCurrency(m.basePriceUsd)}</span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">No estimate</p>
+                )}
+              </div>
+            </Link>
+          )
+        })}
       </section>
     </div>
   )

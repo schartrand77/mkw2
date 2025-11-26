@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { formatCurrency } from '@/lib/currency'
 import AddToCartButtons from '@/components/cart/AddToCartButtons'
 import { buildImageSrc } from '@/lib/public-path'
+import { formatPriceLabel } from '@/lib/price-label'
 
 type SearchParams = { [key: string]: string | string[] | undefined }
 
@@ -76,6 +77,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
         )}
         {models.map((m: any) => {
           const coverSrc = buildImageSrc(m.coverImagePath, m.updatedAt)
+          const priceLabel = formatPriceLabel(m.priceUsd, { from: m.salePriceIsFrom, unit: m.salePriceUnit })
           return (
             <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
               {coverSrc ? (
@@ -98,8 +100,8 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
                 <AddToCartButtons model={{ id: m.id, title: m.title, priceUsd: m.priceUsd, coverImagePath: m.coverImagePath, updatedAt: m.updatedAt, sizeXmm: m.sizeXmm, sizeYmm: m.sizeYmm, sizeZmm: m.sizeZmm }} />
                 <div className="flex justify-between text-sm text-slate-300">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold">{m.priceUsd ? formatCurrency(m.priceUsd) : 'N/A'}</span>
-                    {m.saleActive && m.basePriceUsd && (
+                    <span className="font-semibold">{priceLabel || 'N/A'}</span>
+                    {priceLabel && m.saleActive && m.basePriceUsd && (
                       <span className="text-xs text-slate-500 line-through">{formatCurrency(m.basePriceUsd)}</span>
                     )}
                   </div>

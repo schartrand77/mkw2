@@ -10,6 +10,8 @@ type Model = {
   updatedAt?: string | null
   visibility: string
   salePriceUsd?: number | null
+  salePriceIsFrom?: boolean | null
+  salePriceUnit?: string | null
   tags: string[]
   affiliateTitle?: string | null
   affiliateUrl?: string | null
@@ -75,6 +77,8 @@ export default function ModelManager() {
         if (active) {
           const normalized = data.models.map((m: Model) => ({
             ...m,
+            salePriceIsFrom: Boolean((m as any).salePriceIsFrom),
+            salePriceUnit: (m as any).salePriceUnit ?? null,
             videoUrl: m.videoEmbedId ? `https://youtu.be/${m.videoEmbedId}` : ''
           }))
           setItems(normalized)
@@ -109,6 +113,8 @@ export default function ModelManager() {
           affiliateUrl: m.affiliateUrl ?? '',
           videoUrl: m.videoUrl ?? '',
           salePriceUsd: (m as any).salePriceUsd ?? null,
+          salePriceIsFrom: Boolean(m.salePriceIsFrom),
+          salePriceUnit: m.salePriceUnit || '',
         })
       })
       if (!res.ok) alert('Failed to save model: ' + (await res.text()))
@@ -252,16 +258,40 @@ export default function ModelManager() {
                 <option value="private">private</option>
               </select>
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs text-slate-400 mb-1">Sale price (optional)</label>
-              <input
-                className="input"
-                type="number"
-                step="0.01"
-                value={activeModel.salePriceUsd ?? ''}
-                onChange={(e) => updateModel(activeModel.id, { salePriceUsd: e.target.value === '' ? null : Number(e.target.value) })}
-                placeholder="Leave blank to use automatic estimate"
-              />
+            <div className="md:col-span-2 space-y-2">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Sale price (optional)</label>
+                <input
+                  className="input"
+                  type="number"
+                  step="0.01"
+                  value={activeModel.salePriceUsd ?? ''}
+                  onChange={(e) => updateModel(activeModel.id, { salePriceUsd: e.target.value === '' ? null : Number(e.target.value) })}
+                  placeholder="Leave blank to use automatic estimate"
+                />
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <input
+                  id={`sale-from-${activeModel.id}`}
+                  type="checkbox"
+                  checked={!!activeModel.salePriceIsFrom}
+                  onChange={(e) => updateModel(activeModel.id, { salePriceIsFrom: e.target.checked })}
+                />
+                <label htmlFor={`sale-from-${activeModel.id}`}>Prefix with “From”</label>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Unit label</label>
+                <select
+                  className="input text-sm"
+                  value={activeModel.salePriceUnit || ''}
+                  onChange={(e) => updateModel(activeModel.id, { salePriceUnit: e.target.value || null })}
+                >
+                  <option value="">No unit</option>
+                  <option value="ea">ea</option>
+                  <option value="bx">bx</option>
+                  <option value="complete">complete</option>
+                </select>
+              </div>
             </div>
             <div className="md:col-span-3">
               <input className="input" value={activeModel.tags.join(', ')} onChange={(e) => updateModel(activeModel.id, { tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />

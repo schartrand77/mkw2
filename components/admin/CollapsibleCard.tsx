@@ -18,7 +18,7 @@ export default function CollapsibleCard({
   title,
   subtitle,
   children,
-  defaultOpen = true,
+  defaultOpen = false,
   id,
   className = '',
   bodyClassName = 'p-6',

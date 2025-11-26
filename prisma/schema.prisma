@@ -45,6 +45,8 @@ model Model {
   sizeZmm        Float?
   priceUsd       Float?
   salePriceUsd   Float?
+  salePriceIsFrom Boolean  @default(false)
+  salePriceUnit   String?
   visibility     String   @default("public")
   downloads      Int      @default(0)
   likes          Int      @default(0)

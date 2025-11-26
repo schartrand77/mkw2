@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import { formatCurrency } from '@/lib/currency'
 import { buildImageSrc } from '@/lib/public-path'
 import { BRAND_SLUG } from '@/lib/brand'
+import { formatPriceLabel } from '@/lib/price-label'
 
 async function fetchFeatured() {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/featured`, { cache: 'no-store' })
@@ -85,6 +85,7 @@ function FeaturedMarquee({ models }: { models: any[] }) {
 
 function FeaturedCard({ model, ariaHidden = false }: { model: any; ariaHidden?: boolean }) {
   const coverSrc = buildImageSrc(model.coverImagePath, model.updatedAt)
+  const priceLabel = formatPriceLabel(model.priceUsd, { from: model.salePriceIsFrom, unit: model.salePriceUnit })
   return (
     <Link
       href={`/models/${model.id}`}
@@ -105,8 +106,8 @@ function FeaturedCard({ model, ariaHidden = false }: { model: any; ariaHidden?: 
       )}
       <div className="p-4">
         <h3 className="font-semibold truncate">{model.title}</h3>
-        {model.priceUsd ? (
-          <p className="text-sm text-slate-400">Est. {formatCurrency(model.priceUsd)}</p>
+        {priceLabel ? (
+          <p className="text-sm text-slate-400">Est. {priceLabel}</p>
         ) : (
           <p className="text-sm text-slate-400">No estimate</p>
         )}

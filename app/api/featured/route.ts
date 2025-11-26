@@ -17,6 +17,8 @@ export async function GET() {
             material: true,
             priceUsd: true,
             salePriceUsd: true,
+            salePriceIsFrom: true,
+            salePriceUnit: true,
             volumeMm3: true,
             updatedAt: true,
           },
@@ -34,6 +36,8 @@ export async function GET() {
       basePriceUsd: summary.basePriceUsd,
       salePriceUsd: summary.salePriceUsd,
       saleActive: summary.saleActive,
+      salePriceIsFrom: Boolean((model as any).salePriceIsFrom),
+      salePriceUnit: (model as any).salePriceUnit ?? null,
     }
   })
   return NextResponse.json({ models })
