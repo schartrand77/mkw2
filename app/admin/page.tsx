@@ -78,9 +78,19 @@ export default async function AdminPage() {
           </CollapsibleCard>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <Link href="/admin/users" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 text-sm">View Users & Badges</Link>
-        <Link href="/admin/jobs" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 text-sm">View Job Queue</Link>
+      <div className="grid md:grid-cols-2 gap-6">
+        <CollapsibleCard title="Users & badges" subtitle="Manage accounts, permissions, and badge awards">
+          <p className="text-sm text-slate-400 mb-3">
+            Review registered users, adjust admin access, and curate the badge showcase from a dedicated panel.
+          </p>
+          <Link href="/admin/users" className="btn inline-flex">Open user manager</Link>
+        </CollapsibleCard>
+        <CollapsibleCard title="Job queue" subtitle="Inspect background tasks and OrderWorks webhooks">
+          <p className="text-sm text-slate-400 mb-3">
+            Monitor queued or failed jobs, retry stuck webhooks, and confirm OrderWorks automation is healthy.
+          </p>
+          <Link href="/admin/jobs" className="btn inline-flex">Open job queue</Link>
+        </CollapsibleCard>
       </div>
       <CollapsibleCard title="Model library" subtitle="Search, curate, or moderate user uploads">
         <ModelManager />
