@@ -25,6 +25,7 @@ export default async function AdminUsersPage() {
       id: true,
       email: true,
       name: true,
+      emailVerified: true,
       createdAt: true,
       profile: { select: { slug: true } },
       badges: { include: { achievement: true } },
@@ -49,6 +50,7 @@ export default async function AdminUsersPage() {
               <div>
                 <div className="font-medium">{u.name || u.email}</div>
                 <div className="text-slate-400 text-xs">/{u.profile?.slug || 'no-slug'}</div>
+                <div className="text-slate-500 text-xs break-all">{u.email}</div>
               </div>
               <div className="text-slate-400 text-xs">Joined {new Date(u.createdAt).toLocaleDateString()}</div>
             </div>
@@ -64,7 +66,12 @@ export default async function AdminUsersPage() {
               ))}
             </div>
             <div className="mt-4">
-              <UserAdminActions userId={u.id} initialSuspended={!!u.isSuspended} isAdmin={!!u.isAdmin} />
+              <UserAdminActions
+                userId={u.id}
+                initialSuspended={!!u.isSuspended}
+                initialEmailVerified={!!u.emailVerified}
+                isAdmin={!!u.isAdmin}
+              />
             </div>
             <div className="mt-4">
               <UserDiscountControls

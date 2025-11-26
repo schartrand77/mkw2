@@ -4,18 +4,24 @@ import { requireAdmin } from '../../_utils'
 import { z } from 'zod'
 
 const patchSchema = z.object({
-  suspended: z.boolean(),
+  suspended: z.boolean().optional(),
+  emailVerified: z.boolean().optional(),
+}).refine((data) => typeof data.suspended === 'boolean' || typeof data.emailVerified === 'boolean', {
+  message: 'No updates provided',
 })
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const userId = params.id
   try {
-    const { suspended } = patchSchema.parse(await req.json())
+    const { suspended, emailVerified } = patchSchema.parse(await req.json())
+    const updateData: Record<string, boolean> = {}
+    if (typeof suspended === 'boolean') updateData.isSuspended = suspended
+    if (typeof emailVerified === 'boolean') updateData.emailVerified = emailVerified
     const updated = await prisma.user.update({
       where: { id: userId },
-      data: { isSuspended: suspended },
-      select: { id: true, isSuspended: true },
+      data: updateData,
+      select: { id: true, isSuspended: true, emailVerified: true },
     })
     return NextResponse.json({ user: updated })
   } catch (e: any) {
