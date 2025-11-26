@@ -31,7 +31,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url)
   }
   // Allow login page, manifest, service worker, and favicons to bypass auth
-  if (isPublicPath(pathname)) return NextResponse.next()
+  if (isPublicPath(pathname) || isPublicModelPath(pathname)) return NextResponse.next()
 
   const token = req.cookies.get('mwv2_token')?.value
   if (!token) {
@@ -41,6 +41,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url)
   }
   return NextResponse.next()
+}
+
+function isPublicModelPath(pathname: string) {
+  if (!pathname.startsWith('/models')) return false
+  const segments = pathname.split('/').filter(Boolean)
+  if (segments[0] !== 'models') return false
+  // Allow /models and /models/:id but require auth for nested routes like /models/:id/edit
+  return segments.length <= 2
 }
 
 // Run on all pages except API routes, static assets, and file-serving route
