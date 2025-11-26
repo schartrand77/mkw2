@@ -88,13 +88,10 @@ export default function BackupControls() {
   const activeSelection = backups.find((b) => b.folder === selected)
 
   return (
-    <div className="glass p-6 rounded-xl space-y-4 border border-white/10">
-      <div>
-        <h2 className="text-xl font-semibold">Backups & Restore</h2>
-        <p className="text-sm text-slate-400">
-          Backups live under <code>/files/backups</code>. Restoring removes files uploaded after that snapshot and will take effect after a restart.
-        </p>
-      </div>
+    <div className="space-y-4">
+      <p className="text-sm text-slate-400">
+        Backups live under <code>/files/backups</code>. Restoring removes files uploaded after that snapshot and will take effect after a restart.
+      </p>
       {error && <div className="text-sm text-amber-400">{error}</div>}
       {latestMessage && <div className="text-sm text-green-400">{latestMessage}</div>}
       <div className="flex flex-wrap gap-3">

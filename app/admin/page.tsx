@@ -7,6 +7,7 @@ import FeaturedManager from '@/components/admin/FeaturedManager'
 import SiteConfigForm from '@/components/admin/SiteConfigForm'
 import BackupControls from '@/components/admin/BackupControls'
 import ModelManager from '@/components/admin/ModelManager'
+import CollapsibleCard from '@/components/admin/CollapsibleCard'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
@@ -41,39 +42,49 @@ export default async function AdminPage() {
           <h1 className="text-3xl font-semibold">Admin Dashboard</h1>
           <p className="text-sm text-slate-400 mt-1">Manage featured models, pricing, backups, and more.</p>
         </div>
-        <div className="min-w-[260px] rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm" aria-live="polite">
-          <div className="text-xs uppercase tracking-[0.25em] text-slate-400">Backup status</div>
-          <p className="text-base text-white mt-2">
-            {lastBackupDate ? `${lastBackupDate.toLocaleString()} (${formatRelative(lastBackupDate)})` : 'No backups yet'}
-          </p>
-          <p className={`text-xs mt-2 ${pendingRestore ? 'text-amber-300' : 'text-slate-500'}`}>
-            {pendingRestore
-              ? `Pending restore: ${(pendingRestore.relativePath || pendingRestore.backupPath || '').replace(/^backups\//, '')} - ${pendingRestoreDate?.toLocaleString()}`
-              : 'No restore scheduled'}
-          </p>
-          <Link href="#backups" className="text-xs text-brand-300 underline mt-2 inline-flex">Open backup tools</Link>
-        </div>
+        <CollapsibleCard
+          title="Backup status"
+          subtitle="Latest snapshot & restore queue"
+          variant="plain"
+          className="min-w-[260px] text-sm"
+          bodyClassName="px-4 py-3 text-sm"
+        >
+          <div aria-live="polite" className="space-y-3">
+            <div>
+              <div className="text-xs uppercase tracking-[0.25em] text-slate-400">Latest backup</div>
+              <p className="text-base text-white mt-1">
+                {lastBackupDate ? `${lastBackupDate.toLocaleString()} (${formatRelative(lastBackupDate)})` : 'No backups yet'}
+              </p>
+            </div>
+            <p className={`text-xs ${pendingRestore ? 'text-amber-300' : 'text-slate-500'}`}>
+              {pendingRestore
+                ? `Pending restore: ${(pendingRestore.relativePath || pendingRestore.backupPath || '').replace(/^backups\//, '')} - ${pendingRestoreDate?.toLocaleString()}`
+                : 'No restore scheduled'}
+            </p>
+            <Link href="#backups" className="text-xs text-brand-300 underline inline-flex">Open backup tools</Link>
+          </div>
+        </CollapsibleCard>
       </div>
       <div className="grid md:grid-cols-2 gap-6">
-        <div className="glass p-6 rounded-xl">
+        <CollapsibleCard title="Featured models" subtitle="Control which models appear on the homepage hero">
           <FeaturedManager initial={initialFeatured} />
-        </div>
+        </CollapsibleCard>
         <div className="space-y-6">
-          <div className="glass p-6 rounded-xl">
+          <CollapsibleCard title="Site configuration" subtitle="Update global pricing, copy, and limits">
             <SiteConfigForm initial={cfg as any} />
-          </div>
-          <div id="backups">
+          </CollapsibleCard>
+          <CollapsibleCard id="backups" title="Backups & restore" subtitle="Create new archives or trigger restores">
             <BackupControls />
-          </div>
+          </CollapsibleCard>
         </div>
       </div>
       <div className="flex items-center gap-3">
         <Link href="/admin/users" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 text-sm">View Users & Badges</Link>
         <Link href="/admin/jobs" className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 text-sm">View Job Queue</Link>
       </div>
-      <div className="glass p-6 rounded-xl">
+      <CollapsibleCard title="Model library" subtitle="Search, curate, or moderate user uploads">
         <ModelManager />
-      </div>
+      </CollapsibleCard>
     </div>
   )
 }
