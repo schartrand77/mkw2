@@ -226,7 +226,8 @@ html.theme-light body.holiday-halloween .btn {
 }
 .holiday-particle {
   position: absolute;
-  top: -12%;
+  top: -12vh;
+  bottom: auto;
   pointer-events: none;
   will-change: transform, opacity;
 }
@@ -240,6 +241,7 @@ html.theme-light body.holiday-halloween .btn {
   box-shadow: 0 0 12px rgba(255, 255, 255, 0.75);
   animation-iteration-count: infinite;
   animation-timing-function: linear;
+  animation-fill-mode: both;
 }
 .holiday-snowflake[data-variant="0"] { animation-name: holiday-snowfall-left; }
 .holiday-snowflake[data-variant="1"] {
@@ -248,19 +250,22 @@ html.theme-light body.holiday-halloween .btn {
 }
 .holiday-snowflake[data-variant="2"] { animation-name: holiday-snowfall-center; }
 @keyframes holiday-snowfall-left {
-  0% { transform: translate3d(-2vw, -20vh, 0); }
-  50% { transform: translate3d(-4vw, 40vh, 0); }
-  100% { transform: translate3d(-6vw, 110vh, 0); }
+  0% { transform: translate3d(-3vw, -140vh, 0); opacity: 0; }
+  10% { opacity: 0.9; }
+  50% { transform: translate3d(-4vw, 40vh, 0); opacity: 0.85; }
+  100% { transform: translate3d(-6vw, 125vh, 0); opacity: 0; }
 }
 @keyframes holiday-snowfall-right {
-  0% { transform: translate3d(2vw, -20vh, 0); }
-  50% { transform: translate3d(4vw, 50vh, 0); }
-  100% { transform: translate3d(6vw, 110vh, 0); }
+  0% { transform: translate3d(3vw, -140vh, 0); opacity: 0; }
+  10% { opacity: 0.9; }
+  55% { transform: translate3d(4vw, 50vh, 0); opacity: 0.85; }
+  100% { transform: translate3d(6vw, 125vh, 0); opacity: 0; }
 }
 @keyframes holiday-snowfall-center {
-  0% { transform: translate3d(0, -20vh, 0); }
-  60% { transform: translate3d(0.5vw, 60vh, 0); }
-  100% { transform: translate3d(0.75vw, 110vh, 0); }
+  0% { transform: translate3d(0, -140vh, 0); opacity: 0; }
+  15% { opacity: 0.9; }
+  60% { transform: translate3d(0.5vw, 60vh, 0); opacity: 0.85; }
+  100% { transform: translate3d(0.75vw, 125vh, 0); opacity: 0; }
 }
 
 .holiday-halloween-candy {
@@ -291,7 +296,7 @@ html.theme-light body.holiday-halloween .btn {
 
 .holiday-easter-petal {
   top: auto;
-  bottom: -12%;
+  bottom: -12vh;
   border-radius: 9999px;
   background: linear-gradient(160deg, rgba(251, 191, 36, 0.85), rgba(216, 180, 254, 0.85));
   box-shadow:
