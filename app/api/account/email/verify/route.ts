@@ -21,8 +21,20 @@ export async function GET(req: NextRequest) {
     prisma.verificationToken.update({ where: { token }, data: { usedAt: new Date() } })
   ])
 
-  const response = NextResponse.redirect(new URL('/login?verified=1', req.url))
-  const secureHint = req.nextUrl.protocol === 'https:'
+  const redirectBase = (() => {
+    const envBase = process.env.BASE_URL?.trim()
+    if (envBase) {
+      try {
+        return new URL(envBase.replace(/\/+$/, ''))
+      } catch {
+        // fall through to request url
+      }
+    }
+    return req.nextUrl
+  })()
+  const redirectUrl = new URL('/login?verified=1', redirectBase)
+  const response = NextResponse.redirect(redirectUrl)
+  const secureHint = redirectUrl.protocol === 'https:' || req.nextUrl.protocol === 'https:'
   setAuthCookie(vt.userId, response.cookies as any, { secureHint })
   return response
 }
