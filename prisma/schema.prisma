@@ -25,6 +25,8 @@ model User {
   profile      Profile?
   badges       UserAchievement[]
   jobForms     JobForm[]
+  orders       PrintOrder[]
+  orderRevisions PrintOrderRevision[]
 }
 
 model Model {
@@ -223,4 +225,68 @@ model JobForm {
   updatedAt       DateTime @updatedAt
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model PrintOrder {
+  id              String   @id @default(cuid())
+  orderNumber     Int      @default(autoincrement()) @unique
+  userId          String?
+  customerEmail   String?
+  customerName    String?
+  status          String   @default("awaiting_review")
+  paymentMethod   String   @default("card")
+  shippingMethod  String   @default("pickup")
+  shippingAddress Json?
+  subtotalCents   Int
+  discountPercent Float?
+  totalCents      Int
+  currency        String   @default("USD")
+  notes           String?
+  metadata        Json?
+  reprintOfId     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items     PrintOrderItem[]
+  revisions PrintOrderRevision[]
+  reprintOf PrintOrder?   @relation("ReprintSource", fields: [reprintOfId], references: [id])
+  reprints  PrintOrder[]  @relation("ReprintSource")
+}
+
+model PrintOrderItem {
+  id             String   @id @default(cuid())
+  orderId        String
+  modelId        String?
+  modelTitle     String
+  partId         String?
+  partName       String?
+  material       String
+  colors         Json?
+  infillPct      Int?
+  finish         String?
+  customNotes    String?
+  quantity       Int      @default(1)
+  unitPriceCents Int
+  totalCents     Int
+  configuration  Json?
+  thumbnailPath  String?
+  viewerPath     String?
+  createdAt      DateTime @default(now())
+
+  order PrintOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model PrintOrderRevision {
+  id         String   @id @default(cuid())
+  orderId    String
+  userId     String?
+  label      String?
+  note       String?
+  filePath   String
+  version    Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  order PrintOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
 }

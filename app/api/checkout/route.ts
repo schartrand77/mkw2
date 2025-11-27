@@ -10,6 +10,7 @@ import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { clampScale, getColorMultiplier, normalizeColors, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
 import { recordOrderWorksJob } from '@/lib/orderworks'
 import { summarizeDiscount, getDiscountMultiplier } from '@/lib/discounts'
+import { recordCustomerOrder } from '@/lib/orders'
 
 export const dynamic = 'force-dynamic'
 
@@ -108,6 +109,7 @@ export async function POST(req: NextRequest) {
       ? await prisma.user.findUnique({
         where: { id: userId },
         select: {
+          name: true,
           email: true,
           discountPercent: true,
           friendsAndFamilyPercent: true,
@@ -183,6 +185,7 @@ export async function POST(req: NextRequest) {
     const shippingPayload: ShippingSelection = shipping || { method: 'pickup' }
     const metadataItems = lineItems.slice(0, 20).map((item) => `${item.qty}x ${item.title}${item.partName ? ` (${item.partName})` : ''}`).join(', ')
     const customerEmail = userForCheckout?.email || undefined
+    const customerName = userForCheckout?.name || shippingPayload.address?.name || undefined
     const currencyCode = currency.toUpperCase()
 
     let paymentIntentId: string | null = providedPaymentIntentId || null
@@ -246,6 +249,27 @@ export async function POST(req: NextRequest) {
         })
       } catch (jobErr) {
         console.error('Failed to record OrderWorks job', jobErr)
+      }
+      try {
+        await recordCustomerOrder({
+          paymentIntentId: paymentIntentId!,
+          amountCents: amount,
+          currency: currencyCode,
+          lineItems,
+          shipping: shippingPayload,
+          paymentMethod,
+          userId,
+          customerEmail,
+          customerName,
+          discountPercent: discountSummary.totalPercent ?? null,
+          metadata: {
+            cartItems: items,
+            shipping,
+            paymentMethod,
+          },
+        })
+      } catch (err) {
+        console.error('Failed to persist customer order', err)
       }
     }
 

@@ -137,6 +137,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
         <Link href="/upload" className={linkCls('/upload')}>Upload</Link>
         <Link href="/cart" className={linkCls('/cart')}>Cart{count > 0 ? ` (${count})` : ''}</Link>
         <Link href="/checkout" className={linkCls('/checkout')}>Checkout</Link>
+        <Link href="/customer/orders" className={linkCls('/customer/orders')}>Orders</Link>
         {isAdmin && (
           <Link href="/admin" className={linkCls('/admin')}>Admin</Link>
         )}

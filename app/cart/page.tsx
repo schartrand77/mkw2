@@ -51,6 +51,9 @@ export default function CartPage() {
           Back to Discover
         </Link>
       </div>
+      <div className="glass p-4 rounded-xl text-sm text-slate-300">
+        Configure every part from this cart view: tweak quantities, scale, infill, colors, material, and engraving notes before sending the job to checkout.
+      </div>
       {items.length === 0 && (
         <div className="glass p-6 rounded-xl text-slate-400">
           Cart is empty. <Link className="underline" href="/discover">Discover models</Link>
