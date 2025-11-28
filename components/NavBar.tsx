@@ -137,7 +137,6 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
         <Link href="/upload" className={linkCls('/upload')}>Upload</Link>
         <Link href="/cart" className={linkCls('/cart')}>Cart{count > 0 ? ` (${count})` : ''}</Link>
         <Link href="/checkout" className={linkCls('/checkout')}>Checkout</Link>
-        <Link href="/customer/orders" className={linkCls('/customer/orders')}>Orders</Link>
         {isAdmin && (
           <Link href="/admin" className={linkCls('/admin')}>Admin</Link>
         )}
@@ -161,6 +160,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
             <div role="menu" className="absolute right-0 mt-2 w-44 glass rounded-md border border-white/10 py-1 z-50">
               <Link href="/settings/profile" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Edit Profile</Link>
               <Link href="/me" role="menuitem" className="block px-3 py-2 hover:bg-white/10">My Page</Link>
+              <Link href="/customer/orders" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Orders</Link>
               <Link href="/settings/account" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Account</Link>
               <button
                 type="button"

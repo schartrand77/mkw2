@@ -13,7 +13,7 @@ MakerWorks v2 is a self-hosted 3D model hub with STL previews, price estimation,
   ]]></Overview>
   <Category>Productivity:Tools</Category>
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
-  <Icon>https://i.imgur.com/L0PFZvlm.png</Icon>
+  <Icon>https://raw.githubusercontent.com/schartrand77/mkw2/main/public/favicon.jpg</Icon>
 
   <Config Name="Web Port" Target="3000" Default="3000" Mode="tcp" Description="Port the MakerWorks Next.js server listens on" Type="Port" Display="always" Required="true" Mask="false">3000</Config>
   <Config Name="Storage" Target="/app/storage" Default="/mnt/user/makerworks/storage" Mode="rw" Description="Persistent directory for uploaded models, covers, avatars, and backups" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/makerworks/storage</Config>
