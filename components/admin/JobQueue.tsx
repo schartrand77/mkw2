@@ -37,6 +37,22 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   timeStyle: 'short',
 })
 
+function renderFileCell(item: any) {
+  const path = typeof item?.storagePath === 'string' && item.storagePath.trim().length > 0 ? item.storagePath : null
+  const url = typeof item?.storageUrl === 'string' && item.storageUrl.trim().length > 0 ? item.storageUrl : null
+  if (url) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="underline text-brand-300 hover:text-brand-200">
+        Download
+      </a>
+    )
+  }
+  if (path) {
+    return <code className="text-[11px] break-all">{path}</code>
+  }
+  return <span className="text-slate-500">�</span>
+}
+
 function formatCurrency(amountCents: number, currency: string) {
   const key = currency.toUpperCase()
   if (!formatterCache.has(key)) {
@@ -280,6 +296,7 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount, orderW
                               <th className="py-1 pr-2">Qty</th>
                               <th className="py-1 pr-2">Material</th>
                               <th className="py-1 pr-2">Line total</th>
+                              <th className="py-1 pr-2">File</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -289,6 +306,7 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount, orderW
                                 <td className="py-1 pr-2">{item?.qty ?? '—'}</td>
                                 <td className="py-1 pr-2">{item?.material || 'PLA'}</td>
                                 <td className="py-1 pr-2">{typeof item?.lineTotal === 'number' ? formatCurrency(Math.round(item.lineTotal * 100), job.currency) : '—'}</td>
+                                <td className="py-1 pr-2">{renderFileCell(item)}</td>
                               </tr>
                             ))}
                           </tbody>

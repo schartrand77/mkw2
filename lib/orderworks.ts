@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
+import { buildAbsoluteUrl, buildBambuStudioUrl } from '@/lib/slicer'
 
 type JobStatus = 'pending' | 'sent'
 
@@ -12,6 +13,21 @@ export type JobFormInput = {
   userId?: string | null
   customerEmail?: string | null
   metadata?: Record<string, any>
+}
+
+type StoredLineItem = CheckoutLineItem & {
+  storagePath?: string | null
+  storageUrl?: string | null
+}
+
+type FilePointer = {
+  label: string
+  modelId?: string
+  partId?: string
+  storagePath?: string | null
+  storageUrl?: string | null
+  downloadUrl?: string | null
+  bambuStudioUrl?: string | null
 }
 
 type WebhookTarget = {
@@ -64,6 +80,43 @@ const PRIMARY_TARGET = process.env.ORDERWORKS_WEBHOOK_URL
 
 const WEBHOOK_TARGETS: WebhookTarget[] = [...PRIMARY_TARGET, ...parseAdditionalTargets()]
 
+function coerceLineItems(raw: unknown): StoredLineItem[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item) => {
+      if (item && typeof item === 'object') return item as StoredLineItem
+      return null
+    })
+    .filter((item): item is StoredLineItem => !!item)
+}
+
+function extractFilePointers(raw: unknown): FilePointer[] {
+  const items = coerceLineItems(raw)
+  return items
+    .map((item) => ({
+      label: item.title || item.modelId || 'Item',
+      modelId: item.modelId,
+      partId: item.partId || undefined,
+      storagePath: item.storagePath || null,
+      storageUrl: item.storageUrl || null,
+    }))
+    .map((item) => {
+      const fileRoute = item.storagePath ? buildFilesRoute(item.storagePath) : null
+      const downloadUrl = item.storageUrl || (fileRoute ? buildAbsoluteUrl(fileRoute) : null)
+      return {
+        ...item,
+        downloadUrl,
+        bambuStudioUrl: buildBambuStudioUrl(downloadUrl || undefined),
+      }
+    })
+    .filter((ptr) => ptr.storagePath || ptr.storageUrl)
+}
+
+function buildFilesRoute(storagePath: string) {
+  const normalized = storagePath.startsWith('/') ? storagePath : `/${storagePath}`
+  return `/files${normalized}`.replace(/\/{2,}/g, '/')
+}
+
 export async function recordOrderWorksJob({
   paymentIntentId,
   amountCents,
@@ -112,12 +165,14 @@ async function sendJobToOrderWorks(jobId: string) {
   }
   const job = await prisma.jobForm.findUnique({ where: { id: jobId } })
   if (!job) return
+  const files = extractFilePointers(job.lineItems)
   const payload = {
     id: job.id,
     paymentIntentId: job.paymentIntentId,
     totalCents: job.totalCents,
     currency: job.currency,
     lineItems: job.lineItems,
+    files,
     shipping: job.shipping,
     metadata: job.metadata,
     userId: job.userId,

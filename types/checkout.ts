@@ -45,6 +45,8 @@ export type CheckoutLineItem = {
   colors?: string[]
   infillPct?: number
   customText?: string
+  storagePath?: string | null
+  storageUrl?: string | null
 }
 
 export type CheckoutIntentResponse = {

@@ -46,6 +46,33 @@ const payloadSchema = z.object({
   paymentIntentId: z.string().max(200).optional(),
 })
 
+function sanitizeBaseUrl(raw?: string | null) {
+  if (!raw) return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  try {
+    const url = new URL(trimmed)
+    url.hash = ''
+    url.search = ''
+    const base = `${url.origin}${url.pathname}`.replace(/\/+$/, '')
+    return base || null
+  } catch {
+    const cleaned = trimmed.replace(/\/+$/, '')
+    return cleaned || null
+  }
+}
+
+function resolvePublicBaseUrl(req: NextRequest) {
+  return sanitizeBaseUrl(process.env.BASE_URL) || sanitizeBaseUrl(req.nextUrl?.origin || '')
+}
+
+function normalizeStoragePath(pathValue?: string | null) {
+  if (!pathValue) return null
+  const trimmed = String(pathValue).trim()
+  if (!trimmed) return null
+  return `/${trimmed.replace(/^\/+/, '')}`
+}
+
 export async function POST(req: NextRequest) {
   try {
     const json = await req.json()
@@ -79,13 +106,30 @@ export async function POST(req: NextRequest) {
     const [models, cfg, parts] = await Promise.all([
       prisma.model.findMany({
         where: { id: { in: ids } },
-        select: { id: true, title: true, priceUsd: true, salePriceUsd: true, volumeMm3: true, material: true },
+        select: {
+          id: true,
+          title: true,
+          priceUsd: true,
+          salePriceUsd: true,
+          volumeMm3: true,
+          material: true,
+          filePath: true,
+          viewerFilePath: true,
+        },
       }),
       prisma.siteConfig.findUnique({ where: { id: 'main' } }),
       partIds.length > 0
         ? prisma.modelPart.findMany({
             where: { id: { in: partIds } },
-            select: { id: true, modelId: true, name: true, priceUsd: true, volumeMm3: true },
+            select: {
+              id: true,
+              modelId: true,
+              name: true,
+              priceUsd: true,
+              volumeMm3: true,
+              filePath: true,
+              previewFilePath: true,
+            },
           })
         : Promise.resolve([]),
     ])
@@ -119,6 +163,8 @@ export async function POST(req: NextRequest) {
       : null
     const discountSummary = summarizeDiscount(userForCheckout)
     const discountMultiplier = getDiscountMultiplier(discountSummary)
+
+    const publicBaseUrl = resolvePublicBaseUrl(req)
 
     const lineItems: CheckoutLineItem[] = items.map((entry) => {
       const model = modelMap.get(entry.modelId)!
@@ -157,6 +203,14 @@ export async function POST(req: NextRequest) {
       const qty = entry.qty || 1
       const undiscountedLineTotal = Number((rawUnitPrice * qty).toFixed(2))
       const lineTotal = Number((unitPrice * qty).toFixed(2))
+      const storagePath = normalizeStoragePath(
+        part?.filePath ||
+          model.filePath ||
+          part?.previewFilePath ||
+          model.viewerFilePath ||
+          null,
+      )
+      const storageUrl = storagePath && publicBaseUrl ? `${publicBaseUrl}/files${storagePath}` : null
       return {
         modelId: model.id,
         partId: part?.id || undefined,
@@ -172,6 +226,8 @@ export async function POST(req: NextRequest) {
         colors,
         infillPct: entry.infillPct ?? undefined,
         customText: entry.customText || undefined,
+        storagePath,
+        storageUrl,
       }
     })
 

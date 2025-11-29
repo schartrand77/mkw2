@@ -62,7 +62,10 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
       colors: item.colors,
       infillPct: item.infillPct,
       customText: item.customText,
+      storagePath: item.storagePath,
+      storageUrl: item.storageUrl,
     },
+    viewerPath: item.storagePath || undefined,
   }))
   const metadataPayload: Prisma.InputJsonValue = (() => {
     if (payload.metadata && typeof payload.metadata === 'object' && !Array.isArray(payload.metadata)) {
