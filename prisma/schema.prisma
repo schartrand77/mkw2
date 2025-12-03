@@ -19,6 +19,7 @@ model User {
   isFriendsAndFamily     Boolean @default(false)
   friendsAndFamilyPercent Float   @default(0)
   models       Model[]
+  comments     ModelComment[]
   likes        Like[]
   verificationTokens VerificationToken[]
   createdAt    DateTime @default(now())
@@ -66,6 +67,7 @@ model Model {
   likesList Like[]
   featured  FeaturedModel?
   parts     ModelPart[]
+  comments  ModelComment[]
 }
 
 model ModelImage {
@@ -183,6 +185,21 @@ model ModelPart {
   createdAt  DateTime @default(now())
 
   model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+}
+
+model ModelComment {
+  id        String   @id @default(cuid())
+  modelId   String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([modelId])
+  @@index([userId])
 }
 
 model Achievement {

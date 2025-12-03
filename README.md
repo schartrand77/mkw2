@@ -8,6 +8,7 @@ What you get
 - Upload STL/OBJ/3MF files with optional cover images; STL files preview in-browser.
 - Automatic weight and cost estimator with material and color options; Stripe checkout stays inside the app when enabled.
 - Personal profile pages (`/u/{slug}`) plus featured models curated by admins.
+- Model detail pages support emoji-friendly user comments with admin moderation controls.
 - Admin dashboard for pricing, site settings, backups, and optional OrderWorks webhook retries.
 - Email verification for new signups and a bootstrap admin account set via container variables.
 
@@ -46,6 +47,11 @@ Daily use
 - Each model gets a shareable page; `/u/{slug}` lists a user's uploads and `/me` jumps to your own page.
 - Carts show weight, material choice (PLA/PETG), and estimated time/energy costs; Stripe's Payment Element keeps checkout on-site when configured.
 - Users receive a verification link by email and can resend it from the signup screen.
+
+Community comments & moderation
+- Model pages include a comment thread so print tips, slicer settings, or results stay with the file.
+- Comments accept emoji and regular Unicode text but block obvious exploit/security-test phrases automatically.
+- Site admins see a delete button next to every comment, allowing quick cleanup of spam or harmful posts from the model page.
 
 Backups & restore
 - In Admin > Backups create a snapshot of the database and uploads; files land under `/files/backups/<timestamp>/` on your storage share.

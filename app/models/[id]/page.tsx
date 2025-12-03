@@ -9,6 +9,7 @@ import { buildYouTubeEmbedUrl } from '@/lib/youtube'
 import { buildImageSrc, toPublicHref } from '@/lib/storage'
 import { BRAND_NAME } from '@/lib/brand'
 import ModelPartsList from '@/components/ModelPartsList'
+import ModelComments from '@/components/ModelComments'
 
 async function fetchModel(id: string) {
   const res = await fetch(`${process.env.BASE_URL || ''}/api/models/${id}`, { cache: 'no-store' })
@@ -45,6 +46,7 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
   const payload = token ? verifyToken(token) : null
   const me = payload?.sub ? await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } }) : null
   const canEdit = !!(payload?.sub && (payload.sub === model.userId || me?.isAdmin))
+  const canModerateComments = !!me?.isAdmin
   return (
     <div className="max-w-5xl mx-auto space-y-5">
       <div>
@@ -195,6 +197,12 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
         </div>
         </div>
       </div>
+      <ModelComments
+        modelId={model.id}
+        initialComments={model.comments || []}
+        currentUserId={payload?.sub || null}
+        canModerate={canModerateComments}
+      />
     </div>
   )
 }

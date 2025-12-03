@@ -11,6 +11,7 @@ import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image
 import { revalidatePath } from 'next/cache'
 import { resolveModelPricing, estimatePricingDetails } from '@/lib/pricing'
 import { extractAmazonAsin, buildAmazonImageUrl } from '@/lib/amazon'
+import { commentInclude, serializeComment } from '@/lib/comments'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const model = await prisma.model.findUnique({
@@ -18,6 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     include: {
       modelTags: { include: { tag: true } },
       images: { orderBy: { sortOrder: 'asc' } },
+      comments: commentInclude,
     },
   })
   if (!model) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -26,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
   ])
   const tags = model.modelTags.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug }))
-  const { modelTags, images, ...rest } = model as any
+  const { modelTags, images, comments, ...rest } = model as any
   const pricingSummary = resolveModelPricing(model as any, cfg)
   let affiliateImage: string | null = null
   if (rest.affiliateUrl) {
@@ -57,6 +59,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         }
       }),
       images: serializeModelImages(images),
+      comments: (comments || []).map(serializeComment),
     },
   })
 }
