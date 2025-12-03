@@ -132,6 +132,30 @@ function extractFilePointers(raw: unknown): FilePointer[] {
     .filter((ptr) => ptr.storagePath || ptr.storageUrl)
 }
 
+function buildLineItemSummaries(raw: unknown, currency: string): string[] {
+  const items = coerceLineItems(raw)
+  if (items.length === 0) return []
+  const safeCurrency = currency?.toUpperCase() || 'USD'
+  return items.map((item) => {
+    const qty = typeof item.qty === 'number' && Number.isFinite(item.qty) && item.qty > 0 ? item.qty : 1
+    const title = item.title || item.modelId || 'Item'
+    const part = item.partName ? ` (${item.partName})` : ''
+    const segments = [`${qty}x ${title}${part}`]
+    if (item.material) segments.push(`material ${item.material}`)
+    if (Array.isArray(item.colors) && item.colors.length > 0) {
+      segments.push(`colors: ${item.colors.filter((c) => typeof c === 'string' && c.trim().length > 0).join(', ')}`)
+    }
+    if (typeof item.scale === 'number' && Number.isFinite(item.scale) && item.scale !== 1) {
+      segments.push(`scale ${Number(item.scale.toFixed(2))}x`)
+    }
+    if (typeof item.lineTotal === 'number' && Number.isFinite(item.lineTotal)) {
+      segments.push(`${safeCurrency} ${item.lineTotal.toFixed(2)}`)
+    }
+    if (item.customText) segments.push(`notes: ${item.customText}`)
+    return segments.join(' | ')
+  })
+}
+
 function buildFilesRoute(storagePath: string) {
   const normalized = storagePath.startsWith('/') ? storagePath : `/${storagePath}`
   return `/files${normalized}`.replace(/\/{2,}/g, '/')
@@ -186,12 +210,13 @@ async function sendJobToOrderWorks(jobId: string) {
   const job = await prisma.jobForm.findUnique({ where: { id: jobId } })
   if (!job) return
   const files = extractFilePointers(job.lineItems)
+  const lineItems = buildLineItemSummaries(job.lineItems, job.currency || 'USD')
   const payload = {
     id: job.id,
     paymentIntentId: job.paymentIntentId,
     totalCents: job.totalCents,
     currency: job.currency,
-    lineItems: job.lineItems,
+    lineItems,
     files,
     shipping: job.shipping,
     metadata: job.metadata,
