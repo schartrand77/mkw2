@@ -39,19 +39,20 @@ type WebhookTarget = {
 }
 
 type MakerWorksSignature = {
-  headerValue: string
   timestamp: number
-  digest: string
+  bodyDigest: string
+  timestampDigest: string
 }
 
 function buildMakerWorksSignature(secret: string, body: string): MakerWorksSignature {
   const timestamp = Math.floor(Date.now() / 1000)
   const canonicalPayload = `${timestamp}.${body}`
-  const digest = crypto.createHmac('sha256', secret).update(canonicalPayload).digest('hex')
+  const bodyDigest = crypto.createHmac('sha256', secret).update(body).digest('hex')
+  const timestampDigest = crypto.createHmac('sha256', secret).update(canonicalPayload).digest('hex')
   return {
-    headerValue: `t=${timestamp},v1=${digest}`,
     timestamp,
-    digest,
+    bodyDigest,
+    timestampDigest,
   }
 }
 
@@ -206,10 +207,12 @@ async function sendJobToOrderWorks(jobId: string) {
       if (target.secret) {
         const signature = buildMakerWorksSignature(target.secret, body)
         headers.Authorization = `Bearer ${target.secret}`
-        headers['X-MakerWorks-Signature'] = signature.headerValue
-        headers['MakerWorks-Signature'] = signature.headerValue
+        headers['X-MakerWorks-Signature'] = `sha256=${signature.bodyDigest}`
+        headers['MakerWorks-Signature'] = `sha256=${signature.bodyDigest}`
+        headers['X-MakerWorks-Signature-V1'] = `t=${signature.timestamp},v1=${signature.timestampDigest}`
+        headers['MakerWorks-Signature-V1'] = `t=${signature.timestamp},v1=${signature.timestampDigest}`
         headers['X-MakerWorks-Timestamp'] = String(signature.timestamp)
-        headers['X-Hub-Signature-256'] = `sha256=${signature.digest}`
+        headers['X-Hub-Signature-256'] = `sha256=${signature.bodyDigest}`
       }
       const response = await fetch(target.url, {
         method: 'POST',
