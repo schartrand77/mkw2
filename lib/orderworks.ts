@@ -1,3 +1,5 @@
+import crypto from 'crypto'
+
 import { prisma } from '@/lib/db'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { buildAbsoluteUrl, buildBambuStudioUrl } from '@/lib/slicer'
@@ -34,6 +36,23 @@ type WebhookTarget = {
   url: string
   secret?: string
   label: string
+}
+
+type MakerWorksSignature = {
+  headerValue: string
+  timestamp: number
+  digest: string
+}
+
+function buildMakerWorksSignature(secret: string, body: string): MakerWorksSignature {
+  const timestamp = Math.floor(Date.now() / 1000)
+  const canonicalPayload = `${timestamp}.${body}`
+  const digest = crypto.createHmac('sha256', secret).update(canonicalPayload).digest('hex')
+  return {
+    headerValue: `t=${timestamp},v1=${digest}`,
+    timestamp,
+    digest,
+  }
 }
 
 function parseAdditionalTargets(): WebhookTarget[] {
@@ -180,14 +199,22 @@ async function sendJobToOrderWorks(jobId: string) {
     createdAt: job.createdAt,
   }
   const errors: string[] = []
+  const body = JSON.stringify(payload)
   for (const target of WEBHOOK_TARGETS) {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (target.secret) headers.Authorization = `Bearer ${target.secret}`
+      if (target.secret) {
+        const signature = buildMakerWorksSignature(target.secret, body)
+        headers.Authorization = `Bearer ${target.secret}`
+        headers['X-MakerWorks-Signature'] = signature.headerValue
+        headers['MakerWorks-Signature'] = signature.headerValue
+        headers['X-MakerWorks-Timestamp'] = String(signature.timestamp)
+        headers['X-Hub-Signature-256'] = `sha256=${signature.digest}`
+      }
       const response = await fetch(target.url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(payload),
+        body,
       })
       if (!response.ok) {
         const errorText = await response.text().catch(() => '')
