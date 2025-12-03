@@ -57,6 +57,7 @@ MakerWorks v2 is a self-hosted 3D model hub with STL previews, price estimation,
 
   <Config Name="ORDERWORKS_WEBHOOK_URL" Target="ORDERWORKS_WEBHOOK_URL" Default="" Mode="" Description="Webhook endpoint to forward cart/job forms to OrderWorks" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
   <Config Name="ORDERWORKS_WEBHOOK_SECRET" Target="ORDERWORKS_WEBHOOK_SECRET" Default="" Mode="" Description="Secret used to sign OrderWorks webhook payloads" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="MAKERWORKS_INBOUND_SECRET" Target="MAKERWORKS_INBOUND_SECRET" Default="" Mode="" Description="Shared secret MakerWorks expects for inbound job updates to /api/makerworks/jobs (send via Authorization Bearer token or MakerWorks signature header)" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
 
   <Config Name="HOLIDAY_THEME" Target="HOLIDAY_THEME" Default="" Mode="" Description="Optional seasonal theme: christmas, halloween, or easter" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
   <Config Name="NEXT_PUBLIC_HOLIDAY_THEME" Target="NEXT_PUBLIC_HOLIDAY_THEME" Default="" Mode="" Description="Expose seasonal theme to the client UI" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>

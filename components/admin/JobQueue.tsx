@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useMemo, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 
 type JobStatus = 'pending' | 'sent'
+type FulfillmentStatus = 'pending' | 'ready' | 'picked_up' | 'shipped'
 type JobRecord = {
   id: string
   paymentIntentId: string
@@ -14,6 +15,10 @@ type JobRecord = {
   lineItems: any
   shipping?: any
   metadata?: any
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  fulfillmentStatus?: FulfillmentStatus | null
+  fulfilledAt?: string | null
   webhookAttempts: number
   lastAttemptAt?: string | null
   lastError?: string | null
@@ -36,6 +41,16 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
 })
+const FULFILLMENT_OPTIONS: { value: FulfillmentStatus; label: string }[] = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'ready', label: 'Ready for pickup' },
+  { value: 'picked_up', label: 'Picked up' },
+  { value: 'shipped', label: 'Shipped' },
+]
+const FULFILLMENT_LABELS = FULFILLMENT_OPTIONS.reduce<Record<string, string>>((acc, option) => {
+  acc[option.value] = option.label
+  return acc
+}, {})
 
 function renderFileCell(item: any) {
   const path = typeof item?.storagePath === 'string' && item.storagePath.trim().length > 0 ? item.storagePath : null
@@ -72,6 +87,124 @@ function formatDate(value?: string | null) {
   } catch {
     return value
   }
+}
+
+function formatFulfillment(status?: FulfillmentStatus | null) {
+  if (!status) return 'Pending'
+  return FULFILLMENT_LABELS[status] || status
+}
+
+type StatusFormProps = {
+  job: JobRecord
+  onUpdated: (job: JobRecord) => void
+}
+
+function JobStatusControls({ job, onUpdated }: StatusFormProps) {
+  const [jobStatus, setJobStatus] = useState<JobStatus>(job.status)
+  const [fulfillmentStatus, setFulfillmentStatus] = useState<FulfillmentStatus>(job.fulfillmentStatus || 'pending')
+  const [paymentStatus, setPaymentStatus] = useState(job.paymentStatus || '')
+  const [paymentMethod, setPaymentMethod] = useState(job.paymentMethod || '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  useEffect(() => {
+    setJobStatus(job.status)
+    setFulfillmentStatus(job.fulfillmentStatus || 'pending')
+    setPaymentStatus(job.paymentStatus || '')
+    setPaymentMethod(job.paymentMethod || '')
+  }, [job.status, job.fulfillmentStatus, job.paymentStatus, job.paymentMethod])
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    setSaving(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const res = await fetch(`/api/jobs/${encodeURIComponent(job.paymentIntentId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: jobStatus,
+          fulfillmentStatus,
+          paymentStatus: paymentStatus.trim() ? paymentStatus.trim() : null,
+          paymentMethod: paymentMethod.trim() ? paymentMethod.trim() : null,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Failed to update job status')
+      if (data.job) {
+        onUpdated(data.job)
+      }
+      setSuccess('Status updated.')
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update job status')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form className="space-y-2" onSubmit={handleSubmit}>
+      <div className="grid sm:grid-cols-2 gap-2">
+        <label className="text-xs text-slate-400 flex flex-col gap-1">
+          Job status
+          <select className="input" value={jobStatus} onChange={(e) => setJobStatus(e.target.value as JobStatus)} disabled={saving}>
+            <option value="pending">Pending</option>
+            <option value="sent">Sent</option>
+          </select>
+        </label>
+        <label className="text-xs text-slate-400 flex flex-col gap-1">
+          Fulfillment status
+          <select
+            className="input"
+            value={fulfillmentStatus}
+            onChange={(e) => setFulfillmentStatus(e.target.value as FulfillmentStatus)}
+            disabled={saving}
+          >
+            {FULFILLMENT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-2">
+        <label className="text-xs text-slate-400 flex flex-col gap-1">
+          Payment method
+          <input
+            className="input"
+            type="text"
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+            placeholder="card / cash / other"
+            disabled={saving}
+          />
+        </label>
+        <label className="text-xs text-slate-400 flex flex-col gap-1">
+          Payment status
+          <input
+            className="input"
+            type="text"
+            value={paymentStatus}
+            onChange={(e) => setPaymentStatus(e.target.value)}
+            placeholder="succeeded / pending"
+            disabled={saving}
+          />
+        </label>
+      </div>
+      {error && <div className="text-xs text-rose-300">{error}</div>}
+      {success && <div className="text-xs text-emerald-300">{success}</div>}
+      <button
+        type="submit"
+        className="px-3 py-1.5 rounded-md border border-white/20 text-xs hover:border-white/40 disabled:opacity-50"
+        disabled={saving}
+      >
+        {saving ? 'Saving…' : 'Save status'}
+      </button>
+    </form>
+  )
 }
 
 export default function JobQueue({ initialJobs, pendingCount, totalCount, orderWorksEnabled }: Props) {
@@ -241,6 +374,9 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount, orderW
                     Created {formatDate(job.createdAt)} • Attempts {job.webhookAttempts}
                     {job.lastAttemptAt && ` • Last attempt ${formatDate(job.lastAttemptAt)}`}
                   </div>
+                  <div className="text-xs text-slate-400">
+                    Fulfillment: {formatFulfillment(job.fulfillmentStatus)}{job.fulfilledAt ? ` - Fulfilled ${formatDate(job.fulfilledAt)}` : ''}
+                  </div>
                   {job.lastError && (
                     <div className="text-xs text-rose-300">Last error: {job.lastError}</div>
                   )}
@@ -252,7 +388,9 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount, orderW
                       ? `${job.user.name || job.user.email} (${job.user.email || 'no email'})`
                       : 'anonymous'}
                   </div>
-                  <div>Customer email: {job.customerEmail || '—'}</div>
+                  <div>Customer email: {job.customerEmail || 'N/A'}</div>
+                  <div>Payment method: {job.paymentMethod || 'N/A'}</div>
+                  <div>Payment status: {job.paymentStatus || 'N/A'}</div>
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
                   <button
@@ -283,6 +421,19 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount, orderW
               </div>
               {isExpanded && (
                 <div className="text-xs text-slate-300 space-y-3 border-t border-white/10 pt-3">
+                  <div className="grid lg:grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-white/5 p-3 bg-black/10 space-y-1">
+                      <p className="text-sm font-semibold">Payment & fulfillment</p>
+                      <p>Method: {job.paymentMethod || 'N/A'}</p>
+                      <p>Status: {job.paymentStatus || 'N/A'}</p>
+                      <p>Fulfillment: {formatFulfillment(job.fulfillmentStatus)}</p>
+                      <p>Fulfilled at: {job.fulfilledAt ? formatDate(job.fulfilledAt) : 'N/A'}</p>
+                    </div>
+                    <div className="rounded-lg border border-white/5 p-3 bg-black/10">
+                      <p className="text-sm font-semibold mb-2">Update statuses</p>
+                      <JobStatusControls job={job} onUpdated={updateJob} />
+                    </div>
+                  </div>
                   <div>
                     <p className="text-sm font-semibold mb-1">Line items</p>
                     {lineItems.length === 0 ? (

@@ -246,6 +246,7 @@ export async function POST(req: NextRequest) {
 
     let paymentIntentId: string | null = providedPaymentIntentId || null
     let clientSecret: string | null = null
+    let finalizedPaymentStatus: string | null = null
 
     if (paymentMethod === 'card') {
       if (!commit) {
@@ -280,11 +281,13 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: `Payment not completed (${intent.status}).` }, { status: 400 })
         }
         clientSecret = intent.client_secret || null
+        finalizedPaymentStatus = intent.status || null
       }
     } else if (!commit) {
       paymentIntentId = `cash_preview_${randomUUID()}`
     } else {
       paymentIntentId = paymentIntentId || `cash_${randomUUID()}`
+      finalizedPaymentStatus = 'pending'
     }
 
     if (commit) {
@@ -302,6 +305,9 @@ export async function POST(req: NextRequest) {
             shipping,
             paymentMethod,
           },
+          paymentMethod,
+          paymentStatus: finalizedPaymentStatus || (paymentMethod === 'cash' ? 'pending' : null),
+          fulfillmentStatus: 'pending',
         })
       } catch (jobErr) {
         console.error('Failed to record OrderWorks job', jobErr)

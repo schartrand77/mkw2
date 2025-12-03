@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { prisma } from '@/lib/db'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { buildAbsoluteUrl, buildBambuStudioUrl } from '@/lib/slicer'
+import type { FulfillmentStatus } from '@prisma/client'
 
 type JobStatus = 'pending' | 'sent'
 
@@ -15,6 +16,10 @@ export type JobFormInput = {
   userId?: string | null
   customerEmail?: string | null
   metadata?: Record<string, any>
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  fulfillmentStatus?: FulfillmentStatus | null
+  fulfilledAt?: Date | null
 }
 
 type StoredLineItem = CheckoutLineItem & {
@@ -170,6 +175,10 @@ export async function recordOrderWorksJob({
   userId,
   customerEmail,
   metadata,
+  paymentMethod,
+  paymentStatus,
+  fulfillmentStatus,
+  fulfilledAt,
 }: JobFormInput) {
   const safeCurrency = currency.toUpperCase()
   const job = await prisma.jobForm.upsert({
@@ -184,6 +193,10 @@ export async function recordOrderWorksJob({
       shipping: shipping ?? undefined,
       metadata: metadata ?? undefined,
       status: 'pending',
+      paymentMethod: paymentMethod ?? undefined,
+      paymentStatus: paymentStatus ?? undefined,
+      fulfillmentStatus: fulfillmentStatus ?? undefined,
+      fulfilledAt: fulfilledAt ?? undefined,
     },
     update: {
       userId: userId || null,
@@ -194,6 +207,10 @@ export async function recordOrderWorksJob({
       shipping: shipping ?? undefined,
       metadata: metadata ?? undefined,
       status: 'pending' as JobStatus,
+      paymentMethod: paymentMethod ?? undefined,
+      paymentStatus: paymentStatus ?? undefined,
+      fulfillmentStatus: fulfillmentStatus ?? undefined,
+      fulfilledAt: fulfilledAt ?? undefined,
     },
   })
   queueOrderWorksJob(job.id).catch((err) => {

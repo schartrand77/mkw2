@@ -75,11 +75,34 @@ Environment variables (what they do)
 - Currency labels: `CURRENCY` and `NEXT_PUBLIC_CURRENCY` (`USD` or `CAD`).
 - Stripe (optional): `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
 - OrderWorks webhook (optional): `ORDERWORKS_WEBHOOK_URL`, `ORDERWORKS_WEBHOOK_SECRET` (requests are signed via the `X-MakerWorks-Signature` header when configured).
+- MakerWorks inbound job updates (optional): `MAKERWORKS_INBOUND_SECRET` (defaults to `ORDERWORKS_WEBHOOK_SECRET`) to validate webhook calls to `/api/makerworks/jobs`.
 - Holiday theming (optional): `HOLIDAY_THEME`, `NEXT_PUBLIC_HOLIDAY_THEME` set to `christmas`, `halloween`, or `easter`.
 - Contact/referral (optional): `NEXT_PUBLIC_AMAZON_TAG`, `NEXT_PUBLIC_AMAZON_DOMAIN`, `NEXT_PUBLIC_CONTACT_EMAIL`.
 - Branding: `NEXT_PUBLIC_BRAND_NAME`, `NEXT_PUBLIC_BRAND_VERSION`, `NEXT_PUBLIC_BRAND_LAB_NAME`, `NEXT_PUBLIC_BRAND_HANDLE` (leave `NEXT_PUBLIC_BRAND_VERSION` blank to hide the suffix).
 - SMTP (optional but recommended): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, `RECEIPT_FROM_EMAIL`, `RECEIPT_REPLY_TO_EMAIL`.
 - Discord (optional): `DISCORD_BOT_TOKEN`, `DISCORD_CHANNEL_ID` for announcements; `DISCORD_ADMIN_BOT_TOKEN`, `DISCORD_ADMIN_CHANNEL_ID` for admin alerts.
+
+MakerWorks job update API
+- External job processors (OrderWorks, in-house fulfillment tools, etc.) can push status updates back into MakerWorks so the admin queue stays in sync.
+- Send `POST https://<your-domain>/api/makerworks/jobs` with either an `Authorization: Bearer <secret>` header (using `MAKERWORKS_INBOUND_SECRET`) or an HMAC signature header `X-MakerWorks-Signature-V1: t=<unix>,v1=<digest>` built from the same secret.
+- Payload fields the webhook understands:
+
+```json
+{
+  "paymentIntentId": "<stripe-or-cash-id>",
+  "status": "pending" | "sent",
+  "paymentMethod": "card" | "cash" | "...",
+  "paymentStatus": "succeeded" | "pending" | "...",
+  "fulfillmentStatus": "pending" | "ready" | "picked_up" | "shipped",
+  "fulfilledAt": "2024-12-04T10:23:00Z", // optional
+  "totalCents": 12345,         // required if MakerWorks has not seen this job yet
+  "currency": "USD",           // required if the job is new
+  "lineItems": [ ... ]         // required if the job is new
+}
+```
+
+- When the job exists (MakerWorks created it while recording checkout), only the status/payment/fulfillment fields are needed and the record is updated in-place. If the job does not exist, provide `totalCents`, `currency`, and a `lineItems` array so MakerWorks can create the record before applying your status update.
+- Admins can also override a job from the dashboard form, which calls `PATCH /api/jobs/<paymentIntentId>` with the same set of fields. This route requires an authenticated admin session and immediately reflects in the job queue UI.
 
 Printer profiles (speed/cost assumptions)
 Key | Printer / notes | Flow assumption | cm^3/hr throughput | Energy USD/hr*

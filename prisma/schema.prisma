@@ -235,6 +235,10 @@ model JobForm {
   totalCents      Int
   currency        String
   status          String   @default("pending")
+  paymentMethod   String?  @map("payment_method")
+  paymentStatus   String?  @map("payment_status")
+  fulfillmentStatus FulfillmentStatus @default(pending) @map("fulfillment_status")
+  fulfilledAt     DateTime? @map("fulfilled_at")
   webhookAttempts Int      @default(0)
   lastAttemptAt   DateTime?
   lastError       String?
@@ -242,6 +246,13 @@ model JobForm {
   updatedAt       DateTime @updatedAt
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+enum FulfillmentStatus {
+  pending
+  ready
+  picked_up
+  shipped
 }
 
 model PrintOrder {
