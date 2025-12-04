@@ -49,6 +49,28 @@ type MakerWorksSignature = {
   timestampDigest: string
 }
 
+type OrderWorksLineItem = {
+  label: string
+  title: string
+  name: string
+  summary: string
+  quantity: number
+  qty: number
+  unitPriceCents?: number
+  unitPrice?: number
+  lineTotalCents?: number
+  lineTotal?: number
+  material: string
+  colors: string[]
+  scale: number
+  notes: string
+  storagePath?: string | null
+  storageUrl?: string | null
+  downloadUrl?: string | null
+  bambuStudioUrl?: string | null
+  metadata?: Record<string, string | number | null>
+}
+
 function buildMakerWorksSignature(secret: string, body: string): MakerWorksSignature {
   const timestamp = Math.floor(Date.now() / 1000)
   const canonicalPayload = `${timestamp}.${body}`
@@ -115,25 +137,27 @@ function coerceLineItems(raw: unknown): StoredLineItem[] {
     .filter((item): item is StoredLineItem => !!item)
 }
 
+function buildFilePointerForItem(item: StoredLineItem): FilePointer | null {
+  const storagePath = item.storagePath || null
+  const storageUrl = item.storageUrl || null
+  if (!storagePath && !storageUrl) return null
+  const fileRoute = storagePath ? buildFilesRoute(storagePath) : null
+  const downloadUrl = storageUrl || (fileRoute ? buildAbsoluteUrl(fileRoute) : null)
+  return {
+    label: item.title || item.modelId || 'Item',
+    modelId: item.modelId,
+    partId: item.partId || undefined,
+    storagePath,
+    storageUrl,
+    downloadUrl,
+    bambuStudioUrl: buildBambuStudioUrl(downloadUrl || undefined),
+  }
+}
+
 function extractFilePointers(items: StoredLineItem[]): FilePointer[] {
   return items
-    .map((item) => ({
-      label: item.title || item.modelId || 'Item',
-      modelId: item.modelId,
-      partId: item.partId || undefined,
-      storagePath: item.storagePath || null,
-      storageUrl: item.storageUrl || null,
-    }))
-    .map((item) => {
-      const fileRoute = item.storagePath ? buildFilesRoute(item.storagePath) : null
-      const downloadUrl = item.storageUrl || (fileRoute ? buildAbsoluteUrl(fileRoute) : null)
-      return {
-        ...item,
-        downloadUrl,
-        bambuStudioUrl: buildBambuStudioUrl(downloadUrl || undefined),
-      }
-    })
-    .filter((ptr) => ptr.storagePath || ptr.storageUrl)
+    .map((item) => buildFilePointerForItem(item))
+    .filter((ptr): ptr is FilePointer => Boolean(ptr))
 }
 
 function buildLineItemSummaries(items: StoredLineItem[], currency: string): string[] {
@@ -156,6 +180,47 @@ function buildLineItemSummaries(items: StoredLineItem[], currency: string): stri
     }
     if (item.customText) segments.push(`notes: ${item.customText}`)
     return segments.join(' | ')
+  })
+}
+
+function buildOrderWorksLineItems(items: StoredLineItem[], summaries: string[], currency: string): OrderWorksLineItem[] {
+  const safeCurrency = currency?.toUpperCase() || 'USD'
+  return items.map((item, idx) => {
+    const label = item.title || item.modelId || `Item ${idx + 1}`
+    const qty = typeof item.qty === 'number' && Number.isFinite(item.qty) && item.qty > 0 ? item.qty : 1
+    const unitPrice = typeof item.unitPrice === 'number' && Number.isFinite(item.unitPrice) ? Number(item.unitPrice.toFixed(2)) : undefined
+    const lineTotal = typeof item.lineTotal === 'number' && Number.isFinite(item.lineTotal) ? Number(item.lineTotal.toFixed(2)) : undefined
+    const pointer = buildFilePointerForItem(item)
+    const summary = summaries[idx] || `${qty}x ${label}`
+    const colors = Array.isArray(item.colors)
+      ? item.colors.filter((color) => typeof color === 'string' && color.trim().length > 0)
+      : []
+    return {
+      label,
+      title: label,
+      name: label,
+      summary,
+      quantity: qty,
+      qty,
+      unitPrice,
+      unitPriceCents: unitPrice != null ? Math.round(unitPrice * 100) : undefined,
+      lineTotal,
+      lineTotalCents: lineTotal != null ? Math.round(lineTotal * 100) : undefined,
+      material: item.material || 'PLA',
+      colors,
+      scale: typeof item.scale === 'number' && Number.isFinite(item.scale) && item.scale > 0 ? item.scale : 1,
+      notes: item.customText || '',
+      storagePath: pointer?.storagePath || null,
+      storageUrl: pointer?.storageUrl || null,
+      downloadUrl: pointer?.downloadUrl || null,
+      bambuStudioUrl: pointer?.bambuStudioUrl || null,
+      metadata: {
+        modelId: item.modelId || null,
+        partId: item.partId || null,
+        partName: item.partName || null,
+        currency: safeCurrency,
+      },
+    }
   })
 }
 
@@ -225,14 +290,16 @@ async function sendJobToOrderWorks(jobId: string) {
   const job = await prisma.jobForm.findUnique({ where: { id: jobId } })
   if (!job) return
   const storedLineItems = coerceLineItems(job.lineItems)
-  const files = extractFilePointers(storedLineItems)
   const lineItemSummaries = buildLineItemSummaries(storedLineItems, job.currency || 'USD')
+  const orderWorksLineItems = buildOrderWorksLineItems(storedLineItems, lineItemSummaries, job.currency || 'USD')
+  const files = extractFilePointers(storedLineItems)
   const payload = {
     id: job.id,
     paymentIntentId: job.paymentIntentId,
     totalCents: job.totalCents,
     currency: job.currency,
-    lineItems: storedLineItems,
+    lineItems: orderWorksLineItems,
+    makerworksLineItems: storedLineItems,
     lineItemSummaries,
     files,
     shipping: job.shipping,
