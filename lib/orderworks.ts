@@ -140,6 +140,28 @@ const PRIMARY_TARGET = process.env.ORDERWORKS_WEBHOOK_URL
 
 const WEBHOOK_TARGETS: WebhookTarget[] = [...PRIMARY_TARGET, ...parseAdditionalTargets()]
 
+function encodeFormValue(value: unknown): string {
+  if (value === undefined || value === null) return ''
+  if (value instanceof Date) return value.toISOString()
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return ''
+    }
+  }
+  return String(value)
+}
+
+function buildFormEncodedPayload(payload: Record<string, unknown>): string {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined) continue
+    params.set(key, encodeFormValue(value))
+  }
+  return params.toString()
+}
+
 function toSafeString(value: string | null | undefined, fallback = '') {
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -359,12 +381,23 @@ async function sendJobToOrderWorks(jobId: string) {
     createdAt: job.createdAt,
   }
   const errors: string[] = []
-  const body = JSON.stringify(payload)
+  const jsonBody = JSON.stringify(payload)
   for (const target of WEBHOOK_TARGETS) {
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const headers: Record<string, string> = {}
+      let bodyToSend: BodyInit = jsonBody
+      let bodyForSignature = jsonBody
+      const isPrimaryOrderWorks = target.label === 'orderworks'
+      if (isPrimaryOrderWorks) {
+        const formBody = buildFormEncodedPayload(payload)
+        bodyToSend = formBody
+        bodyForSignature = formBody
+        headers['Content-Type'] = 'application/x-www-form-urlencoded'
+      } else {
+        headers['Content-Type'] = 'application/json'
+      }
       if (target.secret) {
-        const signature = buildMakerWorksSignature(target.secret, body)
+        const signature = buildMakerWorksSignature(target.secret, bodyForSignature)
         headers.Authorization = `Bearer ${target.secret}`
         headers['X-MakerWorks-Signature'] = `sha256=${signature.bodyDigest}`
         headers['MakerWorks-Signature'] = `sha256=${signature.bodyDigest}`
@@ -376,7 +409,7 @@ async function sendJobToOrderWorks(jobId: string) {
       const response = await fetch(target.url, {
         method: 'POST',
         headers,
-        body,
+        body: bodyToSend,
       })
       if (!response.ok) {
         const errorText = await response.text().catch(() => '')
