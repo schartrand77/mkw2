@@ -115,8 +115,7 @@ function coerceLineItems(raw: unknown): StoredLineItem[] {
     .filter((item): item is StoredLineItem => !!item)
 }
 
-function extractFilePointers(raw: unknown): FilePointer[] {
-  const items = coerceLineItems(raw)
+function extractFilePointers(items: StoredLineItem[]): FilePointer[] {
   return items
     .map((item) => ({
       label: item.title || item.modelId || 'Item',
@@ -137,8 +136,7 @@ function extractFilePointers(raw: unknown): FilePointer[] {
     .filter((ptr) => ptr.storagePath || ptr.storageUrl)
 }
 
-function buildLineItemSummaries(raw: unknown, currency: string): string[] {
-  const items = coerceLineItems(raw)
+function buildLineItemSummaries(items: StoredLineItem[], currency: string): string[] {
   if (items.length === 0) return []
   const safeCurrency = currency?.toUpperCase() || 'USD'
   return items.map((item) => {
@@ -226,14 +224,16 @@ async function sendJobToOrderWorks(jobId: string) {
   }
   const job = await prisma.jobForm.findUnique({ where: { id: jobId } })
   if (!job) return
-  const files = extractFilePointers(job.lineItems)
-  const lineItems = buildLineItemSummaries(job.lineItems, job.currency || 'USD')
+  const storedLineItems = coerceLineItems(job.lineItems)
+  const files = extractFilePointers(storedLineItems)
+  const lineItemSummaries = buildLineItemSummaries(storedLineItems, job.currency || 'USD')
   const payload = {
     id: job.id,
     paymentIntentId: job.paymentIntentId,
     totalCents: job.totalCents,
     currency: job.currency,
-    lineItems,
+    lineItems: storedLineItems,
+    lineItemSummaries,
     files,
     shipping: job.shipping,
     metadata: job.metadata,
