@@ -54,17 +54,19 @@ type OrderWorksLineItem = {
   modelId: string
   partId: string
   partName: string
+  description: string
   label: string
   title: string
   name: string
   summary: string
   quantity: number
   qty: number
-  unitPriceCents?: number
+  unitPriceCents: number
   unitPrice?: number
-  lineTotalCents?: number
+  lineTotalCents: number
   lineTotal?: number
   material: string
+  color?: string
   colors: string[]
   scale: number
   notes: string
@@ -212,8 +214,13 @@ function buildOrderWorksLineItems(items: StoredLineItem[], summaries: string[], 
     const qty = typeof item.qty === 'number' && Number.isFinite(item.qty) && item.qty > 0 ? item.qty : 1
     const title = toSafeString(item.title || item.modelId, `Item ${idx + 1}`)
     const summary = summaries[idx] || `${qty}x ${title}`
-    const unitPrice = typeof item.unitPrice === 'number' && Number.isFinite(item.unitPrice) ? Number(item.unitPrice.toFixed(2)) : undefined
-    const lineTotal = typeof item.lineTotal === 'number' && Number.isFinite(item.lineTotal) ? Number(item.lineTotal.toFixed(2)) : undefined
+    const rawUnitPrice = typeof item.unitPrice === 'number' && Number.isFinite(item.unitPrice) ? Number(item.unitPrice) : undefined
+    const rawLineTotal = typeof item.lineTotal === 'number' && Number.isFinite(item.lineTotal) ? Number(item.lineTotal) : undefined
+    const unitPrice = rawUnitPrice != null ? Number(rawUnitPrice.toFixed(2)) : rawLineTotal != null ? Number((rawLineTotal / qty).toFixed(2)) : undefined
+    const lineTotal = rawLineTotal != null ? Number(rawLineTotal.toFixed(2)) : unitPrice != null ? Number((unitPrice * qty).toFixed(2)) : undefined
+    const derivedUnitPrice = unitPrice ?? (lineTotal != null ? lineTotal / qty : undefined)
+    const unitPriceCents = derivedUnitPrice != null ? Math.max(0, Math.round(derivedUnitPrice * 100)) : 0
+    const lineTotalCents = lineTotal != null ? Math.max(0, Math.round(lineTotal * 100)) : unitPriceCents * qty
     const pointer = buildFilePointerForItem(item)
     const storagePath = toSafeString(pointer?.storagePath ?? item.storagePath ?? null, '')
     const storageUrl = toSafeString(pointer?.storageUrl ?? item.storageUrl ?? null, '')
@@ -244,6 +251,7 @@ function buildOrderWorksLineItems(items: StoredLineItem[], summaries: string[], 
       modelId,
       partId,
       partName,
+      description: summary,
       label: title,
       title,
       name: title,
@@ -251,10 +259,11 @@ function buildOrderWorksLineItems(items: StoredLineItem[], summaries: string[], 
       quantity: qty,
       qty,
       unitPrice,
-      unitPriceCents: unitPrice != null ? Math.round(unitPrice * 100) : undefined,
+      unitPriceCents,
       lineTotal,
-      lineTotalCents: lineTotal != null ? Math.round(lineTotal * 100) : undefined,
+      lineTotalCents,
       material,
+      color: colors[0],
       colors,
       scale: typeof item.scale === 'number' && Number.isFinite(item.scale) && item.scale > 0 ? Number(item.scale) : 1,
       notes,
