@@ -50,6 +50,10 @@ type MakerWorksSignature = {
 }
 
 type OrderWorksLineItem = {
+  id: string
+  modelId: string
+  partId: string
+  partName: string
   label: string
   title: string
   name: string
@@ -64,11 +68,20 @@ type OrderWorksLineItem = {
   colors: string[]
   scale: number
   notes: string
-  storagePath?: string | null
-  storageUrl?: string | null
-  downloadUrl?: string | null
-  bambuStudioUrl?: string | null
+  storagePath: string
+  storageUrl: string
+  downloadUrl: string
+  bambuStudioUrl: string
+  files: OrderWorksFilePointer[]
   metadata?: Record<string, string | number | null>
+}
+
+type OrderWorksFilePointer = {
+  label: string
+  storagePath: string
+  storageUrl: string
+  downloadUrl: string
+  bambuStudioUrl: string
 }
 
 function buildMakerWorksSignature(secret: string, body: string): MakerWorksSignature {
@@ -126,6 +139,16 @@ const PRIMARY_TARGET = process.env.ORDERWORKS_WEBHOOK_URL
   : []
 
 const WEBHOOK_TARGETS: WebhookTarget[] = [...PRIMARY_TARGET, ...parseAdditionalTargets()]
+
+function toSafeString(value: string | null | undefined, fallback = '') {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : fallback
+  }
+  if (value === null || value === undefined) return fallback
+  const stringified = String(value)
+  return stringified.length > 0 ? stringified : fallback
+}
 
 function coerceLineItems(raw: unknown): StoredLineItem[] {
   if (!Array.isArray(raw)) return []
@@ -186,19 +209,44 @@ function buildLineItemSummaries(items: StoredLineItem[], currency: string): stri
 function buildOrderWorksLineItems(items: StoredLineItem[], summaries: string[], currency: string): OrderWorksLineItem[] {
   const safeCurrency = currency?.toUpperCase() || 'USD'
   return items.map((item, idx) => {
-    const label = item.title || item.modelId || `Item ${idx + 1}`
     const qty = typeof item.qty === 'number' && Number.isFinite(item.qty) && item.qty > 0 ? item.qty : 1
+    const title = toSafeString(item.title || item.modelId, `Item ${idx + 1}`)
+    const summary = summaries[idx] || `${qty}x ${title}`
     const unitPrice = typeof item.unitPrice === 'number' && Number.isFinite(item.unitPrice) ? Number(item.unitPrice.toFixed(2)) : undefined
     const lineTotal = typeof item.lineTotal === 'number' && Number.isFinite(item.lineTotal) ? Number(item.lineTotal.toFixed(2)) : undefined
     const pointer = buildFilePointerForItem(item)
-    const summary = summaries[idx] || `${qty}x ${label}`
+    const storagePath = toSafeString(pointer?.storagePath ?? item.storagePath ?? null, '')
+    const storageUrl = toSafeString(pointer?.storageUrl ?? item.storageUrl ?? null, '')
+    const downloadUrl = toSafeString(pointer?.downloadUrl ?? null, storageUrl)
+    const bambuStudioUrl = toSafeString(pointer?.bambuStudioUrl ?? null, '')
+    const material = toSafeString(item.material, 'PLA')
+    const modelId = toSafeString(item.modelId, `item-${idx + 1}`)
+    const partId = toSafeString(item.partId ?? null, '')
+    const partName = toSafeString(item.partName ?? null, '')
+    const notes = toSafeString(item.customText ?? null, '')
     const colors = Array.isArray(item.colors)
-      ? item.colors.filter((color) => typeof color === 'string' && color.trim().length > 0)
+      ? item.colors.filter((color) => typeof color === 'string' && color.trim().length > 0).map((color) => color.trim())
       : []
+    const files: OrderWorksFilePointer[] = storagePath || storageUrl || downloadUrl || bambuStudioUrl
+      ? [
+          {
+            label: toSafeString(pointer?.label ?? null, title),
+            storagePath,
+            storageUrl,
+            downloadUrl,
+            bambuStudioUrl,
+          },
+        ]
+      : []
+    const lineItemId = toSafeString(item.partId || item.modelId || null, `item-${idx + 1}`)
     return {
-      label,
-      title: label,
-      name: label,
+      id: lineItemId,
+      modelId,
+      partId,
+      partName,
+      label: title,
+      title,
+      name: title,
       summary,
       quantity: qty,
       qty,
@@ -206,18 +254,20 @@ function buildOrderWorksLineItems(items: StoredLineItem[], summaries: string[], 
       unitPriceCents: unitPrice != null ? Math.round(unitPrice * 100) : undefined,
       lineTotal,
       lineTotalCents: lineTotal != null ? Math.round(lineTotal * 100) : undefined,
-      material: item.material || 'PLA',
+      material,
       colors,
-      scale: typeof item.scale === 'number' && Number.isFinite(item.scale) && item.scale > 0 ? item.scale : 1,
-      notes: item.customText || '',
-      storagePath: pointer?.storagePath || null,
-      storageUrl: pointer?.storageUrl || null,
-      downloadUrl: pointer?.downloadUrl || null,
-      bambuStudioUrl: pointer?.bambuStudioUrl || null,
+      scale: typeof item.scale === 'number' && Number.isFinite(item.scale) && item.scale > 0 ? Number(item.scale) : 1,
+      notes,
+      storagePath,
+      storageUrl,
+      downloadUrl,
+      bambuStudioUrl,
+      files,
       metadata: {
-        modelId: item.modelId || null,
-        partId: item.partId || null,
-        partName: item.partName || null,
+        modelId,
+        partId: partId || null,
+        partName: partName || null,
+        summary,
         currency: safeCurrency,
       },
     }
