@@ -140,28 +140,6 @@ const PRIMARY_TARGET = process.env.ORDERWORKS_WEBHOOK_URL
 
 const WEBHOOK_TARGETS: WebhookTarget[] = [...PRIMARY_TARGET, ...parseAdditionalTargets()]
 
-function encodeFormValue(value: unknown): string {
-  if (value === undefined || value === null) return ''
-  if (value instanceof Date) return value.toISOString()
-  if (typeof value === 'object') {
-    try {
-      return JSON.stringify(value)
-    } catch {
-      return ''
-    }
-  }
-  return String(value)
-}
-
-function buildPrimaryOrderWorksPayload(payload: Record<string, unknown>): Record<string, string> {
-  const normalized: Record<string, string> = {}
-  for (const [key, value] of Object.entries(payload)) {
-    if (value === undefined) continue
-    normalized[key] = encodeFormValue(value)
-  }
-  return normalized
-}
-
 function toSafeString(value: string | null | undefined, fallback = '') {
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -385,15 +363,8 @@ async function sendJobToOrderWorks(jobId: string) {
   for (const target of WEBHOOK_TARGETS) {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      let bodyToSend: BodyInit = jsonBody
-      let bodyForSignature = jsonBody
-      const isPrimaryOrderWorks = target.label === 'orderworks'
-      if (isPrimaryOrderWorks) {
-        const normalizedPayload = buildPrimaryOrderWorksPayload(payload)
-        const normalizedBody = JSON.stringify(normalizedPayload)
-        bodyToSend = normalizedBody
-        bodyForSignature = normalizedBody
-      }
+      const bodyToSend: BodyInit = jsonBody
+      const bodyForSignature = jsonBody
       if (target.secret) {
         const signature = buildMakerWorksSignature(target.secret, bodyForSignature)
         headers.Authorization = `Bearer ${target.secret}`
