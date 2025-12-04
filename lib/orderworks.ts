@@ -153,13 +153,13 @@ function encodeFormValue(value: unknown): string {
   return String(value)
 }
 
-function buildFormEncodedPayload(payload: Record<string, unknown>): string {
-  const params = new URLSearchParams()
+function buildPrimaryOrderWorksPayload(payload: Record<string, unknown>): Record<string, string> {
+  const normalized: Record<string, string> = {}
   for (const [key, value] of Object.entries(payload)) {
     if (value === undefined) continue
-    params.set(key, encodeFormValue(value))
+    normalized[key] = encodeFormValue(value)
   }
-  return params.toString()
+  return normalized
 }
 
 function toSafeString(value: string | null | undefined, fallback = '') {
@@ -384,17 +384,15 @@ async function sendJobToOrderWorks(jobId: string) {
   const jsonBody = JSON.stringify(payload)
   for (const target of WEBHOOK_TARGETS) {
     try {
-      const headers: Record<string, string> = {}
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       let bodyToSend: BodyInit = jsonBody
       let bodyForSignature = jsonBody
       const isPrimaryOrderWorks = target.label === 'orderworks'
       if (isPrimaryOrderWorks) {
-        const formBody = buildFormEncodedPayload(payload)
-        bodyToSend = formBody
-        bodyForSignature = formBody
-        headers['Content-Type'] = 'application/x-www-form-urlencoded'
-      } else {
-        headers['Content-Type'] = 'application/json'
+        const normalizedPayload = buildPrimaryOrderWorksPayload(payload)
+        const normalizedBody = JSON.stringify(normalizedPayload)
+        bodyToSend = normalizedBody
+        bodyForSignature = normalizedBody
       }
       if (target.secret) {
         const signature = buildMakerWorksSignature(target.secret, bodyForSignature)
