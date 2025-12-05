@@ -1,4 +1,7 @@
 import Link from 'next/link'
+import { cookies } from 'next/headers'
+import ViewPreferenceSync from '@/components/discover/ViewPreferenceSync'
+import ViewToggle from '@/components/discover/ViewToggle'
 import { formatCurrency } from '@/lib/currency'
 import AddToCartButtons from '@/components/cart/AddToCartButtons'
 import { buildImageSrc } from '@/lib/public-path'
@@ -55,7 +58,11 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
       else if (v) params.set(k, v)
     }
   }
-  const viewMode: 'grid' | 'compact' = params.get('view') === 'compact' ? 'compact' : 'grid'
+  const cookieStore = cookies()
+  const storedView = cookieStore.get('mwv2_discover_view')?.value === 'compact' ? 'compact' : 'grid'
+  const requestedView = params.get('view')
+  const viewMode: 'grid' | 'compact' =
+    requestedView === 'compact' ? 'compact' : requestedView === 'grid' ? 'grid' : storedView
   if (viewMode === 'grid') params.delete('view')
   else params.set('view', 'compact')
   const page = Math.max(1, parseInt(params.get('page') || '1', 10) || 1)
@@ -86,11 +93,12 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
     return { model: m, coverSrc, priceLabel, sizeLabel, partsLabel }
   })
   const hasModels = cards.length > 0
-  const gridViewHref = buildQS({ page: 1, view: '' }, params)
+  const gridViewHref = buildQS({ page: 1, view: viewMode === 'compact' ? 'grid' : '' }, params)
   const compactViewHref = buildQS({ page: 1, view: 'compact' }, params)
 
   return (
     <div className="space-y-6">
+      <ViewPreferenceSync viewMode={viewMode} storedView={storedView} />
       <h1 className="page-title text-3xl font-semibold">Discover Models</h1>
       <form method="get" className="grid md:grid-cols-4 gap-3 items-end">
         <div className="md:col-span-2">
@@ -124,25 +132,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
         <p className="text-sm text-slate-400">
           Showing {safeTotal > 0 ? `${showingStart}-${showingEnd}` : 0} of {safeTotal} models
         </p>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-xs uppercase tracking-[0.3em] text-slate-500">View</span>
-          <div className="inline-flex rounded-lg border border-white/10 overflow-hidden">
-            <Link
-              href={gridViewHref}
-              className={`px-3 py-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'}`}
-              aria-pressed={viewMode === 'grid'}
-            >
-              Gallery
-            </Link>
-            <Link
-              href={compactViewHref}
-              className={`px-3 py-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${viewMode === 'compact' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'}`}
-              aria-pressed={viewMode === 'compact'}
-            >
-              Compact
-            </Link>
-          </div>
-        </div>
+        <ViewToggle viewMode={viewMode} gridHref={gridViewHref} compactHref={compactViewHref} />
       </div>
 
       {hasModels ? (
