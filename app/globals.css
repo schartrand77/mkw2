@@ -187,15 +187,17 @@ html.theme-light .marquee-fade-right {
 /* Holiday theming */
 html.theme-light body.holiday-christmas {
   background:
-    radial-gradient(1400px 800px at 100% -20%, rgba(56, 189, 248, 0.12), transparent),
-    radial-gradient(900px 700px at 0% 0%, rgba(74, 222, 128, 0.18), transparent),
-    #030712;
+    radial-gradient(1400px 800px at 100% -20%, rgba(56, 189, 248, 0.18), transparent),
+    radial-gradient(900px 700px at 0% 0%, rgba(74, 222, 128, 0.2), transparent),
+    #f5fbff;
+  color: #041425;
 }
 html.theme-light body.holiday-halloween {
   background:
-    radial-gradient(1000px 600px at 20% -10%, rgba(249, 115, 22, 0.25), transparent),
-    radial-gradient(800px 600px at 100% 20%, rgba(126, 34, 206, 0.24), transparent),
-    #0f0a14;
+    radial-gradient(1100px 700px at 20% -15%, rgba(249, 115, 22, 0.2), transparent),
+    radial-gradient(900px 650px at 100% 15%, rgba(147, 51, 234, 0.18), transparent),
+    #fff9f3;
+  color: #1a0f0b;
 }
 html.theme-light body.holiday-easter {
   background:
