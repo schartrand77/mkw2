@@ -86,6 +86,19 @@ type OrderWorksFilePointer = {
   bambuStudioUrl: string
 }
 
+type PartFileRecord = {
+  id: string
+  modelId: string
+  filePath: string | null
+  previewFilePath: string | null
+}
+
+type ModelFileRecord = {
+  id: string
+  filePath: string | null
+  viewerFilePath: string | null
+}
+
 function buildMakerWorksSignature(secret: string, body: string): MakerWorksSignature {
   const timestamp = Math.floor(Date.now() / 1000)
   const canonicalPayload = `${timestamp}.${body}`
@@ -142,6 +155,15 @@ const PRIMARY_TARGET = process.env.ORDERWORKS_WEBHOOK_URL
 
 const WEBHOOK_TARGETS: WebhookTarget[] = [...PRIMARY_TARGET, ...parseAdditionalTargets()]
 
+function sanitizeStoragePathValue(path?: string | null) {
+  if (!path) return null
+  const trimmed = String(path).trim()
+  if (!trimmed) return null
+  const normalized = trimmed.replace(/\\/g, '/').replace(/\/{2,}/g, '/')
+  if (!normalized) return null
+  return normalized.startsWith('/') ? normalized : `/${normalized}`
+}
+
 function toSafeString(value: string | null | undefined, fallback = '') {
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -163,7 +185,7 @@ function coerceLineItems(raw: unknown): StoredLineItem[] {
 }
 
 function buildFilePointerForItem(item: StoredLineItem): FilePointer | null {
-  const storagePath = item.storagePath || null
+  const storagePath = sanitizeStoragePathValue(item.storagePath)
   const storageUrl = item.storageUrl || null
   if (!storagePath && !storageUrl) return null
   const fileRoute = storagePath ? buildFilesRoute(storagePath) : null
@@ -183,6 +205,57 @@ function extractFilePointers(items: StoredLineItem[]): FilePointer[] {
   return items
     .map((item) => buildFilePointerForItem(item))
     .filter((ptr): ptr is FilePointer => Boolean(ptr))
+}
+
+async function hydrateLineItemFiles(items: StoredLineItem[]): Promise<StoredLineItem[]> {
+  const missing = items.filter((item) => !item?.storagePath && !item?.storageUrl && (item?.modelId || item?.partId))
+  if (missing.length === 0) return items
+  const partIds = Array.from(new Set(missing.map((item) => item.partId).filter((val): val is string => typeof val === 'string' && val.length > 0)))
+  const modelIds = Array.from(new Set(missing.map((item) => item.modelId).filter((val): val is string => typeof val === 'string' && val.length > 0)))
+  const [parts, models] = await Promise.all([
+    partIds.length > 0
+      ? prisma.modelPart.findMany({
+          where: { id: { in: partIds } },
+          select: { id: true, modelId: true, filePath: true, previewFilePath: true },
+        })
+      : Promise.resolve([] as PartFileRecord[]),
+    modelIds.length > 0
+      ? prisma.model.findMany({
+          where: { id: { in: modelIds } },
+          select: { id: true, filePath: true, viewerFilePath: true },
+        })
+      : Promise.resolve([] as ModelFileRecord[]),
+  ])
+  const partMap = new Map<string, PartFileRecord>(parts.map((part) => [part.id, part]))
+  const modelMap = new Map<string, ModelFileRecord>(models.map((model) => [model.id, model]))
+
+  const findFallbackPath = (item: StoredLineItem): string | null => {
+    if (item.partId && partMap.has(item.partId)) {
+      const part = partMap.get(item.partId)!
+      const partPath = sanitizeStoragePathValue(part.filePath) || sanitizeStoragePathValue(part.previewFilePath)
+      if (partPath) return partPath
+      if (part.modelId && modelMap.has(part.modelId)) {
+        const parent = modelMap.get(part.modelId)!
+        const parentPath = sanitizeStoragePathValue(parent.filePath) || sanitizeStoragePathValue(parent.viewerFilePath)
+        if (parentPath) return parentPath
+      }
+    }
+    if (item.modelId && modelMap.has(item.modelId)) {
+      const model = modelMap.get(item.modelId)!
+      return sanitizeStoragePathValue(model.filePath) || sanitizeStoragePathValue(model.viewerFilePath)
+    }
+    return null
+  }
+
+  return items.map((item) => {
+    if (item.storagePath || item.storageUrl) return item
+    const fallbackPath = findFallbackPath(item)
+    if (!fallbackPath) return item
+    return {
+      ...item,
+      storagePath: fallbackPath,
+    }
+  })
 }
 
 function buildLineItemSummaries(items: StoredLineItem[], currency: string): string[] {
@@ -349,9 +422,10 @@ async function sendJobToOrderWorks(jobId: string) {
   const job = await prisma.jobForm.findUnique({ where: { id: jobId } })
   if (!job) return
   const storedLineItems = coerceLineItems(job.lineItems)
-  const lineItemSummaries = buildLineItemSummaries(storedLineItems, job.currency || 'USD')
-  const orderWorksLineItems = buildOrderWorksLineItems(storedLineItems, lineItemSummaries, job.currency || 'USD')
-  const files = extractFilePointers(storedLineItems)
+  const hydratedLineItems = await hydrateLineItemFiles(storedLineItems)
+  const lineItemSummaries = buildLineItemSummaries(hydratedLineItems, job.currency || 'USD')
+  const orderWorksLineItems = buildOrderWorksLineItems(hydratedLineItems, lineItemSummaries, job.currency || 'USD')
+  const files = extractFilePointers(hydratedLineItems)
   const payload = {
     id: job.id,
     paymentIntentId: job.paymentIntentId,
@@ -359,7 +433,7 @@ async function sendJobToOrderWorks(jobId: string) {
     currency: job.currency,
     lineItems: orderWorksLineItems,
     lineItemSummaries,
-    makerworksLineItems: storedLineItems,
+    makerworksLineItems: hydratedLineItems,
     files,
     shipping: job.shipping,
     metadata: job.metadata,
