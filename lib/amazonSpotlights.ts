@@ -17,10 +17,21 @@ export type AmazonSpotlightCard = AmazonShopItemWithUrl & {
   canonicalUrl?: string
 }
 
-function stripDepartmentPrefix(rawTitle: string, fallback: string): string {
-  const title = (rawTitle || '').trim()
-  if (!title) return fallback
-  const cleaned = title.replace(/^(industrial\s*&\s*scientific(?:\s+store)?)\s*([:|–-]+\s*)?/i, '').trim()
+function stripDepartmentNoise(raw: string | null | undefined, fallback: string): string {
+  const source = (raw || '').trim()
+  if (!source) return fallback
+  const phraseSource = 'industrial\\s*&\\s*scientific(?:\\s+store)?'
+  const colonPattern = new RegExp(`\\s*[:|–-]\\s*(?=${phraseSource})`, 'gi')
+  const connectorPattern = new RegExp(`\\b(?:at|in|from)\\s+(?:the\\s+|an\\s+|a\\s+)?(?=${phraseSource})`, 'gi')
+  const phrasePattern = new RegExp(phraseSource, 'gi')
+  let cleaned = source
+  cleaned = cleaned.replace(colonPattern, ' ')
+  cleaned = cleaned.replace(connectorPattern, '')
+  cleaned = cleaned.replace(phrasePattern, ' ')
+  cleaned = cleaned.replace(/\s{2,}/g, ' ')
+  cleaned = cleaned.replace(/\s+([,.;!?:])/g, '$1')
+  cleaned = cleaned.replace(/^[\s|:,-]+/, '').replace(/[\s|:,-]+$/, '')
+  cleaned = cleaned.trim()
   return cleaned.length > 0 ? cleaned : fallback
 }
 
@@ -44,11 +55,15 @@ export async function getAmazonSpotlightCards(): Promise<
         }
       }
 
+      const cleanedDescription = meta?.description
+        ? stripDepartmentNoise(meta.description, item.description)
+        : undefined
+
       return {
         ...item,
-        displayTitle: stripDepartmentPrefix(meta?.title || item.title, item.title),
+        displayTitle: stripDepartmentNoise(meta?.title || item.title, item.title),
         displayImage: meta?.image || item.image,
-        descriptionFromAmazon: meta?.description,
+        descriptionFromAmazon: cleanedDescription,
         canonicalUrl: meta?.url || item.url,
         url: meta?.url || item.url,
       }
