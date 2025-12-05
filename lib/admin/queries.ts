@@ -10,7 +10,7 @@ export async function fetchAdminUsersWithBadges() {
       name: true,
       emailVerified: true,
       createdAt: true,
-      profile: { select: { slug: true } },
+      profile: { select: { slug: true, avatarImagePath: true } },
       badges: { include: { achievement: true } },
       discountPercent: true,
       isFriendsAndFamily: true,

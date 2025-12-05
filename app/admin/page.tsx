@@ -88,7 +88,7 @@ export default async function AdminPage() {
       </div>
       <div className="grid md:grid-cols-2 gap-6">
         <CollapsibleCard
-          title="Users & badges"
+          title="Users"
           subtitle="Manage accounts, permissions, and badge awards"
           bodyClassName="space-y-4 p-6"
         >
