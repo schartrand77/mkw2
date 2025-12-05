@@ -92,6 +92,24 @@ html.theme-light .btn {
   box-shadow: 0 18px 35px rgba(var(--empire-crimson-rgb) / 0.35);
 }
 
+/* Light theme text utilities tweak to keep contrast on bright surfaces */
+html.theme-light .text-white,
+html.theme-light .text-slate-50,
+html.theme-light .text-slate-100 {
+  color: #0f172a !important;
+}
+html.theme-light .text-slate-200,
+html.theme-light .text-slate-300 {
+  color: #1f2937 !important;
+}
+html.theme-light .text-slate-400 {
+  color: #334155 !important;
+}
+html.theme-light .text-slate-500,
+html.theme-light .text-slate-600 {
+  color: #475569 !important;
+}
+
 .page-title {
   position: relative;
   display: inline-flex;
