@@ -17,6 +17,13 @@ export type AmazonSpotlightCard = AmazonShopItemWithUrl & {
   canonicalUrl?: string
 }
 
+function stripDepartmentPrefix(rawTitle: string, fallback: string): string {
+  const title = (rawTitle || '').trim()
+  if (!title) return fallback
+  const cleaned = title.replace(/^(industrial\s*&\s*scientific(?:\s+store)?)\s*([:|–-]+\s*)?/i, '').trim()
+  return cleaned.length > 0 ? cleaned : fallback
+}
+
 export async function getAmazonSpotlightCards(): Promise<
   AmazonSpotlightCard[]
 > {
@@ -39,7 +46,7 @@ export async function getAmazonSpotlightCards(): Promise<
 
       return {
         ...item,
-        displayTitle: meta?.title || item.title,
+        displayTitle: stripDepartmentPrefix(meta?.title || item.title, item.title),
         displayImage: meta?.image || item.image,
         descriptionFromAmazon: meta?.description,
         canonicalUrl: meta?.url || item.url,
