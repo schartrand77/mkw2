@@ -44,9 +44,12 @@ function revalidateModelPaths(id: string) {
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+type AdminModelCoverContext = { params: Promise<{ id: string }> }
+
+export async function PATCH(req: NextRequest, { params }: AdminModelCoverContext) {
+  const { id } = await params
   await requireAdmin()
-  const model = await prisma.model.findUnique({ where: { id: params.id }, select: { id: true, coverImagePath: true } })
+  const model = await prisma.model.findUnique({ where: { id }, select: { id: true, coverImagePath: true } })
   if (!model) return NextResponse.json({ error: 'Model not found' }, { status: 404 })
   if (!model.coverImagePath) return NextResponse.json({ error: 'Cover image missing' }, { status: 400 })
 
@@ -64,7 +67,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     console.error('Failed to rotate cover image (admin)', err)
     return NextResponse.json({ error: 'Failed to rotate cover image' }, { status: 500 })
   }
-  await prisma.model.update({ where: { id: params.id }, data: { coverImagePath: model.coverImagePath } })
-  revalidateModelPaths(params.id)
+  await prisma.model.update({ where: { id }, data: { coverImagePath: model.coverImagePath } })
+  revalidateModelPaths(id)
   return NextResponse.json({ ok: true })
 }

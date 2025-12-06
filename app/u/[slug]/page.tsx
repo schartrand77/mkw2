@@ -57,11 +57,15 @@ async function getUserModels(userId: string) {
   })
 }
 
-export default async function UserPage({ params }: { params: { slug: string } }) {
-  const profile = await getProfile(params.slug)
+type UserPageProps = { params: Promise<{ slug: string }> }
+
+export default async function UserPage({ params }: UserPageProps) {
+  const { slug } = await params
+  const profile = await getProfile(slug)
   if (!profile) return <div>Profile not found</div>
   const models = await getUserModels(profile.userId)
-  const token = cookies().get('mwv2_token')?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get('mwv2_token')?.value
   const current = token ? verifyToken(token)?.sub : null
   const avatarSrc = toPublicHref(profile.avatarImagePath)
   const contactItems = [

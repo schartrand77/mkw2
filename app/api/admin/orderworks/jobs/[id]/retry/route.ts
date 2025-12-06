@@ -6,16 +6,15 @@ import { serializeJob, type JobWithUser } from '../../_helpers'
 
 export const dynamic = 'force-dynamic'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 export async function POST(_req: Request, { params }: Params) {
+  const { id } = await params
   try {
     await requireAdmin()
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 })
   }
-
-  const id = params.id
   const job = await prisma.jobForm.findUnique({
     where: { id },
     include: { user: { select: { id: true, name: true, email: true } } },

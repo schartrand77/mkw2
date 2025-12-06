@@ -6,16 +6,20 @@ import ModelEditForm from '@/components/ModelEditForm'
 import ModelImagesManager from '@/components/ModelImagesManager'
 import { MODEL_IMAGE_LIMIT } from '@/lib/model-images'
 
-export default async function EditModelPage({ params }: { params: { id: string } }) {
-  const token = cookies().get('mwv2_token')?.value
+type EditModelPageProps = { params: Promise<{ id: string }> }
+
+export default async function EditModelPage({ params }: EditModelPageProps) {
+  const { id } = await params
+  const cookieStore = await cookies()
+  const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   if (!payload?.sub) redirect('/login')
   const [model, me] = await Promise.all([
-    prisma.model.findUnique({ where: { id: params.id } }),
+    prisma.model.findUnique({ where: { id } }),
     prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
   ])
-  if (!model) redirect('/models/' + params.id)
-  if (model.userId !== payload.sub && !me?.isAdmin) redirect('/models/' + params.id)
+  if (!model) redirect('/models/' + id)
+  if (model.userId !== payload.sub && !me?.isAdmin) redirect('/models/' + id)
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">

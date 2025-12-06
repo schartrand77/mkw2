@@ -5,14 +5,18 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import ModelImagesManager from '@/components/ModelImagesManager'
 
-export default async function AdminModelImagesPage({ params }: { params: { id: string } }) {
-  const token = cookies().get('mwv2_token')?.value
+type AdminModelImagesPageProps = { params: Promise<{ id: string }> }
+
+export default async function AdminModelImagesPage({ params }: AdminModelImagesPageProps) {
+  const { id } = await params
+  const cookieStore = await cookies()
+  const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   if (!payload?.sub) redirect('/login')
   const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
   if (!user?.isAdmin) redirect('/')
 
-  const model = await prisma.model.findUnique({ where: { id: params.id }, select: { id: true, title: true, coverImagePath: true } })
+  const model = await prisma.model.findUnique({ where: { id }, select: { id: true, title: true, coverImagePath: true } })
   if (!model) redirect('/admin')
 
   return (

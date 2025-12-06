@@ -11,9 +11,11 @@ export const dynamic = 'force-dynamic'
 
 const SALE_PRICE_UNITS = new Set(['ea', 'bx', 'complete'])
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+type AdminModelContext = { params: Promise<{ id: string }> }
+
+export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
+  const { id } = await params
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
-  const id = params.id
   let body: any
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
@@ -103,10 +105,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ ok: true })
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: AdminModelContext) {
+  const { id } = await params
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const model = await prisma.model.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { images: true, parts: true },
   })
   if (!model) return NextResponse.json({ error: 'Not found' }, { status: 404 })

@@ -5,8 +5,11 @@ import { stat } from 'fs/promises'
 import path from 'path'
 import { storageRoot } from '@/lib/storage'
 
-export async function GET(req: NextRequest, { params }: { params: { path: string[] } }) {
-  const relPath = params.path.join('/')
+type FileRouteContext = { params: Promise<{ path: string[] }> }
+
+export async function GET(req: NextRequest, { params }: FileRouteContext) {
+  const routeParams = await params
+  const relPath = routeParams.path.join('/')
   const full = path.join(storageRoot(), relPath)
   try {
     const st = await stat(full)

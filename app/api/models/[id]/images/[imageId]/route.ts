@@ -51,11 +51,14 @@ function revalidateModelPaths(id: string) {
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string; imageId: string } }) {
-  const guard = await guardModelEditor(params.id)
+type ModelImageContext = { params: Promise<{ id: string; imageId: string }> }
+
+export async function PATCH(req: NextRequest, { params }: ModelImageContext) {
+  const { id, imageId } = await params
+  const guard = await guardModelEditor(id)
   if ('response' in guard) return guard.response
   const body = await req.json().catch(() => ({}))
-  const image = await prisma.modelImage.findFirst({ where: { id: params.imageId, modelId: guard.model.id } })
+  const image = await prisma.modelImage.findFirst({ where: { id: imageId, modelId: guard.model.id } })
   if (!image) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const updates: any = {}
@@ -112,10 +115,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ image: serializeModelImage(updated) })
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string; imageId: string } }) {
-  const guard = await guardModelEditor(params.id)
+export async function DELETE(_req: NextRequest, { params }: ModelImageContext) {
+  const { id, imageId } = await params
+  const guard = await guardModelEditor(id)
   if ('response' in guard) return guard.response
-  const image = await prisma.modelImage.findFirst({ where: { id: params.imageId, modelId: guard.model.id } })
+  const image = await prisma.modelImage.findFirst({ where: { id: imageId, modelId: guard.model.id } })
   if (!image) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   await prisma.modelImage.delete({ where: { id: image.id } })
   try {

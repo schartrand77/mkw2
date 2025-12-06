@@ -8,7 +8,8 @@ import { fetchAdminUsersWithBadges } from '@/lib/admin/queries'
 export const dynamic = 'force-dynamic'
 
 async function requireAdminServer() {
-  const token = cookies().get('mwv2_token')?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   if (!payload?.sub) return null
   const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })

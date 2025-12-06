@@ -45,7 +45,8 @@ function resolveHolidayTheme(): HolidayTheme | null {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const token = cookies().get('mwv2_token')?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   const authed = !!payload
   let avatarUrl: string | null = null

@@ -10,9 +10,11 @@ const patchSchema = z.object({
   message: 'No updates provided',
 })
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+type AdminUserContext = { params: Promise<{ id: string }> }
+
+export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
+  const { id: userId } = await params
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
-  const userId = params.id
   try {
     const { suspended, emailVerified } = patchSchema.parse(await req.json())
     const updateData: Record<string, boolean> = {}
@@ -29,9 +31,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: AdminUserContext) {
+  const { id: userId } = await params
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
-  const userId = params.id
   try {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, isAdmin: true } })
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })

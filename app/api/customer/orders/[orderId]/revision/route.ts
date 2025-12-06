@@ -5,7 +5,10 @@ import { publicFilePath } from '@/lib/storage'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(req: NextRequest, { params }: { params: { orderId: string } }) {
+type CustomerOrderRevisionContext = { params: Promise<{ orderId: string }> }
+
+export async function POST(req: NextRequest, { params }: CustomerOrderRevisionContext) {
+  const { orderId } = await params
   const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const form = await req.formData()
@@ -22,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: { orderId: st
   const buffer = Buffer.from(arrayBuffer)
   try {
     const revision = await addOrderRevision({
-      orderId: params.orderId,
+      orderId,
       userId,
       filename: file.name || 'revision.stl',
       note,

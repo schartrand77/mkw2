@@ -15,16 +15,20 @@ function normalizeBody(body: unknown): string {
   return ''
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+type ModelCommentsContext = { params: Promise<{ id: string }> }
+
+export async function GET(_req: NextRequest, { params }: ModelCommentsContext) {
+  const { id } = await params
   const comments = await prisma.modelComment.findMany({
-    where: { modelId: params.id },
+    where: { modelId: id },
     orderBy: commentInclude.orderBy,
     include: commentInclude.include,
   })
   return NextResponse.json({ comments: comments.map(serializeComment) })
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: ModelCommentsContext) {
+  const { id } = await params
   const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -48,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const model = await prisma.model.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { id: true, visibility: true, userId: true },
   })
   if (!model) return NextResponse.json({ error: 'Not found' }, { status: 404 })

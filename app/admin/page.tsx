@@ -23,7 +23,8 @@ const backupModule = require('@/lib/backups') as {
 }
 
 export default async function AdminPage() {
-  const token = cookies().get('mwv2_token')?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   if (!payload?.sub) redirect('/login')
   const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })

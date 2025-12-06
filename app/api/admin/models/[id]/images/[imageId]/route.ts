@@ -37,12 +37,15 @@ function revalidateModelPaths(id: string) {
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string; imageId: string } }) {
+type AdminModelImageContext = { params: Promise<{ id: string; imageId: string }> }
+
+export async function PATCH(req: NextRequest, { params }: AdminModelImageContext) {
+  const { id, imageId } = await params
   await requireAdmin()
   const body = await req.json().catch(() => ({}))
   const [image, model] = await Promise.all([
-    prisma.modelImage.findFirst({ where: { id: params.imageId, modelId: params.id } }),
-    prisma.model.findUnique({ where: { id: params.id }, select: { coverImagePath: true } }),
+    prisma.modelImage.findFirst({ where: { id: imageId, modelId: id } }),
+    prisma.model.findUnique({ where: { id }, select: { coverImagePath: true } }),
   ])
   if (!image || !model) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -76,8 +79,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const filePath = updated.filePath || image.filePath
   const isCoverImage = !!(body.setCover || (model.coverImagePath && filePath === model.coverImagePath))
   if (body.setCover) {
-    await prisma.model.update({ where: { id: params.id }, data: { coverImagePath: updated.filePath } })
-    revalidateModelPaths(params.id)
+    await prisma.model.update({ where: { id }, data: { coverImagePath: updated.filePath } })
+    revalidateModelPaths(id)
   }
   if (rotateTurns) {
     if (!filePath) return NextResponse.json({ error: 'Image file missing' }, { status: 400 })
@@ -91,16 +94,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: 'Failed to rotate image' }, { status: 500 })
     }
     if (isCoverImage) {
-      await prisma.model.update({ where: { id: params.id }, data: { coverImagePath: model.coverImagePath } })
-      revalidateModelPaths(params.id)
+      await prisma.model.update({ where: { id }, data: { coverImagePath: model.coverImagePath } })
+      revalidateModelPaths(id)
     }
   }
   return NextResponse.json({ image: serializeModelImage(updated) })
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string; imageId: string } }) {
+export async function DELETE(_req: NextRequest, { params }: AdminModelImageContext) {
+  const { id, imageId } = await params
   await requireAdmin()
-  const image = await prisma.modelImage.findFirst({ where: { id: params.imageId, modelId: params.id } })
+  const image = await prisma.modelImage.findFirst({ where: { id: imageId, modelId: id } })
   if (!image) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   await prisma.modelImage.delete({ where: { id: image.id } })
   try {

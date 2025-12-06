@@ -17,14 +17,21 @@ async function fetchModel(id: string) {
   return (await res.json()).model as any
 }
 
-export default async function ModelDetail({ params, searchParams }: { params: { id: string }, searchParams?: { [k: string]: string | string[] | undefined } }) {
-  const model = await fetchModel(params.id)
+type ModelDetailProps = {
+  params: Promise<{ id: string }>
+  searchParams?: Promise<{ [k: string]: string | string[] | undefined }>
+}
+
+export default async function ModelDetail({ params, searchParams }: ModelDetailProps) {
+  const { id } = await params
+  const resolvedSearchParams = searchParams ? await searchParams : undefined
+  const model = await fetchModel(id)
   if (!model) return <div>Not found</div>
   const fileHref = toPublicHref(model.filePath)
   const viewerHref = toPublicHref(model.viewerFilePath || model.filePath)
   const coverHref = buildImageSrc(model.coverImagePath, model.updatedAt)
   const hasParts = Array.isArray(model.parts) && model.parts.length > 0
-  const partParam = searchParams?.part
+  const partParam = resolvedSearchParams?.part
   const partIndexRaw = Array.isArray(partParam) ? partParam[0] : partParam
   const partIndex = partIndexRaw != null ? Number.parseInt(String(partIndexRaw), 10) : NaN
   const initialGalleryKey = Number.isFinite(partIndex) && partIndex >= 0 && partIndex < (hasParts ? model.parts.length : 0)
@@ -42,7 +49,8 @@ export default async function ModelDetail({ params, searchParams }: { params: { 
   const affiliateImage = model.affiliateImage || null
   const onSale = model.salePriceUsd != null && model.basePriceUsd != null && model.salePriceUsd < model.basePriceUsd
   const priceLabel = formatPriceLabel(model.priceUsd, { from: model.salePriceIsFrom, unit: model.salePriceUnit })
-  const token = cookies().get('mwv2_token')?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   const me = payload?.sub ? await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } }) : null
   const canEdit = !!(payload?.sub && (payload.sub === model.userId || me?.isAdmin))

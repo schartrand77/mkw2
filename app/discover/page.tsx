@@ -50,15 +50,18 @@ function buildQS(next: Record<string, any>, current: URLSearchParams) {
   return `?${merged.toString()}`
 }
 
-export default async function DiscoverPage({ searchParams }: { searchParams?: SearchParams }) {
+type DiscoverPageProps = { searchParams?: Promise<SearchParams> }
+
+export default async function DiscoverPage({ searchParams }: DiscoverPageProps) {
   const params = new URLSearchParams()
   if (searchParams) {
-    for (const [k, v] of Object.entries(searchParams)) {
+    const resolvedSearchParams = await searchParams
+    for (const [k, v] of Object.entries(resolvedSearchParams)) {
       if (Array.isArray(v)) params.set(k, v[0]!)
       else if (v) params.set(k, v)
     }
   }
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const storedView = cookieStore.get('mwv2_discover_view')?.value === 'compact' ? 'compact' : 'grid'
   const requestedView = params.get('view')
   const viewMode: 'grid' | 'compact' =

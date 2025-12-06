@@ -13,9 +13,12 @@ import { resolveModelPricing, estimatePricingDetails } from '@/lib/pricing'
 import { extractAmazonAsin, buildAmazonImageUrl } from '@/lib/amazon'
 import { commentInclude, serializeComment } from '@/lib/comments'
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+type ModelRouteContext = { params: Promise<{ id: string }> }
+
+export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
+  const { id } = await params
   const model = await prisma.model.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       modelTags: { include: { tag: true } },
       images: { orderBy: { sortOrder: 'asc' } },
@@ -24,7 +27,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   })
   if (!model) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const [parts, cfg] = await Promise.all([
-    prisma.modelPart.findMany({ where: { modelId: params.id }, orderBy: { index: 'asc' } }),
+    prisma.modelPart.findMany({ where: { modelId: id }, orderBy: { index: 'asc' } }),
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
   ])
   const tags = model.modelTags.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug }))
@@ -64,11 +67,12 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   })
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
+  const { id } = await params
   const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const existing = await prisma.model.findUnique({ where: { id: params.id }, select: { userId: true, coverImagePath: true } })
+  const existing = await prisma.model.findUnique({ where: { id }, select: { userId: true, coverImagePath: true } })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   // Allow owner or admin
@@ -127,9 +131,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     updates.coverImagePath = `/${rel.replace(/\\/g, '/')}`
   }
 
-  const updated = await prisma.model.update({ where: { id: params.id }, data: updates })
+  const updated = await prisma.model.update({ where: { id }, data: updates })
   try {
-    revalidatePath(`/models/${params.id}`)
+    revalidatePath(`/models/${id}`)
     revalidatePath('/discover')
     revalidatePath('/')
   } catch {

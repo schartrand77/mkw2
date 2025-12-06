@@ -29,8 +29,11 @@ async function guardModelEditor(modelId: string) {
   return { model }
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const guard = await guardModelEditor(params.id)
+type ModelImagesContext = { params: Promise<{ id: string }> }
+
+export async function GET(_req: NextRequest, { params }: ModelImagesContext) {
+  const { id } = await params
+  const guard = await guardModelEditor(id)
   if ('response' in guard) return guard.response
   const [images] = await Promise.all([
     prisma.modelImage.findMany({ where: { modelId: guard.model.id }, orderBy: { sortOrder: 'asc' } }),
@@ -41,8 +44,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   })
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const guard = await guardModelEditor(params.id)
+export async function POST(req: NextRequest, { params }: ModelImagesContext) {
+  const { id } = await params
+  const guard = await guardModelEditor(id)
   if ('response' in guard) return guard.response
 
   const existingCount = await prisma.modelImage.count({ where: { modelId: guard.model.id } })

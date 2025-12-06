@@ -44,11 +44,14 @@ function revalidateModelPaths(id: string) {
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+type ModelCoverContext = { params: Promise<{ id: string }> }
+
+export async function PATCH(req: NextRequest, { params }: ModelCoverContext) {
+  const { id } = await params
   const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const [model, me] = await Promise.all([
-    prisma.model.findUnique({ where: { id: params.id }, select: { id: true, userId: true, coverImagePath: true } }),
+    prisma.model.findUnique({ where: { id }, select: { id: true, userId: true, coverImagePath: true } }),
     prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } }),
   ])
   if (!model) return NextResponse.json({ error: 'Model not found' }, { status: 404 })

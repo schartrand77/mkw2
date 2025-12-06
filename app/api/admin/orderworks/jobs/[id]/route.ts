@@ -4,16 +4,15 @@ import { requireAdmin } from '../../../_utils'
 
 export const dynamic = 'force-dynamic'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 export async function DELETE(_req: Request, { params }: Params) {
+  const { id } = await params
   try {
     await requireAdmin()
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 })
   }
-
-  const id = params.id
   try {
     await prisma.jobForm.delete({ where: { id } })
     return NextResponse.json({ ok: true })

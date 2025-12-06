@@ -35,6 +35,6 @@ export async function GET(req: NextRequest) {
   const redirectUrl = new URL('/login?verified=1', redirectBase)
   const response = NextResponse.redirect(redirectUrl)
   const secureHint = redirectUrl.protocol === 'https:' || req.nextUrl.protocol === 'https:'
-  setAuthCookie(vt.userId, response.cookies as any, { secureHint })
+  await setAuthCookie(vt.userId, response.cookies as any, { secureHint })
   return response
 }

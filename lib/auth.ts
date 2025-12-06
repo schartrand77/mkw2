@@ -7,19 +7,21 @@ const COOKIE_NAME = 'mwv2_token'
 
 type CookieStore = {
   set: (name: string, value: string, options?: Record<string, any>) => void
+  get?: (name: string) => { value?: string } | undefined
 }
 
 type CookieOptions = {
   secureHint?: boolean
 }
 
-function resolveCookieStore(store?: CookieStore): CookieStore {
-  return (store ?? (cookies() as unknown as CookieStore))
+async function resolveCookieStore(store?: CookieStore): Promise<CookieStore> {
+  if (store) return store
+  return (await cookies()) as unknown as CookieStore
 }
 
-function inferSecureFromHeaders(): boolean | undefined {
+async function inferSecureFromHeaders(): Promise<boolean | undefined> {
   try {
-    const hdrs = headers()
+    const hdrs = await headers()
     const forwardedProto = hdrs.get('x-forwarded-proto')
     if (forwardedProto) {
       const first = forwardedProto.split(',')[0]?.trim()
@@ -36,15 +38,15 @@ function inferSecureFromHeaders(): boolean | undefined {
   return undefined
 }
 
-function resolveSecureHint(hint?: boolean) {
-  const forwarded = inferSecureFromHeaders()
+async function resolveSecureHint(hint?: boolean) {
+  const forwarded = await inferSecureFromHeaders()
   if (typeof forwarded === 'boolean') return forwarded
   if (typeof hint === 'boolean') return hint
   return undefined
 }
 
-function shouldUseSecureCookies(hint?: boolean) {
-  const resolvedHint = resolveSecureHint(hint)
+async function shouldUseSecureCookies(hint?: boolean) {
+  const resolvedHint = await resolveSecureHint(hint)
   const cookieSecureEnv = (process.env.COOKIE_SECURE || '').toLowerCase()
   if (cookieSecureEnv === 'true') {
     if (resolvedHint === false) {
@@ -87,13 +89,14 @@ export function verifyToken(token: string): { sub: string } | null {
 
 export async function getUserIdFromCookie(): Promise<string | null> {
   try {
-    const token = cookies().get(COOKIE_NAME)?.value
+    const cookieStore = await cookies()
+    const token = cookieStore.get(COOKIE_NAME)?.value
     if (!token) return null
     const payload = verifyToken(token)
     if (!payload?.sub) return null
     const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, isSuspended: true } })
     if (!user || user.isSuspended) {
-      clearAuthCookie()
+      await clearAuthCookie(cookieStore as any)
       return null
     }
     return user.id
@@ -102,10 +105,10 @@ export async function getUserIdFromCookie(): Promise<string | null> {
   }
 }
 
-export function setAuthCookie(userId: string, store?: CookieStore, options?: CookieOptions) {
+export async function setAuthCookie(userId: string, store?: CookieStore, options?: CookieOptions) {
   const token = signToken(userId)
-  const c = resolveCookieStore(store)
-  const secure = shouldUseSecureCookies(options?.secureHint ?? inferSecureFromHeaders())
+  const c = await resolveCookieStore(store)
+  const secure = await shouldUseSecureCookies(options?.secureHint)
   c.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -115,9 +118,9 @@ export function setAuthCookie(userId: string, store?: CookieStore, options?: Coo
   })
 }
 
-export function clearAuthCookie(store?: CookieStore, options?: CookieOptions) {
-  const c = resolveCookieStore(store)
-  const secure = shouldUseSecureCookies(options?.secureHint ?? inferSecureFromHeaders())
+export async function clearAuthCookie(store?: CookieStore, options?: CookieOptions) {
+  const c = await resolveCookieStore(store)
+  const secure = await shouldUseSecureCookies(options?.secureHint)
   c.set(COOKIE_NAME, '', {
     maxAge: 0,
     path: '/',

@@ -5,7 +5,10 @@ import { revalidatePath } from 'next/cache'
 
 export const dynamic = 'force-dynamic'
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string, commentId: string } }) {
+type ModelCommentDeleteContext = { params: Promise<{ id: string; commentId: string }> }
+
+export async function DELETE(_req: NextRequest, { params }: ModelCommentDeleteContext) {
+  const { id, commentId } = await params
   const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -13,10 +16,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   if (!me?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const existing = await prisma.modelComment.findUnique({
-    where: { id: params.commentId },
+    where: { id: commentId },
     select: { id: true, modelId: true },
   })
-  if (!existing || existing.modelId !== params.id) {
+  if (!existing || existing.modelId !== id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 

@@ -11,24 +11,28 @@ export const dynamic = 'force-dynamic'
 
 const IMAGE_LIMIT = MODEL_IMAGE_LIMIT
 
+type AdminModelImagesContext = { params: Promise<{ id: string }> }
+
 function normalizeFlag(value: FormDataEntryValue | null): boolean {
   if (!value) return false
   const str = String(value).toLowerCase()
   return str === '1' || str === 'true' || str === 'on'
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: AdminModelImagesContext) {
+  const { id } = await params
   await requireAdmin()
   const [images, model] = await Promise.all([
-    prisma.modelImage.findMany({ where: { modelId: params.id }, orderBy: { sortOrder: 'asc' } }),
-    prisma.model.findUnique({ where: { id: params.id }, select: { coverImagePath: true } }),
+    prisma.modelImage.findMany({ where: { modelId: id }, orderBy: { sortOrder: 'asc' } }),
+    prisma.model.findUnique({ where: { id }, select: { coverImagePath: true } }),
   ])
   return NextResponse.json({ images: serializeModelImages(images), coverImagePath: model?.coverImagePath || null })
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: AdminModelImagesContext) {
+  const { id } = await params
   await requireAdmin()
-  const model = await prisma.model.findUnique({ where: { id: params.id }, select: { id: true, userId: true, coverImagePath: true } })
+  const model = await prisma.model.findUnique({ where: { id }, select: { id: true, userId: true, coverImagePath: true } })
   if (!model) return NextResponse.json({ error: 'Model not found' }, { status: 404 })
 
   const existingCount = await prisma.modelImage.count({ where: { modelId: model.id } })

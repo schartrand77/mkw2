@@ -14,7 +14,7 @@ const patchSchema = z.object({
   fulfilledAt: z.union([z.string(), z.date(), z.null()]).optional(),
 })
 
-type Params = { params: { paymentIntentId: string } }
+type Params = { params: Promise<{ paymentIntentId: string }> }
 
 function normalizeString(value: string | null | undefined) {
   if (value === undefined) return undefined
@@ -54,6 +54,7 @@ function resolveFulfilledAt(
 export const dynamic = 'force-dynamic'
 
 export async function PATCH(req: Request, { params }: Params) {
+  const { paymentIntentId } = await params
   try {
     await requireAdmin()
   } catch (err: any) {
@@ -68,7 +69,7 @@ export async function PATCH(req: Request, { params }: Params) {
     return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 422 })
   }
   const job = await prisma.jobForm.findUnique({
-    where: { paymentIntentId: params.paymentIntentId },
+    where: { paymentIntentId },
     include: { user: { select: { id: true, name: true, email: true } } },
   })
   if (!job) {
@@ -91,7 +92,7 @@ export async function PATCH(req: Request, { params }: Params) {
   }
 
   const updated = (await prisma.jobForm.update({
-    where: { paymentIntentId: params.paymentIntentId },
+    where: { paymentIntentId },
     data: updateData,
     include: { user: { select: { id: true, name: true, email: true } } },
   })) as JobWithUser

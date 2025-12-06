@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     await ensureUserPage(user.id, user.email, user.name)
     const response = NextResponse.json({ user: { id: user.id, email: user.email, name: user.name, isAdmin: (user as any).isAdmin } })
     const secureHint = req.nextUrl.protocol === 'https:'
-    setAuthCookie(user.id, response.cookies as any, { secureHint })
+    await setAuthCookie(user.id, response.cookies as any, { secureHint })
     return response
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })

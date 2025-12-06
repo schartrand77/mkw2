@@ -35,10 +35,13 @@ function buildFileHref(path: string) {
   return normalized.replace(/\\/g, '/').replace(/\/+/g, '/')
 }
 
-export default async function CustomerOrderDetail({ params }: { params: { orderId: string } }) {
+type CustomerOrderDetailProps = { params: Promise<{ orderId: string }> }
+
+export default async function CustomerOrderDetail({ params }: CustomerOrderDetailProps) {
+  const { orderId } = await params
   const userId = await getUserIdFromCookie()
   if (!userId) return redirect('/login')
-  const order = await getOrderForUser(params.orderId, userId)
+  const order = await getOrderForUser(orderId, userId)
   if (!order) return notFound()
   const shippingAddress = normalizeAddress(order.shippingAddress)
 
