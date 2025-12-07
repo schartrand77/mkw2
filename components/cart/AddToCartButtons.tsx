@@ -7,6 +7,9 @@ type ModelPreview = {
   id: string
   title: string
   priceUsd?: number | null
+  basePriceUsd?: number | null
+  salePriceUsd?: number | null
+  saleActive?: boolean | null
   coverImagePath?: string | null
   updatedAt?: string | Date | null
   sizeXmm?: number
@@ -19,19 +22,27 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
   const inCart = items.find(i => i.modelId === model.id && !i.partId)
   const qty = inCart?.options.qty || 0
   const thumbnail = useMemo(() => buildImageSrc(model.coverImagePath ?? null, model.updatedAt ?? null), [model.coverImagePath, model.updatedAt])
+  const resolvedPrice = useMemo(() => {
+    if (model.salePriceUsd != null && (model.saleActive || model.salePriceUsd != null)) {
+      return model.salePriceUsd
+    }
+    if (model.priceUsd != null) return model.priceUsd
+    if (model.basePriceUsd != null) return model.basePriceUsd
+    return null
+  }, [model.salePriceUsd, model.saleActive, model.priceUsd, model.basePriceUsd])
 
   const addOne = useCallback(() => {
     add(
       {
         modelId: model.id,
         title: model.title,
-        priceUsd: model.priceUsd,
+        priceUsd: resolvedPrice,
         thumbnail,
         size: { x: model.sizeXmm, y: model.sizeYmm, z: model.sizeZmm },
       },
       { material: 'PLA', colors: [] },
     )
-  }, [add, model.id, model.priceUsd, model.sizeXmm, model.sizeYmm, model.sizeZmm, model.title, thumbnail])
+  }, [add, model.id, resolvedPrice, model.sizeXmm, model.sizeYmm, model.sizeZmm, model.title, thumbnail])
 
   const stopPropagation = (e: React.SyntheticEvent) => {
     e.preventDefault()
