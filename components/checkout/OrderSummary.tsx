@@ -2,6 +2,7 @@
 import type { CheckoutLineItem } from '@/types/checkout'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import type { DiscountSummary } from '@/lib/discounts'
+import { DIMENSION_AXES } from '@/lib/cartPricing'
 
 type Props = {
   items: CheckoutLineItem[]
@@ -21,6 +22,15 @@ export default function OrderSummary({ items, currency, total, discount }: Props
       {items.map((item) => {
         const palette = (item.colors || []).filter(Boolean)
         const savings = item.undiscountedLineTotal ? Math.max(0, item.undiscountedLineTotal - item.lineTotal) : 0
+        const dimensionText = (() => {
+          if (!item.targetDimensions) return null
+          const parts = DIMENSION_AXES.map((axis) => {
+            const value = item.targetDimensions?.[axis]
+            if (typeof value !== 'number' || Number.isNaN(value)) return null
+            return `${axis.toUpperCase()}: ${value.toFixed(1)} mm`
+          }).filter(Boolean)
+          return parts.length ? parts.join(' | ') : null
+        })()
         return (
           <div
             key={`${item.modelId}-${item.partId || 'whole'}-${item.scale}-${item.material}-${palette.join('-')}-${item.customText ?? ''}-${item.infillPct ?? 'na'}`}
@@ -41,6 +51,11 @@ export default function OrderSummary({ items, currency, total, discount }: Props
               <div className="font-medium">{formatCurrency(item.lineTotal, currency)}</div>
             </div>
             {item.customText && <div className="text-xs text-slate-500">Note: {item.customText}</div>}
+            {dimensionText && (
+              <div className="text-xs text-slate-500">
+                {dimensionText}
+              </div>
+            )}
             {savings > 0 && (
               <div className="text-xs text-emerald-300">
                 Saved {formatCurrency(savings, currency)}

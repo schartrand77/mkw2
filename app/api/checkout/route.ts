@@ -27,11 +27,22 @@ const shippingSchema = z.object({
   }).optional(),
 }).optional()
 
+const dimensionSchema = z.object({
+  x: z.number().positive().max(5000).optional(),
+  y: z.number().positive().max(5000).optional(),
+  z: z.number().positive().max(5000).optional(),
+}).partial()
+
 const itemSchema = z.object({
   modelId: z.string().min(1),
   partId: z.string().min(1).optional(),
   qty: z.number().int().positive().max(50),
   scale: z.number().positive().max(5).default(1),
+  scaleX: z.number().positive().max(5).optional(),
+  scaleY: z.number().positive().max(5).optional(),
+  scaleZ: z.number().positive().max(5).optional(),
+  lockDimensions: z.boolean().optional(),
+  targetDimensions: dimensionSchema.optional(),
   material: z.enum(['PLA', 'PETG']).optional().default('PLA'),
   colors: z.array(z.string().max(64)).max(MAX_CART_COLORS).optional(),
   infillPct: z.number().int().min(0).max(100).optional().nullable(),
@@ -196,9 +207,13 @@ export async function POST(req: NextRequest) {
       if (!isFinite(basePrice) || basePrice <= 0) {
         throw new Error(`Model ${model.id} is missing pricing data`)
       }
-      const clampedScale = clampScale(entry.scale)
+      const scaleX = clampScale(entry.scaleX ?? entry.scale)
+      const scaleY = clampScale(entry.scaleY ?? entry.scale)
+      const scaleZ = clampScale(entry.scaleZ ?? entry.scale)
+      const volumeMultiplier = scaleX * scaleY * scaleZ
+      const uniformScale = clampScale(Math.cbrt(volumeMultiplier))
       const colorMultiplier = getColorMultiplier(colors)
-      const rawUnitPrice = Number((basePrice * Math.pow(clampedScale, 3) * colorMultiplier).toFixed(2))
+      const rawUnitPrice = Number((basePrice * volumeMultiplier * colorMultiplier).toFixed(2))
       const unitPrice = Number((rawUnitPrice * discountMultiplier).toFixed(2))
       const qty = entry.qty || 1
       const undiscountedLineTotal = Number((rawUnitPrice * qty).toFixed(2))
@@ -217,7 +232,10 @@ export async function POST(req: NextRequest) {
         partName: part?.name || undefined,
         title: model.title,
         qty,
-        scale: clampedScale,
+        scale: uniformScale,
+        scaleX,
+        scaleY,
+        scaleZ,
         unitPrice,
         lineTotal,
         undiscountedLineTotal,
@@ -226,6 +244,7 @@ export async function POST(req: NextRequest) {
         colors,
         infillPct: entry.infillPct ?? undefined,
         customText: entry.customText || undefined,
+        targetDimensions: entry.targetDimensions || undefined,
         storagePath,
         storageUrl,
       }

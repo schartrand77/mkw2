@@ -2,15 +2,26 @@ import type { Currency } from '@/lib/currency'
 import type { MaterialType } from '@/lib/cartPricing'
 import type { DiscountSummary } from '@/lib/discounts'
 
+export type Dimensions = {
+  x?: number | null
+  y?: number | null
+  z?: number | null
+}
+
 export type CheckoutItemInput = {
   modelId: string
   partId?: string | null
   qty: number
   scale: number
+  scaleX?: number | null
+  scaleY?: number | null
+  scaleZ?: number | null
   material: MaterialType
   colors?: string[] | null
   infillPct?: number | null
   customText?: string | null
+  lockDimensions?: boolean | null
+  targetDimensions?: Dimensions | null
 }
 
 export type ShippingAddress = {
@@ -37,6 +48,9 @@ export type CheckoutLineItem = {
   title: string
   qty: number
   scale: number
+  scaleX?: number
+  scaleY?: number
+  scaleZ?: number
   unitPrice: number
   lineTotal: number
   undiscountedLineTotal?: number
@@ -45,6 +59,7 @@ export type CheckoutLineItem = {
   colors?: string[]
   infillPct?: number
   customText?: string
+  targetDimensions?: Dimensions | null
   storagePath?: string | null
   storageUrl?: string | null
 }

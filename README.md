@@ -46,6 +46,7 @@ Daily use
 - Upload models from the Upload page (supports STL, OBJ, 3MF) and optionally add a cover image; STL files render in a 3D viewer.
 - Each model gets a shareable page; `/u/{slug}` lists a user's uploads and `/me` jumps to your own page.
 - Carts show weight, material choice (PLA/PETG), and estimated time/energy costs; Stripe's Payment Element keeps checkout on-site when configured.
+- Cart optimizer controls accept real-world X/Y/Z measurements (with a ratio lock toggle) and expose more color inputs for multi-AMS setups.
 - Users receive a verification link by email and can resend it from the signup screen.
 
 Community comments & moderation
@@ -71,7 +72,7 @@ Environment variables (what they do)
 - `PRINTER_ELECTRIC_RATE_PER_KWH`: override kWh cost if your power rate differs.
 - Pricing (USD defaults): `PLA_PRICE_PER_KG_USD`, `PETG_PRICE_PER_KG_USD`, `NEXT_PUBLIC_PLA_PRICE_PER_KG`, `NEXT_PUBLIC_PETG_PRICE_PER_KG`.
 - Optional CAD overrides: `PLA_PRICE_PER_KG_CAD`, `PETG_PRICE_PER_KG_CAD`, `ENERGY_CAD_PER_HOUR`, `MINIMUM_PRICE_CAD`, `EXTRA_HOURLY_AFTER_FIRST_USD`, `EXTRA_HOURLY_AFTER_FIRST_CAD`.
-- Color surcharge: `COLOR_SURCHARGE_RATE` (server) and `NEXT_PUBLIC_COLOR_SURCHARGE_RATE` (UI).
+- Color surcharge: `COLOR_SURCHARGE_RATE` (server) and `NEXT_PUBLIC_COLOR_SURCHARGE_RATE` (UI); raise `NEXT_PUBLIC_MAX_CART_COLORS` to expose additional color slots if you run multiple AMS units.
 - Currency labels: `CURRENCY` and `NEXT_PUBLIC_CURRENCY` (`USD` or `CAD`).
 - Stripe (optional): `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
 - OrderWorks webhook (optional): `ORDERWORKS_WEBHOOK_URL`, `ORDERWORKS_WEBHOOK_SECRET` (requests are signed via the `X-MakerWorks-Signature` header when configured).

@@ -3,9 +3,24 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useCart } from '@/components/cart/CartProvider'
 import { formatCurrency } from '@/lib/currency'
-import { getColorMultiplier, getMaterialMultiplier, MAX_CART_COLORS, type MaterialType } from '@/lib/cartPricing'
+import {
+  clampScale,
+  DIMENSION_AXES,
+  getColorMultiplier,
+  getMaterialMultiplier,
+  getVolumeScaleMultiplier,
+  MAX_CART_COLORS,
+  resolveAxisScale,
+  type MaterialType,
+} from '@/lib/cartPricing'
 import type { DiscountSummary } from '@/lib/discounts'
 import { getDiscountMultiplier } from '@/lib/discounts'
+
+const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
+  x: 'Width (X)',
+  y: 'Depth (Y)',
+  z: 'Height (Z)',
+}
 
 export default function CartPage() {
   const { items, inc, dec, update, remove, clear } = useCart()
@@ -29,10 +44,10 @@ export default function CartPage() {
 
   const itemUnitPrice = (item: (typeof items)[number]) => {
     const base = item.priceUsd || 0
-    const scale = item.options.scale || 1
     const materialMultiplier = getMaterialMultiplier(item.options.material)
     const colorMultiplier = getColorMultiplier(item.options.colors)
-    return base * Math.pow(scale, 3) * materialMultiplier * colorMultiplier
+    const volumeMultiplier = getVolumeScaleMultiplier(item.options.scale, item.options.dimensionOverrides)
+    return base * volumeMultiplier * materialMultiplier * colorMultiplier
   }
 
   const subtotal = items.reduce((sum, item) => {
@@ -67,6 +82,54 @@ export default function CartPage() {
               const baseTotal = itemUnitPrice(item) * qty
               const discountedTotal = baseTotal * discountMultiplier
               const lineSavings = Math.max(0, baseTotal - discountedTotal)
+              const locked = item.options.lockDimensions !== false
+              const getAxisScale = (axis: (typeof DIMENSION_AXES)[number]) => resolveAxisScale(item.options.scale, locked ? null : item.options.dimensionOverrides, axis)
+              const getAxisSize = (axis: (typeof DIMENSION_AXES)[number]) => {
+                const baseValue = item.size?.[axis]
+                if (typeof baseValue !== 'number' || Number.isNaN(baseValue) || baseValue <= 0) return null
+                return baseValue * getAxisScale(axis)
+              }
+              const hasDimensions = DIMENSION_AXES.some(axis => typeof item.size?.[axis] === 'number' && !Number.isNaN(item.size?.[axis] ?? NaN))
+              const uniformScale = clampScale(Math.cbrt(getVolumeScaleMultiplier(item.options.scale, item.options.dimensionOverrides)))
+              const handleScaleChange = (value: number) => {
+                const nextScale = clampScale(value)
+                if (!locked) {
+                  const overrides = DIMENSION_AXES.reduce((acc, axis) => {
+                    acc[axis] = nextScale
+                    return acc
+                  }, {} as Record<(typeof DIMENSION_AXES)[number], number>)
+                  update(item.modelId, { scale: nextScale, dimensionOverrides: overrides }, item.partId)
+                } else {
+                  update(item.modelId, { scale: nextScale, dimensionOverrides: null }, item.partId)
+                }
+              }
+              const handleDimensionChange = (axis: (typeof DIMENSION_AXES)[number], input: number) => {
+                const baseValue = item.size?.[axis]
+                if (typeof baseValue !== 'number' || !Number.isFinite(baseValue) || baseValue <= 0) return
+                if (!Number.isFinite(input) || input <= 0) return
+                const nextScale = clampScale(input / baseValue)
+                if (locked) {
+                  update(item.modelId, { scale: nextScale, dimensionOverrides: null }, item.partId)
+                  return
+                }
+                const overrides = { ...(item.options.dimensionOverrides || {}) }
+                overrides[axis] = nextScale
+                update(item.modelId, { dimensionOverrides: overrides }, item.partId)
+              }
+              const toggleLock = () => {
+                if (locked) {
+                  const overrides = DIMENSION_AXES.reduce((acc, axis) => {
+                    acc[axis] = getAxisScale(axis)
+                    return acc
+                  }, {} as Record<(typeof DIMENSION_AXES)[number], number>)
+                  update(item.modelId, { lockDimensions: false, dimensionOverrides: overrides }, item.partId)
+                } else {
+                  update(item.modelId, { lockDimensions: true, scale: uniformScale, dimensionOverrides: null }, item.partId)
+                }
+              }
+              const resetDimensions = () => {
+                update(item.modelId, { scale: 1, dimensionOverrides: null, lockDimensions: true }, item.partId)
+              }
 
               return (
                 <div key={`${item.modelId}-${item.partId || 'whole'}`} className="p-4 grid grid-cols-[80px_1fr] gap-3 items-center">
@@ -103,8 +166,8 @@ export default function CartPage() {
                           step="0.1"
                           min="0.1"
                           max="5"
-                          value={item.options.scale}
-                          onChange={(e) => update(item.modelId, { scale: Math.max(0.1, Math.min(5, Number(e.target.value) || 1)) }, item.partId)}
+                          value={uniformScale.toFixed(2)}
+                          onChange={(e) => handleScaleChange(Number(e.target.value))}
                         />
                       </label>
                       <label className="flex items-center gap-2">
@@ -158,12 +221,64 @@ export default function CartPage() {
                         />
                       </label>
                     </div>
-                    <div className="text-xs text-slate-500">
-                      Size:{' '}
-                      {item.size?.x && item.size?.y && item.size?.z
-                        ? `${item.size.x.toFixed(0)} x ${item.size.y.toFixed(0)} x ${item.size.z.toFixed(0)} mm`
-                        : 'n/a'}
-                    </div>
+                    {hasDimensions ? (
+                      <div className="space-y-1 text-xs">
+                        {(() => {
+                          const baseText = DIMENSION_AXES.map((axis) => {
+                            const base = item.size?.[axis]
+                            if (typeof base !== 'number' || Number.isNaN(base)) return null
+                            return base.toFixed(0)
+                          }).filter(Boolean).join(' x ')
+                          const scaledText = DIMENSION_AXES.map((axis) => {
+                            const scaled = getAxisSize(axis)
+                            if (scaled == null) return null
+                            return scaled.toFixed(0)
+                          }).filter(Boolean).join(' x ')
+                          return (
+                            <div className="text-slate-400">
+                              Size: {baseText} mm
+                              {scaledText && scaledText !== baseText && (
+                                <>
+                                  {' '}
+                                  {'\u2192'} {scaledText} mm
+                                </>
+                              )}
+                            </div>
+                          )
+                        })()}
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2 text-slate-400">
+                            <span>Target dimensions (mm)</span>
+                            <button type="button" className="text-xs px-2 py-1 rounded border border-white/10 hover:border-white/20" onClick={toggleLock}>
+                              {locked ? 'Ratio locked' : 'Ratio free'}
+                            </button>
+                            <button type="button" className="text-xs px-2 py-1 rounded border border-white/10 hover:border-white/20" onClick={resetDimensions}>
+                              Reset
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {DIMENSION_AXES.map((axis) => {
+                              const dim = getAxisSize(axis)
+                              return (
+                                <label key={`${item.modelId}-${axis}`} className="flex flex-col gap-1 text-slate-400 text-xs">
+                                  <span>{AXIS_LABELS[axis]}</span>
+                                  <input
+                                    className="w-28 input text-sm"
+                                    type="number"
+                                    min="0.1"
+                                    step="0.1"
+                                    value={dim != null ? dim.toFixed(1) : ''}
+                                    onChange={(e) => handleDimensionChange(axis, Number(e.target.value))}
+                                  />
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-500">Size metadata missing — add model dimensions to enable dimension controls.</div>
+                    )}
                     <div className="text-xs text-emerald-300">
                       Est. item total: {formatCurrency(discountedTotal)}
                       {totalDiscountPercent > 0 && lineSavings > 0.01 && (

@@ -1,6 +1,6 @@
 "use client"
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { type MaterialType, normalizeColors } from '@/lib/cartPricing'
+import { clampScale, DIMENSION_AXES, type MaterialType, normalizeColors, type ScaleOverrides } from '@/lib/cartPricing'
 
 export type CartOptions = {
   qty: number
@@ -9,6 +9,8 @@ export type CartOptions = {
   colors: string[]
   infillPct?: number | null // 0-100
   customText?: string | null
+  dimensionOverrides?: ScaleOverrides | null
+  lockDimensions?: boolean
 }
 
 export type CartItem = {
@@ -40,16 +42,48 @@ const STORAGE_KEY = 'mwv2:cart'
 
 type LegacyCartOptions = Partial<CartOptions> & { color?: string | null }
 
+function sanitizeDimensionOverrides(overrides?: ScaleOverrides | null): ScaleOverrides | null {
+  if (!overrides) return null
+  const cleaned: ScaleOverrides = {}
+  for (const axis of DIMENSION_AXES) {
+    const value = overrides[axis]
+    if (value == null || Number.isNaN(Number(value))) continue
+    cleaned[axis] = clampScale(value)
+  }
+  return Object.keys(cleaned).length ? cleaned : null
+}
+
 function sanitizeOptions(opts?: LegacyCartOptions | null): CartOptions {
   const colorsSource = Array.isArray(opts?.colors) ? opts?.colors : (opts?.color ? [opts.color] : [])
+  const lockDimensions = opts?.lockDimensions ?? !(opts?.dimensionOverrides && Object.keys(opts.dimensionOverrides).length > 0)
+  const baseScale = clampScale(opts?.scale ?? 1)
+  const overrides = lockDimensions ? null : sanitizeDimensionOverrides(opts?.dimensionOverrides)
   return {
     qty: Math.max(1, Math.floor(opts?.qty ?? 1)),
-    scale: opts?.scale ?? 1,
+    scale: baseScale,
     material: opts?.material === 'PETG' ? 'PETG' : 'PLA',
     colors: normalizeColors(colorsSource),
-    infillPct: typeof opts?.infillPct === 'number' ? opts.infillPct : null,
+    infillPct: typeof opts?.infillPct === 'number' ? Math.max(0, Math.min(100, opts.infillPct)) : null,
     customText: opts?.customText ?? null,
+    dimensionOverrides: overrides,
+    lockDimensions,
   }
+}
+
+function mergeOptions(base: CartOptions, patch?: Partial<CartOptions>): CartOptions {
+  if (!patch) return base
+  const merged: LegacyCartOptions = {
+    ...base,
+    qty: patch.qty != null ? patch.qty : base.qty,
+    scale: patch.scale != null ? patch.scale : base.scale,
+    material: patch.material ?? base.material,
+    colors: patch.colors !== undefined ? patch.colors : base.colors,
+    infillPct: patch.infillPct !== undefined ? patch.infillPct : base.infillPct,
+    customText: patch.customText !== undefined ? patch.customText : base.customText,
+    dimensionOverrides: patch.dimensionOverrides !== undefined ? patch.dimensionOverrides : base.dimensionOverrides,
+    lockDimensions: patch.lockDimensions !== undefined ? patch.lockDimensions : base.lockDimensions,
+  }
+  return sanitizeOptions(merged)
 }
 
 function sanitizeItem(item: any): CartItem {
@@ -103,15 +137,10 @@ export default function CartProvider({ children }: { children: React.ReactNode }
       if (idx >= 0) {
         const next = [...prev]
         const existing = next[idx]
-        const merged: CartOptions = {
-          ...existing.options,
+        const merged = mergeOptions(existing.options, {
+          ...opts,
           qty: existing.options.qty + (opts?.qty || 1),
-        }
-        if (opts?.scale != null) merged.scale = opts.scale
-        if (opts?.material) merged.material = opts.material === 'PETG' ? 'PETG' : 'PLA'
-        if (opts?.colors !== undefined) merged.colors = normalizeColors(opts.colors)
-        if (opts?.infillPct !== undefined) merged.infillPct = opts.infillPct
-        if (opts?.customText !== undefined) merged.customText = opts.customText ?? null
+        })
         next[idx] = { ...existing, options: merged }
         return next
       }
@@ -120,14 +149,10 @@ export default function CartProvider({ children }: { children: React.ReactNode }
         partId: normalizedPartId,
         partName: item.partName ?? null,
         partIndex: typeof item.partIndex === 'number' ? item.partIndex : null,
-        options: {
+        options: sanitizeOptions({
+          ...opts,
           qty: opts?.qty || 1,
-          scale: opts?.scale ?? 1,
-          material: opts?.material === 'PETG' ? 'PETG' : 'PLA',
-          colors: normalizeColors(opts?.colors),
-          infillPct: opts?.infillPct ?? null,
-          customText: opts?.customText ?? null,
-        },
+        }),
       }
       return [...prev, newItem]
     })
@@ -138,10 +163,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   const dec = useCallback((modelId: string, partId?: string | null) => setItems(prev => prev.map(i => matches(i, modelId, partId) ? { ...i, options: { ...i.options, qty: Math.max(0, i.options.qty - 1) } } : i).filter(i => i.options.qty > 0)), [])
   const update = useCallback((modelId: string, opts: Partial<CartOptions>, partId?: string | null) => setItems(prev => prev.map(i => {
     if (!matches(i, modelId, partId)) return i
-    const nextOpts: CartOptions = { ...i.options, ...opts }
-    if (opts.material) nextOpts.material = opts.material === 'PETG' ? 'PETG' : 'PLA'
-    if (opts.colors !== undefined) nextOpts.colors = normalizeColors(opts.colors)
-    return { ...i, options: nextOpts }
+    return { ...i, options: mergeOptions(i.options, opts) }
   })), [])
   const clear = useCallback(() => setItems([]), [])
 

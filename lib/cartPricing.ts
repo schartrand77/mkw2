@@ -1,8 +1,21 @@
 export type MaterialType = 'PLA' | 'PETG'
+export const DIMENSION_AXES = ['x', 'y', 'z'] as const
+export type DimensionAxis = typeof DIMENSION_AXES[number]
+export type ScaleOverrides = Partial<Record<DimensionAxis, number | null>>
 
 const DEFAULT_PLA_PRICE = 25
 const DEFAULT_PETG_PRICE = 28
-const MAX_COLORS = 4
+const DEFAULT_MAX_COLORS = 4
+const SCALE_MIN = 0.1
+const SCALE_MAX = 5
+const MAX_COLORS = (() => {
+  const configured = readNumber(
+    ['NEXT_PUBLIC_MAX_CART_COLORS', 'MAX_CART_COLORS'],
+    DEFAULT_MAX_COLORS,
+  )
+  if (!Number.isFinite(configured)) return DEFAULT_MAX_COLORS
+  return Math.max(1, Math.min(16, Math.round(configured)))
+})()
 
 function readNumber(keys: string[], fallback: number): number {
   for (const key of keys) {
@@ -50,15 +63,35 @@ export function getColorMultiplier(colors?: (string | null | undefined)[]): numb
   return 1 + Math.max(0, count - 1) * rate
 }
 
-export function getScaledUnitPrice(basePrice: number, scale: number, material: MaterialType | undefined | null, colors?: (string | null | undefined)[]): number {
-  const clampedScale = Math.max(0.1, Math.min(5, scale || 1))
+export function resolveAxisScale(scale?: number | null, overrides?: ScaleOverrides | null, axis: DimensionAxis = 'x'): number {
+  const base = clampScale(scale)
+  const override = overrides?.[axis]
+  if (override == null || Number.isNaN(Number(override))) return base
+  return clampScale(Number(override))
+}
+
+export function getVolumeScaleMultiplier(scale?: number | null, overrides?: ScaleOverrides | null): number {
+  return DIMENSION_AXES
+    .map(axis => resolveAxisScale(scale, overrides, axis))
+    .reduce((product, value) => product * value, 1)
+}
+
+export function getScaledUnitPrice(
+  basePrice: number,
+  scale: number,
+  material: MaterialType | undefined | null,
+  colors?: (string | null | undefined)[],
+  overrides?: ScaleOverrides | null,
+): number {
   const materialMultiplier = getMaterialMultiplier(material)
   const colorMultiplier = getColorMultiplier(colors)
-  return basePrice * Math.pow(clampedScale, 3) * materialMultiplier * colorMultiplier
+  const volumeMultiplier = getVolumeScaleMultiplier(scale, overrides)
+  return basePrice * volumeMultiplier * materialMultiplier * colorMultiplier
 }
 
 export function clampScale(scale?: number | null) {
-  return Math.max(0.1, Math.min(5, scale || 1))
+  if (scale == null || Number.isNaN(Number(scale))) return 1
+  return Math.max(SCALE_MIN, Math.min(SCALE_MAX, Number(scale)))
 }
 
 export const MAX_CART_COLORS = MAX_COLORS

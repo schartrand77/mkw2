@@ -6,9 +6,9 @@ import { loadStripe } from '@stripe/stripe-js'
 import CheckoutForm from '@/components/checkout/CheckoutForm'
 import OrderSummary from '@/components/checkout/OrderSummary'
 import { useCart } from '@/components/cart/CartProvider'
-import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, CheckoutPaymentMethod } from '@/types/checkout'
+import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, CheckoutPaymentMethod, Dimensions } from '@/types/checkout'
 import type { Appearance, PaymentIntent } from '@stripe/stripe-js'
-import { normalizeColors } from '@/lib/cartPricing'
+import { DIMENSION_AXES, normalizeColors, resolveAxisScale } from '@/lib/cartPricing'
 import { BRAND_LAB_NAME } from '@/lib/brand'
 
 type ProfileResponse = {
@@ -55,16 +55,39 @@ export default function CheckoutPage() {
   }, [items])
 
   const checkoutItems = useMemo<CheckoutItemInput[]>(() => (
-    checkoutItemsState.map((item) => ({
-      modelId: item.modelId,
-      partId: item.partId || undefined,
-      qty: Math.max(1, item.options.qty || 1),
-      scale: item.options.scale || 1,
-      material: item.options.material || 'PLA',
-      colors: normalizeColors(item.options.colors),
-      infillPct: item.options.infillPct ?? null,
-      customText: item.options.customText || null,
-    }))
+    checkoutItemsState.map((item) => {
+      const locked = item.options.lockDimensions !== false
+      const overrides = locked ? null : item.options.dimensionOverrides
+      const axisScales = DIMENSION_AXES.reduce((acc, axis) => {
+        acc[axis] = resolveAxisScale(item.options.scale, overrides, axis)
+        return acc
+      }, {} as Record<(typeof DIMENSION_AXES)[number], number>)
+      const targetDimensions: Dimensions | null = (() => {
+        const dims: Dimensions = {}
+        for (const axis of DIMENSION_AXES) {
+          const base = item.size?.[axis]
+          if (typeof base !== 'number' || Number.isNaN(base) || base <= 0) continue
+          dims[axis] = Number((base * axisScales[axis]).toFixed(1))
+        }
+        return Object.keys(dims).length ? dims : null
+      })()
+      const uniformScale = Math.cbrt(axisScales.x * axisScales.y * axisScales.z)
+      return {
+        modelId: item.modelId,
+        partId: item.partId || undefined,
+        qty: Math.max(1, item.options.qty || 1),
+        scale: uniformScale,
+        scaleX: axisScales.x,
+        scaleY: axisScales.y,
+        scaleZ: axisScales.z,
+        material: item.options.material || 'PLA',
+        colors: normalizeColors(item.options.colors),
+        infillPct: item.options.infillPct ?? null,
+        customText: item.options.customText || null,
+        lockDimensions: locked,
+        targetDimensions,
+      }
+    })
   ), [checkoutItemsState])
 
   const shippingAddress: ShippingAddress | null = useMemo(() => {
