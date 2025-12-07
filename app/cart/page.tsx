@@ -21,12 +21,12 @@ const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
   z: 'Height (Z)',
 }
 const COLOR_PICKER_FALLBACK = '#1f2937'
-const COLOR_PALETTE = ['#ffffff', '#f9fafb', '#d1d5db', '#111827', '#f87171', '#fb923c', '#facc15', '#a3e635', '#34d399', '#22d3ee', '#38bdf8', '#60a5fa', '#818cf8', '#c084fc', '#f472b6', '#fb7185']
 const isHexColor = (value?: string | null) => !!value && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim())
 
 export default function CartPage() {
   const { items, inc, dec, update, remove, clear, maxColors } = useCart()
   const [discount, setDiscount] = useState<DiscountSummary | null>(null)
+  const [activeColorSlot, setActiveColorSlot] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -195,46 +195,92 @@ export default function CartPage() {
                           <option value="PETG">PETG</option>
                         </select>
                       </label>
-                      <div className="flex flex-col gap-2 text-xs text-slate-400">
-                        <span>Colors (up to {maxColors})</span>
-                        <div className="flex flex-wrap gap-3">
-                          {Array.from({ length: Math.max(1, maxColors) }).map((_, idx) => {
-                            const value = item.options.colors?.[idx] || ''
-                            const hexValue = isHexColor(value) ? value : COLOR_PICKER_FALLBACK
-                            const updateColor = (nextValue: string) => {
-                              const next = [...(item.options.colors || [])]
-                              next[idx] = nextValue
-                              update(item.modelId, { colors: next }, item.partId)
-                            }
+                      <div className="flex flex-col gap-2 text-xs text-slate-400 w-full">
+                        <span>AMS slots (tap a bay to edit)</span>
+                        <div className="space-y-2">
+                          {Array.from({ length: Math.max(1, Math.ceil(Math.max(1, maxColors) / 4)) }).map((_, unitIdx) => {
+                            const safeSlots = Math.max(1, maxColors)
+                            const baseIndex = unitIdx * 4
+                            const slotsInUnit = Math.min(4, Math.max(0, safeSlots - baseIndex))
                             return (
-                              <div key={`${item.modelId}-${item.partId || 'whole'}-color-${idx}`} className="flex flex-col gap-1">
-                                <span className="text-[10px] uppercase tracking-wide text-slate-500">Color {idx + 1}</span>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    className="w-28 input text-sm"
-                                    value={value}
-                                    placeholder="Name or hex"
-                                    onChange={(e) => updateColor(e.target.value)}
-                                  />
-                                  <input
-                                    type="color"
-                                    className="h-9 w-9 rounded border border-white/10 bg-transparent cursor-pointer"
-                                    value={hexValue}
-                                    aria-label={`Pick color ${idx + 1}`}
-                                    onChange={(e) => updateColor(e.target.value)}
-                                  />
+                              <div key={`${item.modelId}-${item.partId || 'whole'}-ams-${unitIdx}`} className="rounded-xl border border-white/10 bg-slate-900/40 p-3">
+                                <div className="flex items-center justify-between mb-2 text-[11px] uppercase tracking-[0.3em] text-slate-500">
+                                  <span>AMS #{unitIdx + 1}</span>
+                                  <span>Slots {baseIndex + 1}–{baseIndex + slotsInUnit}</span>
                                 </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {COLOR_PALETTE.map((preset) => (
-                                    <button
-                                      key={preset}
-                                      type="button"
-                                      className="w-5 h-5 rounded-full border border-white/20"
-                                      style={{ backgroundColor: preset }}
-                                      aria-label={`Set ${preset} for color ${idx + 1}`}
-                                      onClick={() => updateColor(preset)}
-                                    />
-                                  ))}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                  {Array.from({ length: slotsInUnit }).map((_, slotIdx) => {
+                                    const idx = baseIndex + slotIdx
+                                    const slotId = `${item.modelId}-${item.partId || 'whole'}-color-${idx}`
+                                    const value = item.options.colors?.[idx] || ''
+                                    const hexValue = isHexColor(value) ? value : COLOR_PICKER_FALLBACK
+                                    const isActive = activeColorSlot === slotId
+                                    const updateColor = (nextValue: string) => {
+                                      const next = [...(item.options.colors || [])]
+                                      next[idx] = nextValue
+                                      update(item.modelId, { colors: next }, item.partId)
+                                    }
+                                    return (
+                                      <div key={slotId} className="flex flex-col gap-1">
+                                        <div className="relative">
+                                          <button
+                                            type="button"
+                                            className={`relative rounded-xl border border-white/20 aspect-square w-full flex items-center justify-center transition-all ${isActive ? 'ring-2 ring-amber-400' : ''}`}
+                                            style={{ background: hexValue }}
+                                            onClick={() => setActiveColorSlot(isActive ? null : slotId)}
+                                          >
+                                            {!value && (
+                                              <span className="text-[10px] uppercase tracking-wide text-white/70">
+                                                Select color
+                                              </span>
+                                            )}
+                                          </button>
+                                          <div className="pointer-events-none absolute left-1 top-1 z-10 flex flex-col px-2 py-1 rounded-xl bg-black/55 text-white uppercase tracking-wide text-[9px]">
+                                            <span className="font-semibold">Slot {idx + 1}</span>
+                                            <span className="text-[8px] normal-case text-white/80 truncate max-w-[70px]">
+                                              {value || 'No color'}
+                                            </span>
+                                          </div>
+                                          {value ? (
+                                            <button
+                                              type="button"
+                                              className="absolute right-1 top-1 z-10 px-2 py-1 text-[9px] uppercase rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                updateColor('')
+                                              }}
+                                            >
+                                              Clear
+                                            </button>
+                                          ) : (
+                                            <span className="pointer-events-none absolute right-1 top-1 z-10 px-2 py-1 text-[9px] uppercase rounded-full bg-black/30 text-white/70">
+                                              Empty
+                                            </span>
+                                          )}
+                                        </div>
+                                        {isActive && (
+                                          <div className="p-2 rounded-lg border border-white/10 bg-slate-950/80 space-y-2">
+                                            <input
+                                              className="w-full input text-sm"
+                                              value={value}
+                                              placeholder="Name or hex"
+                                              onChange={(e) => updateColor(e.target.value)}
+                                            />
+                                            <label className="text-[10px] uppercase tracking-wide text-slate-400">
+                                              Pick color
+                                              <input
+                                                type="color"
+                                                className="mt-1 h-10 w-full rounded-md border border-white/20 bg-transparent cursor-pointer"
+                                                value={hexValue}
+                                                aria-label={`Pick color ${idx + 1}`}
+                                                onChange={(e) => updateColor(e.target.value)}
+                                              />
+                                            </label>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
                                 </div>
                               </div>
                             )
