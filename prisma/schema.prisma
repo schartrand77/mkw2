@@ -86,14 +86,15 @@ model Tag {
   name    String     @unique
   slug    String     @unique
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   modelTags ModelTag[]
 }
 
 model ModelTag {
   modelId String
   tagId   String
-  model   Model @relation(fields: [modelId], references: [id])
-  tag     Tag   @relation(fields: [tagId], references: [id])
+  model   Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  tag     Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
   @@id([modelId, tagId])
 }
 
@@ -101,8 +102,8 @@ model Like {
   userId  String
   modelId String
   createdAt DateTime @default(now())
-  user    User  @relation(fields: [userId], references: [id])
-  model   Model @relation(fields: [modelId], references: [id])
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  model   Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
   @@id([userId, modelId])
 }
 

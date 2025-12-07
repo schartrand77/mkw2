@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import type { Prisma } from '@prisma/client'
 import { resolveModelPricing } from '@/lib/pricing'
+import { DiscoverSort, type ModelWithPartsCountAndTags } from '@/types/discover'
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q')?.trim() || undefined
   const material = searchParams.get('material')?.trim() || undefined
-  const sort = (searchParams.get('sort') || 'latest') as 'latest' | 'popular' | 'price_asc' | 'price_desc'
+  const sort = (searchParams.get('sort') || DiscoverSort.Latest) as DiscoverSort
   const tagsParam = searchParams.get('tags')?.trim() || undefined
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
   const pageSize = Math.min(60, Math.max(1, parseInt(searchParams.get('pageSize') || '24', 10) || 24))
@@ -39,13 +40,13 @@ export async function GET(req: NextRequest) {
 
   const orderBy: Prisma.ModelOrderByWithRelationInput | Prisma.ModelOrderByWithRelationInput[] = (() => {
     switch (sort) {
-      case 'price_asc':
+      case DiscoverSort.PriceAsc:
         return [{ salePriceUsd: 'asc' as const }, { priceUsd: 'asc' }] as any
-      case 'price_desc':
+      case DiscoverSort.PriceDesc:
         return [{ salePriceUsd: 'desc' as const }, { priceUsd: 'desc' }] as any
-      case 'popular':
+      case DiscoverSort.Popular:
         return [{ likes: 'desc' }, { downloads: 'desc' }, { createdAt: 'desc' }] as any
-      case 'latest':
+      case DiscoverSort.Latest:
       default:
         return { createdAt: 'desc' }
     }
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
     prisma.model.count({ where }),
     prisma.model.findMany({
       where,
-      orderBy: orderBy as any,
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
       select: {
@@ -82,28 +83,28 @@ export async function GET(req: NextRequest) {
     }),
     prisma.siteConfig.findUnique({ where: { id: 'main' } })
   ])
-  const mapped = models.map(m => {
-    const summary = resolveModelPricing(m as any, cfg)
+  const mapped = (models as ModelWithPartsCountAndTags[]).map(m => {
+    const summary = resolveModelPricing(m, cfg)
     return {
       id: m.id,
       title: m.title,
       coverImagePath: m.coverImagePath,
-      sizeXmm: (m as any).sizeXmm,
-      sizeYmm: (m as any).sizeYmm,
-      sizeZmm: (m as any).sizeZmm,
-      fileType: (m as any).fileType,
+      sizeXmm: m.sizeXmm,
+      sizeYmm: m.sizeYmm,
+      sizeZmm: m.sizeZmm,
+      fileType: m.fileType,
       priceUsd: summary.priceUsd,
       basePriceUsd: summary.basePriceUsd,
       salePriceUsd: summary.salePriceUsd,
       saleActive: summary.saleActive,
-      salePriceIsFrom: Boolean((m as any).salePriceIsFrom),
-      salePriceUnit: (m as any).salePriceUnit ?? null,
+      salePriceIsFrom: m.salePriceIsFrom,
+      salePriceUnit: m.salePriceUnit ?? null,
       likes: m.likes,
       downloads: m.downloads,
       createdAt: m.createdAt,
       updatedAt: m.updatedAt,
-      partsCount: (m as any)._count?.parts || 0,
-      tags: (m as any).modelTags?.map((mt: any) => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug })) || []
+      partsCount: m._count?.parts || 0,
+      tags: m.modelTags?.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug })) || []
     }
   })
   return NextResponse.json({ models: mapped, total, page, pageSize })
