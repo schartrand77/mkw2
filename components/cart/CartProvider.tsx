@@ -1,6 +1,14 @@
 "use client"
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { clampScale, DIMENSION_AXES, type MaterialType, normalizeColors, type ScaleOverrides } from '@/lib/cartPricing'
+import {
+  clampScale,
+  DIMENSION_AXES,
+  type MaterialType,
+  normalizeColors,
+  setClientMaxCartColors,
+  type ScaleOverrides,
+  MAX_CART_COLORS,
+} from '@/lib/cartPricing'
 
 export type CartOptions = {
   qty: number
@@ -28,6 +36,7 @@ export type CartItem = {
 type CartCtx = {
   items: CartItem[]
   count: number
+  maxColors: number
   add: (item: Omit<CartItem, 'options'>, opts?: Partial<CartOptions>) => void
   remove: (modelId: string, partId?: string | null) => void
   inc: (modelId: string, partId?: string | null) => void
@@ -113,6 +122,7 @@ export function useCart() {
 
 export default function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
+  const [maxColors, setMaxColors] = useState<number>(MAX_CART_COLORS)
 
   useEffect(() => {
     try {
@@ -129,6 +139,25 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)) } catch {}
   }, [items])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadConfig = async () => {
+      try {
+        const res = await fetch('/api/public-config', { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json().catch(() => null) as { maxCartColors?: number } | null
+        if (!data || cancelled) return
+        const parsed = Number(data.maxCartColors)
+        if (!Number.isFinite(parsed) || parsed <= 0) return
+        const clamped = Math.max(1, Math.min(16, Math.round(parsed)))
+        setMaxColors(clamped)
+        setClientMaxCartColors(clamped)
+      } catch {}
+    }
+    loadConfig()
+    return () => { cancelled = true }
+  }, [])
 
   const add: CartCtx['add'] = useCallback((item, opts) => {
     setItems(prev => {
@@ -167,7 +196,17 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   })), [])
   const clear = useCallback(() => setItems([]), [])
 
-  const value = useMemo<CartCtx>(() => ({ items, count: items.reduce((a, b) => a + (b.options.qty || 0), 0), add, remove, inc, dec, update, clear }), [items, add, remove, inc, dec, update, clear])
+  const value = useMemo<CartCtx>(() => ({
+    items,
+    count: items.reduce((a, b) => a + (b.options.qty || 0), 0),
+    maxColors,
+    add,
+    remove,
+    inc,
+    dec,
+    update,
+    clear,
+  }), [items, maxColors, add, remove, inc, dec, update, clear])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

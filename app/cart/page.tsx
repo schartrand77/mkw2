@@ -9,7 +9,6 @@ import {
   getColorMultiplier,
   getMaterialMultiplier,
   getVolumeScaleMultiplier,
-  MAX_CART_COLORS,
   resolveAxisScale,
   type MaterialType,
 } from '@/lib/cartPricing'
@@ -21,9 +20,12 @@ const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
   y: 'Depth (Y)',
   z: 'Height (Z)',
 }
+const COLOR_PICKER_FALLBACK = '#1f2937'
+const COLOR_PALETTE = ['#ffffff', '#f9fafb', '#d1d5db', '#111827', '#f87171', '#fb923c', '#facc15', '#a3e635', '#34d399', '#22d3ee', '#38bdf8', '#60a5fa', '#818cf8', '#c084fc', '#f472b6', '#fb7185']
+const isHexColor = (value?: string | null) => !!value && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim())
 
 export default function CartPage() {
-  const { items, inc, dec, update, remove, clear } = useCart()
+  const { items, inc, dec, update, remove, clear, maxColors } = useCart()
   const [discount, setDiscount] = useState<DiscountSummary | null>(null)
 
   useEffect(() => {
@@ -193,22 +195,50 @@ export default function CartPage() {
                           <option value="PETG">PETG</option>
                         </select>
                       </label>
-                      <div className="flex flex-col gap-1 text-xs text-slate-400">
-                        <span>Colors (up to {MAX_CART_COLORS})</span>
-                        <div className="flex flex-wrap gap-2">
-                          {Array.from({ length: MAX_CART_COLORS }).map((_, idx) => (
-                            <input
-                              key={`${item.modelId}-${item.partId || 'whole'}-color-${idx}`}
-                              className="w-28 input text-sm"
-                              value={item.options.colors?.[idx] || ''}
-                              placeholder={`Color ${idx + 1}`}
-                              onChange={(e) => {
-                                const next = [...(item.options.colors || [])]
-                                next[idx] = e.target.value
-                                update(item.modelId, { colors: next }, item.partId)
-                              }}
-                            />
-                          ))}
+                      <div className="flex flex-col gap-2 text-xs text-slate-400">
+                        <span>Colors (up to {maxColors})</span>
+                        <div className="flex flex-wrap gap-3">
+                          {Array.from({ length: Math.max(1, maxColors) }).map((_, idx) => {
+                            const value = item.options.colors?.[idx] || ''
+                            const hexValue = isHexColor(value) ? value : COLOR_PICKER_FALLBACK
+                            const updateColor = (nextValue: string) => {
+                              const next = [...(item.options.colors || [])]
+                              next[idx] = nextValue
+                              update(item.modelId, { colors: next }, item.partId)
+                            }
+                            return (
+                              <div key={`${item.modelId}-${item.partId || 'whole'}-color-${idx}`} className="flex flex-col gap-1">
+                                <span className="text-[10px] uppercase tracking-wide text-slate-500">Color {idx + 1}</span>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    className="w-28 input text-sm"
+                                    value={value}
+                                    placeholder="Name or hex"
+                                    onChange={(e) => updateColor(e.target.value)}
+                                  />
+                                  <input
+                                    type="color"
+                                    className="h-9 w-9 rounded border border-white/10 bg-transparent cursor-pointer"
+                                    value={hexValue}
+                                    aria-label={`Pick color ${idx + 1}`}
+                                    onChange={(e) => updateColor(e.target.value)}
+                                  />
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {COLOR_PALETTE.map((preset) => (
+                                    <button
+                                      key={preset}
+                                      type="button"
+                                      className="w-5 h-5 rounded-full border border-white/20"
+                                      style={{ backgroundColor: preset }}
+                                      aria-label={`Set ${preset} for color ${idx + 1}`}
+                                      onClick={() => updateColor(preset)}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                       <label className="flex items-center gap-2">

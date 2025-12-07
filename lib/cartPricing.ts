@@ -8,14 +8,8 @@ const DEFAULT_PETG_PRICE = 28
 const DEFAULT_MAX_COLORS = 4
 const SCALE_MIN = 0.1
 const SCALE_MAX = 5
-const MAX_COLORS = (() => {
-  const configured = readNumber(
-    ['NEXT_PUBLIC_MAX_CART_COLORS', 'MAX_CART_COLORS'],
-    DEFAULT_MAX_COLORS,
-  )
-  if (!Number.isFinite(configured)) return DEFAULT_MAX_COLORS
-  return Math.max(1, Math.min(16, Math.round(configured)))
-})()
+
+let clientMaxColorOverride: number | null = null
 
 function readNumber(keys: string[], fallback: number): number {
   for (const key of keys) {
@@ -42,11 +36,41 @@ export function getMaterialMultiplier(material: MaterialType | undefined | null)
   return petg / pla
 }
 
-export function normalizeColors(colors?: (string | null | undefined)[]): string[] {
+function clampMaxColors(value: number): number {
+  return Math.max(1, Math.min(16, Math.round(value)))
+}
+
+function readMaxCartColors(): number {
+  const configured = readNumber(
+    ['NEXT_PUBLIC_MAX_CART_COLORS', 'MAX_CART_COLORS'],
+    DEFAULT_MAX_COLORS,
+  )
+  if (!Number.isFinite(configured)) return DEFAULT_MAX_COLORS
+  return clampMaxColors(configured)
+}
+
+export function getMaxCartColors(): number {
+  if (typeof window !== 'undefined' && clientMaxColorOverride != null) {
+    return clientMaxColorOverride
+  }
+  return readMaxCartColors()
+}
+
+export function setClientMaxCartColors(value?: number | null) {
+  if (typeof window === 'undefined') return
+  if (value == null || Number.isNaN(Number(value))) {
+    clientMaxColorOverride = null
+    return
+  }
+  clientMaxColorOverride = clampMaxColors(Number(value))
+}
+
+export function normalizeColors(colors?: (string | null | undefined)[], maxColors = getMaxCartColors()): string[] {
   if (!Array.isArray(colors) || colors.length === 0) return []
+  const limit = clampMaxColors(maxColors)
   const result: string[] = []
   for (const color of colors) {
-    if (result.length >= MAX_COLORS) break
+    if (result.length >= limit) break
     const cleaned = (color || '').trim()
     if (cleaned) result.push(cleaned)
   }
@@ -94,4 +118,4 @@ export function clampScale(scale?: number | null) {
   return Math.max(SCALE_MIN, Math.min(SCALE_MAX, Number(scale)))
 }
 
-export const MAX_CART_COLORS = MAX_COLORS
+export const MAX_CART_COLORS = getMaxCartColors()
