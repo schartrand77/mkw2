@@ -57,7 +57,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
 
   const fetchParams = new URLSearchParams(params)
   fetchParams.delete('view')
-  const baseUrl = await resolveBaseUrl()
+  const baseUrl = resolveBaseUrl()
   const data = await fetchModels(fetchParams, baseUrl) as { models?: DiscoverModel[]; total?: number }
   const models: DiscoverModel[] = Array.isArray(data.models) ? data.models : []
   const total = typeof data.total === 'number' ? data.total : 0
