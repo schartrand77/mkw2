@@ -15,10 +15,10 @@ function sanitize(raw?: string | null) {
   }
 }
 
-export function resolveBaseUrl() {
+export async function resolveBaseUrl() {
   const fromEnv = sanitize(process.env.BASE_URL)
   if (fromEnv) return fromEnv
-  const headerList = headers()
+  const headerList = await headers()
   const host = headerList.get('x-forwarded-host') || headerList.get('host')
   if (!host) return 'http://localhost:3000'
   const proto = headerList.get('x-forwarded-proto')?.split(',')[0]?.trim()

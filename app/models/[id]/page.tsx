@@ -25,7 +25,7 @@ type ModelDetailProps = {
 
 export default async function ModelDetail({ params, searchParams }: ModelDetailProps) {
   const { id } = await params
-  const baseUrl = resolveBaseUrl()
+  const baseUrl = await resolveBaseUrl()
   const resolvedSearchParams = searchParams ? await searchParams : undefined
   const model = await fetchModel(id, baseUrl)
   if (!model) return <div>Not found</div>
