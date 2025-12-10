@@ -330,6 +330,12 @@ export async function POST(req: NextRequest) {
         })
       } catch (jobErr) {
         console.error('Failed to record OrderWorks job', jobErr)
+        return NextResponse.json(
+          {
+            error: 'Failed to submit the job to OrderWorks. Please try again once the connection is restored.',
+          },
+          { status: 502 },
+        )
       }
       try {
         await recordCustomerOrder({

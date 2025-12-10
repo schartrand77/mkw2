@@ -413,9 +413,12 @@ export async function recordOrderWorksJob({
       fulfilledAt: fulfilledAt ?? undefined,
     },
   })
-  queueOrderWorksJob(job.id).catch((err) => {
+  try {
+    await queueOrderWorksJob(job.id)
+  } catch (err) {
     console.error('OrderWorks webhook error:', err)
-  })
+    throw err
+  }
   return job
 }
 
