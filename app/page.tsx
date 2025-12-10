@@ -2,16 +2,18 @@ import Link from 'next/link'
 import { buildImageSrc } from '@/lib/public-path'
 import { BRAND_SLUG } from '@/lib/brand'
 import { formatPriceLabel } from '@/lib/price-label'
+import { resolveBaseUrl } from '@/lib/base-url'
 
-async function fetchFeatured() {
-  const res = await fetch(`${process.env.BASE_URL || ''}/api/featured`, { cache: 'no-store' })
+async function fetchFeatured(baseUrl: string) {
+  const res = await fetch(`${baseUrl}/api/featured`, { cache: 'no-store' })
   if (!res.ok) return []
   const data = await res.json()
   return data.models as any[]
 }
 
 export default async function HomePage() {
-  const featured = await fetchFeatured()
+  const baseUrl = resolveBaseUrl()
+  const featured = await fetchFeatured(baseUrl)
   const defaultContactEmail = `info@${BRAND_SLUG}.app`
   const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || defaultContactEmail
   return (

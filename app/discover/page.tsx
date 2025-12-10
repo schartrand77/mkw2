@@ -7,6 +7,7 @@ import AddToCartButtons from '@/components/cart/AddToCartButtons'
 import { buildImageSrc } from '@/lib/public-path'
 import { formatPriceLabel } from '@/lib/price-label'
 import { DiscoverSort, DiscoverViewMode, type CardInfo, type DiscoverModel } from '@/types/discover'
+import { resolveBaseUrl } from '@/lib/base-url'
 
 type SearchParams = { [key: string]: string | string[] | undefined }
 
@@ -15,9 +16,9 @@ import DiscoverFilters from '@/components/discover/DiscoverFilters'
 
 const PAGE_SIZE_OPTIONS = [12, 24, 36, 48, 60]
 
-async function fetchModels(params: URLSearchParams) {
+async function fetchModels(params: URLSearchParams, baseUrl: string) {
   const qs = params.toString()
-  const res = await fetch(`${process.env.BASE_URL || ''}/api/models${qs ? `?${qs}` : ''}`, { cache: 'no-store' })
+  const res = await fetch(`${baseUrl}/api/models${qs ? `?${qs}` : ''}`, { cache: 'no-store' })
   if (!res.ok) return { models: [], total: 0, page: 1, pageSize: 24 }
   return res.json()
 }
@@ -56,8 +57,8 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
 
   const fetchParams = new URLSearchParams(params)
   fetchParams.delete('view')
-
-  const data = await fetchModels(fetchParams) as { models?: DiscoverModel[]; total?: number }
+  const baseUrl = resolveBaseUrl()
+  const data = await fetchModels(fetchParams, baseUrl) as { models?: DiscoverModel[]; total?: number }
   const models: DiscoverModel[] = Array.isArray(data.models) ? data.models : []
   const total = typeof data.total === 'number' ? data.total : 0
   const safeTotal = total || 0

@@ -8,11 +8,12 @@ import { formatPriceLabel } from '@/lib/price-label'
 import { buildYouTubeEmbedUrl } from '@/lib/youtube'
 import { buildImageSrc, toPublicHref } from '@/lib/storage'
 import { BRAND_NAME } from '@/lib/brand'
+import { resolveBaseUrl } from '@/lib/base-url'
 import ModelPartsList from '@/components/ModelPartsList'
 import ModelComments from '@/components/ModelComments'
 
-async function fetchModel(id: string) {
-  const res = await fetch(`${process.env.BASE_URL || ''}/api/models/${id}`, { cache: 'no-store' })
+async function fetchModel(id: string, baseUrl: string) {
+  const res = await fetch(`${baseUrl}/api/models/${id}`, { cache: 'no-store' })
   if (!res.ok) return null
   return (await res.json()).model as any
 }
@@ -24,8 +25,9 @@ type ModelDetailProps = {
 
 export default async function ModelDetail({ params, searchParams }: ModelDetailProps) {
   const { id } = await params
+  const baseUrl = resolveBaseUrl()
   const resolvedSearchParams = searchParams ? await searchParams : undefined
-  const model = await fetchModel(id)
+  const model = await fetchModel(id, baseUrl)
   if (!model) return <div>Not found</div>
   const fileHref = toPublicHref(model.filePath)
   const viewerHref = toPublicHref(model.viewerFilePath || model.filePath)
