@@ -21,9 +21,9 @@ function resolveFromVercelEnv() {
   return sanitize(prefixed)
 }
 
-function resolveFromHeaders() {
+async function resolveFromHeaders() {
   try {
-    const hdrs = headers()
+    const hdrs = await headers()
     const proto = hdrs.get('x-forwarded-proto') || hdrs.get('x-forwarded-protocol') || 'https'
     const host = hdrs.get('x-forwarded-host') || hdrs.get('host')
     if (host) {
@@ -35,6 +35,6 @@ function resolveFromHeaders() {
   return null
 }
 
-export function resolveBaseUrl() {
-  return sanitize(process.env.BASE_URL) || resolveFromVercelEnv() || resolveFromHeaders() || ''
+export async function resolveBaseUrl() {
+  return sanitize(process.env.BASE_URL) || resolveFromVercelEnv() || await resolveFromHeaders() || ''
 }

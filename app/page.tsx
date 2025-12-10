@@ -12,7 +12,7 @@ async function fetchFeatured(baseUrl: string) {
 }
 
 export default async function HomePage() {
-  const baseUrl = resolveBaseUrl()
+  const baseUrl = await resolveBaseUrl()
   const featured = await fetchFeatured(baseUrl)
   const defaultContactEmail = `info@${BRAND_SLUG}.app`
   const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || defaultContactEmail
