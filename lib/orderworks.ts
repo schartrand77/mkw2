@@ -99,6 +99,11 @@ type ModelFileRecord = {
   viewerFilePath: string | null
 }
 
+type OrderWorksRetryFailure = {
+  jobId: string
+  message: string
+}
+
 function buildMakerWorksSignature(secret: string, body: string): MakerWorksSignature {
   const timestamp = Math.floor(Date.now() / 1000)
   const canonicalPayload = `${timestamp}.${body}`
@@ -492,20 +497,40 @@ export async function queueOrderWorksJob(jobId: string) {
 }
 
 export async function retryPendingOrderWorksJobs(limit = 10) {
-  if (WEBHOOK_TARGETS.length === 0) return { processed: 0, message: 'Webhook targets missing' }
+  if (WEBHOOK_TARGETS.length === 0) {
+    const error: any = new Error('ORDERWORKS_WEBHOOK_URL is not configured; cannot retry jobs.')
+    error.code = 'ORDERWORKS_CONFIG_MISSING'
+    error.status = 400
+    throw error
+  }
   const jobs = await prisma.jobForm.findMany({
     where: { status: 'pending' },
     orderBy: [{ lastAttemptAt: 'asc' }, { createdAt: 'asc' }],
     take: limit,
   })
   let processed = 0
+  const failures: OrderWorksRetryFailure[] = []
   for (const job of jobs) {
     try {
       await sendJobToOrderWorks(job.id)
       processed++
     } catch (err) {
       console.error('Failed OrderWorks retry', err)
+      failures.push({
+        jobId: job.id,
+        message: (err as Error)?.message ? String((err as Error).message).slice(0, 500) : 'Unknown error',
+      })
     }
   }
-  return { processed, remaining: Math.max(0, (await prisma.jobForm.count({ where: { status: 'pending' } })) - processed) }
+  const remaining = await prisma.jobForm.count({ where: { status: 'pending' } })
+  if (failures.length > 0) {
+    const error: any = new Error(`Failed to resend ${failures.length} job${failures.length === 1 ? '' : 's'}.`)
+    error.code = 'ORDERWORKS_RETRY_FAILED'
+    error.status = 502
+    error.failures = failures
+    error.processed = processed
+    error.remaining = remaining
+    throw error
+  }
+  return { processed, remaining }
 }

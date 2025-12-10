@@ -27,9 +27,17 @@ type Props = {
 }
 
 export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }: Props) {
-  const { add } = useCart()
+  const { add, items } = useCart()
   const hasPricedPart = parts.some((p) => typeof p.priceUsd === 'number' && Number(p.priceUsd) > 0)
   const memoizedParts = useMemo(() => parts, [parts])
+  const partQuantities = useMemo(() => {
+    const quantities: Record<string, number> = {}
+    for (const item of items) {
+      if (item.modelId !== modelId || !item.partId) continue
+      quantities[item.partId] = item.options.qty ?? 0
+    }
+    return quantities
+  }, [items, modelId])
 
   return (
     <div className="glass rounded-xl p-4 text-sm">
@@ -66,29 +74,36 @@ export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }
                   <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={`/models/${modelId}?part=${part.index}`}>
                     Preview
                   </Link>
-                  <button
-                    type="button"
-                    className="px-2 py-1 rounded-md border border-brand-500/40 hover:border-brand-500 text-brand-200 disabled:opacity-40"
-                    disabled={price == null}
-                    onClick={() => {
-                      if (price == null) return
-                      add(
-                        {
-                          modelId,
-                          partId: part.id,
-                          partName: part.name || `Part ${i + 1}`,
-                          partIndex: part.index,
-                          title: modelTitle,
-                          priceUsd: price,
-                          thumbnail,
-                          size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
-                        },
-                        { material: 'PLA', colors: [] },
-                      )
-                    }}
-                  >
-                    Add to cart
-                  </button>
+                  <div className="relative inline-flex">
+                    <button
+                      type="button"
+                      className="px-2 py-1 rounded-md border border-brand-500/40 hover:border-brand-500 text-brand-200 disabled:opacity-40"
+                      disabled={price == null}
+                      onClick={() => {
+                        if (price == null) return
+                        add(
+                          {
+                            modelId,
+                            partId: part.id,
+                            partName: part.name || `Part ${i + 1}`,
+                            partIndex: part.index,
+                            title: modelTitle,
+                            priceUsd: price,
+                            thumbnail,
+                            size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
+                          },
+                          { material: 'PLA', colors: [] },
+                        )
+                      }}
+                    >
+                      Add to cart
+                    </button>
+                    {(partQuantities[part.id] ?? 0) > 0 && (
+                      <span className="absolute -top-2 -right-2 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-brand-500 px-1 text-[0.65rem] font-semibold text-white shadow-lg shadow-brand-500/40">
+                        {partQuantities[part.id]}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </li>
             )
