@@ -104,6 +104,12 @@ type OrderWorksRetryFailure = {
   message: string
 }
 
+function readEnv(key: string): string | undefined {
+  if (typeof process === 'undefined') return undefined
+  const value = process.env?.[key]
+  return typeof value === 'string' ? value : undefined
+}
+
 function buildMakerWorksSignature(secret: string, body: string): MakerWorksSignature {
   const timestamp = Math.floor(Date.now() / 1000)
   const canonicalPayload = `${timestamp}.${body}`
@@ -117,7 +123,7 @@ function buildMakerWorksSignature(secret: string, body: string): MakerWorksSigna
 }
 
 function parseAdditionalTargets(): WebhookTarget[] {
-  const raw = process.env.ORDERWORKS_ADDITIONAL_WEBHOOKS || process.env.ORDERWORKS_EXTRA_WEBHOOKS
+  const raw = readEnv('ORDERWORKS_ADDITIONAL_WEBHOOKS') || readEnv('ORDERWORKS_EXTRA_WEBHOOKS')
   if (!raw) return []
   try {
     const parsed = JSON.parse(raw)
@@ -154,11 +160,21 @@ function parseAdditionalTargets(): WebhookTarget[] {
   return []
 }
 
-const PRIMARY_TARGET = process.env.ORDERWORKS_WEBHOOK_URL
-  ? [{ url: process.env.ORDERWORKS_WEBHOOK_URL, secret: process.env.ORDERWORKS_WEBHOOK_SECRET || undefined, label: 'orderworks' }]
-  : []
+function buildPrimaryTarget(): WebhookTarget[] {
+  const url = readEnv('ORDERWORKS_WEBHOOK_URL')
+  if (!url) return []
+  return [
+    {
+      url,
+      secret: readEnv('ORDERWORKS_WEBHOOK_SECRET') || undefined,
+      label: 'orderworks',
+    },
+  ]
+}
 
-const WEBHOOK_TARGETS: WebhookTarget[] = [...PRIMARY_TARGET, ...parseAdditionalTargets()]
+function getWebhookTargets(): WebhookTarget[] {
+  return [...buildPrimaryTarget(), ...parseAdditionalTargets()]
+}
 
 function sanitizeStoragePathValue(path?: string | null) {
   if (!path) return null
@@ -422,8 +438,8 @@ export async function recordOrderWorksJob({
   return job
 }
 
-async function sendJobToOrderWorks(jobId: string) {
-  if (WEBHOOK_TARGETS.length === 0) {
+async function sendJobToOrderWorks(jobId: string, targets: WebhookTarget[] = getWebhookTargets()) {
+  if (targets.length === 0) {
     console.warn('No OrderWorks webhook targets configured; skipping sync.')
     return
   }
@@ -451,7 +467,7 @@ async function sendJobToOrderWorks(jobId: string) {
   }
   const errors: string[] = []
   const jsonBody = JSON.stringify(payload)
-  for (const target of WEBHOOK_TARGETS) {
+  for (const target of targets) {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       const bodyToSend: BodyInit = jsonBody
@@ -495,12 +511,12 @@ async function sendJobToOrderWorks(jobId: string) {
 }
 
 export async function queueOrderWorksJob(jobId: string) {
-  if (WEBHOOK_TARGETS.length === 0) return
   await sendJobToOrderWorks(jobId)
 }
 
 export async function retryPendingOrderWorksJobs(limit = 10) {
-  if (WEBHOOK_TARGETS.length === 0) {
+  const targets = getWebhookTargets()
+  if (targets.length === 0) {
     const error: any = new Error('ORDERWORKS_WEBHOOK_URL is not configured; cannot retry jobs.')
     error.code = 'ORDERWORKS_CONFIG_MISSING'
     error.status = 400
@@ -515,7 +531,7 @@ export async function retryPendingOrderWorksJobs(limit = 10) {
   const failures: OrderWorksRetryFailure[] = []
   for (const job of jobs) {
     try {
-      await sendJobToOrderWorks(job.id)
+      await sendJobToOrderWorks(job.id, targets)
       processed++
     } catch (err) {
       console.error('Failed OrderWorks retry', err)

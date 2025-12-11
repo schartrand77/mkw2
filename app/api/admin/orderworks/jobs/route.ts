@@ -39,6 +39,6 @@ export async function GET(req: NextRequest) {
     jobs: (jobs as JobWithUser[]).map(serializeJob),
     totalCount,
     pendingCount,
-    orderWorksEnabled: Boolean(process.env.ORDERWORKS_WEBHOOK_URL),
+    orderWorksEnabled: Boolean(process.env['ORDERWORKS_WEBHOOK_URL']),
   })
 }

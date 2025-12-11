@@ -22,7 +22,7 @@ export async function POST(_req: Request, { params }: Params) {
   if (!job) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 })
   }
-  if (!process.env.ORDERWORKS_WEBHOOK_URL) {
+  if (!process.env['ORDERWORKS_WEBHOOK_URL']) {
     return NextResponse.json({ error: 'ORDERWORKS_WEBHOOK_URL is not configured' }, { status: 400 })
   }
 

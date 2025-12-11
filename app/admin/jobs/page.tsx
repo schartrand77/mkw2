@@ -41,7 +41,7 @@ export default async function AdminJobsPage() {
           initialJobs={jobs}
           pendingCount={pendingCount}
           totalCount={totalCount}
-          orderWorksEnabled={Boolean(process.env.ORDERWORKS_WEBHOOK_URL)}
+          orderWorksEnabled={Boolean(process.env['ORDERWORKS_WEBHOOK_URL'])}
         />
       </div>
     </div>

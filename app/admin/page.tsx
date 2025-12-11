@@ -42,7 +42,7 @@ export default async function AdminPage() {
     fetchAdminUsersWithBadges(),
     fetchJobQueueSnapshot(100),
   ])
-  const orderWorksEnabled = Boolean(process.env.ORDERWORKS_WEBHOOK_URL)
+  const orderWorksEnabled = Boolean(process.env['ORDERWORKS_WEBHOOK_URL'])
 
   return (
     <div className="space-y-8">
