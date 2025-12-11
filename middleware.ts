@@ -13,7 +13,7 @@ const PUBLIC_EXACT = new Set([
   '/robots.txt',
   '/sitemap.xml',
 ])
-const PUBLIC_PREFIXES = ['/favicon', '/apple-touch-icon', '/_next']
+const PUBLIC_PREFIXES = ['/favicon', '/apple-touch-icon', '/_next', '/icons']
 
 function isPublicPath(pathname: string) {
   if (PUBLIC_EXACT.has(pathname)) return true
