@@ -15,7 +15,8 @@ export default async function HomePage() {
   const baseUrl = await resolveBaseUrl()
   const featured = await fetchFeatured(baseUrl)
   const defaultContactEmail = `info@${BRAND_SLUG}.app`
-  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || defaultContactEmail
+  const runtimeContactEmail = process.env['NEXT_PUBLIC_CONTACT_EMAIL']
+  const contactEmail = runtimeContactEmail && runtimeContactEmail.trim().length > 0 ? runtimeContactEmail : defaultContactEmail
   return (
     <div className="space-y-8">
       <section className="text-center py-10">
