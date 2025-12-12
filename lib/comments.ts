@@ -1,3 +1,4 @@
+import { prisma } from '@/lib/db'
 import { toPublicHref } from '@/lib/storage'
 
 export const commentUserSelect = {
@@ -13,10 +14,17 @@ export const commentInclude = {
   },
 } as const
 
+export type CommentKind = 'comment' | 'make'
+
 export type SerializedComment = {
   id: string
   body: string
   createdAt: Date | string
+  type: CommentKind
+  imageUrl: string | null
+  imageWidth: number | null
+  imageHeight: number | null
+  isVerified: boolean
   user: {
     id?: string
     name?: string | null
@@ -30,10 +38,17 @@ export function serializeComment(comment: any): SerializedComment {
   const profileSlug = comment.user?.profile?.slug || null
   const displayName = comment.user?.name?.trim()
     || (profileSlug ? `@${profileSlug}` : 'Community maker')
+  const type: CommentKind = comment.type === 'make' ? 'make' : 'comment'
+  const imageUrl = toPublicHref(comment.imagePath) || null
   return {
     id: comment.id,
     body: comment.body,
     createdAt: comment.createdAt,
+    type,
+    imageUrl,
+    imageWidth: comment.imageWidth ?? null,
+    imageHeight: comment.imageHeight ?? null,
+    isVerified: Boolean(comment.isVerified),
     user: {
       id: comment.user?.id,
       name: comment.user?.name,
@@ -73,4 +88,44 @@ export function detectCommentViolation(body: string): string | null {
     }
   }
   return null
+}
+
+function uniqueUserIds(values: (string | null | undefined)[]): string[] {
+  const seen = new Set<string>()
+  for (const value of values) {
+    if (typeof value === 'string' && value) {
+      seen.add(value)
+    }
+  }
+  return Array.from(seen)
+}
+
+export async function findVerifiedCommentUserIds(modelId: string, userIds: (string | null | undefined)[]) {
+  const ids = uniqueUserIds(userIds)
+  if (!modelId || ids.length === 0) return new Set<string>()
+  const [downloads, purchases] = await Promise.all([
+    prisma.modelDownload.findMany({ where: { modelId, userId: { in: ids } }, select: { userId: true } }),
+    prisma.printOrderItem.findMany({
+      where: {
+        modelId,
+        order: { userId: { in: ids } },
+      },
+      select: { order: { select: { userId: true } } },
+    }),
+  ])
+  const verified = new Set<string>()
+  for (const entry of downloads) {
+    if (entry.userId) verified.add(entry.userId)
+  }
+  for (const entry of purchases) {
+    const orderUserId = entry.order?.userId
+    if (orderUserId) verified.add(orderUserId)
+  }
+  return verified
+}
+
+export async function userHasModelReceipt(modelId: string, userId: string | null | undefined) {
+  if (!modelId || !userId) return false
+  const result = await findVerifiedCommentUserIds(modelId, [userId])
+  return result.has(userId)
 }

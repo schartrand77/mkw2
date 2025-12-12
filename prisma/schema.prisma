@@ -28,6 +28,7 @@ model User {
   jobForms     JobForm[]
   orders       PrintOrder[]
   orderRevisions PrintOrderRevision[]
+  downloadReceipts ModelDownload[]
 }
 
 model Model {
@@ -68,6 +69,7 @@ model Model {
   featured  FeaturedModel?
   parts     ModelPart[]
   comments  ModelComment[]
+  downloadReceipts ModelDownload[]
 }
 
 model ModelImage {
@@ -195,11 +197,28 @@ model ModelComment {
   body      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  type      String   @default("comment")
+  imagePath String?
+  imageWidth Int?
+  imageHeight Int?
 
   model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([modelId])
+  @@index([userId])
+}
+
+model ModelDownload {
+  id        String   @id @default(cuid())
+  modelId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([modelId, userId])
   @@index([userId])
 }
 

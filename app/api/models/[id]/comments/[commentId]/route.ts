@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import path from 'path'
+import { unlink } from 'fs/promises'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { storageRoot } from '@/lib/storage'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,13 +20,20 @@ export async function DELETE(_req: NextRequest, { params }: ModelCommentDeleteCo
 
   const existing = await prisma.modelComment.findUnique({
     where: { id: commentId },
-    select: { id: true, modelId: true },
+    select: { id: true, modelId: true, imagePath: true },
   })
   if (!existing || existing.modelId !== id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
   await prisma.modelComment.delete({ where: { id: existing.id } })
+  if (existing.imagePath) {
+    try {
+      await unlink(path.join(storageRoot(), existing.imagePath.replace(/^\/+/, '')))
+    } catch {
+      // best effort cleanup
+    }
+  }
   try {
     revalidatePath(`/models/${existing.modelId}`)
   } catch {

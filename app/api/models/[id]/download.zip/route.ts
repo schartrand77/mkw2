@@ -5,6 +5,7 @@ import JSZip from 'jszip'
 import { readFile } from 'fs/promises'
 import path from 'path'
 import { storageRoot } from '@/lib/storage'
+import { getUserIdFromCookie } from '@/lib/auth'
 export const dynamic = 'force-dynamic'
 
 type ModelDownloadContext = { params: Promise<{ id: string }> }
@@ -13,6 +14,7 @@ export async function GET(_req: NextRequest, { params }: ModelDownloadContext) {
   const { id } = await params
   const model = await prisma.model.findUnique({ where: { id }, select: { title: true, parts: true, filePath: true, userId: true } })
   if (!model) return new Response('Not found', { status: 404 })
+  const userId = await getUserIdFromCookie()
   const zip = new JSZip()
   if (model.parts.length > 0) {
     for (const p of model.parts) {
@@ -37,6 +39,13 @@ export async function GET(_req: NextRequest, { params }: ModelDownloadContext) {
   try {
     await prisma.model.update({ where: { id }, data: { downloads: { increment: 1 } } })
     if (model.userId) await refreshUserAchievements(prisma, model.userId)
+    if (userId) {
+      await prisma.modelDownload.upsert({
+        where: { modelId_userId: { modelId: id, userId } },
+        update: {},
+        create: { modelId: id, userId },
+      })
+    }
   } catch {}
   return new Response(ab, { headers })
 }

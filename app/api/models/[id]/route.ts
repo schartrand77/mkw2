@@ -11,7 +11,7 @@ import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image
 import { revalidatePath } from 'next/cache'
 import { resolveModelPricing, estimatePricingDetails } from '@/lib/pricing'
 import { extractAmazonAsin, buildAmazonImageUrl } from '@/lib/amazon'
-import { commentInclude, serializeComment } from '@/lib/comments'
+import { commentInclude, findVerifiedCommentUserIds, serializeComment } from '@/lib/comments'
 
 type ModelRouteContext = { params: Promise<{ id: string }> }
 
@@ -38,6 +38,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     const asin = extractAmazonAsin(rest.affiliateUrl)
     if (asin) affiliateImage = buildAmazonImageUrl(asin)
   }
+  const verifiedComments = await findVerifiedCommentUserIds(model.id, (comments || []).map((c: any) => c.userId))
   return NextResponse.json({
     model: {
       ...rest,
@@ -62,7 +63,10 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
         }
       }),
       images: serializeModelImages(images),
-      comments: (comments || []).map(serializeComment),
+      comments: (comments || []).map((comment: any) => serializeComment({
+        ...comment,
+        isVerified: comment.userId ? verifiedComments.has(comment.userId) : false,
+      })),
     },
   })
 }
