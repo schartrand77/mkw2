@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 type BeforeInstallPromptEvent = Event & {
   readonly platforms?: string[]
@@ -19,14 +19,18 @@ function resolveBrandName() {
 export default function PWAInstallPrompt() {
   const [event, setEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [dismissed, setDismissed] = useState(false)
+  const dismissedRef = useRef(false)
   const brandName = useMemo(() => resolveBrandName(), [])
 
   useEffect(() => {
     try {
       const stored = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null
-      if (stored === '1') setDismissed(true)
+      if (stored === '1') {
+        setDismissed(true)
+        dismissedRef.current = true
+      }
     } catch {}
-  }, [])
+  }, [dismissedRef])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -34,6 +38,7 @@ export default function PWAInstallPrompt() {
 
     const onBeforeInstall = (e: Event) => {
       e.preventDefault()
+      if (dismissedRef.current) return
       setEvent(e as BeforeInstallPromptEvent)
       setDismissed(false)
     }
@@ -50,6 +55,7 @@ export default function PWAInstallPrompt() {
       if (choice.outcome === 'accepted') {
         setEvent(null)
         setDismissed(true)
+        dismissedRef.current = true
         try { localStorage.setItem(STORAGE_KEY, '1') } catch {}
       }
     } catch {
@@ -60,6 +66,7 @@ export default function PWAInstallPrompt() {
   const handleDismiss = () => {
     setEvent(null)
     setDismissed(true)
+    dismissedRef.current = true
     try { localStorage.setItem(STORAGE_KEY, '1') } catch {}
   }
 

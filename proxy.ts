@@ -20,7 +20,7 @@ function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
   // Allow login page, manifest, service worker, and favicons to bypass auth
   if (isPublicPath(pathname) || isPublicModelPath(pathname)) return NextResponse.next()
