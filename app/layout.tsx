@@ -8,6 +8,7 @@ import NavBar from '@/components/NavBar'
 import NotificationsProvider from '@/components/notifications/NotificationsProvider'
 import Announcements from '@/components/notifications/Announcements'
 import PWARegister from '@/components/PWARegister'
+import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 import ExtensionsGuard from '@/components/ExtensionsGuard'
 import CartProvider from '@/components/cart/CartProvider'
 import HolidayEffects from '@/components/HolidayEffects'
@@ -97,6 +98,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ExtensionsGuard />
         <HolidayEffects theme={holidayTheme} />
         <PWARegister />
+        <PWAInstallPrompt />
         </NotificationsProvider>
         </CartProvider>
       </body>
