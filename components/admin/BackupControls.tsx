@@ -3,7 +3,13 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-type BackupMeta = { folder: string; createdAt: string; downloadUrl?: string | null }
+type BackupMeta = {
+  folder: string
+  createdAt: string
+  hasDatabase?: boolean
+  hasStorage?: boolean
+  downloadUrl?: string | null
+}
 
 export default function BackupControls() {
   const [creating, setCreating] = useState(false)
@@ -65,6 +71,11 @@ export default function BackupControls() {
       setError('Select a backup to restore.')
       return
     }
+    const active = backups.find((b) => b.folder === selected)
+    if (active && active.hasDatabase === false) {
+      setError('Selected backup is missing db.sql.')
+      return
+    }
     if (!confirmRestore) {
       setError('You must confirm restoration will delete newer files.')
       return
@@ -119,6 +130,9 @@ export default function BackupControls() {
               {activeSelection.folder}
             </a>
           </div>
+        )}
+        {activeSelection?.hasStorage === false && (
+          <div className="text-xs text-amber-300">Note: This backup has no storage snapshot.</div>
         )}
       </div>
       <div className="space-y-2">

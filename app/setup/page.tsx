@@ -39,7 +39,7 @@ export default function SetupPage() {
         <h1 className="text-3xl sm:text-4xl font-semibold">Environment checklist</h1>
         <p className="text-slate-300">
           MakerWorks inspects critical environment variables before loading the main app. Update{' '}
-          <code className="font-mono text-sm">.env.local</code> (created from <code className="font-mono text-sm">.env.local.template</code>) or your container environment,
+          <code className="font-mono text-sm">.env</code> (created from <code className="font-mono text-sm">.env.example</code>) or your container environment,
           then restart the process and refresh this page.
         </p>
         <p className="text-xs text-slate-400">Last checked: {new Date(status.checkedAt).toLocaleString()}</p>
