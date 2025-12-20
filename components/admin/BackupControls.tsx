@@ -96,10 +96,10 @@ export default function BackupControls() {
       {latestMessage && <div className="text-sm text-green-400">{latestMessage}</div>}
       <div className="flex flex-wrap gap-3">
         <button className="btn" onClick={triggerBackup} disabled={creating}>
-          {creating ? 'Creating backup…' : 'Create backup'}
+          {creating ? 'Creating backup...' : 'Create backup'}
         </button>
         <button className="px-3 py-2 rounded-md border border-white/10 text-sm" type="button" onClick={loadBackups} disabled={loading}>
-          {loading ? 'Refreshing…' : 'Refresh list'}
+          {loading ? 'Refreshing...' : 'Refresh list'}
         </button>
       </div>
       <div className="space-y-2">
@@ -107,7 +107,7 @@ export default function BackupControls() {
         <select className="input" value={selected} onChange={(e) => setSelected(e.target.value)}>
           {backups.map((b) => (
             <option key={b.folder} value={b.folder}>
-              {b.folder} · {new Date(b.createdAt).toLocaleString()}
+              {b.folder} - {new Date(b.createdAt).toLocaleString()}
             </option>
           ))}
           {backups.length === 0 && <option value="">No backups yet</option>}
