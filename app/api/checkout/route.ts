@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { estimatePrice } from '@/lib/pricing'
-import { getCurrency } from '@/lib/currency'
+import { formatCurrency, getCurrency, type Currency } from '@/lib/currency'
 import { getStripe } from '@/lib/stripe'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { z } from 'zod'
@@ -11,6 +11,7 @@ import { clampScale, getColorMultiplier, normalizeColors, type MaterialType, MAX
 import { recordOrderWorksJob } from '@/lib/orderworks'
 import { summarizeDiscount, getDiscountMultiplier } from '@/lib/discounts'
 import { recordCustomerOrder } from '@/lib/orders'
+import { sendAdminDiscordNotification } from '@/lib/discord'
 
 export const dynamic = 'force-dynamic'
 
@@ -331,8 +332,9 @@ export async function POST(req: NextRequest) {
       } catch (jobErr) {
         console.error('Failed to record OrderWorks job', jobErr)
       }
+      let order: Awaited<ReturnType<typeof recordCustomerOrder>> | null = null
       try {
-        await recordCustomerOrder({
+        order = await recordCustomerOrder({
           paymentIntentId: paymentIntentId!,
           amountCents: amount,
           currency: currencyCode,
@@ -351,6 +353,33 @@ export async function POST(req: NextRequest) {
         })
       } catch (err) {
         console.error('Failed to persist customer order', err)
+      }
+      try {
+        const itemLines = lineItems.slice(0, 4).map((item) => `${item.qty}x ${item.title}${item.partName ? ` (${item.partName})` : ''}`)
+        if (lineItems.length > itemLines.length) {
+          itemLines.push(`+${lineItems.length - itemLines.length} more`)
+        }
+        const totalLabel = formatCurrency(amount / 100, currencyCode as Currency)
+        const orderUrl = order && publicBaseUrl ? `${publicBaseUrl}/customer/orders/${order.id}` : undefined
+        await sendAdminDiscordNotification({
+          title: paymentMethod === 'cash' ? 'New cash order' : 'New paid order',
+          body: [
+            `Total: ${totalLabel}`,
+            `Fulfillment: ${shippingPayload.method === 'pickup' ? 'pickup' : 'ship'}`,
+            `Payment: ${paymentMethod}${finalizedPaymentStatus ? ` (${finalizedPaymentStatus})` : ''}`,
+            customerName ? `Customer: ${customerName}` : null,
+            customerEmail ? `Email: ${customerEmail}` : null,
+            itemLines.length ? `Items: ${itemLines.join(', ')}` : null,
+            orderUrl || null,
+          ],
+          meta: {
+            orderId: order?.id,
+            orderNumber: order?.orderNumber ?? undefined,
+            paymentIntentId,
+          },
+        })
+      } catch (notifyErr) {
+        console.error('Admin Discord notification failed for checkout:', notifyErr)
       }
     }
 
