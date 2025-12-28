@@ -9,7 +9,7 @@ What you get
 - Automatic weight and cost estimator with material and color options; Stripe checkout stays inside the app when enabled.
 - Personal profile pages (`/u/{slug}`) plus featured models curated by admins.
 - Model detail pages support emoji-friendly user comments with admin moderation controls.
-- Admin dashboard for pricing, site settings, backups, and optional OrderWorks webhook retries.
+- Admin dashboard for pricing, site settings, backups, and OrderWorks job monitoring.
 - Email verification for new signups and a bootstrap admin account set via container variables.
 
 Interface highlights
@@ -40,7 +40,7 @@ First login & setup
 - Open Admin > Site Settings to set your shop name, currency, and price adjustments.
 - Add spool costs and optional color surcharge rates in Admin > Pricing so estimates match your material costs.
 - Connect Stripe in the env vars to enable checkout, or leave blank to use MakerWorks as a catalog only.
-- If you use OrderWorks, add the webhook URL/secret in the admin panel to forward new jobs.
+- If you use OrderWorks, point it at the same Postgres database so it can sync jobs directly.
 
 Daily use
 - Upload models from the Upload page (supports STL, OBJ, 3MF) and optionally add a cover image; STL files render in a 3D viewer.
@@ -75,8 +75,7 @@ Environment variables (what they do)
 - Color surcharge: `COLOR_SURCHARGE_RATE` (server) and `NEXT_PUBLIC_COLOR_SURCHARGE_RATE` (UI); raise `NEXT_PUBLIC_MAX_CART_COLORS` to expose additional color slots if you run multiple AMS units.
 - Currency labels: `CURRENCY` and `NEXT_PUBLIC_CURRENCY` (`USD` or `CAD`).
 - Stripe (optional): `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
-- OrderWorks webhook (optional): `ORDERWORKS_WEBHOOK_URL`, `ORDERWORKS_WEBHOOK_SECRET` (requests are signed via the `X-MakerWorks-Signature` header when configured).
-- MakerWorks inbound job updates (optional): `MAKERWORKS_INBOUND_SECRET` (defaults to `ORDERWORKS_WEBHOOK_SECRET`) to validate webhook calls to `/api/makerworks/jobs`.
+- MakerWorks inbound job updates (optional): `MAKERWORKS_INBOUND_SECRET` to validate webhook calls to `/api/makerworks/jobs` from external processors.
 - Holiday theming (optional): `HOLIDAY_THEME`, `NEXT_PUBLIC_HOLIDAY_THEME` set to `christmas`, `halloween`, or `easter`.
 - Contact/referral (optional): `NEXT_PUBLIC_AMAZON_TAG`, `NEXT_PUBLIC_AMAZON_DOMAIN`, `NEXT_PUBLIC_CONTACT_EMAIL`.
 - Branding: `NEXT_PUBLIC_BRAND_NAME`, `NEXT_PUBLIC_BRAND_VERSION`, `NEXT_PUBLIC_BRAND_LAB_NAME`, `NEXT_PUBLIC_BRAND_HANDLE` (leave `NEXT_PUBLIC_BRAND_VERSION` blank to hide the suffix).
@@ -86,7 +85,7 @@ Environment variables (what they do)
 MakerWorks job update API
 - External job processors (OrderWorks, in-house fulfillment tools, etc.) can push status updates back into MakerWorks so the admin queue stays in sync.
 - Send `POST https://<your-domain>/api/makerworks/jobs` with either an `Authorization: Bearer <secret>` header (using `MAKERWORKS_INBOUND_SECRET`) or an HMAC signature header `X-MakerWorks-Signature-V1: t=<unix>,v1=<digest>` built from the same secret.
-- Payload fields the webhook understands:
+- Payload fields the update API understands:
 
 ```json
 {

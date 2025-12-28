@@ -341,11 +341,6 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount, orderW
           </button>
         </div>
       </div>
-      {!summary.orderWorksEnabled && (
-        <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          ORDERWORKS_WEBHOOK_URL is not configured. Retries will refresh the job timestamp so database-based OrderWorks sync can pick it up.
-        </div>
-      )}
       {error && <div className="text-sm text-amber-400">{error}</div>}
       {message && <div className="text-sm text-emerald-300">{message}</div>}
       <div className="space-y-3">
