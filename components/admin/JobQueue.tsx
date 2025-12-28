@@ -264,7 +264,7 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount, orderW
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || 'Retry failed')
       if (data.job) updateJob(data.job)
-      setMessage('Job resent to OrderWorks.')
+      setMessage(data?.mode === 'sync' ? 'Job flagged for OrderWorks sync.' : 'Job resent to OrderWorks.')
     } catch (err: any) {
       setError(err?.message || 'Failed to resend job')
     } finally {
@@ -343,7 +343,7 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount, orderW
       </div>
       {!summary.orderWorksEnabled && (
         <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          ORDERWORKS_WEBHOOK_URL is not configured. Retries will fail until the webhook URL (and optional secret) are set in the environment.
+          ORDERWORKS_WEBHOOK_URL is not configured. Retries will refresh the job timestamp so database-based OrderWorks sync can pick it up.
         </div>
       )}
       {error && <div className="text-sm text-amber-400">{error}</div>}
@@ -405,7 +405,7 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount, orderW
                     type="button"
                     className="px-3 py-1.5 rounded-md border border-brand-400/50 text-xs text-brand-200 hover:border-brand-300 disabled:opacity-50"
                     onClick={() => handleRetry(job.id)}
-                    disabled={busyState === 'retry' || !summary.orderWorksEnabled}
+                    disabled={busyState === 'retry'}
                   >
                     {busyState === 'retry' ? 'Retrying…' : 'Retry'}
                   </button>

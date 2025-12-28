@@ -22,17 +22,26 @@ export async function POST(_req: Request, { params }: Params) {
   if (!job) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 })
   }
-  if (!process.env.ORDERWORKS_WEBHOOK_URL) {
-    return NextResponse.json({ error: 'ORDERWORKS_WEBHOOK_URL is not configured' }, { status: 400 })
-  }
 
   try {
-    await queueOrderWorksJob(job.id)
-    const updated = await prisma.jobForm.findUnique({
+    if (process.env.ORDERWORKS_WEBHOOK_URL) {
+      await queueOrderWorksJob(job.id)
+      const updated = await prisma.jobForm.findUnique({
+        where: { id: job.id },
+        include: { user: { select: { id: true, name: true, email: true } } },
+      })
+      return NextResponse.json({ ok: true, mode: 'webhook', job: serializeJob(updated as JobWithUser) })
+    }
+    const updated = await prisma.jobForm.update({
       where: { id: job.id },
+      data: {
+        lastAttemptAt: new Date(),
+        webhookAttempts: { increment: 1 },
+        lastError: null,
+      },
       include: { user: { select: { id: true, name: true, email: true } } },
     })
-    return NextResponse.json({ ok: true, job: serializeJob(updated as JobWithUser) })
+    return NextResponse.json({ ok: true, mode: 'sync', job: serializeJob(updated as JobWithUser) })
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Failed to resend job' }, { status: 500 })
   }
