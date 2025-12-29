@@ -57,7 +57,7 @@ export default function UserDiscountControls({
         <input
           type="number"
           min="0"
-          max="95"
+          max="100"
           step="0.5"
           className="input text-sm"
           value={discount}
@@ -77,7 +77,7 @@ export default function UserDiscountControls({
         <input
           type="number"
           min="0"
-          max="95"
+          max="100"
           step="0.5"
           className="input text-sm"
           value={friendsAndFamilyPercent}

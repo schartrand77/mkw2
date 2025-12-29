@@ -6,14 +6,14 @@ import { summarizeDiscount } from '@/lib/discounts'
 
 const payloadSchema = z.object({
   userId: z.string().min(1),
-  discountPercent: z.number().min(0).max(95).optional(),
+  discountPercent: z.number().min(0).max(100).optional(),
   isFriendsAndFamily: z.boolean().optional(),
-  friendsAndFamilyPercent: z.number().min(0).max(95).optional(),
+  friendsAndFamilyPercent: z.number().min(0).max(100).optional(),
 })
 
 function clampPercent(value?: number) {
   if (typeof value !== 'number' || Number.isNaN(value)) return 0
-  return Math.min(95, Math.max(0, Number(value)))
+  return Math.min(100, Math.max(0, Number(value)))
 }
 
 export async function POST(req: NextRequest) {

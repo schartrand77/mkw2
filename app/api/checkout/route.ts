@@ -98,10 +98,6 @@ export async function POST(req: NextRequest) {
     const isCash = paymentMethod === 'cash'
     const providedPaymentIntentId = (parsed.data.paymentIntentId || '').trim()
 
-    if (paymentMethod !== 'cash' && !process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
-    }
-
     const items = parsed.data.items
     const shipping = parsed.data.shipping as ShippingSelection | undefined
     if (isCash && shipping && shipping.method !== 'pickup') {
@@ -252,11 +248,16 @@ export async function POST(req: NextRequest) {
     })
 
     const total = lineItems.reduce((sum, item) => sum + item.lineTotal, 0)
-    if (!isFinite(total) || total <= 0) {
-      return NextResponse.json({ error: 'Cart total must be greater than zero' }, { status: 400 })
+    if (!isFinite(total) || total < 0) {
+      return NextResponse.json({ error: 'Cart total cannot be negative' }, { status: 400 })
     }
-    const amount = Math.max(1, Math.round(total * 100))
+    const isFreeOrder = total === 0
+    const amount = Math.max(0, Math.round(total * 100))
     const currency = getCurrency().toLowerCase()
+
+    if (!isFreeOrder && paymentMethod !== 'cash' && !process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
+    }
 
     const shippingPayload: ShippingSelection = shipping || { method: 'pickup' }
     const metadataItems = lineItems.slice(0, 20).map((item) => `${item.qty}x ${item.title}${item.partName ? ` (${item.partName})` : ''}`).join(', ')
@@ -268,7 +269,14 @@ export async function POST(req: NextRequest) {
     let clientSecret: string | null = null
     let finalizedPaymentStatus: string | null = null
 
-    if (paymentMethod === 'card') {
+    if (isFreeOrder) {
+      if (!commit) {
+        paymentIntentId = `free_preview_${randomUUID()}`
+      } else {
+        paymentIntentId = paymentIntentId || `free_${randomUUID()}`
+        finalizedPaymentStatus = 'free'
+      }
+    } else if (paymentMethod === 'card') {
       if (!commit) {
         const stripe = getStripe()
         const intent = await stripe.paymentIntents.create({
