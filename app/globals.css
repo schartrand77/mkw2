@@ -225,6 +225,13 @@ html.theme-light body.holiday-easter {
     #faf5ff;
   color: #111827;
 }
+html.theme-light body.holiday-valentines {
+  background:
+    radial-gradient(1100px 650px at 85% -10%, rgba(244, 63, 94, 0.18), transparent),
+    radial-gradient(900px 540px at 5% 15%, rgba(251, 113, 133, 0.2), transparent),
+    #fff5f7;
+  color: #1f0a12;
+}
 html.theme-light body.holiday-easter .glass {
   background: rgba(255, 255, 255, 0.85);
   border-color: rgba(15, 23, 42, 0.1);
@@ -237,6 +244,9 @@ html.theme-light body.holiday-christmas .btn {
 }
 html.theme-light body.holiday-halloween .btn {
   box-shadow: 0 8px 25px rgba(251, 146, 60, 0.25);
+}
+html.theme-light body.holiday-valentines .btn {
+  box-shadow: 0 8px 25px rgba(244, 63, 94, 0.3);
 }
 
 .holiday-effects {
@@ -343,6 +353,48 @@ html.theme-light body.holiday-halloween .btn {
   25% { opacity: 0.65; }
   75% { opacity: 0.65; }
   100% { transform: translate3d(0, -120vh, 0) scale(1.05); opacity: 0; }
+}
+
+.holiday-valentines-candy {
+  background: linear-gradient(145deg, #fda4af, #fb7185 60%, #f43f5e);
+  border-radius: 6px;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.35);
+  clip-path: polygon(
+    50% 18%,
+    62% 8%,
+    80% 10%,
+    92% 24%,
+    92% 42%,
+    80% 58%,
+    50% 86%,
+    20% 58%,
+    8% 42%,
+    8% 24%,
+    20% 10%,
+    38% 8%
+  );
+  animation-iteration-count: infinite;
+}
+.holiday-valentines-candy[data-variant="0"] { animation-name: holiday-valentines-fall-left; }
+.holiday-valentines-candy[data-variant="1"] { animation-name: holiday-valentines-fall-right; }
+.holiday-valentines-candy[data-variant="2"] { animation-name: holiday-valentines-fall-center; }
+@keyframes holiday-valentines-fall-left {
+  0% { transform: translate3d(2vw, -12vh, 0) rotate(-12deg) scale(0.85); opacity: 0; }
+  20% { opacity: 0.7; }
+  60% { transform: translate3d(-2vw, 55vh, 0) rotate(8deg) scale(1); opacity: 0.8; }
+  100% { transform: translate3d(-4vw, 120vh, 0) rotate(-6deg) scale(0.95); opacity: 0; }
+}
+@keyframes holiday-valentines-fall-right {
+  0% { transform: translate3d(-2vw, -12vh, 0) rotate(10deg) scale(0.9); opacity: 0; }
+  25% { opacity: 0.7; }
+  65% { transform: translate3d(2vw, 60vh, 0) rotate(-8deg) scale(1.02); opacity: 0.8; }
+  100% { transform: translate3d(4vw, 120vh, 0) rotate(6deg) scale(0.95); opacity: 0; }
+}
+@keyframes holiday-valentines-fall-center {
+  0% { transform: translate3d(0, -12vh, 0) rotate(-6deg) scale(0.9); opacity: 0; }
+  20% { opacity: 0.7; }
+  70% { transform: translate3d(0.5vw, 70vh, 0) rotate(6deg) scale(1.05); opacity: 0.85; }
+  100% { transform: translate3d(1vw, 120vh, 0) rotate(2deg) scale(0.98); opacity: 0; }
 }
 
 

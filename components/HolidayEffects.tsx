@@ -1,7 +1,7 @@
 "use client"
 import { useMemo } from 'react'
 
-export type HolidayTheme = 'christmas' | 'halloween' | 'easter'
+export type HolidayTheme = 'christmas' | 'halloween' | 'easter' | 'valentines'
 
 type Particle = {
   id: number
@@ -24,6 +24,7 @@ const CONFIG: Record<HolidayTheme, ParticleConfig> = {
   christmas: { count: 42, className: 'holiday-snowflake', minSize: 4, maxSize: 10 },
   halloween: { count: 26, className: 'holiday-halloween-candy', minSize: 6, maxSize: 14 },
   easter: { count: 28, className: 'holiday-easter-petal', minSize: 6, maxSize: 16 },
+  valentines: { count: 34, className: 'holiday-valentines-candy', minSize: 8, maxSize: 18 },
 }
 
 function createParticles(theme: HolidayTheme): Particle[] {

@@ -38,7 +38,7 @@ function GearGlyph() {
 
 function resolveHolidayTheme(): HolidayTheme | null {
   const raw = (process.env.NEXT_PUBLIC_HOLIDAY_THEME || process.env.HOLIDAY_THEME || '').toLowerCase()
-  if (raw === 'christmas' || raw === 'halloween' || raw === 'easter') {
+  if (raw === 'christmas' || raw === 'halloween' || raw === 'easter' || raw === 'valentines') {
     return raw
   }
   return null

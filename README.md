@@ -76,7 +76,7 @@ Environment variables (what they do)
 - Currency labels: `CURRENCY` and `NEXT_PUBLIC_CURRENCY` (`USD` or `CAD`).
 - Stripe (optional): `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
 - MakerWorks inbound job updates (optional): `MAKERWORKS_INBOUND_SECRET` to validate webhook calls to `/api/makerworks/jobs` from external processors.
-- Holiday theming (optional): `HOLIDAY_THEME`, `NEXT_PUBLIC_HOLIDAY_THEME` set to `christmas`, `halloween`, or `easter`.
+- Holiday theming (optional): `HOLIDAY_THEME`, `NEXT_PUBLIC_HOLIDAY_THEME` set to `christmas`, `halloween`, `easter`, or `valentines`.
 - Contact/referral (optional): `NEXT_PUBLIC_AMAZON_TAG`, `NEXT_PUBLIC_AMAZON_DOMAIN`, `NEXT_PUBLIC_CONTACT_EMAIL`.
 - Branding: `NEXT_PUBLIC_BRAND_NAME`, `NEXT_PUBLIC_BRAND_VERSION`, `NEXT_PUBLIC_BRAND_LAB_NAME`, `NEXT_PUBLIC_BRAND_HANDLE` (leave `NEXT_PUBLIC_BRAND_VERSION` blank to hide the suffix).
 - SMTP (optional but recommended): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, `RECEIPT_FROM_EMAIL`, `RECEIPT_REPLY_TO_EMAIL`.
