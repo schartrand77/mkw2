@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useCart } from '@/components/cart/CartProvider'
 import { formatCurrency } from '@/lib/currency'
@@ -22,11 +22,50 @@ const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
 }
 const COLOR_PICKER_FALLBACK = '#1f2937'
 const isHexColor = (value?: string | null) => !!value && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim())
+const COLOR_PALETTE = [
+  { name: 'Ivory', hex: '#f8fafc' },
+  { name: 'Mist', hex: '#e2e8f0' },
+  { name: 'Dove', hex: '#94a3b8' },
+  { name: 'Slate', hex: '#64748b' },
+  { name: 'Onyx', hex: '#0f172a' },
+  { name: 'Rose', hex: '#fb7185' },
+  { name: 'Cherry', hex: '#ef4444' },
+  { name: 'Tangerine', hex: '#f97316' },
+  { name: 'Honey', hex: '#f59e0b' },
+  { name: 'Lemon', hex: '#facc15' },
+  { name: 'Lime', hex: '#84cc16' },
+  { name: 'Emerald', hex: '#22c55e' },
+  { name: 'Mint', hex: '#2dd4bf' },
+  { name: 'Teal', hex: '#14b8a6' },
+  { name: 'Sky', hex: '#38bdf8' },
+  { name: 'Ocean', hex: '#0ea5e9' },
+  { name: 'Denim', hex: '#3b82f6' },
+  { name: 'Indigo', hex: '#6366f1' },
+  { name: 'Violet', hex: '#8b5cf6' },
+  { name: 'Plum', hex: '#a855f7' },
+  { name: 'Lilac', hex: '#c084fc' },
+  { name: 'Orchid', hex: '#e879f9' },
+  { name: 'Peach', hex: '#fdba74' },
+  { name: 'Cocoa', hex: '#a16207' },
+  { name: 'Sand', hex: '#d6a981' },
+  { name: 'Forest', hex: '#15803d' },
+  { name: 'Navy', hex: '#1e3a8a' },
+  { name: 'Stone', hex: '#78716c' },
+]
+const normalizeColorValue = (value?: string | null) => (value || '').trim().toLowerCase()
+const resolveSwatch = (value?: string | null) => {
+  const normalized = normalizeColorValue(value)
+  if (!normalized) return null
+  return COLOR_PALETTE.find((swatch) => swatch.hex.toLowerCase() === normalized || swatch.name.toLowerCase() === normalized) || null
+}
 
 export default function CartPage() {
   const { items, inc, dec, update, remove, clear, maxColors } = useCart()
   const [discount, setDiscount] = useState<DiscountSummary | null>(null)
-  const [activeColorSlot, setActiveColorSlot] = useState<string | null>(null)
+  const [activeColorSlot, setActiveColorSlot] = useState<{ id: string; modelId: string; partId: string | null; index: number } | null>(null)
+  const [activeColorAnchor, setActiveColorAnchor] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
+  const [isMobilePalette, setIsMobilePalette] = useState(false)
+  const paletteRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     let active = true
@@ -40,6 +79,66 @@ export default function CartPage() {
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 639px)')
+    const handleChange = () => setIsMobilePalette(query.matches)
+    handleChange()
+    if (query.addEventListener) query.addEventListener('change', handleChange)
+    else query.addListener(handleChange)
+    return () => {
+      if (query.removeEventListener) query.removeEventListener('change', handleChange)
+      else query.removeListener(handleChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!activeColorSlot) return
+    const handlePointer = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (!target) return
+      if (paletteRef.current?.contains(target)) return
+      if (target.closest(`[data-color-slot="${activeColorSlot.id}"]`)) return
+      setActiveColorSlot(null)
+    }
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActiveColorSlot(null)
+    }
+    document.addEventListener('mousedown', handlePointer)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handlePointer)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [activeColorSlot])
+
+  useEffect(() => {
+    if (!activeColorSlot) {
+      setActiveColorAnchor(null)
+      return
+    }
+    const updateAnchor = () => {
+      const button = document.querySelector(`[data-color-slot="${activeColorSlot.id}"]`)
+      if (!button) return
+      const rect = (button as HTMLElement).getBoundingClientRect()
+      setActiveColorAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
+    }
+    updateAnchor()
+    window.addEventListener('resize', updateAnchor)
+    window.addEventListener('scroll', updateAnchor, true)
+    return () => {
+      window.removeEventListener('resize', updateAnchor)
+      window.removeEventListener('scroll', updateAnchor, true)
+    }
+  }, [activeColorSlot])
+
+  const activeSlotItem = activeColorSlot
+    ? items.find((item) => item.modelId === activeColorSlot.modelId && (item.partId ?? null) === activeColorSlot.partId)
+    : null
+  const activeSlotValue = activeColorSlot && activeSlotItem ? activeSlotItem.options.colors?.[activeColorSlot.index] || '' : ''
+  const activeSlotSwatch = resolveSwatch(activeSlotValue)
+  const activeSlotHexValue = isHexColor(activeSlotValue) ? activeSlotValue : activeSlotSwatch?.hex || COLOR_PICKER_FALLBACK
+  const activeSlotNormalized = normalizeColorValue(activeSlotValue)
 
   const discountMultiplier = useMemo(() => getDiscountMultiplier(discount), [discount])
   const totalDiscountPercent = discount?.totalPercent ?? 0
@@ -213,8 +312,10 @@ export default function CartPage() {
                                     const idx = baseIndex + slotIdx
                                     const slotId = `${item.modelId}-${item.partId || 'whole'}-color-${idx}`
                                     const value = item.options.colors?.[idx] || ''
-                                    const hexValue = isHexColor(value) ? value : COLOR_PICKER_FALLBACK
-                                    const isActive = activeColorSlot === slotId
+                                    const swatch = resolveSwatch(value)
+                                    const hexValue = isHexColor(value) ? value : swatch?.hex || COLOR_PICKER_FALLBACK
+                                    const normalizedValue = normalizeColorValue(value)
+                                    const isActive = activeColorSlot?.id === slotId
                                     const updateColor = (nextValue: string) => {
                                       const next = [...(item.options.colors || [])]
                                       next[idx] = nextValue
@@ -225,13 +326,27 @@ export default function CartPage() {
                                         <div className="relative">
                                           <button
                                             type="button"
+                                            data-color-slot={slotId}
                                             className={`relative rounded-xl border border-white/20 aspect-square w-full flex items-center justify-center transition-all ${isActive ? 'ring-2 ring-amber-400' : ''}`}
                                             style={{ background: hexValue }}
-                                            onClick={() => setActiveColorSlot(isActive ? null : slotId)}
+                                            onClick={(event) => {
+                                              if (isActive) {
+                                                setActiveColorSlot(null)
+                                                return
+                                              }
+                                              const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+                                              setActiveColorAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
+                                              setActiveColorSlot({
+                                                id: slotId,
+                                                modelId: item.modelId,
+                                                partId: item.partId ?? null,
+                                                index: idx,
+                                              })
+                                            }}
                                           >
                                             {!value && (
                                               <span className="text-[10px] uppercase tracking-wide text-white/70">
-                                                Select color
+                                                Pick colour
                                               </span>
                                             )}
                                           </button>
@@ -258,26 +373,6 @@ export default function CartPage() {
                                             </span>
                                           )}
                                         </div>
-                                        {isActive && (
-                                          <div className="p-2 rounded-lg border border-white/10 bg-slate-950/80 space-y-2">
-                                            <input
-                                              className="w-full input text-sm"
-                                              value={value}
-                                              placeholder="Name or hex"
-                                              onChange={(e) => updateColor(e.target.value)}
-                                            />
-                                            <label className="text-[10px] uppercase tracking-wide text-slate-400">
-                                              Pick color
-                                              <input
-                                                type="color"
-                                                className="mt-1 h-10 w-full rounded-md border border-white/20 bg-transparent cursor-pointer"
-                                                value={hexValue}
-                                                aria-label={`Pick color ${idx + 1}`}
-                                                onChange={(e) => updateColor(e.target.value)}
-                                              />
-                                            </label>
-                                          </div>
-                                        )}
                                       </div>
                                     )
                                   })}
@@ -396,6 +491,84 @@ export default function CartPage() {
             </div>
           </div>
         </>
+      )}
+      {activeColorSlot && activeSlotItem && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/50" />
+          <div
+            ref={paletteRef}
+            className={`absolute bg-slate-950/95 text-white rounded-xl border border-white/10 shadow-2xl p-3 w-[320px] max-w-[calc(100vw-2rem)] ${
+              isMobilePalette ? 'left-1/2 bottom-6 -translate-x-1/2' : ''
+            }`}
+            style={isMobilePalette || !activeColorAnchor ? undefined : {
+              left: Math.min(activeColorAnchor.left, window.innerWidth - 340),
+              top: Math.max(activeColorAnchor.top + activeColorAnchor.height + 12, 16),
+            }}
+          >
+            <div className="flex items-center justify-between mb-2 text-[11px] uppercase tracking-[0.3em] text-slate-400">
+              <span>Slot {activeColorSlot.index + 1}</span>
+              <button
+                type="button"
+                className="px-2 py-1 rounded-full border border-white/10 text-[9px] uppercase tracking-wide hover:border-white/30"
+                onClick={() => setActiveColorSlot(null)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="text-[10px] uppercase tracking-wide text-slate-400">Palette</div>
+            <div className="rounded-lg border border-white/10 bg-slate-900/70 p-2 max-h-40 overflow-y-auto">
+              <div className="grid grid-cols-6 gap-2">
+                {COLOR_PALETTE.map((swatchOption) => {
+                  const isSelected = activeSlotNormalized === swatchOption.name.toLowerCase()
+                    || activeSlotNormalized === swatchOption.hex.toLowerCase()
+                  return (
+                    <button
+                      key={swatchOption.name}
+                      type="button"
+                      title={swatchOption.name}
+                      className={`h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${isSelected ? 'ring-2 ring-amber-400' : ''}`}
+                      style={{ background: swatchOption.hex }}
+                      aria-label={`Select ${swatchOption.name}`}
+                      onClick={() => {
+                        const next = [...(activeSlotItem.options.colors || [])]
+                        next[activeColorSlot.index] = swatchOption.name
+                        update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
+                      }}
+                    >
+                      <span className="sr-only">{swatchOption.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="mt-3 space-y-2">
+              <input
+                className="w-full input text-sm"
+                value={activeSlotValue}
+                placeholder="Name or hex"
+                onChange={(e) => {
+                  const next = [...(activeSlotItem.options.colors || [])]
+                  next[activeColorSlot.index] = e.target.value
+                  update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
+                }}
+              />
+              <label className="text-[10px] uppercase tracking-wide text-slate-400">
+                Custom colour
+                <input
+                  type="color"
+                  className="mt-1 h-10 w-full rounded-md border border-white/20 bg-transparent cursor-pointer"
+                  value={activeSlotHexValue}
+                  aria-label={`Pick colour ${activeColorSlot.index + 1}`}
+                  onChange={(e) => {
+                    const next = [...(activeSlotItem.options.colors || [])]
+                    next[activeColorSlot.index] = e.target.value
+                    update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
