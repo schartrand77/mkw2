@@ -123,6 +123,7 @@ export async function POST(req: NextRequest) {
           material: true,
           filePath: true,
           viewerFilePath: true,
+          _count: { select: { parts: true } },
         },
       }),
       prisma.siteConfig.findUnique({ where: { id: 'main' } }),
@@ -180,11 +181,16 @@ export async function POST(req: NextRequest) {
       const materialChoice: MaterialType = entry.material || (model.material?.toUpperCase() === 'PETG' ? 'PETG' : 'PLA')
       const colors = normalizeColors(entry.colors)
       const part = entry.partId ? partMap.get(entry.partId) || null : null
+      const isMultipart = (model._count?.parts || 0) > 1
       if (entry.partId && (!part || part.modelId !== model.id)) {
         throw new Error('Invalid part specified for model')
       }
       const basePrice = (() => {
         if (part) {
+          if (isMultipart && model.volumeMm3 != null && Number.isFinite(Number(model.volumeMm3)) && part.volumeMm3 != null && Number.isFinite(Number(part.volumeMm3)) && Number(model.volumeMm3) > 0) {
+            const totalPrice = estimatePrice({ cm3: Number(model.volumeMm3) / 1000, material: materialChoice, cfg, applyMinimum: true })
+            return Number(((totalPrice * Number(part.volumeMm3)) / Number(model.volumeMm3)).toFixed(2))
+          }
           if (part.priceUsd != null && Number.isFinite(Number(part.priceUsd))) {
             return Number(part.priceUsd)
           }

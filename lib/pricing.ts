@@ -32,6 +32,7 @@ export type PricingInputs = {
   cm3: number
   material?: string | null
   cfg?: Partial<SiteConfig> | null
+  applyMinimum?: boolean
 }
 
 export interface PricingDetails {
@@ -125,7 +126,8 @@ function resolveVolumetricSpeed(profile: PrinterProfile, cfg: Partial<SiteConfig
   return profile.volumetricSpeedCm3PerHour * Math.max(0.25, Math.min(2.5, nozzleScale))
 }
 
-export function estimatePricingDetails({ cm3, material, cfg }: PricingInputs): PricingDetails {
+export function estimatePricingDetails({ cm3, material, cfg, applyMinimum }: PricingInputs): PricingDetails {
+  const applyMinPrice = applyMinimum !== false
   const fillFactor = normalizeFillFactor(cfg?.fillFactor != null ? Number(cfg.fillFactor) : undefined)
   const effectiveCm3 = cm3 * fillFactor
   const currency = getCurrency()
@@ -169,7 +171,7 @@ export function estimatePricingDetails({ cm3, material, cfg }: PricingInputs): P
   )
   const minPriceConfig = cfg?.minimumPriceUsd != null ? Number(cfg.minimumPriceUsd) : NaN
   const minPrice = Number.isFinite(minPriceConfig) ? Math.max(0, minPriceConfig) : Math.max(0, minPriceEnv)
-  const price = Number(Math.max(base, minPrice).toFixed(2))
+  const price = Number(Math.max(base, applyMinPrice ? minPrice : 0).toFixed(2))
 
   return {
     currency,
@@ -186,7 +188,7 @@ export function estimatePricingDetails({ cm3, material, cfg }: PricingInputs): P
     materialCost: Number(materialCost.toFixed(2)),
     energyCost: Number(energyCost.toFixed(2)),
     extraHourlyCost: Number(extraHourlyCost.toFixed(2)),
-    minimumApplied: price > base,
+    minimumApplied: applyMinPrice && price > base,
     price,
   }
 }

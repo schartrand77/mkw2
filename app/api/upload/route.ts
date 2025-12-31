@@ -430,9 +430,11 @@ export async function POST(req: NextRequest) {
 
     // Save files and create model + parts
     const now = Date.now()
+    const isMultipart = modelFiles.length > 1
     let totalVolMm3 = 0
     let totalPrice = 0
     const partCreates: any[] = []
+    const partVolumes: Array<number | null> = []
     let firstPath: string | null = null
     let firstViewerPath: string | null = null
     const storedExts: string[] = []
@@ -478,9 +480,10 @@ export async function POST(req: NextRequest) {
         }
       }
       const cm3 = volMm3 ? volMm3 / 1000 : null
-      const p = cm3 != null ? estimatePriceUSD({ cm3, material, cfg }) : null
+      const p = cm3 != null ? estimatePriceUSD({ cm3, material, cfg, applyMinimum: !isMultipart }) : null
       if (volMm3) totalVolMm3 += volMm3
       if (p) totalPrice += p
+      partVolumes.push(volMm3)
       const storedName = ext === '.stl' && f.name.toLowerCase().endsWith('.3mf') ? f.name.replace(/\.3mf$/i, '.stl') : f.name
       partCreates.push({
         name: storedName,
@@ -492,6 +495,16 @@ export async function POST(req: NextRequest) {
         sizeYmm,
         sizeZmm,
         priceUsd: p || undefined
+      })
+    }
+
+    if (isMultipart && totalVolMm3 > 0) {
+      const totalWithMinimum = estimatePriceUSD({ cm3: totalVolMm3 / 1000, material, cfg, applyMinimum: true })
+      totalPrice = totalWithMinimum
+      partCreates.forEach((part, idx) => {
+        const vol = partVolumes[idx]
+        if (!vol || !Number.isFinite(vol)) return
+        part.priceUsd = Number(((totalWithMinimum * vol) / totalVolMm3).toFixed(2))
       })
     }
 
