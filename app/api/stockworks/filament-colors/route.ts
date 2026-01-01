@@ -4,6 +4,9 @@ type StockworksMaterial = {
   id: number
   filament_type?: string | null
   color?: string | null
+  color_hex?: string | null
+  color_hex_code?: string | null
+  hex?: string | null
 }
 
 type StockworksInventoryItem = {
@@ -14,8 +17,13 @@ type StockworksInventoryItem = {
 }
 
 type MaterialPalette = {
-  inStock: string[]
-  orderable: string[]
+  inStock: StockworksColor[]
+  orderable: StockworksColor[]
+}
+
+type StockworksColor = {
+  name: string
+  hex?: string | null
 }
 
 const normalizeType = (value?: string | null) => {
@@ -23,9 +31,27 @@ const normalizeType = (value?: string | null) => {
   return trimmed ? trimmed.toUpperCase() : null
 }
 
-const normalizeColor = (value?: string | null) => {
+const HEX_RE = /#([0-9a-f]{3}|[0-9a-f]{6})/i
+
+const normalizeHex = (value?: string | null) => {
   const trimmed = (value || '').trim()
-  return trimmed ? trimmed : null
+  if (!trimmed) return null
+  const match = trimmed.match(HEX_RE)
+  return match ? match[0] : null
+}
+
+const normalizeColor = (value?: string | null, hexHint?: string | null): StockworksColor | null => {
+  const trimmed = (value || '').trim()
+  const hex = normalizeHex(hexHint) || normalizeHex(trimmed)
+  if (!trimmed && !hex) return null
+  const name = trimmed ? trimmed.replace(HEX_RE, '').trim() : ''
+  return { name: name || trimmed || hex || 'Unknown', hex }
+}
+
+const colorKey = (color: StockworksColor | null) => {
+  if (!color) return null
+  const raw = (color.name || color.hex || '').trim()
+  return raw ? raw.toLowerCase() : null
 }
 
 async function loginToStockworks(baseUrl: string, username: string, password: string): Promise<string | null> {
@@ -82,32 +108,44 @@ export async function GET() {
     }
   }
 
-  const orderableByType = new Map<string, Set<string>>()
+  const orderableByType = new Map<string, Map<string, StockworksColor>>()
   for (const material of materials) {
     const typeKey = normalizeType(material.filament_type)
-    const color = normalizeColor(material.color)
+    const color = normalizeColor(material.color, material.color_hex || material.color_hex_code || material.hex)
     if (!typeKey || !color) continue
-    if (!orderableByType.has(typeKey)) orderableByType.set(typeKey, new Set())
-    orderableByType.get(typeKey)!.add(color)
+    const key = colorKey(color)
+    if (!key) continue
+    if (!orderableByType.has(typeKey)) orderableByType.set(typeKey, new Map())
+    orderableByType.get(typeKey)!.set(key, color)
   }
 
-  const inStockByType = new Map<string, Set<string>>()
+  const inStockByType = new Map<string, Map<string, StockworksColor>>()
   for (const item of inventory) {
     const qty = typeof item.quantity_grams === 'number' ? item.quantity_grams : 0
     if (qty <= 0) continue
     const material = item.material || (typeof item.material_id === 'number' ? materialById.get(item.material_id) : null)
     if (!material) continue
     const typeKey = normalizeType(material.filament_type)
-    const color = normalizeColor(material.color)
+    const color = normalizeColor(material.color, material.color_hex || material.color_hex_code || material.hex)
     if (!typeKey || !color) continue
-    if (!inStockByType.has(typeKey)) inStockByType.set(typeKey, new Set())
-    inStockByType.get(typeKey)!.add(color)
+    const key = colorKey(color)
+    if (!key) continue
+    if (!inStockByType.has(typeKey)) inStockByType.set(typeKey, new Map())
+    inStockByType.get(typeKey)!.set(key, color)
   }
 
   const materialsPayload: Record<string, MaterialPalette> = {}
   for (const [typeKey, colors] of orderableByType.entries()) {
-    const inStock = Array.from(inStockByType.get(typeKey) || []).sort((a, b) => a.localeCompare(b))
-    const orderable = Array.from(colors).sort((a, b) => a.localeCompare(b))
+    const inStock = Array.from(inStockByType.get(typeKey)?.values() || []).sort((a, b) => {
+      const left = a.name || a.hex || ''
+      const right = b.name || b.hex || ''
+      return left.localeCompare(right)
+    })
+    const orderable = Array.from(colors.values()).sort((a, b) => {
+      const left = a.name || a.hex || ''
+      const right = b.name || b.hex || ''
+      return left.localeCompare(right)
+    })
     materialsPayload[typeKey] = { inStock, orderable }
   }
 

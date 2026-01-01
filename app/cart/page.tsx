@@ -21,6 +21,7 @@ const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
   z: 'Height (Z)',
 }
 const COLOR_PICKER_FALLBACK = '#1f2937'
+const HEX_RE = /#([0-9a-f]{3}|[0-9a-f]{6})/i
 const isHexColor = (value?: string | null) => !!value && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim())
 const COLOR_PALETTE = [
   { name: 'Ivory', hex: '#f8fafc' },
@@ -54,7 +55,11 @@ const COLOR_PALETTE = [
 ]
 type StockworksPalette = {
   enabled: boolean
-  materials: Record<string, { inStock: string[]; orderable: string[] }>
+  materials: Record<string, { inStock: StockworksColor[] | string[]; orderable: StockworksColor[] | string[] }>
+}
+type StockworksColor = {
+  name: string
+  hex?: string | null
 }
 type SwatchOption = {
   name: string
@@ -62,10 +67,43 @@ type SwatchOption = {
   inStock?: boolean
 }
 const normalizeColorValue = (value?: string | null) => (value || '').trim().toLowerCase()
+const extractHex = (value?: string | null) => {
+  const trimmed = (value || '').trim()
+  if (!trimmed) return ''
+  const match = trimmed.match(HEX_RE)
+  return match ? match[0] : ''
+}
+const parseColorString = (value?: string | null) => {
+  const trimmed = (value || '').trim()
+  if (!trimmed) return { name: '', hex: '' }
+  const hex = extractHex(trimmed)
+  const name = trimmed.replace(HEX_RE, '').trim()
+  return { name, hex }
+}
+const normalizeColorKey = (value: string | StockworksColor) => {
+  if (typeof value === 'string') {
+    const parsed = parseColorString(value)
+    return normalizeColorValue(parsed.name || parsed.hex || value)
+  }
+  return normalizeColorValue(value.name || value.hex || '')
+}
+const toColorMeta = (value: string | StockworksColor) => {
+  if (typeof value === 'string') {
+    const parsed = parseColorString(value)
+    return { name: parsed.name || value, hex: parsed.hex }
+  }
+  const hex = value.hex || extractHex(value.name)
+  const name = value.name ? value.name.replace(HEX_RE, '').trim() : ''
+  return { name: name || value.name || hex || 'Unknown', hex }
+}
 const resolveSwatch = (value?: string | null) => {
-  const normalized = normalizeColorValue(value)
+  const parsed = parseColorString(value)
+  const normalized = normalizeColorValue(parsed.name || parsed.hex || value)
   if (!normalized) return null
-  return COLOR_PALETTE.find((swatch) => swatch.hex.toLowerCase() === normalized || swatch.name.toLowerCase() === normalized) || null
+  const paletteMatch = COLOR_PALETTE.find((swatch) => swatch.hex.toLowerCase() === normalized || swatch.name.toLowerCase() === normalized) || null
+  if (paletteMatch) return paletteMatch
+  if (parsed.hex) return { name: parsed.name || parsed.hex, hex: parsed.hex }
+  return parsed.name ? { name: parsed.name, hex: '' } : null
 }
 
 export default function CartPage() {
@@ -160,9 +198,12 @@ export default function CartPage() {
     ? items.find((item) => item.modelId === activeColorSlot.modelId && (item.partId ?? null) === activeColorSlot.partId)
     : null
   const activeSlotValue = activeColorSlot && activeSlotItem ? activeSlotItem.options.colors?.[activeColorSlot.index] || '' : ''
+  const activeSlotParsed = parseColorString(activeSlotValue)
   const activeSlotSwatch = resolveSwatch(activeSlotValue)
-  const activeSlotHexValue = isHexColor(activeSlotValue) ? activeSlotValue : activeSlotSwatch?.hex || COLOR_PICKER_FALLBACK
-  const activeSlotNormalized = normalizeColorValue(activeSlotValue)
+  const activeSlotHexValue = isHexColor(activeSlotValue)
+    ? activeSlotValue
+    : activeSlotSwatch?.hex || activeSlotParsed.hex || COLOR_PICKER_FALLBACK
+  const activeSlotNormalized = normalizeColorValue(activeSlotParsed.name || activeSlotParsed.hex || activeSlotValue)
   const paletteLookup = useMemo(() => {
     const map = new Map<string, { name: string; hex: string }>()
     for (const swatch of COLOR_PALETTE) {
@@ -177,18 +218,19 @@ export default function CartPage() {
     if (!stockworksEntry) {
       return COLOR_PALETTE.map((swatch) => ({ ...swatch }))
     }
-    const inStockSet = new Set(stockworksEntry.inStock.map((color) => normalizeColorValue(color)))
+    const inStockSet = new Set(stockworksEntry.inStock.map((color) => normalizeColorKey(color as StockworksColor | string)))
     const ordered = [...stockworksEntry.inStock, ...stockworksEntry.orderable]
     const seen = new Set<string>()
     const output: SwatchOption[] = []
     for (const color of ordered) {
-      const normalized = normalizeColorValue(color)
+      const colorMeta = toColorMeta(color as StockworksColor | string)
+      const normalized = normalizeColorValue(colorMeta.name || colorMeta.hex)
       if (!normalized || seen.has(normalized)) continue
       seen.add(normalized)
       const swatch = paletteLookup.get(normalized)
-      const hex = swatch?.hex || (isHexColor(color) ? color : COLOR_PICKER_FALLBACK)
+      const hex = colorMeta.hex || swatch?.hex || (isHexColor(colorMeta.name) ? colorMeta.name : COLOR_PICKER_FALLBACK)
       output.push({
-        name: swatch?.name || color,
+        name: colorMeta.name || swatch?.name || colorMeta.hex || 'Unknown',
         hex,
         inStock: inStockSet.has(normalized),
       })
@@ -575,7 +617,7 @@ export default function CartPage() {
             <div className="rounded-lg border border-white/10 bg-slate-900/70 p-2 max-h-40 overflow-y-auto">
               <div className="grid grid-cols-6 gap-2">
                 {paletteOptions.map((swatchOption) => {
-                  const swatchNormalized = normalizeColorValue(swatchOption.name)
+                  const swatchNormalized = normalizeColorValue(swatchOption.name || swatchOption.hex)
                   const isSelected = activeSlotNormalized === swatchNormalized
                     || activeSlotNormalized === normalizeColorValue(swatchOption.hex)
                   const ringCls = isSelected
