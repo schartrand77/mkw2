@@ -186,9 +186,10 @@ export default function CartPage() {
       if (!normalized || seen.has(normalized)) continue
       seen.add(normalized)
       const swatch = paletteLookup.get(normalized)
+      const hex = swatch?.hex || (isHexColor(color) ? color : COLOR_PICKER_FALLBACK)
       output.push({
         name: swatch?.name || color,
-        hex: swatch?.hex || COLOR_PICKER_FALLBACK,
+        hex,
         inStock: inStockSet.has(normalized),
       })
     }
