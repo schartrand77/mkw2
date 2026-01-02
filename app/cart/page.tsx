@@ -73,11 +73,13 @@ type StockworksPalette = {
 type StockworksColor = {
   name: string
   hex?: string | null
+  brand?: string | null
 }
 type SwatchOption = {
   name: string
   hex: string
   inStock?: boolean
+  brand?: string
 }
 const normalizeColorValue = (value?: string | null) => (value || '').trim().toLowerCase()
 const extractHex = (value?: string | null) => {
@@ -102,16 +104,18 @@ const normalizeColorKey = (value: string | StockworksColor) => {
     const parsed = parseColorString(value)
     return normalizeColorValue(parsed.name || parsed.hex || value)
   }
-  return normalizeColorValue(value.name || value.hex || '')
+  const base = normalizeColorValue(value.name || value.hex || '')
+  const brand = normalizeColorValue(value.brand || '')
+  return brand ? `${brand}::${base}` : base
 }
 const toColorMeta = (value: string | StockworksColor) => {
   if (typeof value === 'string') {
     const parsed = parseColorString(value)
-    return { name: parsed.name || value, hex: parsed.hex }
+    return { name: parsed.name || value, hex: parsed.hex, brand: '' }
   }
   const hex = value.hex ? normalizeAlphaHex(value.hex) : extractHex(value.name)
   const name = value.name ? value.name.replace(HEX_WITH_HASH_RE, '').replace(HEX_WITH_0X_RE, '').replace(HEX_BARE_RE, '').trim() : ''
-  return { name: name || value.name || hex || 'Unknown', hex }
+  return { name: name || value.name || hex || 'Unknown', hex, brand: value.brand || '' }
 }
 const resolveSwatch = (value?: string | null) => {
   const parsed = parseColorString(value)
@@ -230,7 +234,7 @@ export default function CartPage() {
   const stockworksEntry = stockworksPalette?.materials?.[activeMaterialKey]
   const paletteOptions = useMemo<SwatchOption[]>(() => {
     if (!stockworksEntry) {
-      return COLOR_PALETTE.map((swatch) => ({ ...swatch }))
+      return COLOR_PALETTE.map((swatch) => ({ ...swatch, brand: '' }))
     }
     const inStockSet = new Set(stockworksEntry.inStock.map((color) => normalizeColorKey(color as StockworksColor | string)))
     const ordered = [...stockworksEntry.inStock, ...stockworksEntry.orderable]
@@ -239,14 +243,17 @@ export default function CartPage() {
     for (const color of ordered) {
       const colorMeta = toColorMeta(color as StockworksColor | string)
       const normalized = normalizeColorValue(colorMeta.name || colorMeta.hex)
-      if (!normalized || seen.has(normalized)) continue
-      seen.add(normalized)
+      const brandNormalized = normalizeColorValue(colorMeta.brand)
+      const uniqueKey = brandNormalized ? `${brandNormalized}::${normalized}` : normalized
+      if (!normalized || seen.has(uniqueKey)) continue
+      seen.add(uniqueKey)
       const swatch = paletteLookup.get(normalized)
       const hex = colorMeta.hex || swatch?.hex || (isHexColor(colorMeta.name) ? colorMeta.name : COLOR_PICKER_FALLBACK)
       output.push({
         name: colorMeta.name || swatch?.name || colorMeta.hex || 'Unknown',
         hex,
-        inStock: inStockSet.has(normalized),
+        inStock: inStockSet.has(uniqueKey),
+        brand: colorMeta.brand || '',
       })
     }
     return output
@@ -259,12 +266,30 @@ export default function CartPage() {
     }
     return map
   }, [paletteOptions])
+  const fallbackBrandLabel = stockworksEntry ? 'Other' : 'Palette'
+  const paletteGroups = useMemo(() => {
+    const groups: { label: string; options: SwatchOption[] }[] = []
+    const groupMap = new Map<string, SwatchOption[]>()
+    for (const swatch of paletteOptions) {
+      const label = (swatch.brand || '').trim() || fallbackBrandLabel
+      const key = normalizeColorValue(label)
+      let list = groupMap.get(key)
+      if (!list) {
+        list = []
+        groupMap.set(key, list)
+        groups.push({ label, options: list })
+      }
+      list.push(swatch)
+    }
+    return groups
+  }, [paletteOptions, fallbackBrandLabel])
   const activeSlotHexValue = isHexColor(activeSlotValue)
     ? activeSlotValue
     : activeSlotSwatch?.hex
       || activeSlotParsed.hex
       || paletteValueToHex.get(activeSlotNormalized)
       || COLOR_PICKER_FALLBACK
+  const paletteTitle = stockworksEntry ? 'Filament brands' : 'Palette'
 
   const discountMultiplier = useMemo(() => getDiscountMultiplier(discount), [discount])
   const totalDiscountPercent = discount?.totalPercent ?? 0
@@ -647,43 +672,50 @@ export default function CartPage() {
                 Close
               </button>
             </div>
-            <div className="text-[10px] uppercase tracking-wide text-slate-400">Palette</div>
+            <div className="text-[10px] uppercase tracking-wide text-slate-400">{paletteTitle}</div>
             <div className="rounded-lg border border-white/10 bg-slate-900/70 p-2 max-h-40 overflow-y-auto">
-              <div className="grid grid-cols-6 gap-2">
-                {paletteOptions.map((swatchOption) => {
-                  const swatchNormalized = normalizeColorValue(swatchOption.name || swatchOption.hex)
-                  const isSelected = activeSlotNormalized === swatchNormalized
-                    || activeSlotNormalized === normalizeColorValue(swatchOption.hex)
-                  const ringCls = isSelected
-                    ? 'ring-2 ring-amber-400'
-                    : swatchOption.inStock
-                      ? 'ring-2 ring-emerald-400/80'
-                      : ''
-                  return (
-                    <button
-                      key={swatchOption.name}
-                      type="button"
-                      title={
-                        swatchOption.inStock
-                          ? `${swatchOption.name} (${swatchOption.hex}) - In stock`
-                          : `${swatchOption.name} (${swatchOption.hex})`
-                      }
-                      className={`h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${ringCls}`}
-                      style={{ background: swatchOption.hex }}
-                      aria-label={`Select ${swatchOption.name}`}
-                      onClick={() => {
-                        const next = [...(activeSlotItem.options.colors || [])]
-                        const nextValue = swatchOption.name && swatchOption.hex
-                          ? `${swatchOption.name} ${swatchOption.hex}`
-                          : swatchOption.name || swatchOption.hex
-                        next[activeColorSlot.index] = nextValue
-                        update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
-                      }}
-                    >
-                      <span className="sr-only">{swatchOption.name}</span>
-                    </button>
-                  )
-                })}
+              <div className="space-y-3">
+                {paletteGroups.map((group) => (
+                  <div key={group.label}>
+                    <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-2">{group.label}</div>
+                    <div className="grid grid-cols-6 gap-2">
+                      {group.options.map((swatchOption) => {
+                        const swatchNormalized = normalizeColorValue(swatchOption.name || swatchOption.hex)
+                        const isSelected = activeSlotNormalized === swatchNormalized
+                          || activeSlotNormalized === normalizeColorValue(swatchOption.hex)
+                        const ringCls = isSelected
+                          ? 'ring-2 ring-amber-400'
+                          : swatchOption.inStock
+                            ? 'ring-2 ring-emerald-400/80'
+                            : ''
+                        return (
+                          <button
+                            key={`${swatchOption.brand || 'palette'}-${swatchOption.name}-${swatchOption.hex}`}
+                            type="button"
+                            title={
+                              swatchOption.inStock
+                                ? `${swatchOption.name} (${swatchOption.hex}) - In stock`
+                                : `${swatchOption.name} (${swatchOption.hex})`
+                            }
+                            className={`h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${ringCls}`}
+                            style={{ background: swatchOption.hex }}
+                            aria-label={`Select ${swatchOption.name}`}
+                            onClick={() => {
+                              const next = [...(activeSlotItem.options.colors || [])]
+                              const nextValue = swatchOption.name && swatchOption.hex
+                                ? `${swatchOption.name} ${swatchOption.hex}`
+                                : swatchOption.name || swatchOption.hex
+                              next[activeColorSlot.index] = nextValue
+                              update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
+                            }}
+                          >
+                            <span className="sr-only">{swatchOption.name}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
             <div className="mt-3 space-y-2">

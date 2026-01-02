@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server'
 type StockworksMaterial = {
   id: number
   filament_type?: string | null
+  brand?: string | null
+  manufacturer?: string | null
+  vendor?: string | null
+  supplier?: string | null
   color?: string | null
   color_hex?: string | null
   color_hex_code?: string | null
@@ -24,6 +28,7 @@ type MaterialPalette = {
 type StockworksColor = {
   name: string
   hex?: string | null
+  brand?: string | null
 }
 
 const normalizeType = (value?: string | null) => {
@@ -54,6 +59,21 @@ const normalizeHex = (value?: string | null, allowBare = false) => {
   return match ? normalizeAlphaHex(`#${match[1]}`) : null
 }
 
+const normalizeBrand = (value?: string | null) => {
+  const trimmed = (value || '').trim()
+  return trimmed || null
+}
+
+const resolveBrand = (material?: StockworksMaterial | null) => {
+  if (!material) return null
+  return (
+    normalizeBrand(material.brand)
+    || normalizeBrand(material.manufacturer)
+    || normalizeBrand(material.vendor)
+    || normalizeBrand(material.supplier)
+  )
+}
+
 const parseColorOverrides = () => {
   const raw = (process.env.STOCKWORKS_COLOR_OVERRIDES || '').trim()
   if (!raw) return new Map<string, string>()
@@ -73,7 +93,7 @@ const parseColorOverrides = () => {
 
 const COLOR_OVERRIDES = parseColorOverrides()
 
-const normalizeColor = (value?: string | null, hexHint?: string | null): StockworksColor | null => {
+const normalizeColor = (value?: string | null, hexHint?: string | null, brand?: string | null): StockworksColor | null => {
   const trimmed = (value || '').trim()
   const hexFromName = normalizeHex(trimmed, false)
   const hexFromHint = normalizeHex(hexHint, true)
@@ -82,14 +102,16 @@ const normalizeColor = (value?: string | null, hexHint?: string | null): Stockwo
   const name = trimmed ? trimmed.replace(HEX_WITH_PREFIX_RE, '').trim() : ''
   const override = (name || trimmed).trim().toLowerCase()
   const overrideHex = override ? COLOR_OVERRIDES.get(override) : null
-  return { name: name || trimmed || hex || 'Unknown', hex: overrideHex || hex }
+  return { name: name || trimmed || hex || 'Unknown', hex: overrideHex || hex, brand: brand || null }
 }
 
 
 const colorKey = (color: StockworksColor | null) => {
   if (!color) return null
   const raw = (color.name || color.hex || '').trim()
-  return raw ? raw.toLowerCase() : null
+  if (!raw) return null
+  const brand = (color.brand || '').trim().toLowerCase()
+  return brand ? `${brand}::${raw.toLowerCase()}` : raw.toLowerCase()
 }
 
 async function loginToStockworks(baseUrl: string, username: string, password: string): Promise<string | null> {
@@ -149,7 +171,11 @@ export async function GET() {
   const orderableByType = new Map<string, Map<string, StockworksColor>>()
   for (const material of materials) {
     const typeKey = normalizeType(material.filament_type)
-    const color = normalizeColor(material.color, material.color_hex || material.color_hex_code || material.hex)
+    const color = normalizeColor(
+      material.color,
+      material.color_hex || material.color_hex_code || material.hex,
+      resolveBrand(material),
+    )
     if (!typeKey || !color) continue
     const key = colorKey(color)
     if (!key) continue
@@ -164,7 +190,11 @@ export async function GET() {
     const material = item.material || (typeof item.material_id === 'number' ? materialById.get(item.material_id) : null)
     if (!material) continue
     const typeKey = normalizeType(material.filament_type)
-    const color = normalizeColor(material.color, material.color_hex || material.color_hex_code || material.hex)
+    const color = normalizeColor(
+      material.color,
+      material.color_hex || material.color_hex_code || material.hex,
+      resolveBrand(material),
+    )
     if (!typeKey || !color) continue
     const key = colorKey(color)
     if (!key) continue
