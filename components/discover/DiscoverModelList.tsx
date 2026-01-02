@@ -1,14 +1,16 @@
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/currency'
 import AddToCartButtons from '@/components/cart/AddToCartButtons'
+import DiscoverLikeButton from '@/components/discover/DiscoverLikeButton'
 import { DiscoverViewMode, type CardInfo } from '@/types/discover'
 
 type DiscoverModelListProps = {
   cards: CardInfo[]
   viewMode: DiscoverViewMode
+  canLike?: boolean
 }
 
-export default function DiscoverModelList({ cards, viewMode }: DiscoverModelListProps) {
+export default function DiscoverModelList({ cards, viewMode, canLike }: DiscoverModelListProps) {
   const hasModels = cards.length > 0
 
   return (
@@ -51,19 +53,21 @@ export default function DiscoverModelList({ cards, viewMode }: DiscoverModelList
                         <span className="text-[11px] text-slate-500 line-through">{formatCurrency(m.basePriceUsd)}</span>
                       )}
                     </div>
-                    <AddToCartButtons model={{
-                      id: m.id,
-                      title: m.title,
-                      priceUsd: m.priceUsd,
-                      coverImagePath: m.coverImagePath,
-                      updatedAt: m.updatedAt,
-                      sizeXmm: m.sizeXmm ?? undefined,
-                      sizeYmm: m.sizeYmm ?? undefined,
-                      sizeZmm: m.sizeZmm ?? undefined,
-                    }} />
+                    <div className="flex items-center gap-2">
+                      <AddToCartButtons model={{
+                        id: m.id,
+                        title: m.title,
+                        priceUsd: m.priceUsd,
+                        coverImagePath: m.coverImagePath,
+                        updatedAt: m.updatedAt,
+                        sizeXmm: m.sizeXmm ?? undefined,
+                        sizeYmm: m.sizeYmm ?? undefined,
+                        sizeZmm: m.sizeZmm ?? undefined,
+                      }} />
+                      {canLike && <DiscoverLikeButton modelId={m.id} initialLikes={m.likes} />}
+                    </div>
                   </div>
                   <div className="text-[10px] uppercase tracking-wide text-slate-500 flex gap-4">
-                    <span>Likes: {m.likes}</span>
                     <span>Downloads: {m.downloads}</span>
                   </div>
                 </div>
@@ -91,16 +95,19 @@ export default function DiscoverModelList({ cards, viewMode }: DiscoverModelList
                     <span>{m.fileType || 'Unknown format'}</span>
                     {partsLabel && <span>{partsLabel}</span>}
                   </div>
-                  <AddToCartButtons model={{
-                    id: m.id,
-                    title: m.title,
-                    priceUsd: m.priceUsd,
-                    coverImagePath: m.coverImagePath,
-                    updatedAt: m.updatedAt,
-                    sizeXmm: m.sizeXmm ?? undefined,
+                  <div className="flex items-center gap-2">
+                    <AddToCartButtons model={{
+                      id: m.id,
+                      title: m.title,
+                      priceUsd: m.priceUsd,
+                      coverImagePath: m.coverImagePath,
+                      updatedAt: m.updatedAt,
+                      sizeXmm: m.sizeXmm ?? undefined,
                       sizeYmm: m.sizeYmm ?? undefined,
                       sizeZmm: m.sizeZmm ?? undefined,
                     }} />
+                    {canLike && <DiscoverLikeButton modelId={m.id} initialLikes={m.likes} />}
+                  </div>
                   <div className="flex justify-between text-xs text-slate-300">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{priceLabel || 'N/A'}</span>
@@ -111,7 +118,6 @@ export default function DiscoverModelList({ cards, viewMode }: DiscoverModelList
                     <span>{sizeLabel}</span>
                   </div>
                   <div className="flex justify-between text-[11px] text-slate-500">
-                    <span>Likes: {m.likes}</span>
                     <span>Downloads: {m.downloads}</span>
                   </div>
                 </div>

@@ -8,6 +8,7 @@ import { buildImageSrc } from '@/lib/public-path'
 import { formatPriceLabel } from '@/lib/price-label'
 import { DiscoverSort, DiscoverViewMode, type CardInfo, type DiscoverModel } from '@/types/discover'
 import { resolveBaseUrl } from '@/lib/base-url'
+import { getUserIdFromCookie } from '@/lib/auth'
 
 type SearchParams = { [key: string]: string | string[] | undefined }
 
@@ -58,6 +59,8 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   const fetchParams = new URLSearchParams(params)
   fetchParams.delete('view')
   const baseUrl = await resolveBaseUrl()
+  const userId = await getUserIdFromCookie()
+  const canLike = Boolean(userId)
   const data = await fetchModels(fetchParams, baseUrl) as { models?: DiscoverModel[]; total?: number }
   const models: DiscoverModel[] = Array.isArray(data.models) ? data.models : []
   const total = typeof data.total === 'number' ? data.total : 0
@@ -93,7 +96,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
         <ViewToggle viewMode={viewMode} gridHref={gridViewHref} compactHref={compactViewHref} />
       </div>
 
-      <DiscoverModelList cards={cards} viewMode={viewMode} />
+      <DiscoverModelList cards={cards} viewMode={viewMode} canLike={canLike} />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
