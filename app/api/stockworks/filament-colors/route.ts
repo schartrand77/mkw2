@@ -31,21 +31,46 @@ const normalizeType = (value?: string | null) => {
   return trimmed ? trimmed.toUpperCase() : null
 }
 
-const HEX_RE = /#([0-9a-f]{3}|[0-9a-f]{6})/i
+const HEX_WITH_HASH_RE = /#([0-9a-f]{3}|[0-9a-f]{6})/i
+const HEX_ONLY_RE = /^[0-9a-f]{3}([0-9a-f]{3})?$/i
 
-const normalizeHex = (value?: string | null) => {
+const normalizeHex = (value?: string | null, allowBare = false) => {
   const trimmed = (value || '').trim()
   if (!trimmed) return null
-  const match = trimmed.match(HEX_RE)
-  return match ? match[0] : null
+  if (allowBare && HEX_ONLY_RE.test(trimmed)) return `#${trimmed}`
+  const match = trimmed.match(HEX_WITH_HASH_RE)
+  return match ? `#${match[1]}` : null
 }
+
+const parseColorOverrides = () => {
+  const raw = (process.env.STOCKWORKS_COLOR_OVERRIDES || '').trim()
+  if (!raw) return new Map<string, string>()
+  try {
+    const parsed = JSON.parse(raw) as Record<string, string>
+    const map = new Map<string, string>()
+    for (const [key, value] of Object.entries(parsed)) {
+      const normalizedKey = (key || '').trim().toLowerCase()
+      const normalizedHex = normalizeHex(value, true)
+      if (normalizedKey && normalizedHex) map.set(normalizedKey, normalizedHex)
+    }
+    return map
+  } catch {
+    return new Map<string, string>()
+  }
+}
+
+const COLOR_OVERRIDES = parseColorOverrides()
 
 const normalizeColor = (value?: string | null, hexHint?: string | null): StockworksColor | null => {
   const trimmed = (value || '').trim()
-  const hex = normalizeHex(hexHint) || normalizeHex(trimmed)
+  const hexFromName = normalizeHex(trimmed, false)
+  const hexFromHint = normalizeHex(hexHint, true)
+  const hex = hexFromName || hexFromHint
   if (!trimmed && !hex) return null
-  const name = trimmed ? trimmed.replace(HEX_RE, '').trim() : ''
-  return { name: name || trimmed || hex || 'Unknown', hex }
+  const name = trimmed ? trimmed.replace(HEX_WITH_HASH_RE, '').trim() : ''
+  const override = (name || trimmed).trim().toLowerCase()
+  const overrideHex = override ? COLOR_OVERRIDES.get(override) : null
+  return { name: name || trimmed || hex || 'Unknown', hex: overrideHex || hex }
 }
 
 const colorKey = (color: StockworksColor | null) => {
