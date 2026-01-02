@@ -2,7 +2,7 @@ import crypto from 'crypto'
 
 import { prisma } from '@/lib/db'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
-import { buildAbsoluteUrl, buildBambuStudioUrl } from '@/lib/slicer'
+import { buildAbsoluteUrl } from '@/lib/slicer'
 import type { FulfillmentStatus } from '@prisma/client'
 
 type JobStatus = 'pending' | 'sent'
@@ -34,7 +34,6 @@ type FilePointer = {
   storagePath?: string | null
   storageUrl?: string | null
   downloadUrl?: string | null
-  bambuStudioUrl?: string | null
 }
 
 type WebhookTarget = {
@@ -73,7 +72,6 @@ type OrderWorksLineItem = {
   storagePath: string
   storageUrl: string
   downloadUrl: string
-  bambuStudioUrl: string
   files: OrderWorksFilePointer[]
   metadata?: Record<string, string | number | null>
 }
@@ -83,7 +81,6 @@ type OrderWorksFilePointer = {
   storagePath: string
   storageUrl: string
   downloadUrl: string
-  bambuStudioUrl: string
 }
 
 type PartFileRecord = {
@@ -218,7 +215,6 @@ function buildFilePointerForItem(item: StoredLineItem): FilePointer | null {
     storagePath,
     storageUrl,
     downloadUrl,
-    bambuStudioUrl: buildBambuStudioUrl(downloadUrl || undefined),
   }
 }
 
@@ -319,7 +315,6 @@ function buildOrderWorksLineItems(items: StoredLineItem[], summaries: string[], 
     const storagePath = toSafeString(pointer?.storagePath ?? item.storagePath ?? null, '')
     const storageUrl = toSafeString(pointer?.storageUrl ?? item.storageUrl ?? null, '')
     const downloadUrl = toSafeString(pointer?.downloadUrl ?? null, storageUrl)
-    const bambuStudioUrl = toSafeString(pointer?.bambuStudioUrl ?? null, '')
     const material = toSafeString(item.material, 'PLA')
     const modelId = toSafeString(item.modelId, `item-${idx + 1}`)
     const partId = toSafeString(item.partId ?? null, '')
@@ -328,14 +323,13 @@ function buildOrderWorksLineItems(items: StoredLineItem[], summaries: string[], 
     const colors = Array.isArray(item.colors)
       ? item.colors.filter((color) => typeof color === 'string' && color.trim().length > 0).map((color) => color.trim())
       : []
-    const files: OrderWorksFilePointer[] = storagePath || storageUrl || downloadUrl || bambuStudioUrl
+    const files: OrderWorksFilePointer[] = storagePath || storageUrl || downloadUrl
       ? [
           {
             label: toSafeString(pointer?.label ?? null, title),
             storagePath,
             storageUrl,
             downloadUrl,
-            bambuStudioUrl,
           },
         ]
       : []
@@ -364,7 +358,6 @@ function buildOrderWorksLineItems(items: StoredLineItem[], summaries: string[], 
       storagePath,
       storageUrl,
       downloadUrl,
-      bambuStudioUrl,
       files,
       metadata: {
         modelId,

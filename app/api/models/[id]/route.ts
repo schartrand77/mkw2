@@ -33,12 +33,17 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
   const tags = model.modelTags.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug }))
   const { modelTags, images, comments, ...rest } = model as any
   const pricingSummary = resolveModelPricing(model as any, cfg)
+  const totalVolumeMm3 = model.volumeMm3 != null && Number.isFinite(Number(model.volumeMm3)) ? Number(model.volumeMm3) : null
+  const totalPricing = totalVolumeMm3 != null
+    ? estimatePricingDetails({ cm3: totalVolumeMm3 / 1000, material: rest.material, cfg, applyMinimum: true })
+    : null
   let affiliateImage: string | null = null
   if (rest.affiliateUrl) {
     const asin = extractAmazonAsin(rest.affiliateUrl)
     if (asin) affiliateImage = buildAmazonImageUrl(asin)
   }
   const verifiedComments = await findVerifiedCommentUserIds(model.id, (comments || []).map((c: any) => c.userId))
+  const isMultipart = parts.length > 1
   return NextResponse.json({
     model: {
       ...rest,
@@ -51,11 +56,11 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
       parts: parts.map((part) => {
         const rawPrice = part.priceUsd != null ? Number(part.priceUsd) : null
         const partPricing = part.volumeMm3 != null && Number.isFinite(Number(part.volumeMm3))
-          ? estimatePricingDetails({ cm3: Number(part.volumeMm3) / 1000, material: rest.material, cfg })
+          ? estimatePricingDetails({ cm3: Number(part.volumeMm3) / 1000, material: rest.material, cfg, applyMinimum: false })
           : null
-        const computedPrice = (rawPrice != null && Number.isFinite(rawPrice))
-          ? rawPrice
-          : (partPricing?.price ?? null)
+        const computedPrice = isMultipart && totalPricing && totalVolumeMm3 && part.volumeMm3 && totalVolumeMm3 > 0
+          ? Number(((totalPricing.price * Number(part.volumeMm3)) / totalVolumeMm3).toFixed(2))
+          : ((rawPrice != null && Number.isFinite(rawPrice)) ? rawPrice : (partPricing?.price ?? null))
         return {
           ...part,
           priceUsd: computedPrice,

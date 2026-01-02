@@ -18,6 +18,8 @@ services:
     restart: unless-stopped
     depends_on:
       - db
+    env_file:
+      - .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/makerworks?schema=public}
       JWT_SECRET: ${JWT_SECRET:-supersecret-change-me}

@@ -11,7 +11,7 @@ export type DiscountSummary = {
   totalPercent: number
 }
 
-const MAX_DISCOUNT_PERCENT = 95
+const MAX_DISCOUNT_PERCENT = 100
 
 function clampPercent(value?: number | null) {
   if (typeof value !== 'number' || Number.isNaN(value)) return 0
