@@ -200,9 +200,6 @@ export default function CartPage() {
   const activeSlotValue = activeColorSlot && activeSlotItem ? activeSlotItem.options.colors?.[activeColorSlot.index] || '' : ''
   const activeSlotParsed = parseColorString(activeSlotValue)
   const activeSlotSwatch = resolveSwatch(activeSlotValue)
-  const activeSlotHexValue = isHexColor(activeSlotValue)
-    ? activeSlotValue
-    : activeSlotSwatch?.hex || activeSlotParsed.hex || COLOR_PICKER_FALLBACK
   const activeSlotNormalized = normalizeColorValue(activeSlotParsed.name || activeSlotParsed.hex || activeSlotValue)
   const paletteLookup = useMemo(() => {
     const map = new Map<string, { name: string; hex: string }>()
@@ -237,6 +234,20 @@ export default function CartPage() {
     }
     return output
   }, [stockworksEntry, paletteLookup])
+  const paletteValueToHex = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const swatch of paletteOptions) {
+      if (swatch.name) map.set(normalizeColorValue(swatch.name), swatch.hex)
+      if (swatch.hex) map.set(normalizeColorValue(swatch.hex), swatch.hex)
+    }
+    return map
+  }, [paletteOptions])
+  const activeSlotHexValue = isHexColor(activeSlotValue)
+    ? activeSlotValue
+    : activeSlotSwatch?.hex
+      || activeSlotParsed.hex
+      || paletteValueToHex.get(activeSlotNormalized)
+      || COLOR_PICKER_FALLBACK
 
   const discountMultiplier = useMemo(() => getDiscountMultiplier(discount), [discount])
   const totalDiscountPercent = discount?.totalPercent ?? 0
@@ -411,8 +422,14 @@ export default function CartPage() {
                                     const slotId = `${item.modelId}-${item.partId || 'whole'}-color-${idx}`
                                     const value = item.options.colors?.[idx] || ''
                                     const swatch = resolveSwatch(value)
-                                    const hexValue = isHexColor(value) ? value : swatch?.hex || COLOR_PICKER_FALLBACK
-                                    const normalizedValue = normalizeColorValue(value)
+                                    const parsedValue = parseColorString(value)
+                                    const normalizedValue = normalizeColorValue(parsedValue.name || parsedValue.hex || value)
+                                    const hexValue = isHexColor(value)
+                                      ? value
+                                      : swatch?.hex
+                                        || parsedValue.hex
+                                        || paletteValueToHex.get(normalizedValue)
+                                        || COLOR_PICKER_FALLBACK
                                     const isActive = activeColorSlot?.id === slotId
                                     const updateColor = (nextValue: string) => {
                                       const next = [...(item.options.colors || [])]
@@ -635,7 +652,7 @@ export default function CartPage() {
                       aria-label={`Select ${swatchOption.name}`}
                       onClick={() => {
                         const next = [...(activeSlotItem.options.colors || [])]
-                        next[activeColorSlot.index] = swatchOption.name
+                        next[activeColorSlot.index] = swatchOption.name || swatchOption.hex
                         update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
                       }}
                     >
