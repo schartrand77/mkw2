@@ -21,8 +21,21 @@ const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
   z: 'Height (Z)',
 }
 const COLOR_PICKER_FALLBACK = '#1f2937'
-const HEX_RE = /#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})/i
+const HEX_WITH_HASH_RE = /#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})/i
+const HEX_WITH_0X_RE = /0x([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})/i
+const HEX_BARE_RE = /\b([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})\b/i
 const isHexColor = (value?: string | null) => !!value && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value.trim())
+const normalizeAlphaHex = (value: string) => {
+  const trimmed = value.trim()
+  if (!/^#([0-9a-f]{8})$/i.test(trimmed)) return trimmed
+  const hex = trimmed.slice(1)
+  const alpha = hex.slice(0, 2).toLowerCase()
+  const tail = hex.slice(6, 8).toLowerCase()
+  if ((alpha === '00' || alpha === 'ff') && tail !== '00' && tail !== 'ff') {
+    return `#${hex.slice(2)}${alpha}`
+  }
+  return trimmed
+}
 const COLOR_PALETTE = [
   { name: 'Ivory', hex: '#f8fafc' },
   { name: 'Mist', hex: '#e2e8f0' },
@@ -70,14 +83,18 @@ const normalizeColorValue = (value?: string | null) => (value || '').trim().toLo
 const extractHex = (value?: string | null) => {
   const trimmed = (value || '').trim()
   if (!trimmed) return ''
-  const match = trimmed.match(HEX_RE)
-  return match ? match[0] : ''
+  const hashMatch = trimmed.match(HEX_WITH_HASH_RE)
+  if (hashMatch) return normalizeAlphaHex(`#${hashMatch[1]}`)
+  const hexMatch = trimmed.match(HEX_WITH_0X_RE)
+  if (hexMatch) return normalizeAlphaHex(`#${hexMatch[1]}`)
+  const bareMatch = trimmed.match(HEX_BARE_RE)
+  return bareMatch ? normalizeAlphaHex(`#${bareMatch[1]}`) : ''
 }
 const parseColorString = (value?: string | null) => {
   const trimmed = (value || '').trim()
   if (!trimmed) return { name: '', hex: '' }
   const hex = extractHex(trimmed)
-  const name = trimmed.replace(HEX_RE, '').trim()
+  const name = trimmed.replace(HEX_WITH_HASH_RE, '').replace(HEX_WITH_0X_RE, '').replace(HEX_BARE_RE, '').trim()
   return { name, hex }
 }
 const normalizeColorKey = (value: string | StockworksColor) => {
@@ -92,8 +109,8 @@ const toColorMeta = (value: string | StockworksColor) => {
     const parsed = parseColorString(value)
     return { name: parsed.name || value, hex: parsed.hex }
   }
-  const hex = value.hex || extractHex(value.name)
-  const name = value.name ? value.name.replace(HEX_RE, '').trim() : ''
+  const hex = value.hex ? normalizeAlphaHex(value.hex) : extractHex(value.name)
+  const name = value.name ? value.name.replace(HEX_WITH_HASH_RE, '').replace(HEX_WITH_0X_RE, '').replace(HEX_BARE_RE, '').trim() : ''
   return { name: name || value.name || hex || 'Unknown', hex }
 }
 const resolveSwatch = (value?: string | null) => {

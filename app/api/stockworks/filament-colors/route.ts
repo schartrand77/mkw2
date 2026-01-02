@@ -31,15 +31,27 @@ const normalizeType = (value?: string | null) => {
   return trimmed ? trimmed.toUpperCase() : null
 }
 
-const HEX_WITH_HASH_RE = /#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})/i
+const HEX_WITH_PREFIX_RE = /(?:#|0x)([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})/i
 const HEX_ONLY_RE = /^[0-9a-f]{3}([0-9a-f]{3})?([0-9a-f]{2})?$/i
+
+const normalizeAlphaHex = (value: string) => {
+  const trimmed = value.trim()
+  if (!/^#([0-9a-f]{8})$/i.test(trimmed)) return trimmed
+  const hex = trimmed.slice(1)
+  const alpha = hex.slice(0, 2).toLowerCase()
+  const tail = hex.slice(6, 8).toLowerCase()
+  if ((alpha === '00' || alpha === 'ff') && tail !== '00' && tail !== 'ff') {
+    return `#${hex.slice(2)}${alpha}`
+  }
+  return trimmed
+}
 
 const normalizeHex = (value?: string | null, allowBare = false) => {
   const trimmed = (value || '').trim()
   if (!trimmed) return null
-  if (allowBare && HEX_ONLY_RE.test(trimmed)) return `#${trimmed}`
-  const match = trimmed.match(HEX_WITH_HASH_RE)
-  return match ? `#${match[1]}` : null
+  if (allowBare && HEX_ONLY_RE.test(trimmed)) return normalizeAlphaHex(`#${trimmed}`)
+  const match = trimmed.match(HEX_WITH_PREFIX_RE)
+  return match ? normalizeAlphaHex(`#${match[1]}`) : null
 }
 
 const parseColorOverrides = () => {
@@ -67,11 +79,12 @@ const normalizeColor = (value?: string | null, hexHint?: string | null): Stockwo
   const hexFromHint = normalizeHex(hexHint, true)
   const hex = hexFromName || hexFromHint
   if (!trimmed && !hex) return null
-  const name = trimmed ? trimmed.replace(HEX_WITH_HASH_RE, '').trim() : ''
+  const name = trimmed ? trimmed.replace(HEX_WITH_PREFIX_RE, '').trim() : ''
   const override = (name || trimmed).trim().toLowerCase()
   const overrideHex = override ? COLOR_OVERRIDES.get(override) : null
   return { name: name || trimmed || hex || 'Unknown', hex: overrideHex || hex }
 }
+
 
 const colorKey = (color: StockworksColor | null) => {
   if (!color) return null
