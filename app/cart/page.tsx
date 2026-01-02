@@ -21,10 +21,10 @@ const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
   z: 'Height (Z)',
 }
 const COLOR_PICKER_FALLBACK = '#1f2937'
-const HEX_WITH_HASH_RE = /#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})/i
-const HEX_WITH_0X_RE = /0x([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})/i
-const HEX_BARE_RE = /\b([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})\b/i
-const isHexColor = (value?: string | null) => !!value && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value.trim())
+const HEX_WITH_HASH_RE = /#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
+const HEX_WITH_0X_RE = /0x([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
+const HEX_BARE_RE = /\b([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})\b/i
+const isHexColor = (value?: string | null) => !!value && /^#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})$/i.test(value.trim())
 const normalizeAlphaHex = (value: string) => {
   const trimmed = value.trim()
   if (!/^#([0-9a-f]{8})$/i.test(trimmed)) return trimmed
