@@ -73,6 +73,11 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             allSrc={viewerHref || null}
             images={model.images || []}
             initialKey={initialGalleryKey}
+            actions={payload ? (
+              <form action={`/api/models/${model.id}/like`} method="post">
+                <button className="px-3 py-2 rounded-md border border-white/10 bg-black/50 text-sm hover:border-white/30" formAction={`/api/models/${model.id}/like`}>Like</button>
+              </form>
+            ) : null}
           />
         </div>
         <div className="space-y-4">
@@ -196,11 +201,6 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           >
             {hasParts ? 'Download All Parts (.zip)' : 'Download Model'}
           </a>
-          {payload && (
-            <form action={`/api/models/${model.id}/like`} method="post">
-              <button className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20" formAction={`/api/models/${model.id}/like`}>Like</button>
-            </form>
-          )}
           {canEdit && (
             <Link href={`/models/${model.id}/edit`} className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20">Edit</Link>
           )}

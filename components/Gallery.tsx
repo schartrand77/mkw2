@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import { toPublicHref } from '@/lib/public-path'
 
@@ -15,11 +15,12 @@ type Props = {
   allSrc?: string | null
   images?: GalleryImage[]
   initialKey?: string
+  actions?: ReactNode
 }
 
 type Item = { key: string; label: string; kind: 'image' | 'three'; src?: string; srcs?: string[] }
 
-export default function Gallery({ coverSrc, parts = [], allSrc, images = [], initialKey }: Props) {
+export default function Gallery({ coverSrc, parts = [], allSrc, images = [], initialKey, actions }: Props) {
   const items = useMemo<Item[]>(() => {
     const arr: Item[] = []
     const partSrcs = parts.map(p => toPublicHref(p.previewFilePath || p.filePath)).filter((src): src is string => !!src)
@@ -131,6 +132,11 @@ export default function Gallery({ coverSrc, parts = [], allSrc, images = [], ini
           )}
           {activeItem && (
             <div className="absolute top-3 left-3 text-xs px-2 py-1 rounded-md border border-white/10 bg-black/40">{activeItem.kind === 'three' ? '3D' : 'Image'}</div>
+          )}
+          {actions && (
+            <div className="absolute top-3 right-3 flex items-center gap-2">
+              {actions}
+            </div>
           )}
         </div>
       </div>
