@@ -21,8 +21,8 @@ const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
   z: 'Height (Z)',
 }
 const COLOR_PICKER_FALLBACK = '#1f2937'
-const HEX_RE = /#([0-9a-f]{3}|[0-9a-f]{6})/i
-const isHexColor = (value?: string | null) => !!value && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim())
+const HEX_RE = /#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})/i
+const isHexColor = (value?: string | null) => !!value && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value.trim())
 const COLOR_PALETTE = [
   { name: 'Ivory', hex: '#f8fafc' },
   { name: 'Mist', hex: '#e2e8f0' },
@@ -646,13 +646,20 @@ export default function CartPage() {
                     <button
                       key={swatchOption.name}
                       type="button"
-                      title={swatchOption.inStock ? `${swatchOption.name} (In stock)` : swatchOption.name}
+                      title={
+                        swatchOption.inStock
+                          ? `${swatchOption.name} (${swatchOption.hex}) - In stock`
+                          : `${swatchOption.name} (${swatchOption.hex})`
+                      }
                       className={`h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${ringCls}`}
                       style={{ background: swatchOption.hex }}
                       aria-label={`Select ${swatchOption.name}`}
                       onClick={() => {
                         const next = [...(activeSlotItem.options.colors || [])]
-                        next[activeColorSlot.index] = swatchOption.name || swatchOption.hex
+                        const nextValue = swatchOption.name && swatchOption.hex
+                          ? `${swatchOption.name} ${swatchOption.hex}`
+                          : swatchOption.name || swatchOption.hex
+                        next[activeColorSlot.index] = nextValue
                         update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
                       }}
                     >

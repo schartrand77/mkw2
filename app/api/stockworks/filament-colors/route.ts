@@ -31,8 +31,8 @@ const normalizeType = (value?: string | null) => {
   return trimmed ? trimmed.toUpperCase() : null
 }
 
-const HEX_WITH_HASH_RE = /#([0-9a-f]{3}|[0-9a-f]{6})/i
-const HEX_ONLY_RE = /^[0-9a-f]{3}([0-9a-f]{3})?$/i
+const HEX_WITH_HASH_RE = /#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})/i
+const HEX_ONLY_RE = /^[0-9a-f]{3}([0-9a-f]{3})?([0-9a-f]{2})?$/i
 
 const normalizeHex = (value?: string | null, allowBare = false) => {
   const trimmed = (value || '').trim()
