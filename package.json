@@ -12,7 +12,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "bootstrap:admin": "node scripts/bootstrap-admin.js",
-    "backup": "node scripts/backup.js"
+    "backup": "node scripts/backup.js",
+    "backfill:3mf-previews": "node scripts/backfill-3mf-previews.js"
   },
   "dependencies": {
     "@prisma/client": "^5.12.1",

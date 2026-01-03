@@ -20,7 +20,12 @@ export default async function HomePage() {
   return (
     <div className="space-y-8">
       <section className="text-center py-10">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Dream. Discover. Deliver.</h1>
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+          <span aria-label="Dream">
+            Dre<span aria-hidden="true" className="valentines-heart">♥</span><span aria-hidden="true" className="valentines-heart-fallback">a</span>m
+          </span>
+          . Discover. Deliver.
+        </h1>
         <p className="mt-3 text-slate-300">Bringing your ideas to life, one layer at a time.</p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <Link href="/upload" className="btn">Upload a Model</Link>

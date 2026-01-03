@@ -3,14 +3,14 @@
 @tailwind utilities;
 
 :root {
-  /* Dark Side / Empire palette tokens */
-  --bg: #030203;
-  --bg-secondary: #050506;
-  --card: #0d0d13;
-  --card-rgb: 13 13 19;
-  --muted: #a1a0bf;
-  --empire-crimson: #ff1c3d;
-  --empire-crimson-rgb: 255 28 61;
+  /* Modern Dark Trooper palette tokens */
+  --bg: #04060a;
+  --bg-secondary: #0a0f15;
+  --card: #12171f;
+  --card-rgb: 18 23 31;
+  --muted: #a7b1c2;
+  --empire-crimson: #5aa9ff;
+  --empire-crimson-rgb: 90 169 255;
 }
 
 html, body {
@@ -19,27 +19,28 @@ html, body {
 
 body {
   background:
-    radial-gradient(900px 520px at 82% -15%, rgba(243, 86, 47, 0.25), transparent),
-    radial-gradient(700px 420px at 15% -10%, rgba(76, 29, 149, 0.15), transparent),
-    linear-gradient(145deg, #010101 0%, var(--bg) 45%, #0b0614 100%);
+    radial-gradient(900px 520px at 86% -18%, rgba(96, 165, 250, 0.22), transparent),
+    radial-gradient(800px 460px at 12% -16%, rgba(248, 250, 252, 0.08), transparent),
+    repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.05), rgba(148, 163, 184, 0.05) 1px, transparent 1px, transparent 18px),
+    linear-gradient(145deg, #020308 0%, var(--bg) 45%, #0c1119 100%);
   color: #f4f4f5;
 }
 
 .glass {
-  background: linear-gradient(155deg, rgba(var(--card-rgb) / 0.95), rgba(8 4 14 / 0.85));
-  border: 1px solid rgba(var(--empire-crimson-rgb) / 0.22);
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: linear-gradient(155deg, rgba(var(--card-rgb) / 0.96), rgba(10 12 18 / 0.86));
+  border: 1px solid rgba(var(--empire-crimson-rgb) / 0.24);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(18px);
 }
 .header-shell {
-  border-bottom: 1px solid rgba(var(--empire-crimson-rgb) / 0.22);
-  background: linear-gradient(180deg, rgba(5, 4, 9, 0.92), rgba(5, 4, 9, 0.78));
+  border-bottom: 1px solid rgba(var(--empire-crimson-rgb) / 0.24);
+  background: linear-gradient(180deg, rgba(9, 12, 18, 0.92), rgba(8, 11, 16, 0.78));
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(18px);
 }
 .footer-shell {
   border-top: 1px solid rgba(255, 255, 255, 0.05);
-  background: linear-gradient(180deg, rgba(5, 4, 9, 0.65), rgba(5, 4, 9, 0.85));
+  background: linear-gradient(180deg, rgba(8, 10, 15, 0.65), rgba(8, 10, 15, 0.85));
 }
 
 .btn {
@@ -60,7 +61,8 @@ body {
 html.theme-light body {
   background:
     linear-gradient(130deg, #fefefe 0%, #f4f5f8 55%, #e5e9ef 100%),
-    repeating-linear-gradient(180deg, rgba(8, 10, 18, 0.07), rgba(8, 10, 18, 0.07) 1px, transparent 1px, transparent 14px),
+    repeating-linear-gradient(180deg, rgba(30, 64, 175, 0.12), rgba(30, 64, 175, 0.12) 1px, transparent 1px, transparent 14px),
+    repeating-linear-gradient(90deg, rgba(30, 64, 175, 0.08), rgba(30, 64, 175, 0.08) 1px, transparent 1px, transparent 18px),
     #f9fbff;
   color: #05060a;
 }
@@ -190,17 +192,32 @@ html.theme-light .page-title::after {
 }
 .marquee-fade-left {
   left: 0;
-  background: linear-gradient(90deg, rgba(3, 3, 8, 0.92), rgba(3, 3, 8, 0));
+  background: linear-gradient(90deg, rgba(5, 7, 12, 0.92), rgba(5, 7, 12, 0));
 }
 .marquee-fade-right {
   right: 0;
-  background: linear-gradient(270deg, rgba(3, 3, 8, 0.92), rgba(3, 3, 8, 0));
+  background: linear-gradient(270deg, rgba(5, 7, 12, 0.92), rgba(5, 7, 12, 0));
 }
 html.theme-light .marquee-fade-left {
   background: linear-gradient(90deg, rgba(247, 247, 249, 0.95), rgba(247, 247, 249, 0));
 }
 html.theme-light .marquee-fade-right {
   background: linear-gradient(270deg, rgba(247, 247, 249, 0.95), rgba(247, 247, 249, 0));
+}
+
+.valentines-heart {
+  display: none;
+  color: #fb7185;
+  text-shadow: 0 6px 18px rgba(244, 63, 94, 0.35);
+}
+.valentines-heart-fallback {
+  display: inline;
+}
+html.theme-light body.holiday-valentines .valentines-heart {
+  display: inline-block;
+}
+html.theme-light body.holiday-valentines .valentines-heart-fallback {
+  display: none;
 }
 
 /* Holiday theming */
@@ -231,6 +248,13 @@ html.theme-light body.holiday-valentines {
     radial-gradient(900px 540px at 5% 15%, rgba(251, 113, 133, 0.2), transparent),
     #fff5f7;
   color: #1f0a12;
+}
+body.holiday-valentines {
+  background:
+    radial-gradient(900px 520px at 82% -15%, rgba(244, 63, 94, 0.25), transparent),
+    radial-gradient(700px 420px at 12% -10%, rgba(190, 24, 93, 0.2), transparent),
+    repeating-linear-gradient(90deg, rgba(251, 113, 133, 0.1), rgba(251, 113, 133, 0.1) 1px, transparent 1px, transparent 18px),
+    linear-gradient(145deg, #120309 0%, #1a0610 45%, #280b19 100%);
 }
 html.theme-light body.holiday-easter .glass {
   background: rgba(255, 255, 255, 0.85);

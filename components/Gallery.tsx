@@ -18,13 +18,24 @@ type Props = {
   actions?: ReactNode
 }
 
-type Item = { key: string; label: string; kind: 'image' | 'three'; src?: string; srcs?: string[] }
+type Item = { key: string; label: string; kind: 'image' | 'three'; src?: string; srcs?: string[]; fallbackSrc?: string; fallbackSrcs?: Array<string | null | undefined> }
 
 export default function Gallery({ coverSrc, parts = [], allSrc, images = [], initialKey, actions }: Props) {
   const items = useMemo<Item[]>(() => {
     const arr: Item[] = []
-    const partSrcs = parts.map(p => toPublicHref(p.previewFilePath || p.filePath)).filter((src): src is string => !!src)
+    const partEntries = parts.map((p) => {
+      const is3mf = p.filePath.toLowerCase().endsWith('.3mf')
+      return {
+        src: toPublicHref(is3mf ? p.filePath : (p.previewFilePath || p.filePath)),
+        fallback: is3mf && p.previewFilePath ? toPublicHref(p.previewFilePath) : null,
+      }
+    }).filter((entry): entry is { src: string; fallback: string | null } => !!entry.src)
+    const partSrcs = partEntries.map((entry) => entry.src)
+    const partFallbackSrcs = partEntries.map((entry) => entry.fallback || undefined)
     const normalizedAllSrc = allSrc || (partSrcs.length === 1 ? partSrcs[0] : null)
+    const normalizedAllFallback = normalizedAllSrc && normalizedAllSrc.toLowerCase().endsWith('.3mf') && partFallbackSrcs.length === 1
+      ? partFallbackSrcs[0]
+      : undefined
 
     if (coverSrc) arr.push({ key: 'image:cover', label: 'Cover', kind: 'image', src: coverSrc })
     if (images.length > 0) {
@@ -37,13 +48,19 @@ export default function Gallery({ coverSrc, parts = [], allSrc, images = [], ini
     }
 
     if (normalizedAllSrc) {
-      arr.push({ key: 'three:all', label: '3D View', kind: 'three', src: normalizedAllSrc })
+      arr.push({ key: 'three:all', label: '3D View', kind: 'three', src: normalizedAllSrc, fallbackSrc: normalizedAllFallback })
     } else if (partSrcs.length > 0) {
-      arr.push({ key: 'three:all', label: '3D View: All parts', kind: 'three', srcs: partSrcs })
+      arr.push({ key: 'three:all', label: '3D View: All parts', kind: 'three', srcs: partSrcs, fallbackSrcs: partFallbackSrcs })
     }
 
     if (partSrcs.length > 0) {
-      parts.forEach((p, i) => arr.push({ key: `three:${i}`, label: p.name, kind: 'three', src: partSrcs[i] }))
+      parts.forEach((p, i) => arr.push({
+        key: `three:${i}`,
+        label: p.name,
+        kind: 'three',
+        src: partSrcs[i],
+        fallbackSrc: partFallbackSrcs[i],
+      }))
     }
     return arr
   }, [coverSrc, parts, allSrc, images])
@@ -101,9 +118,9 @@ export default function Gallery({ coverSrc, parts = [], allSrc, images = [], ini
             activeItem.kind === 'three' ? (
               viewerEnabled ? (
                 activeItem.srcs ? (
-                  <LazyModelViewer srcs={activeItem.srcs} height={540} className="bg-black/30" />
+                  <LazyModelViewer srcs={activeItem.srcs} fallbackSrcs={activeItem.fallbackSrcs} height={540} className="bg-black/30" />
                 ) : (
-                  <LazyModelViewer src={activeItem.src} height={540} className="bg-black/30" />
+                  <LazyModelViewer src={activeItem.src} fallbackSrc={activeItem.fallbackSrc} height={540} className="bg-black/30" />
                 )
               ) : (
                 <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-center px-6">

@@ -444,29 +444,40 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < modelFiles.length; i++) {
       const f = modelFiles[i]
-      let ext = path.extname(f.name).toLowerCase()
-      let fileBuf = f.buf
-      if (ext === '.3mf') {
+      const ext = path.extname(f.name).toLowerCase()
+      const storedExt = ext
+      const storedBuf = f.buf
+      let previewBuf: Buffer | null = null
+      let previewExt: string | null = null
+      if (storedExt === '.3mf') {
         const extracted = await convert3mfToStl(f.buf)
         if (extracted) {
-          fileBuf = extracted.buf
-          ext = '.stl'
+          previewBuf = extracted.buf
+          previewExt = '.stl'
           console.info('3MF converted to STL preview', { triangles: extracted.triangles })
         } else {
           console.warn('3MF conversion returned no data; keeping original 3MF', { file: f.name })
         }
       }
-      const rel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}${ext}`)
-      await saveBuffer(rel, fileBuf)
+
+      const rel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}${storedExt}`)
+      await saveBuffer(rel, storedBuf)
       const storedPath = `/${rel.replace(/\\/g, '/')}`
-      storedExts.push(ext.replace('.', '').toUpperCase())
+      storedExts.push(storedExt.replace('.', '').toUpperCase())
       if (!firstPath) firstPath = storedPath
-      const previewPath: string | null = ext === '.stl' ? storedPath : null
-      if (!firstViewerPath && previewPath) firstViewerPath = previewPath
+      let previewPath: string | null = storedExt === '.stl' ? storedPath : null
+      if (previewBuf && previewExt) {
+        const previewRel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}-preview${previewExt}`)
+        await saveBuffer(previewRel, previewBuf)
+        previewPath = `/${previewRel.replace(/\\/g, '/')}`
+      }
+      const viewerPath = storedExt === '.3mf' ? storedPath : (previewPath || storedPath)
+      if (!firstViewerPath && viewerPath) firstViewerPath = viewerPath
       let volMm3: number | null = null
       let sizeXmm: number | undefined, sizeYmm: number | undefined, sizeZmm: number | undefined
-      if (ext === '.stl') {
-        const stats = computeStlStatsMm(fileBuf)
+      const statsBuf = previewBuf || (storedExt === '.stl' ? storedBuf : null)
+      if (statsBuf) {
+        const stats = computeStlStatsMm(statsBuf)
         volMm3 = stats.volumeMm3
         sizeXmm = stats.sizeXmm; sizeYmm = stats.sizeYmm; sizeZmm = stats.sizeZmm
         if (sizeXmm != null && sizeYmm != null && sizeZmm != null) {
@@ -484,9 +495,8 @@ export async function POST(req: NextRequest) {
       if (volMm3) totalVolMm3 += volMm3
       if (p) totalPrice += p
       partVolumes.push(volMm3)
-      const storedName = ext === '.stl' && f.name.toLowerCase().endsWith('.3mf') ? f.name.replace(/\.3mf$/i, '.stl') : f.name
       partCreates.push({
-        name: storedName,
+        name: f.name,
         index: i,
         filePath: storedPath,
         previewFilePath: previewPath || undefined,

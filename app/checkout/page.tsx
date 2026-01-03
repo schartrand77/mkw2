@@ -250,8 +250,8 @@ export default function CheckoutPage() {
   const appearance: Appearance = useMemo(() => ({
     theme: 'night',
     variables: {
-      colorPrimary: '#f97316',
-      colorBackground: '#050505',
+      colorPrimary: '#3f76ff',
+      colorBackground: '#04060a',
       colorText: '#ffffff',
       colorDanger: '#f87171',
     },

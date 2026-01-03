@@ -41,6 +41,8 @@ function loadThreeMf() {
 type Props = {
   src?: string
   srcs?: string[]
+  fallbackSrc?: string | null
+  fallbackSrcs?: Array<string | null | undefined>
   className?: string
   height?: number
   autoRotate?: boolean
@@ -83,17 +85,21 @@ function disposeObject(THREE: ThreeLib, object: InstanceType<ThreeLib['Object3D'
   }
 }
 
-export default function ModelViewer({ src, srcs, className, height = 480, autoRotate = false }: Props) {
+export default function ModelViewer({ src, srcs, fallbackSrc, fallbackSrcs, className, height = 480, autoRotate = false }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const fitRef = useRef<(() => void) | null>(null)
   const pivotRef = useRef<InstanceType<ThreeLib['Group']> | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const resolvedFiles = useMemo(() => {
+  const fileEntries = useMemo(() => {
     const list = srcs && srcs.length ? srcs : (src ? [src] : [])
+    const fallbacks = fallbackSrcs && fallbackSrcs.length ? fallbackSrcs : (fallbackSrc ? [fallbackSrc] : [])
     return list
-      .map((item) => toAbsoluteUrl(item))
-      .filter((item): item is string => !!item)
-  }, [src, srcs])
+      .map((item, idx) => ({
+        src: toAbsoluteUrl(item),
+        fallback: fallbacks[idx] ? toAbsoluteUrl(fallbacks[idx]) : null,
+      }))
+      .filter((item): item is { src: string, fallback: string | null } => !!item.src)
+  }, [src, srcs, fallbackSrc, fallbackSrcs])
 
   useEffect(() => {
     if (!mountRef.current) return
@@ -157,7 +163,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       const group = new THREE.Group()
       pivot.add(group)
 
-      const files = resolvedFiles
+      const files = fileEntries
       const palette = [0xd0d0d0]
       let loaded = 0
 
@@ -228,12 +234,35 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         return object
       }
 
-      files.forEach((file, idx) => {
+      const preserveMaterials = (object: InstanceType<ThreeLib['Object3D']>) => {
+        object.traverse((child: any) => {
+          if (child instanceof THREE.Mesh) {
+            const geometry = child.geometry
+            const hasVertexColors = Boolean(geometry?.attributes?.color)
+            const material = child.material
+            const tune = (mat: any) => {
+              if (!mat) return
+              if ('side' in mat) mat.side = THREE.DoubleSide
+              if (hasVertexColors && 'vertexColors' in mat) mat.vertexColors = true
+            }
+            if (Array.isArray(material)) {
+              material.forEach((mat) => tune(mat))
+            } else {
+              tune(material)
+            }
+          }
+        })
+        return object
+      }
+
+      files.forEach((entry, idx) => {
+        const file = entry.src
+        const fallback = entry.fallback
         const ext = file.split('.').pop()?.toLowerCase()
         const color = palette[idx % palette.length]
-        const handleError = (err: any) => {
-          console.error('Failed to load model', file, err)
-          setError(`Failed to load ${file}: ${err?.message || err}`)
+        const handleError = (err: any, attemptedFile = file) => {
+          console.error('Failed to load model', attemptedFile, err)
+          setError(`Failed to load ${attemptedFile}: ${err?.message || err}`)
           loaded++
           if (loaded === files.length) onLoaded()
         }
@@ -251,14 +280,49 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         if (ext === '3mf' && tmfLoader) {
           tmfLoader.load(
             file,
-            (obj: any) => addObject(meshify(obj, color)),
+            (obj: any) => addObject(preserveMaterials(obj)),
             undefined,
-            handleError
+            (err: any) => {
+              if (fallback) {
+                stlLoader.load(
+                  fallback,
+                  (geometry: any) => {
+                    try {
+                      if ((geometry as any).computeVertexNormals) (geometry as any).computeVertexNormals()
+                    } catch {}
+                    const material = new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
+                    const mesh = new THREE.Mesh(geometry as any, material)
+                    addObject(mesh)
+                  },
+                  undefined,
+                  (fallbackErr: any) => handleError(fallbackErr, fallback)
+                )
+              } else {
+                handleError(err)
+              }
+            }
           )
           return
         }
 
         if (ext === 'obj' || ext === '3mf') {
+          if (ext === '3mf' && fallback) {
+            console.warn('Missing 3MF loader, falling back to STL preview', file)
+            stlLoader.load(
+              fallback,
+              (geometry: any) => {
+                try {
+                  if ((geometry as any).computeVertexNormals) (geometry as any).computeVertexNormals()
+                } catch {}
+                const material = new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
+                const mesh = new THREE.Mesh(geometry as any, material)
+                addObject(mesh)
+              },
+              undefined,
+              (fallbackErr: any) => handleError(fallbackErr, fallback)
+            )
+            return
+          }
           console.warn('Missing loader for', ext, 'files')
         }
 
@@ -340,7 +404,10 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         cleanupFn = null
       }
     }
-  }, [resolvedFiles, height, autoRotate])
+  }, [fileEntries, height, autoRotate])
+
+  const firstEntry = fileEntries[0]
+  const errorLink = firstEntry?.fallback || firstEntry?.src
 
   return (
     <div className={`relative ${className || ''}`} style={{ width: '100%', height }}>
@@ -349,9 +416,9 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 text-center px-4 text-sm text-amber-200">
           <div>
             <p>{error}</p>
-            {resolvedFiles[0] && (
+            {errorLink && (
               <p className="mt-2">
-                <a href={resolvedFiles[0]} target="_blank" rel="noreferrer" className="underline">
+                <a href={errorLink} target="_blank" rel="noreferrer" className="underline">
                   Open STL directly
                 </a>
               </p>
