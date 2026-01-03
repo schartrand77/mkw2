@@ -5,6 +5,7 @@ import { Elements } from '@stripe/react-stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
 import CheckoutForm from '@/components/checkout/CheckoutForm'
 import OrderSummary from '@/components/checkout/OrderSummary'
+import TrustBadge from '@/components/checkout/TrustBadge'
 import { useCart } from '@/components/cart/CartProvider'
 import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, CheckoutPaymentMethod, Dimensions } from '@/types/checkout'
 import type { Appearance, PaymentIntent } from '@stripe/stripe-js'
@@ -256,6 +257,11 @@ export default function CheckoutPage() {
     },
   }), [])
 
+  const trustBadgeProviders = paymentMethod === 'card' && cardPaymentAvailable ? ['Stripe'] : []
+  const trustBadgeNote = paymentMethod === 'cash'
+    ? 'No card details are required for cash orders.'
+    : 'Card details are encrypted and handled by the payment processor.'
+
   if (!checkoutItemsState.length && !successIntent && !cashConfirmationId) {
     return (
       <div className="max-w-2xl mx-auto space-y-4">
@@ -273,7 +279,7 @@ export default function CheckoutPage() {
             <h1 className="text-2xl font-semibold">Checkout</h1>
             <Link href="/cart" className="text-sm text-brand-400 hover:text-brand-300 underline underline-offset-4">Edit cart</Link>
           </div>
-          <p className="text-xs uppercase tracking-[0.25em] text-slate-500 mt-1">Securely processed via Stripe</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-slate-500 mt-1">Secure checkout</p>
         </div>
         {checkoutItemsState.length > 0 && (
           <div className="glass rounded-xl border border-white/10">
@@ -419,6 +425,10 @@ export default function CheckoutPage() {
         )}
       </div>
       <div className="glass rounded-2xl border border-white/10 p-6 space-y-4">
+        <TrustBadge
+          providers={trustBadgeProviders}
+          note={trustBadgeNote}
+        />
         {!intent && !loading && !successIntent && !cashConfirmationId && (
           <p className="text-sm text-slate-400">Add items to your cart to start checkout.</p>
         )}
