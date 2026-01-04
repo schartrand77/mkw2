@@ -93,7 +93,8 @@ export function signInviteToken(userId: string) {
   const secret = process.env.JWT_SECRET
   if (!secret) throw new Error('JWT_SECRET not set')
   const hours = Number.parseInt(process.env.INVITE_LOGIN_TOKEN_TTL_HOURS || '24', 10)
-  const expiresIn = Number.isFinite(hours) && hours > 0 ? `${hours}h` : '24h'
+  const ttlHours = Number.isFinite(hours) && hours > 0 ? hours : 24
+  const expiresIn = ttlHours * 60 * 60
   return jwt.sign({ sub: userId, purpose: 'invite_login' }, secret, { expiresIn })
 }
 
