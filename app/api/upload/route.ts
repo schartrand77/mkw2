@@ -14,6 +14,7 @@ import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image
 import { XMLParser } from 'fast-xml-parser'
 import { sendAdminDiscordNotification } from '@/lib/discord'
 import { BRAND_NAME } from '@/lib/brand'
+import { sendAdminPushNotification } from '@/lib/push'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
 
@@ -560,6 +561,19 @@ export async function POST(req: NextRequest) {
       })
     } catch (notifyErr) {
       console.error('Admin Discord notification failed for upload:', notifyErr)
+    }
+    try {
+      const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+      const uploaderLabel = uploader?.name || uploader?.email || 'anonymous'
+      await sendAdminPushNotification({
+        title: 'New model uploaded',
+        body: `${title || '(untitled)'} by ${uploaderLabel}`,
+        url: `${baseUrl}/admin`,
+        tag: `model:${created.id}`,
+        data: { modelId: created.id },
+      })
+    } catch (notifyErr) {
+      console.error('Admin push notification failed for upload:', notifyErr)
     }
     return json({ model: created })
   } catch (e: any) {

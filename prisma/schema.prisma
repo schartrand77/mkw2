@@ -22,6 +22,7 @@ model User {
   comments     ModelComment[]
   likes        Like[]
   verificationTokens VerificationToken[]
+  pushSubscriptions PushSubscription[]
   createdAt    DateTime @default(now())
   profile      Profile?
   badges       UserAchievement[]
@@ -266,6 +267,21 @@ model JobForm {
   updatedAt       DateTime @updatedAt
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId])
 }
 
 enum FulfillmentStatus {

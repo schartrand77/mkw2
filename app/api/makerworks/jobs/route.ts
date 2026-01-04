@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import type { Prisma } from '@prisma/client'
 import { FulfillmentStatus } from '@prisma/client'
 import { serializeJob, type JobWithUser } from '@/app/api/admin/orderworks/jobs/_helpers'
+import { sendAdminPushNotification } from '@/lib/push'
 
 const webhookPayloadSchema = z.object({
   paymentIntentId: z.string().min(4).max(200),
@@ -139,6 +140,9 @@ export async function POST(req: NextRequest) {
     where: { paymentIntentId: data.paymentIntentId },
     include: { user: { select: { id: true, name: true, email: true } } },
   })
+  const previousPaymentStatus = job?.paymentStatus ?? null
+  const previousPaymentMethod = job?.paymentMethod ?? null
+  let created = false
 
   if (!job) {
     if (
@@ -166,12 +170,36 @@ export async function POST(req: NextRequest) {
       },
       include: { user: { select: { id: true, name: true, email: true } } },
     })) as JobWithUser
+    created = true
   } else if (Object.keys(updatePayload).length > 0) {
     job = (await prisma.jobForm.update({
       where: { paymentIntentId: data.paymentIntentId },
       data: updatePayload,
       include: { user: { select: { id: true, name: true, email: true } } },
     })) as JobWithUser
+  }
+
+  try {
+    if (job) {
+      const paymentStatusChanged = paymentStatus !== undefined && job.paymentStatus !== previousPaymentStatus
+      const paymentMethodChanged = paymentMethod !== undefined && job.paymentMethod !== previousPaymentMethod
+      if (created || paymentStatusChanged || paymentMethodChanged) {
+        const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+        const method = (job.paymentMethod || '').toLowerCase()
+        const status = (job.paymentStatus || '').toLowerCase()
+        const isPromise = method === 'cash' || status === 'pending'
+        const label = isPromise ? 'Payment promise received' : (created ? 'Payment received' : 'Payment updated')
+        await sendAdminPushNotification({
+          title: label,
+          body: `Intent ${job.paymentIntentId} · ${job.paymentMethod || 'unknown'} ${job.paymentStatus ? `(${job.paymentStatus})` : ''}`.trim(),
+          url: `${baseUrl}/admin/jobs`,
+          tag: `payment:${job.paymentIntentId}`,
+          data: { paymentIntentId: job.paymentIntentId, paymentMethod: job.paymentMethod, paymentStatus: job.paymentStatus || undefined },
+        })
+      }
+    }
+  } catch (notifyErr) {
+    console.error('Admin push notification failed for webhook job:', notifyErr)
   }
 
   return NextResponse.json({ ok: true, job: serializeJob(job as JobWithUser) })

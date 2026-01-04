@@ -6,6 +6,7 @@ import { hashPassword } from '@/lib/auth'
 import { ensureUserPage } from '@/lib/userpage'
 import { createEmailVerificationToken, buildVerificationUrl, sendVerificationEmail } from '@/lib/emailVerification'
 import { sendAdminDiscordNotification } from '@/lib/discord'
+import { sendAdminPushNotification } from '@/lib/push'
 
 const schema = z.object({
   email: z.string().email(),
@@ -63,6 +64,19 @@ export async function POST(req: NextRequest) {
       })
     } catch (notifyErr) {
       console.error('Admin Discord notification failed for signup:', notifyErr)
+    }
+    try {
+      const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+      const profileUrl = profile?.slug ? `${baseUrl}/u/${profile.slug}` : undefined
+      await sendAdminPushNotification({
+        title: 'New user registered',
+        body: `${normalizedEmail}${user.name ? ` (${user.name})` : ''}`,
+        url: profileUrl || `${baseUrl}/admin/users`,
+        tag: `user:${user.id}`,
+        data: { userId: user.id },
+      })
+    } catch (notifyErr) {
+      console.error('Admin push notification failed for signup:', notifyErr)
     }
     return NextResponse.json({
       ok: true,

@@ -12,6 +12,7 @@ import { recordOrderWorksJob } from '@/lib/orderworks'
 import { summarizeDiscount, getDiscountMultiplier } from '@/lib/discounts'
 import { recordCustomerOrder } from '@/lib/orders'
 import { sendAdminDiscordNotification } from '@/lib/discord'
+import { sendAdminPushNotification } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
 
@@ -400,6 +401,20 @@ export async function POST(req: NextRequest) {
         })
       } catch (notifyErr) {
         console.error('Admin Discord notification failed for checkout:', notifyErr)
+      }
+      try {
+        const totalLabel = formatCurrency(amount / 100, currencyCode as Currency)
+        const isPromise = paymentMethod === 'cash' || finalizedPaymentStatus === 'pending'
+        const baseUrl = publicBaseUrl || (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+        await sendAdminPushNotification({
+          title: isPromise ? 'Payment promise received' : 'Payment received',
+          body: `${totalLabel} · ${shippingPayload.method === 'pickup' ? 'pickup' : 'ship'}`,
+          url: `${baseUrl}/admin/jobs`,
+          tag: `payment:${paymentIntentId}`,
+          data: { paymentIntentId, paymentMethod, paymentStatus: finalizedPaymentStatus || undefined },
+        })
+      } catch (notifyErr) {
+        console.error('Admin push notification failed for checkout:', notifyErr)
       }
     }
 

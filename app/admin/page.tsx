@@ -14,6 +14,7 @@ import { fetchAdminUsersWithBadges, fetchJobQueueSnapshot } from '@/lib/admin/qu
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import InviteUserForm from '@/components/admin/InviteUserForm'
+import PushNotificationsCard from '@/components/admin/PushNotificationsCard'
 
 type BackupSummary = { folder: string; createdAt: string }
 type PendingRestore = { relativePath?: string; backupPath?: string; createdAt: string }
@@ -82,6 +83,9 @@ export default async function AdminPage() {
         <div className="space-y-6">
           <CollapsibleCard title="Site configuration" subtitle="Update global pricing, copy, and limits">
             <SiteConfigForm initial={cfg as any} />
+          </CollapsibleCard>
+          <CollapsibleCard title="Push notifications" subtitle="Offline alerts on admin devices">
+            <PushNotificationsCard />
           </CollapsibleCard>
           <CollapsibleCard id="backups" title="Backups & restore" subtitle="Create new archives or trigger restores">
             <BackupControls />

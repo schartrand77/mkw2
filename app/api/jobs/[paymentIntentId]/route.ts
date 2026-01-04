@@ -5,6 +5,7 @@ import { FulfillmentStatus } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '@/app/api/admin/_utils'
 import { serializeJob, type JobWithUser } from '@/app/api/admin/orderworks/jobs/_helpers'
+import { sendAdminPushNotification } from '@/lib/push'
 
 const patchSchema = z.object({
   status: z.enum(['pending', 'sent']).optional(),
@@ -75,6 +76,8 @@ export async function PATCH(req: Request, { params }: Params) {
   if (!job) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 })
   }
+  const previousPaymentStatus = job.paymentStatus
+  const previousPaymentMethod = job.paymentMethod
 
   const payload = parsed.data
   const updateData: Prisma.JobFormUpdateInput = {}
@@ -96,6 +99,26 @@ export async function PATCH(req: Request, { params }: Params) {
     data: updateData,
     include: { user: { select: { id: true, name: true, email: true } } },
   })) as JobWithUser
+
+  try {
+    const paymentStatusChanged = payload.paymentStatus !== undefined && updated.paymentStatus !== previousPaymentStatus
+    const paymentMethodChanged = payload.paymentMethod !== undefined && updated.paymentMethod !== previousPaymentMethod
+    if (paymentStatusChanged || paymentMethodChanged) {
+      const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+      const method = (updated.paymentMethod || '').toLowerCase()
+      const status = (updated.paymentStatus || '').toLowerCase()
+      const isPromise = method === 'cash' || status === 'pending'
+      await sendAdminPushNotification({
+        title: isPromise ? 'Payment promise received' : 'Payment updated',
+        body: `Intent ${paymentIntentId} · ${updated.paymentMethod || 'unknown'} ${updated.paymentStatus ? `(${updated.paymentStatus})` : ''}`.trim(),
+        url: `${baseUrl}/admin/jobs`,
+        tag: `payment:${paymentIntentId}`,
+        data: { paymentIntentId, paymentMethod: updated.paymentMethod, paymentStatus: updated.paymentStatus || undefined },
+      })
+    }
+  } catch (notifyErr) {
+    console.error('Admin push notification failed for job update:', notifyErr)
+  }
 
   return NextResponse.json({ ok: true, job: serializeJob(updated) })
 }

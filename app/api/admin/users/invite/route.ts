@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requireAdmin } from '../../_utils'
 import { buildInviteLoginUrl, createInviteAccount } from '@/lib/invite'
 import { sendAdminDiscordNotification } from '@/lib/discord'
+import { sendAdminPushNotification } from '@/lib/push'
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -40,6 +41,17 @@ export async function POST(req: NextRequest) {
       })
     } catch (notifyErr) {
       console.error('Admin Discord notification failed for invite:', notifyErr)
+    }
+    try {
+      await sendAdminPushNotification({
+        title: 'Admin invite created',
+        body: `${user.email}${user.name ? ` (${user.name})` : ''}`,
+        url: loginUrl,
+        tag: `invite:${user.id}`,
+        data: { userId: user.id },
+      })
+    } catch (notifyErr) {
+      console.error('Admin push notification failed for invite:', notifyErr)
     }
 
     return NextResponse.json({

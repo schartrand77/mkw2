@@ -34,6 +34,7 @@
     "stripe": "^19.3.1",
     "three": "^0.169.0",
     "tweetnacl": "^1.0.3",
+    "web-push": "^3.6.7",
     "zod": "^3.23.8",
     "zxcvbn": "^4.4.2"
   },
@@ -45,6 +46,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.169.0",
+    "@types/web-push": "^3.6.4",
     "@types/zxcvbn": "^4.4.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
