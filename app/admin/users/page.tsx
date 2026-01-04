@@ -4,6 +4,7 @@ import { verifyToken } from '@/lib/auth'
 import Link from 'next/link'
 import UsersAndBadgesPanel from '@/components/admin/UsersAndBadgesPanel'
 import { fetchAdminUsersWithBadges } from '@/lib/admin/queries'
+import InviteUserForm from '@/components/admin/InviteUserForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +29,7 @@ export default async function AdminUsersPage() {
         <h1 className="text-2xl font-semibold">Users</h1>
         <Link className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20" href="/admin">Back to Admin</Link>
       </div>
+      <InviteUserForm />
       <div className="glass rounded-xl border border-white/10">
         <UsersAndBadgesPanel users={users} />
       </div>

@@ -13,6 +13,7 @@ import JobQueue from '@/components/admin/JobQueue'
 import { fetchAdminUsersWithBadges, fetchJobQueueSnapshot } from '@/lib/admin/queries'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import InviteUserForm from '@/components/admin/InviteUserForm'
 
 type BackupSummary = { folder: string; createdAt: string }
 type PendingRestore = { relativePath?: string; backupPath?: string; createdAt: string }
@@ -96,6 +97,7 @@ export default async function AdminPage() {
           <p className="text-sm text-slate-400">
             Review registered users, adjust admin access, and curate the badge showcase without leaving the dashboard.
           </p>
+          <InviteUserForm />
           <UsersAndBadgesPanel
             users={usersWithBadges}
             className="rounded-xl border border-white/10 bg-black/20 overflow-hidden"

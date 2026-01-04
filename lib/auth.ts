@@ -87,6 +87,28 @@ export function verifyToken(token: string): { sub: string } | null {
   }
 }
 
+type InviteTokenPayload = { sub: string; purpose: 'invite_login' }
+
+export function signInviteToken(userId: string) {
+  const secret = process.env.JWT_SECRET
+  if (!secret) throw new Error('JWT_SECRET not set')
+  const hours = Number.parseInt(process.env.INVITE_LOGIN_TOKEN_TTL_HOURS || '24', 10)
+  const expiresIn = Number.isFinite(hours) && hours > 0 ? `${hours}h` : '24h'
+  return jwt.sign({ sub: userId, purpose: 'invite_login' }, secret, { expiresIn })
+}
+
+export function verifyInviteToken(token: string): InviteTokenPayload | null {
+  try {
+    const secret = process.env.JWT_SECRET
+    if (!secret) throw new Error('JWT_SECRET not set')
+    const payload = jwt.verify(token, secret) as InviteTokenPayload
+    if (!payload?.sub || payload.purpose !== 'invite_login') return null
+    return payload
+  } catch {
+    return null
+  }
+}
+
 export async function getUserIdFromCookie(): Promise<string | null> {
   try {
     const cookieStore = await cookies()
