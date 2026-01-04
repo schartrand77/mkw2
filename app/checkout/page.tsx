@@ -50,6 +50,7 @@ export default function CheckoutPage() {
   const [cashConfirmationId, setCashConfirmationId] = useState<string | null>(null)
   const [cashProcessing, setCashProcessing] = useState(false)
   const [finalizingJob, setFinalizingJob] = useState(false)
+  const [applePayAvailable, setApplePayAvailable] = useState(false)
 
   useEffect(() => {
     setCheckoutItemsState(items)
@@ -150,6 +151,20 @@ export default function CheckoutPage() {
       })
       .catch(() => {})
     return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const session = (window as any).ApplePaySession
+    if (!session || typeof session.canMakePayments !== 'function') {
+      setApplePayAvailable(false)
+      return
+    }
+    try {
+      setApplePayAvailable(Boolean(session.canMakePayments()))
+    } catch {
+      setApplePayAvailable(false)
+    }
   }, [])
 
   const fetchIntent = useCallback(async () => {
@@ -257,7 +272,9 @@ export default function CheckoutPage() {
     },
   }), [])
 
-  const trustBadgeProviders = paymentMethod === 'card' && cardPaymentAvailable ? ['Stripe'] : []
+  const trustBadgeProviders = paymentMethod === 'card' && cardPaymentAvailable
+    ? (applePayAvailable ? ['Stripe', 'Apple Pay'] : ['Stripe'])
+    : []
   const trustBadgeNote = paymentMethod === 'cash'
     ? 'No card details are required for cash orders.'
     : 'Card details are encrypted and handled by the payment processor.'
@@ -376,7 +393,7 @@ export default function CheckoutPage() {
                 onChange={() => setPaymentMethod('card')}
                 disabled={!cardPaymentAvailable}
               />
-              Pay now (credit/debit)
+              Pay now (card / Apple Pay)
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -395,6 +412,11 @@ export default function CheckoutPage() {
           )}
           {paymentMethod === 'card' && !cardPaymentAvailable && (
             <p className="text-xs text-amber-300">Stripe publishable key is not configured. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to enable card payments.</p>
+          )}
+          {paymentMethod === 'card' && cardPaymentAvailable && (
+            <p className="text-xs text-slate-400">
+              Apple Pay appears automatically on supported devices once Stripe has Apple Pay enabled.
+            </p>
           )}
         </div>
         {intent && (
