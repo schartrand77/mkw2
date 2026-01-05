@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
+import { MATERIAL_OPTIONS, normalizeMaterialName } from '@/lib/cartPricing'
 
 type Model = { id: string; title: string; description?: string | null; material?: string | null; coverImagePath?: string | null }
 
@@ -9,6 +10,12 @@ export default function ModelEditForm({ model }: { model: Model }) {
   const [title, setTitle] = useState(model.title)
   const [description, setDescription] = useState(model.description || '')
   const [material, setMaterial] = useState(model.material || 'PLA')
+  const normalizedMaterial = normalizeMaterialName(material)
+  const materialOptions = (() => {
+    const options = MATERIAL_OPTIONS.map((option) => String(option))
+    if (!options.includes(normalizedMaterial)) options.push(normalizedMaterial)
+    return options
+  })()
   const [cover, setCover] = useState<File | null>(null)
   const [removeCover, setRemoveCover] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -48,10 +55,14 @@ export default function ModelEditForm({ model }: { model: Model }) {
       </div>
       <div>
         <label className="block text-sm mb-1">Material</label>
-        <select className="input" value={material} onChange={(e) => setMaterial(e.target.value)}>
-          <option>PLA</option>
-          <option>ABS</option>
-          <option>PETG</option>
+        <select
+          className="input"
+          value={normalizedMaterial}
+          onChange={(e) => setMaterial(e.target.value)}
+        >
+          {materialOptions.map((option) => (
+            <option key={option} value={option}>{option}</option>
+          ))}
         </select>
       </div>
       <div className="grid md:grid-cols-2 gap-4">

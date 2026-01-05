@@ -1,7 +1,9 @@
-export type MaterialType = 'PLA' | 'PETG'
+export type MaterialType = string
 export const DIMENSION_AXES = ['x', 'y', 'z'] as const
 export type DimensionAxis = typeof DIMENSION_AXES[number]
 export type ScaleOverrides = Partial<Record<DimensionAxis, number | null>>
+
+export const MATERIAL_OPTIONS = ['PLA', 'PETG', 'ABS', 'ASA', 'TPU', 'PA6', 'PA12', 'NYLON', 'PC', 'RESIN'] as const
 
 const DEFAULT_PLA_PRICE = 25
 const DEFAULT_PETG_PRICE = 28
@@ -23,7 +25,8 @@ function readNumber(keys: string[], fallback: number): number {
 }
 
 export function getMaterialMultiplier(material: MaterialType | undefined | null): number {
-  if (!material || material === 'PLA') return 1
+  const normalized = normalizeMaterialName(material)
+  if (!normalized || normalized === 'PLA') return 1
   const pla = readNumber(
     ['NEXT_PUBLIC_PLA_PRICE_PER_KG', 'PLA_PRICE_PER_KG_USD', 'PLA_PRICE_PER_KG_CAD'],
     DEFAULT_PLA_PRICE,
@@ -33,7 +36,7 @@ export function getMaterialMultiplier(material: MaterialType | undefined | null)
     DEFAULT_PETG_PRICE,
   )
   if (!pla || !petg) return 1
-  return petg / pla
+  return normalized === 'PETG' ? petg / pla : 1
 }
 
 function clampMaxColors(value: number): number {
@@ -75,6 +78,11 @@ export function normalizeColors(colors?: (string | null | undefined)[], maxColor
     if (cleaned) result.push(cleaned)
   }
   return result
+}
+
+export function normalizeMaterialName(material?: string | null): MaterialType {
+  const trimmed = (material || '').trim()
+  return trimmed ? trimmed.toUpperCase() : 'PLA'
 }
 
 export function getColorMultiplier(colors?: (string | null | undefined)[]): number {

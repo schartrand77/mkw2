@@ -4,6 +4,7 @@ import {
   clampScale,
   DIMENSION_AXES,
   type MaterialType,
+  normalizeMaterialName,
   normalizeColors,
   setClientMaxCartColors,
   type ScaleOverrides,
@@ -70,7 +71,7 @@ function sanitizeOptions(opts?: LegacyCartOptions | null): CartOptions {
   return {
     qty: Math.max(1, Math.floor(opts?.qty ?? 1)),
     scale: baseScale,
-    material: opts?.material === 'PETG' ? 'PETG' : 'PLA',
+    material: normalizeMaterialName(opts?.material),
     colors: normalizeColors(colorsSource),
     infillPct: typeof opts?.infillPct === 'number' ? Math.max(0, Math.min(100, opts.infillPct)) : null,
     customText: opts?.customText ?? null,

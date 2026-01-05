@@ -9,6 +9,8 @@ import {
   getColorMultiplier,
   getMaterialMultiplier,
   getVolumeScaleMultiplier,
+  MATERIAL_OPTIONS,
+  normalizeMaterialName,
   resolveAxisScale,
   type MaterialType,
 } from '@/lib/cartPricing'
@@ -230,8 +232,21 @@ export default function CartPage() {
     }
     return map
   }, [])
-  const activeMaterialKey = (activeSlotItem?.options.material || 'PLA').toUpperCase()
+  const activeMaterialKey = normalizeMaterialName(activeSlotItem?.options.material)
   const stockworksEntry = stockworksPalette?.materials?.[activeMaterialKey]
+  const materialOptions = useMemo(() => {
+    const defaults = MATERIAL_OPTIONS.map((material) => material.toUpperCase())
+    const fromStockworks = stockworksPalette?.materials ? Object.keys(stockworksPalette.materials).map((key) => key.toUpperCase()) : []
+    const output: string[] = []
+    const seen = new Set<string>()
+    for (const material of [...defaults, ...fromStockworks]) {
+      const normalized = material.toUpperCase()
+      if (!normalized || seen.has(normalized)) continue
+      seen.add(normalized)
+      output.push(normalized)
+    }
+    return output.length ? output : defaults
+  }, [stockworksPalette])
   const paletteOptions = useMemo<SwatchOption[]>(() => {
     if (!stockworksEntry) {
       return COLOR_PALETTE.map((swatch) => ({ ...swatch, brand: '' }))
@@ -438,11 +453,17 @@ export default function CartPage() {
                         <span>Material</span>
                         <select
                           className="w-32 input"
-                          value={item.options.material || 'PLA'}
+                          value={normalizeMaterialName(item.options.material)}
                           onChange={(e) => update(item.modelId, { material: e.target.value as MaterialType }, item.partId)}
                         >
-                          <option value="PLA">PLA</option>
-                          <option value="PETG">PETG</option>
+                          {(() => {
+                            const normalized = normalizeMaterialName(item.options.material)
+                            const options = materialOptions.slice()
+                            if (!options.includes(normalized)) options.push(normalized)
+                            return options
+                          })().map((material) => (
+                              <option key={material} value={material}>{material}</option>
+                            ))}
                         </select>
                       </label>
                       <div className="flex flex-col gap-2 text-xs text-slate-400 w-full">

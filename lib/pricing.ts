@@ -13,6 +13,12 @@ export const MATERIAL_DENSITY_DEFAULTS: Record<string, number> = {
   PLA: 1.24,
   PETG: 1.27,
   ABS: 1.04,
+  ASA: 1.07,
+  TPU: 1.21,
+  PA6: 1.13,
+  PA12: 1.01,
+  NYLON: 1.14,
+  PC: 1.2,
   RESIN: 1.08,
 }
 
@@ -75,6 +81,13 @@ function normalizeMaterialKey(material?: string | null): MaterialKey {
   if (normalized in MATERIAL_DENSITY_DEFAULTS) {
     return normalized as MaterialKey
   }
+  if (normalized.includes('PA6')) return 'PA6'
+  if (normalized.includes('PA12')) return 'PA12'
+  if (normalized.includes('NYLON')) return 'NYLON'
+  if (normalized.includes('TPU')) return 'TPU'
+  if (normalized.includes('ASA')) return 'ASA'
+  if (normalized.includes('ABS')) return 'ABS'
+  if (normalized.includes('PC')) return 'PC'
   return 'PLA'
 }
 

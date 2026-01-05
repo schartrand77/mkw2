@@ -7,7 +7,7 @@ import { getStripe } from '@/lib/stripe'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { z } from 'zod'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
-import { clampScale, getColorMultiplier, normalizeColors, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
+import { clampScale, getColorMultiplier, normalizeColors, normalizeMaterialName, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
 import { recordOrderWorksJob } from '@/lib/orderworks'
 import { summarizeDiscount, getDiscountMultiplier } from '@/lib/discounts'
 import { recordCustomerOrder } from '@/lib/orders'
@@ -45,7 +45,7 @@ const itemSchema = z.object({
   scaleZ: z.number().positive().max(5).optional(),
   lockDimensions: z.boolean().optional(),
   targetDimensions: dimensionSchema.optional(),
-  material: z.enum(['PLA', 'PETG']).optional().default('PLA'),
+  material: z.string().max(40).optional().default('PLA'),
   colors: z.array(z.string().max(64)).max(MAX_CART_COLORS).optional(),
   infillPct: z.number().int().min(0).max(100).optional().nullable(),
   customText: z.string().max(140).optional().nullable(),
@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
     const lineItems: CheckoutLineItem[] = items.map((entry) => {
       const model = modelMap.get(entry.modelId)!
       const cm3 = model.volumeMm3 ? model.volumeMm3 / 1000 : null
-      const materialChoice: MaterialType = entry.material || (model.material?.toUpperCase() === 'PETG' ? 'PETG' : 'PLA')
+      const materialChoice: MaterialType = normalizeMaterialName(entry.material || model.material || 'PLA')
       const colors = normalizeColors(entry.colors)
       const part = entry.partId ? partMap.get(entry.partId) || null : null
       const isMultipart = (model._count?.parts || 0) > 1

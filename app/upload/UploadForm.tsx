@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
+import { MATERIAL_OPTIONS, normalizeMaterialName } from '@/lib/cartPricing'
 
 async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
   try {
@@ -104,10 +105,14 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
         </div>
         <div>
           <label className="block text-sm mb-1">Material</label>
-          <select className="input" value={material} onChange={(e) => setMaterial(e.target.value)}>
-            <option>PLA</option>
-            <option>ABS</option>
-            <option>PETG</option>
+          <select
+            className="input"
+            value={normalizeMaterialName(material)}
+            onChange={(e) => setMaterial(e.target.value)}
+          >
+            {MATERIAL_OPTIONS.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
           </select>
         </div>
         <div>
