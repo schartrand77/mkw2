@@ -71,6 +71,7 @@ const COLOR_PALETTE = [
 type StockworksPalette = {
   enabled: boolean
   materials: Record<string, { inStock: StockworksColor[] | string[]; orderable: StockworksColor[] | string[] }>
+  materialTypes?: string[]
 }
 type StockworksColor = {
   name: string
@@ -236,7 +237,9 @@ export default function CartPage() {
   const stockworksEntry = stockworksPalette?.materials?.[activeMaterialKey]
   const materialOptions = useMemo(() => {
     const defaults = MATERIAL_OPTIONS.map((material) => material.toUpperCase())
-    const fromStockworks = stockworksPalette?.materials ? Object.keys(stockworksPalette.materials).map((key) => key.toUpperCase()) : []
+    const fromStockworks = stockworksPalette?.materialTypes?.length
+      ? stockworksPalette.materialTypes.map((key) => key.toUpperCase())
+      : (stockworksPalette?.materials ? Object.keys(stockworksPalette.materials).map((key) => key.toUpperCase()) : [])
     const output: string[] = []
     const seen = new Set<string>()
     for (const material of [...defaults, ...fromStockworks]) {
@@ -248,7 +251,7 @@ export default function CartPage() {
     return output.length ? output : defaults
   }, [stockworksPalette])
   const paletteOptions = useMemo<SwatchOption[]>(() => {
-    if (!stockworksEntry) {
+    if (!stockworksEntry || (stockworksEntry.inStock.length === 0 && stockworksEntry.orderable.length === 0)) {
       return COLOR_PALETTE.map((swatch) => ({ ...swatch, brand: '' }))
     }
     const inStockSet = new Set(stockworksEntry.inStock.map((color) => normalizeColorKey(color as StockworksColor | string)))

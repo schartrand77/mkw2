@@ -161,11 +161,14 @@ export async function GET() {
   const materials = (await materialsRes.json()) as StockworksMaterial[]
   const inventory = (await inventoryRes.json()) as StockworksInventoryItem[]
   const materialById = new Map<number, StockworksMaterial>()
+  const materialTypes = new Set<string>()
 
   for (const material of materials) {
     if (typeof material.id === 'number') {
       materialById.set(material.id, material)
     }
+    const typeKey = normalizeType(material.filament_type)
+    if (typeKey) materialTypes.add(typeKey)
   }
 
   const orderableByType = new Map<string, Map<string, StockworksColor>>()
@@ -190,6 +193,7 @@ export async function GET() {
     const material = item.material || (typeof item.material_id === 'number' ? materialById.get(item.material_id) : null)
     if (!material) continue
     const typeKey = normalizeType(material.filament_type)
+    if (typeKey) materialTypes.add(typeKey)
     const color = normalizeColor(
       material.color,
       material.color_hex || material.color_hex_code || material.hex,
@@ -217,5 +221,11 @@ export async function GET() {
     materialsPayload[typeKey] = { inStock, orderable }
   }
 
-  return NextResponse.json({ enabled: true, materials: materialsPayload, updatedAt: new Date().toISOString() })
+  const typeList = Array.from(materialTypes).sort((a, b) => a.localeCompare(b))
+  return NextResponse.json({
+    enabled: true,
+    materials: materialsPayload,
+    materialTypes: typeList,
+    updatedAt: new Date().toISOString(),
+  })
 }
