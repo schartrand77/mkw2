@@ -11,6 +11,7 @@ import { BRAND_NAME } from '@/lib/brand'
 import { resolveBaseUrl } from '@/lib/base-url'
 import ModelPartsList from '@/components/ModelPartsList'
 import ModelComments from '@/components/ModelComments'
+import ModelShareButton from '@/components/ModelShareButton'
 
 async function fetchModel(id: string, baseUrl: string) {
   const res = await fetch(`${baseUrl}/api/models/${id}`, { cache: 'no-store' })
@@ -29,6 +30,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   const resolvedSearchParams = searchParams ? await searchParams : undefined
   const model = await fetchModel(id, baseUrl)
   if (!model) return <div>Not found</div>
+  const shareUrl = `${baseUrl}/models/${model.id}`
   const fileHref = toPublicHref(model.filePath)
   const viewerHref = toPublicHref(model.viewerFilePath || model.filePath)
   const coverHref = buildImageSrc(model.coverImagePath, model.updatedAt)
@@ -201,6 +203,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           >
             {hasParts ? 'Download All Parts (.zip)' : 'Download Model'}
           </a>
+          <ModelShareButton title={model.title} url={shareUrl} />
           {canEdit && (
             <Link href={`/models/${model.id}/edit`} className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20">Edit</Link>
           )}
