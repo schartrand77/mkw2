@@ -6,6 +6,7 @@ import {
   type MaterialType,
   normalizeMaterialName,
   normalizeColors,
+  setClientMaterialPrices,
   setClientMaxCartColors,
   type ScaleOverrides,
   MAX_CART_COLORS,
@@ -147,13 +148,17 @@ export default function CartProvider({ children }: { children: React.ReactNode }
       try {
         const res = await fetch('/api/public-config', { cache: 'no-store' })
         if (!res.ok) return
-        const data = await res.json().catch(() => null) as { maxCartColors?: number } | null
+        const data = await res.json().catch(() => null) as { maxCartColors?: number; materialPrices?: Record<string, number> } | null
         if (!data || cancelled) return
         const parsed = Number(data.maxCartColors)
-        if (!Number.isFinite(parsed) || parsed <= 0) return
-        const clamped = Math.max(1, Math.min(16, Math.round(parsed)))
-        setMaxColors(clamped)
-        setClientMaxCartColors(clamped)
+        if (Number.isFinite(parsed) && parsed > 0) {
+          const clamped = Math.max(1, Math.min(16, Math.round(parsed)))
+          setMaxColors(clamped)
+          setClientMaxCartColors(clamped)
+        }
+        if (data.materialPrices) {
+          setClientMaterialPrices(data.materialPrices)
+        }
       } catch {}
     }
     loadConfig()

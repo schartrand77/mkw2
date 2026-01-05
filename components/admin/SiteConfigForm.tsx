@@ -10,9 +10,21 @@ const printerOverrideSchema = z.object({
   materialDensities: materialDensitySchema.optional(),
 }).partial()
 
-const configSchema = z.object({
+const materialPriceSchema = z.object({
   plaPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
   petgPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  absPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  asaPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  tpuPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  pa6PricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  pa12PricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  nylonPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  pcPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  resinPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+})
+
+const configSchema = z.object({
+  ...materialPriceSchema.shape,
   allowAnonymousUploads: z.boolean().optional(),
   printSpeedCm3PerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   energyUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
@@ -33,15 +45,36 @@ type PrinterProfileOverrideState = {
   materialDensities?: Record<string, number>
 }
 type PrinterProfileOverridesState = Record<string, PrinterProfileOverrideState>
-type MaterialOption = 'PLA' | 'PETG' | 'ABS' | 'RESIN'
+type MaterialOption = keyof typeof MATERIAL_DENSITY_DEFAULTS
 
-const MATERIAL_OPTIONS: MaterialOption[] = ['PLA', 'PETG', 'ABS', 'RESIN']
+const MATERIAL_OPTIONS = Object.keys(MATERIAL_DENSITY_DEFAULTS) as MaterialOption[]
 const PRINTER_PROFILES = getPrinterProfiles()
 const DEFAULT_PROFILE_KEY = PRINTER_PROFILES[0]?.key || 'BAMBU_X1C'
+const MATERIAL_PRICE_FIELDS = [
+  { key: 'plaPricePerKgUsd', label: 'PLA' },
+  { key: 'petgPricePerKgUsd', label: 'PETG' },
+  { key: 'absPricePerKgUsd', label: 'ABS' },
+  { key: 'asaPricePerKgUsd', label: 'ASA' },
+  { key: 'tpuPricePerKgUsd', label: 'TPU' },
+  { key: 'pa6PricePerKgUsd', label: 'PA6' },
+  { key: 'pa12PricePerKgUsd', label: 'PA12' },
+  { key: 'nylonPricePerKgUsd', label: 'NYLON' },
+  { key: 'pcPricePerKgUsd', label: 'PC' },
+  { key: 'resinPricePerKgUsd', label: 'RESIN' },
+] as const
+type MaterialPriceField = typeof MATERIAL_PRICE_FIELDS[number]['key']
 
 type Config = {
   plaPricePerKgUsd?: number | null
   petgPricePerKgUsd?: number | null
+  absPricePerKgUsd?: number | null
+  asaPricePerKgUsd?: number | null
+  tpuPricePerKgUsd?: number | null
+  pa6PricePerKgUsd?: number | null
+  pa12PricePerKgUsd?: number | null
+  nylonPricePerKgUsd?: number | null
+  pcPricePerKgUsd?: number | null
+  resinPricePerKgUsd?: number | null
   allowAnonymousUploads?: boolean | null
   printSpeedCm3PerHour?: number | null
   energyUsdPerHour?: number | null
@@ -53,10 +86,17 @@ type Config = {
   printerProfileOverrides?: PrinterProfileOverridesState | null
 }
 
+function buildMaterialPricePayload(cfg: Config): Record<MaterialPriceField, number | undefined> {
+  const result = {} as Record<MaterialPriceField, number | undefined>
+  for (const field of MATERIAL_PRICE_FIELDS) {
+    result[field.key] = cfg[field.key] ?? undefined
+  }
+  return result
+}
+
 function buildPayload(cfg: Config): SchemaShape {
   return {
-    plaPricePerKgUsd: cfg.plaPricePerKgUsd ?? undefined,
-    petgPricePerKgUsd: cfg.petgPricePerKgUsd ?? undefined,
+    ...buildMaterialPricePayload(cfg),
     allowAnonymousUploads: typeof cfg.allowAnonymousUploads === 'boolean' ? cfg.allowAnonymousUploads : undefined,
     printSpeedCm3PerHour: cfg.printSpeedCm3PerHour ?? undefined,
     energyUsdPerHour: cfg.energyUsdPerHour ?? undefined,
@@ -227,6 +267,14 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
     })
   }
 
+  const updateMaterialPrice = (field: MaterialPriceField, value: string) => {
+    markTouched(field)
+    setCfg((prev) => ({
+      ...prev,
+      [field]: value === '' ? null : Number(value),
+    }))
+  }
+
   const resetProfileTuning = () => {
     setCfg((prev) => {
       if (!prev.printerProfileOverrides) return prev
@@ -286,38 +334,21 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
             content: (
               <div className="space-y-4">
                 <div className="grid sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm mb-1">PLA price per kg ({currency})</label>
-                    <input
-                      className={`input ${fieldHasError('plaPricePerKgUsd') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
-                      type="number"
-                      step="0.01"
-                      value={cfg.plaPricePerKgUsd ?? ''}
-                      disabled={saving}
-                      onChange={(e) => {
-                        markTouched('plaPricePerKgUsd')
-                        setCfg({ ...cfg, plaPricePerKgUsd: e.target.value === '' ? null : Number(e.target.value) })
-                      }}
-                      onBlur={() => markTouched('plaPricePerKgUsd')}
-                    />
-                    {fieldHasError('plaPricePerKgUsd') && <p className="text-xs text-rose-300 mt-1">{errors.plaPricePerKgUsd}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm mb-1">PETG price per kg ({currency})</label>
-                    <input
-                      className={`input ${fieldHasError('petgPricePerKgUsd') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
-                      type="number"
-                      step="0.01"
-                      value={cfg.petgPricePerKgUsd ?? ''}
-                      disabled={saving}
-                      onChange={(e) => {
-                        markTouched('petgPricePerKgUsd')
-                        setCfg({ ...cfg, petgPricePerKgUsd: e.target.value === '' ? null : Number(e.target.value) })
-                      }}
-                      onBlur={() => markTouched('petgPricePerKgUsd')}
-                    />
-                    {fieldHasError('petgPricePerKgUsd') && <p className="text-xs text-rose-300 mt-1">{errors.petgPricePerKgUsd}</p>}
-                  </div>
+                  {MATERIAL_PRICE_FIELDS.map((field) => (
+                    <div key={field.key}>
+                      <label className="block text-sm mb-1">{field.label} price per kg ({currency})</label>
+                      <input
+                        className={`input ${fieldHasError(field.key) ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                        type="number"
+                        step="0.01"
+                        value={cfg[field.key] ?? ''}
+                        disabled={saving}
+                        onChange={(e) => updateMaterialPrice(field.key, e.target.value)}
+                        onBlur={() => markTouched(field.key)}
+                      />
+                      {fieldHasError(field.key) && <p className="text-xs text-rose-300 mt-1">{errors[field.key]}</p>}
+                    </div>
+                  ))}
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-3">

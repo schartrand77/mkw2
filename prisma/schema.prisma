@@ -167,6 +167,14 @@ model SiteConfig {
   extraHourlyUsdAfterFirst Float?
   plaPricePerKgUsd         Float?
   petgPricePerKgUsd        Float?
+  absPricePerKgUsd         Float?
+  asaPricePerKgUsd         Float?
+  tpuPricePerKgUsd         Float?
+  pa6PricePerKgUsd         Float?
+  pa12PricePerKgUsd        Float?
+  nylonPricePerKgUsd       Float?
+  pcPricePerKgUsd          Float?
+  resinPricePerKgUsd       Float?
   fillFactor               Float?
   printerProfileKey        String?
   printerProfileOverrides  Json?

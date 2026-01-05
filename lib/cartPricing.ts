@@ -12,6 +12,20 @@ const SCALE_MIN = 0.1
 const SCALE_MAX = 5
 
 let clientMaxColorOverride: number | null = null
+let clientMaterialPrices: Partial<Record<string, number>> | null = null
+
+const MATERIAL_PRICE_DEFAULTS: Record<string, number> = {
+  PLA: DEFAULT_PLA_PRICE,
+  PETG: DEFAULT_PETG_PRICE,
+  ABS: DEFAULT_PLA_PRICE,
+  ASA: DEFAULT_PLA_PRICE,
+  TPU: DEFAULT_PLA_PRICE,
+  PA6: DEFAULT_PLA_PRICE,
+  PA12: DEFAULT_PLA_PRICE,
+  NYLON: DEFAULT_PLA_PRICE,
+  PC: DEFAULT_PLA_PRICE,
+  RESIN: DEFAULT_PLA_PRICE,
+}
 
 function readNumber(keys: string[], fallback: number): number {
   for (const key of keys) {
@@ -27,16 +41,27 @@ function readNumber(keys: string[], fallback: number): number {
 export function getMaterialMultiplier(material: MaterialType | undefined | null): number {
   const normalized = normalizeMaterialName(material)
   if (!normalized || normalized === 'PLA') return 1
-  const pla = readNumber(
-    ['NEXT_PUBLIC_PLA_PRICE_PER_KG', 'PLA_PRICE_PER_KG_USD', 'PLA_PRICE_PER_KG_CAD'],
-    DEFAULT_PLA_PRICE,
+  const pla = resolveMaterialPricePerKg('PLA')
+  const target = resolveMaterialPricePerKg(normalized)
+  if (!pla || !target) return 1
+  return target / pla
+}
+
+function resolveMaterialPricePerKg(material: MaterialType | undefined | null): number {
+  const normalized = normalizeMaterialName(material)
+  const clientOverride = clientMaterialPrices?.[normalized]
+  if (clientOverride != null && Number.isFinite(Number(clientOverride)) && Number(clientOverride) >= 0) {
+    return Number(clientOverride)
+  }
+  const fallback = MATERIAL_PRICE_DEFAULTS[normalized] ?? DEFAULT_PLA_PRICE
+  return readNumber(
+    [
+      `NEXT_PUBLIC_${normalized}_PRICE_PER_KG`,
+      `${normalized}_PRICE_PER_KG_USD`,
+      `${normalized}_PRICE_PER_KG_CAD`,
+    ],
+    fallback,
   )
-  const petg = readNumber(
-    ['NEXT_PUBLIC_PETG_PRICE_PER_KG', 'PETG_PRICE_PER_KG_USD', 'PETG_PRICE_PER_KG_CAD'],
-    DEFAULT_PETG_PRICE,
-  )
-  if (!pla || !petg) return 1
-  return normalized === 'PETG' ? petg / pla : 1
 }
 
 function clampMaxColors(value: number): number {
@@ -66,6 +91,24 @@ export function setClientMaxCartColors(value?: number | null) {
     return
   }
   clientMaxColorOverride = clampMaxColors(Number(value))
+}
+
+export function setClientMaterialPrices(prices?: Record<string, number | null | undefined> | null) {
+  if (typeof window === 'undefined') return
+  if (!prices || typeof prices !== 'object') {
+    clientMaterialPrices = null
+    return
+  }
+  const next: Record<string, number> = {}
+  for (const [key, value] of Object.entries(prices)) {
+    const normalized = normalizeMaterialName(key)
+    if (!normalized) continue
+    const numeric = Number(value)
+    if (Number.isFinite(numeric) && numeric >= 0) {
+      next[normalized] = numeric
+    }
+  }
+  clientMaterialPrices = Object.keys(next).length ? next : null
 }
 
 export function normalizeColors(colors?: (string | null | undefined)[], maxColors = getMaxCartColors()): string[] {

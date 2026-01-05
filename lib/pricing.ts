@@ -24,6 +24,35 @@ export const MATERIAL_DENSITY_DEFAULTS: Record<string, number> = {
 
 type MaterialKey = keyof typeof MATERIAL_DENSITY_DEFAULTS
 
+const DEFAULT_PLA_PRICE = 25
+const DEFAULT_PETG_PRICE = 28
+
+const MATERIAL_PRICE_DEFAULTS: Record<MaterialKey, number> = {
+  PLA: DEFAULT_PLA_PRICE,
+  PETG: DEFAULT_PETG_PRICE,
+  ABS: DEFAULT_PLA_PRICE,
+  ASA: DEFAULT_PLA_PRICE,
+  TPU: DEFAULT_PLA_PRICE,
+  PA6: DEFAULT_PLA_PRICE,
+  PA12: DEFAULT_PLA_PRICE,
+  NYLON: DEFAULT_PLA_PRICE,
+  PC: DEFAULT_PLA_PRICE,
+  RESIN: DEFAULT_PLA_PRICE,
+}
+
+const MATERIAL_PRICE_CONFIG_KEYS: Record<MaterialKey, keyof SiteConfig> = {
+  PLA: 'plaPricePerKgUsd',
+  PETG: 'petgPricePerKgUsd',
+  ABS: 'absPricePerKgUsd',
+  ASA: 'asaPricePerKgUsd',
+  TPU: 'tpuPricePerKgUsd',
+  PA6: 'pa6PricePerKgUsd',
+  PA12: 'pa12PricePerKgUsd',
+  NYLON: 'nylonPricePerKgUsd',
+  PC: 'pcPricePerKgUsd',
+  RESIN: 'resinPricePerKgUsd',
+}
+
 type PrinterProfileOverride = {
   nozzleDiameterMm?: number | null
   materialDensities?: Record<string, number>
@@ -153,7 +182,7 @@ export function estimatePricingDetails({ cm3, material, cfg, applyMinimum }: Pri
   const density = resolveMaterialDensity(materialKey, cfg, printerProfile.key)
   const grams = effectiveCm3 * density
 
-  const materialCost = grams * (resolveMaterialPricePerKg(materialKey === 'PETG' ? 'PETG' : 'PLA', currency, cfg) / KG_IN_GRAMS)
+  const materialCost = grams * (resolveMaterialPricePerKg(materialKey, currency, cfg) / KG_IN_GRAMS)
 
   const extraHourlyRateEnv = parseFloat(
     currency === 'CAD'
@@ -210,25 +239,22 @@ export function estimatePrice(inputs: PricingInputs): number {
   return estimatePricingDetails(inputs).price
 }
 
-function resolveMaterialPricePerKg(material: 'PLA' | 'PETG', currency: string, cfg?: Partial<SiteConfig> | null): number {
-  if (material === 'PETG' && cfg?.petgPricePerKgUsd != null) {
-    return Number(cfg.petgPricePerKgUsd)
-  }
-  if (material === 'PLA' && cfg?.plaPricePerKgUsd != null) {
-    return Number(cfg.plaPricePerKgUsd)
-  }
-
-  if (material === 'PETG') {
-    const envValue = currency === 'CAD'
-      ? (process.env.PETG_PRICE_PER_KG_CAD || process.env.PETG_PRICE_PER_KG_USD)
-      : process.env.PETG_PRICE_PER_KG_USD
-    return parseFloat(envValue || '28')
+function resolveMaterialPricePerKg(material: MaterialKey, currency: string, cfg?: Partial<SiteConfig> | null): number {
+  const configKey = MATERIAL_PRICE_CONFIG_KEYS[material]
+  const configured = cfg?.[configKey]
+  if (configured != null && Number.isFinite(Number(configured))) {
+    return Number(configured)
   }
 
+  const envUsdKey = `${material}_PRICE_PER_KG_USD`
+  const envCadKey = `${material}_PRICE_PER_KG_CAD`
   const envValue = currency === 'CAD'
-    ? (process.env.PLA_PRICE_PER_KG_CAD || process.env.PLA_PRICE_PER_KG_USD)
-    : process.env.PLA_PRICE_PER_KG_USD
-  return parseFloat(envValue || '25')
+    ? (process.env[envCadKey] || process.env[envUsdKey])
+    : process.env[envUsdKey]
+  const envParsed = envValue != null ? Number(envValue) : NaN
+  if (Number.isFinite(envParsed) && envParsed >= 0) return envParsed
+
+  return MATERIAL_PRICE_DEFAULTS[material]
 }
 
 // Backward-compatible export for existing imports
