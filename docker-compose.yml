@@ -14,7 +14,10 @@ services:
       - makerworks-net
 
   web:
-    build: .
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
     restart: unless-stopped
     depends_on:
       - db
@@ -69,6 +72,10 @@ services:
       DISCORD_CHANNEL_ID: ${DISCORD_CHANNEL_ID:-}
       DISCORD_ADMIN_BOT_TOKEN: ${DISCORD_ADMIN_BOT_TOKEN:-}
       DISCORD_ADMIN_CHANNEL_ID: ${DISCORD_ADMIN_CHANNEL_ID:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
     ports:
       - "3000:3000"
     volumes:
