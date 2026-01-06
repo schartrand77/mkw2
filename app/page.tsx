@@ -1,8 +1,7 @@
 import Link from 'next/link'
-import { buildImageSrc } from '@/lib/public-path'
 import { BRAND_SLUG } from '@/lib/brand'
-import { formatPriceLabel } from '@/lib/price-label'
 import { resolveBaseUrl } from '@/lib/base-url'
+import FeaturedMarquee from '@/components/FeaturedMarquee'
 
 async function fetchFeatured(baseUrl: string) {
   const res = await fetch(`${baseUrl}/api/featured`, { cache: 'no-store' })
@@ -68,58 +67,5 @@ export default async function HomePage() {
         </a>
       </section>
     </div>
-  )
-}
-
-function FeaturedMarquee({ models }: { models: any[] }) {
-  const cloneCount = models.length >= 4 ? Math.min(models.length, 4) : 0
-  const loop =
-    cloneCount > 0
-      ? [...models, ...models.slice(0, cloneCount)]
-      : models
-  const durationSeconds = Math.max(18, models.length * 4)
-  return (
-    <div className="marquee-viewport glass rounded-2xl border border-white/10 p-4">
-      <div className="marquee-fade marquee-fade-left" aria-hidden="true" />
-      <div className="marquee-fade marquee-fade-right" aria-hidden="true" />
-      <div className="marquee-track" style={{ animationDuration: `${durationSeconds}s` }}>
-        {loop.map((model, idx) => (
-          <FeaturedCard key={`${model.id}-${idx}`} model={model} ariaHidden={idx >= models.length} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function FeaturedCard({ model, ariaHidden = false }: { model: any; ariaHidden?: boolean }) {
-  const coverSrc = buildImageSrc(model.coverImagePath, model.updatedAt)
-  const priceLabel = formatPriceLabel(model.priceUsd, { from: model.salePriceIsFrom, unit: model.salePriceUnit })
-  return (
-    <Link
-      href={`/models/${model.id}`}
-      className="w-[280px] sm:w-[320px] md:w-[360px] flex-shrink-0 glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition"
-      aria-hidden={ariaHidden}
-      tabIndex={ariaHidden ? -1 : undefined}
-    >
-      {coverSrc ? (
-        <img
-          src={coverSrc}
-          alt={model.title}
-          className="aspect-video w-full object-cover"
-          loading="lazy"
-          decoding="async"
-        />
-      ) : (
-        <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
-      )}
-      <div className="p-4">
-        <h3 className="font-semibold truncate">{model.title}</h3>
-        {priceLabel ? (
-          <p className="text-sm text-slate-400">Est. {priceLabel}</p>
-        ) : (
-          <p className="text-sm text-slate-400">No estimate</p>
-        )}
-      </div>
-    </Link>
   )
 }

@@ -45,10 +45,10 @@ export default async function AmazonStorePage() {
                 Direct Amazon shortcuts
               </p>
               <p className="text-xs text-slate-400 md:text-right">
-                Tap any tag to jump straight to a 3D-printing ready search powered by our affiliate ID. Scroll to see every category.
+                Tap any tag to jump straight to a 3D-printing ready search powered by our affiliate ID.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2 max-h-72 overflow-y-auto pr-2">
+            <div className="flex flex-wrap gap-2">
               {spotlightItems.map((item) => (
                 <a
                   key={`shortcut-${item.id}`}
@@ -68,82 +68,6 @@ export default async function AmazonStorePage() {
           <p className="text-xs text-slate-400 pt-2">
             As an Amazon Associate, {BRAND_NAME} may earn from qualifying purchases. Pricing and availability update on Amazon in real time.
           </p>
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <header className="flex flex-col gap-2">
-          <p className="text-sm uppercase tracking-[0.25em] text-slate-400">Curated picks</p>
-          <h2 className="text-2xl font-semibold">Lab-tested accessories</h2>
-          <p className="text-slate-400 max-w-3xl">
-            Each collection links to Amazon searches focused on 3D printing accessories so you land on relevant stock right away.
-            Tap through to compare listings, Prime options, and bundle upgrades.
-          </p>
-        </header>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {spotlightItems.map((item) => (
-            <article
-              key={item.id}
-              className="glass rounded-2xl border border-white/10 overflow-hidden flex flex-col hover:border-white/20 transition"
-            >
-              <div className="relative aspect-video">
-                <img
-                  src={item.displayImage || item.image}
-                  alt={item.displayTitle}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                <div className="absolute bottom-3 left-4 text-xs uppercase tracking-[0.2em] text-slate-200">
-                  {item.category}
-                </div>
-              </div>
-              <div className="p-5 flex flex-col gap-4 grow">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-semibold">{item.displayTitle}</h3>
-                    <span className="text-sm text-slate-400">{item.priceHint}</span>
-                  </div>
-                  <p className="text-sm text-slate-300">{item.descriptionFromAmazon || item.description}</p>
-                </div>
-                <ul className="space-y-1 text-sm text-slate-400">
-                  {item.highlights.map((highlight) => (
-                    <li key={highlight} className="flex items-start gap-2">
-                      <span aria-hidden="true" className="text-brand-500">-</span>
-                      <span>{highlight}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex flex-wrap gap-2">
-                  {item.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="text-xs uppercase tracking-wide px-2 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  {item.rating ? (
-                    <span>{item.rating.toFixed(1)} * avg rating</span>
-                  ) : (
-                    <span>Amazon-verified picks</span>
-                  )}
-                  <span>{item.primeEligible ? 'Prime friendly' : 'Ships via Amazon'}</span>
-                </div>
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn w-full text-center mt-auto"
-                >
-                  View on Amazon
-                </a>
-              </div>
-            </article>
-          ))}
         </div>
       </section>
     </div>

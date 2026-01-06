@@ -15,6 +15,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import InviteUserForm from '@/components/admin/InviteUserForm'
 import PushNotificationsCard from '@/components/admin/PushNotificationsCard'
+import FeaturedMarquee from '@/components/FeaturedMarquee'
 
 type BackupSummary = { folder: string; createdAt: string }
 type PendingRestore = { relativePath?: string; backupPath?: string; createdAt: string }
@@ -32,7 +33,23 @@ export default async function AdminPage() {
   const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
   if (!user?.isAdmin) redirect('/')
 
-  const featuredItems = await prisma.featuredModel.findMany({ include: { model: { select: { id: true, title: true, coverImagePath: true, visibility: true } } }, orderBy: [{ position: 'asc' }, { createdAt: 'asc' }] })
+  const featuredItems = await prisma.featuredModel.findMany({
+    include: {
+      model: {
+        select: {
+          id: true,
+          title: true,
+          coverImagePath: true,
+          visibility: true,
+          priceUsd: true,
+          salePriceIsFrom: true,
+          salePriceUnit: true,
+          updatedAt: true,
+        },
+      },
+    },
+    orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+  })
   const initialFeatured = featuredItems.map(i => i.model)
   const cfg = await prisma.siteConfig.upsert({ where: { id: 'main' }, update: {}, create: { id: 'main' } })
   const backupList = backupModule.listBackups?.() ?? []
@@ -77,7 +94,18 @@ export default async function AdminPage() {
         </CollapsibleCard>
       </div>
       <div className="grid md:grid-cols-2 gap-6">
-        <CollapsibleCard title="Featured models" subtitle="Control which models appear on the homepage hero">
+        <CollapsibleCard
+          title="Featured models"
+          subtitle="Control which models appear on the homepage hero"
+          collapsedContent={
+            initialFeatured.length > 0 ? (
+              <FeaturedMarquee models={initialFeatured} variant="compact" />
+            ) : (
+              <div className="text-sm text-slate-400">No featured models selected.</div>
+            )
+          }
+          collapsedClassName="p-4"
+        >
           <FeaturedManager initial={initialFeatured} />
         </CollapsibleCard>
         <div className="space-y-6">

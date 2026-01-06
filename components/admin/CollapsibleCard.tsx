@@ -12,6 +12,8 @@ type CollapsibleCardProps = {
   bodyClassName?: string
   variant?: 'glass' | 'plain'
   actions?: ReactNode
+  collapsedContent?: ReactNode
+  collapsedClassName?: string
 }
 
 export default function CollapsibleCard({
@@ -24,6 +26,8 @@ export default function CollapsibleCard({
   bodyClassName = 'p-6',
   variant = 'glass',
   actions,
+  collapsedContent,
+  collapsedClassName = 'p-4',
 }: CollapsibleCardProps) {
   const [open, setOpen] = useState(defaultOpen)
   const contentId = useId()
@@ -67,6 +71,9 @@ export default function CollapsibleCard({
           </button>
         </div>
       </header>
+      {!open && collapsedContent ? (
+        <div className={collapsedClassName}>{collapsedContent}</div>
+      ) : null}
       <div
         id={contentId}
         aria-hidden={!open}

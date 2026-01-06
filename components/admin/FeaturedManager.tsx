@@ -7,7 +7,7 @@ type Model = {
   title: string
   coverImagePath?: string | null
   visibility?: string | null
-  updatedAt?: string | null
+  updatedAt?: string | Date | null
 }
 
 const FEATURE_LIMIT = 24
