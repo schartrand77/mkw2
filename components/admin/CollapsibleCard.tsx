@@ -35,7 +35,7 @@ export default function CollapsibleCard({
     variant === 'glass'
       ? 'glass rounded-xl'
       : 'rounded-xl border border-white/10 bg-white/5 shadow-inner shadow-black/10'
-  const containerClassName = `${containerBase} ${className}`.trim()
+  const containerClassName = `${containerBase} min-w-0 max-w-full ${className}`.trim()
 
   return (
     <section id={id} className={containerClassName}>
