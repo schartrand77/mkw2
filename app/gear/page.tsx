@@ -1,6 +1,7 @@
 import { AMAZON_MARKETPLACE_HOST, normalizeAmazonAffiliateUrl } from '@/lib/amazon'
 import { getAmazonSpotlightCards } from '@/lib/amazonSpotlights'
 import { BRAND_FULL_NAME, BRAND_LAB_NAME, BRAND_NAME } from '@/lib/brand'
+import { prisma } from '@/lib/db'
 
 export const metadata = {
   title: `Amazon Accessories Shop | ${BRAND_FULL_NAME}`,
@@ -12,6 +13,44 @@ export default async function AmazonStorePage() {
     normalizeAmazonAffiliateUrl(`https://${AMAZON_MARKETPLACE_HOST}`) ||
     `https://${AMAZON_MARKETPLACE_HOST}`
   const spotlightItems = await getAmazonSpotlightCards()
+  const favoriteColors = [
+    '#22d3ee',
+    '#a855f7',
+    '#f43f5e',
+    '#f59e0b',
+    '#84cc16',
+    '#38bdf8',
+    '#fb7185',
+    '#facc15',
+    '#14b8a6',
+    '#e879f9',
+  ]
+  const toRgb = (hex: string) => {
+    const cleaned = hex.replace('#', '').trim()
+    if (cleaned.length !== 6) return '34, 211, 238'
+    const r = Number.parseInt(cleaned.slice(0, 2), 16)
+    const g = Number.parseInt(cleaned.slice(2, 4), 16)
+    const b = Number.parseInt(cleaned.slice(4, 6), 16)
+    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return '34, 211, 238'
+    return `${r}, ${g}, ${b}`
+  }
+  const cfg = await prisma.siteConfig.findUnique({
+    where: { id: 'main' },
+    select: { favoriteShopLinkIds: true },
+  })
+  const favoriteIds = new Set(
+    Array.isArray(cfg?.favoriteShopLinkIds) ? (cfg?.favoriteShopLinkIds as string[]) : []
+  )
+  const favoriteColorMap = new Map<string, string>()
+  const favoriteRgbMap = new Map<string, string>()
+  let favoriteIndex = 0
+  for (const item of spotlightItems) {
+    if (!favoriteIds.has(item.id)) continue
+    const color = favoriteColors[favoriteIndex % favoriteColors.length]
+    favoriteColorMap.set(item.id, color)
+    favoriteRgbMap.set(item.id, toRgb(color))
+    favoriteIndex += 1
+  }
 
   return (
     <div className="space-y-10">
@@ -49,20 +88,33 @@ export default async function AmazonStorePage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {spotlightItems.map((item) => (
-                <a
-                  key={`shortcut-${item.id}`}
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group inline-flex flex-col rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left transition hover:border-white/30 hover:bg-white/[0.08]"
-                >
-                  <span className="text-[0.65rem] uppercase tracking-[0.35em] text-slate-500">
-                    {item.category}
-                  </span>
-                  <span className="text-sm text-white group-hover:text-white/90">{item.displayTitle}</span>
-                </a>
-              ))}
+              {spotlightItems.map((item) => {
+                const isFavorite = favoriteIds.has(item.id)
+                const favoriteColor = isFavorite ? favoriteColorMap.get(item.id) : undefined
+                const favoriteRgb = isFavorite ? favoriteRgbMap.get(item.id) : undefined
+                return (
+                  <a
+                    key={`shortcut-${item.id}`}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`group inline-flex flex-col rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left transition hover:border-white/30 hover:bg-white/[0.08] ${isFavorite ? 'shop-favorite-card' : ''}`}
+                    style={
+                      favoriteColor
+                        ? {
+                            ['--shop-favorite-color' as any]: favoriteColor,
+                            ['--shop-favorite-rgb' as any]: favoriteRgb,
+                          }
+                        : undefined
+                    }
+                  >
+                    <span className="text-[0.65rem] uppercase tracking-[0.35em] text-slate-500">
+                      {item.category}
+                    </span>
+                    <span className="text-sm text-white group-hover:text-white/90">{item.displayTitle}</span>
+                  </a>
+                )
+              })}
             </div>
           </div>
           <p className="text-xs text-slate-400 pt-2">

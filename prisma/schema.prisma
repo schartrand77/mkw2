@@ -161,6 +161,7 @@ model SiteConfig {
   id                       String   @id
   allowAnonymousUploads    Boolean? @default(true)
   directUploadUrl          String?
+  favoriteShopLinkIds      Json?
   printSpeedCm3PerHour     Float?
   energyUsdPerHour         Float?
   minimumPriceUsd          Float?

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { requireAdmin } from '../_utils'
 import { z } from 'zod'
 import { resolvePrinterProfile } from '@/lib/printerProfiles'
+import { amazonShopItems } from '@/lib/amazon'
 export const dynamic = 'force-dynamic'
 
 const schema = z.object({
@@ -24,6 +25,7 @@ const schema = z.object({
   extraHourlyUsdAfterFirst: z.number().nonnegative().optional(),
   fillFactor: z.number().positive().max(2).optional(),
   directUploadUrl: z.union([z.string().url(), z.null()]).optional(),
+  favoriteShopLinkIds: z.array(z.string().min(1)).optional(),
   printerProfileKey: z.string().min(2).optional(),
   printerProfileOverrides: z.record(
     z.object({
@@ -34,6 +36,7 @@ const schema = z.object({
 })
 
 const CONFIG_ID = 'main'
+const SHOP_ITEM_IDS = new Set(amazonShopItems.map((item) => item.id))
 
 export async function GET() {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
@@ -54,10 +57,14 @@ export async function PATCH(req: NextRequest) {
     const overrides = parsed.printerProfileOverrides
       ? JSON.parse(JSON.stringify(parsed.printerProfileOverrides))
       : undefined
+    const favoriteShopLinkIds = parsed.favoriteShopLinkIds
+      ? Array.from(new Set(parsed.favoriteShopLinkIds.filter((id) => SHOP_ITEM_IDS.has(id))))
+      : undefined
     const payload = {
       ...parsed,
       printerProfileKey,
       printerProfileOverrides: overrides,
+      favoriteShopLinkIds,
     }
     const cfg = await prisma.siteConfig.upsert({
       where: { id: CONFIG_ID },
@@ -65,6 +72,7 @@ export async function PATCH(req: NextRequest) {
       create: { id: CONFIG_ID, ...payload },
     })
     revalidatePath('/admin')
+    revalidatePath('/gear')
     return NextResponse.json({ config: cfg })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
