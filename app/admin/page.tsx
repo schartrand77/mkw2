@@ -16,6 +16,7 @@ import Link from 'next/link'
 import InviteUserForm from '@/components/admin/InviteUserForm'
 import PushNotificationsCard from '@/components/admin/PushNotificationsCard'
 import FeaturedMarquee from '@/components/FeaturedMarquee'
+import { buildImageSrc } from '@/lib/public-path'
 
 type BackupSummary = { folder: string; createdAt: string }
 type PendingRestore = { relativePath?: string; backupPath?: string; createdAt: string }
@@ -99,7 +100,41 @@ export default async function AdminPage() {
           subtitle="Control which models appear on the homepage hero"
           collapsedContent={
             initialFeatured.length > 0 ? (
-              <FeaturedMarquee models={initialFeatured} variant="compact" />
+              <>
+                <div className="sm:hidden space-y-2">
+                  {initialFeatured.slice(0, 4).map((model) => {
+                    const thumb = buildImageSrc(model.coverImagePath, model.updatedAt)
+                    return (
+                      <div
+                        key={model.id}
+                        className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2"
+                      >
+                        {thumb ? (
+                          <img
+                            src={thumb}
+                            alt={model.title}
+                            className="h-9 w-12 flex-none rounded border border-white/10 object-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : (
+                          <div className="h-9 w-12 flex-none rounded border border-white/10 bg-slate-900/60" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{model.title}</p>
+                          <p className="text-xs text-slate-400">Featured</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {initialFeatured.length > 4 ? (
+                    <p className="text-xs text-slate-400">+{initialFeatured.length - 4} more featured models</p>
+                  ) : null}
+                </div>
+                <div className="hidden sm:block">
+                  <FeaturedMarquee models={initialFeatured} variant="compact" />
+                </div>
+              </>
             ) : (
               <div className="text-sm text-slate-400">No featured models selected.</div>
             )
