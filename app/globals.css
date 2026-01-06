@@ -168,6 +168,8 @@ html.theme-light .page-title::after {
 .marquee-viewport {
   position: relative;
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
 }
 .marquee-track {
   display: flex;
