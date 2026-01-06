@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 
-const PUBLIC_VAPID_KEY = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '')
+const BUILD_PUBLIC_VAPID_KEY = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '')
   .trim()
   .replace(/^['"]+|['"]+$/g, '')
-const HAS_PUBLIC_KEY = Boolean(PUBLIC_VAPID_KEY)
 
 function urlBase64ToUint8Array(base64String: string) {
   const cleaned = base64String.trim().replace(/^['"]+|['"]+$/g, '').replace(/\s+/g, '')
@@ -33,6 +32,8 @@ export default function PushNotificationsCard() {
   const [subscribed, setSubscribed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [publicKey, setPublicKey] = useState(BUILD_PUBLIC_VAPID_KEY)
+  const hasPublicKey = Boolean(publicKey)
 
   const refreshStatus = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
@@ -53,8 +54,28 @@ export default function PushNotificationsCard() {
     })
   }, [refreshStatus])
 
+  useEffect(() => {
+    if (BUILD_PUBLIC_VAPID_KEY) return
+    let cancelled = false
+    const loadKey = async () => {
+      try {
+        const res = await fetch('/api/push/public-key', { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json().catch(() => null)
+        const nextKey = (data?.publicKey || '').trim()
+        if (!cancelled && nextKey) setPublicKey(nextKey)
+      } catch (err) {
+        console.warn('Failed to load VAPID public key', err)
+      }
+    }
+    loadKey()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const enablePush = async () => {
-    if (!supported || !HAS_PUBLIC_KEY) return
+    if (!supported || !hasPublicKey) return
     setBusy(true)
     setError(null)
     try {
@@ -77,7 +98,7 @@ export default function PushNotificationsCard() {
       }
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY),
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
       })
       await syncSubscription(subscription)
       setSubscribed(true)
@@ -152,14 +173,14 @@ export default function PushNotificationsCard() {
         <div>Status: <span className={subscribed ? 'text-emerald-300' : 'text-slate-300'}>{subscribed ? 'Enabled' : 'Disabled'}</span></div>
         <div>Permission: <span className="text-slate-300">{permission}</span></div>
         {!supported && <div className="text-amber-300">Push notifications are not supported in this browser.</div>}
-        {supported && !HAS_PUBLIC_KEY && <div className="text-amber-300">Missing `NEXT_PUBLIC_VAPID_PUBLIC_KEY`.</div>}
+        {supported && !hasPublicKey && <div className="text-amber-300">Missing `NEXT_PUBLIC_VAPID_PUBLIC_KEY`.</div>}
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
           className="rounded-md border border-white/10 px-4 py-2 text-xs hover:border-white/30 disabled:opacity-50"
           onClick={enablePush}
-          disabled={busy || !supported || !HAS_PUBLIC_KEY}
+          disabled={busy || !supported || !hasPublicKey}
         >
           {busy ? 'Working...' : subscribed ? 'Re-enable' : 'Enable'}
         </button>
