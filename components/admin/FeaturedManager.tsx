@@ -173,15 +173,15 @@ export default function FeaturedManager({ initial }: { initial: Model[] }) {
           {featured.map((model, index) => {
             const thumb = buildImageSrc(model.coverImagePath, model.updatedAt)
             return (
-              <li key={model.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <li key={model.id} className="flex min-w-0 flex-col gap-3 py-3 sm:flex-row sm:flex-wrap sm:items-center">
                 <div className="w-6 text-xs text-slate-500">{index + 1}.</div>
                 {thumb ? (
                   <img src={thumb} className="w-16 h-12 object-cover rounded border border-white/10" alt={model.title} />
                 ) : (
                   <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
                 )}
-                <div className="flex-1 min-w-[140px]">
-                  <div className="text-sm font-medium">{model.title}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{model.title}</div>
                   <VisibilityBadge visibility={model.visibility} />
                 </div>
                 <div className="flex flex-wrap gap-2 sm:justify-end">
