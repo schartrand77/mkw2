@@ -4,6 +4,7 @@ import { requireAdmin } from '../../_utils'
 import { buildInviteLoginUrl, createInviteAccount } from '@/lib/invite'
 import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
+import { resolveBaseUrl } from '@/lib/base-url'
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -20,9 +21,10 @@ export async function POST(req: NextRequest) {
     }
 
     const { user, profile } = await createInviteAccount({ email, name, password: invitePassword })
-    const { loginUrl } = buildInviteLoginUrl(user.id)
+    const resolvedBaseUrl = await resolveBaseUrl()
+    const baseUrl = resolvedBaseUrl || (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+    const { loginUrl } = buildInviteLoginUrl(user.id, baseUrl)
 
-    const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
     const profileUrl = profile?.slug ? `${baseUrl}/u/${profile.slug}` : undefined
     let discordSent = false
     try {

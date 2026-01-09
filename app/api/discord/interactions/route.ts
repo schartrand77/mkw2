@@ -3,6 +3,7 @@ import nacl from 'tweetnacl'
 import { z } from 'zod'
 import { buildInviteLoginUrl, createInviteAccount } from '@/lib/invite'
 import { sendDiscordDirectMessage } from '@/lib/discord'
+import { resolveBaseUrl } from '@/lib/base-url'
 
 export const dynamic = 'force-dynamic'
 
@@ -109,7 +110,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const { user } = await createInviteAccount({ email, name: typeof name === 'string' ? name : null, password: invitePassword })
-    const { loginUrl } = buildInviteLoginUrl(user.id)
+    const resolvedBaseUrl = await resolveBaseUrl()
+    const baseUrl = resolvedBaseUrl || (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+    const { loginUrl } = buildInviteLoginUrl(user.id, baseUrl)
     const ttlHours = Number.parseInt(process.env.INVITE_LOGIN_TOKEN_TTL_HOURS || '24', 10)
     const ttlLabel = Number.isFinite(ttlHours) && ttlHours > 0 ? `${ttlHours} hours` : '24 hours'
     const dmBody = [

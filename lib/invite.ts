@@ -32,9 +32,10 @@ export async function createInviteAccount(input: InviteInput) {
   return { user, profile }
 }
 
-export function buildInviteLoginUrl(userId: string) {
+export function buildInviteLoginUrl(userId: string, baseUrlOverride?: string | null) {
   const token = signInviteToken(userId)
-  const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+  const fallbackBaseUrl = (process.env.BASE_URL || 'http://localhost:3000').trim()
+  const baseUrl = (baseUrlOverride?.trim() || fallbackBaseUrl).replace(/\/+$/, '')
   const loginUrl = `${baseUrl}/api/invite/accept?token=${encodeURIComponent(token)}`
   return { token, loginUrl }
 }
