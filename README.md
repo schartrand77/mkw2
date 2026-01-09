@@ -26,5 +26,11 @@ Quick start (high level)
 - Optionally add Stripe keys to accept payments.
 - If you use OrderWorks or StockWorks, connect them to the same database.
 
+Screenshots
+![Home](public/screenshots/mwhome.png)
+![Discover](public/screenshots/mwdiscover.png)
+![Model detail](public/screenshots/mwmodeldetail.png)
+![Admin](public/screenshots/mwadmin.png)
+
 Need help
 - Issues and questions: https://github.com/schartrand77/mkw2/issues
