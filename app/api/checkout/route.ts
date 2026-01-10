@@ -86,6 +86,12 @@ function normalizeStoragePath(pathValue?: string | null) {
   return `/${trimmed.replace(/^\/+/, '')}`
 }
 
+function normalizePaymentStatusForQueue(paymentMethod: string, status: string | null) {
+  if (!status) return status
+  if (paymentMethod === 'card' && status === 'succeeded') return 'paid'
+  return status
+}
+
 export async function POST(req: NextRequest) {
   try {
     const json = await req.json()
@@ -316,7 +322,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: `Payment not completed (${intent.status}).` }, { status: 400 })
         }
         clientSecret = intent.client_secret || null
-        finalizedPaymentStatus = intent.status || null
+        finalizedPaymentStatus = normalizePaymentStatusForQueue(paymentMethod, intent.status || null)
       }
     } else if (!commit) {
       paymentIntentId = `cash_preview_${randomUUID()}`
