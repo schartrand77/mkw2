@@ -1,7 +1,7 @@
 "use client"
 import Link from 'next/link'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { BRAND_NAME } from '@/lib/brand'
 
 async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
@@ -16,6 +16,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const inviteStatus = searchParams?.get('invite')
+  const inviteMessage = inviteStatus === 'invalid'
+    ? 'Invite link is invalid or expired. Please request a new invite.'
+    : inviteStatus === 'missing'
+      ? 'Invite link is missing a token. Please use the full invite URL.'
+      : null
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,6 +53,11 @@ export default function LoginPage() {
   return (
     <div className="max-w-md mx-auto">
       <h1 className="text-2xl font-semibold mb-4">Sign in</h1>
+      {inviteMessage && (
+        <div className="mb-4 rounded-md border border-amber-300/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+          {inviteMessage}
+        </div>
+      )}
       <form onSubmit={submit} className="space-y-4 glass p-6 rounded-xl">
         <div>
           <label className="block text-sm mb-1">Email</label>

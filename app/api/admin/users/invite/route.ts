@@ -21,8 +21,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { user, profile } = await createInviteAccount({ email, name, password: invitePassword })
+    const requestOrigin = req.nextUrl.origin.replace(/\/+$/, '')
     const resolvedBaseUrl = await resolveBaseUrl()
-    const baseUrl = resolvedBaseUrl || (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+    const baseUrl = requestOrigin || resolvedBaseUrl || (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
     const { loginUrl } = buildInviteLoginUrl(user.id, baseUrl)
 
     const profileUrl = profile?.slug ? `${baseUrl}/u/${profile.slug}` : undefined
