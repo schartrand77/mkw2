@@ -49,7 +49,7 @@ type StockworksWarningResponse = {
 
 export default function CheckoutPage() {
   const { items, clear } = useCart()
-  const [publishableKey, setPublishableKey] = useState<string>(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
+  const [publishableKey, setPublishableKey] = useState<string>('')
   const stripePromise = useMemo(() => (publishableKey ? loadStripe(publishableKey) : null), [publishableKey])
   const cardPaymentAvailable = Boolean(stripePromise)
   const [checkoutItemsState, setCheckoutItemsState] = useState(items)
