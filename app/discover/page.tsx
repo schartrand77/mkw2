@@ -9,6 +9,7 @@ import { formatPriceLabel } from '@/lib/price-label'
 import { DiscoverSort, DiscoverViewMode, type CardInfo, type DiscoverModel } from '@/types/discover'
 import { resolveBaseUrl } from '@/lib/base-url'
 import { getUserIdFromCookie } from '@/lib/auth'
+import { listActiveCollections } from '@/lib/collections'
 
 type SearchParams = { [key: string]: string | string[] | undefined }
 
@@ -61,6 +62,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   const baseUrl = await resolveBaseUrl()
   const userId = await getUserIdFromCookie()
   const canLike = Boolean(userId)
+  const collections = await listActiveCollections(4)
   const data = await fetchModels(fetchParams, baseUrl) as { models?: DiscoverModel[]; total?: number }
   const models: DiscoverModel[] = Array.isArray(data.models) ? data.models : []
   const total = typeof data.total === 'number' ? data.total : 0
@@ -88,6 +90,36 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
     <div className="space-y-6">
       <ViewPreferenceSync viewMode={viewMode} storedView={storedView} />
       <h1 className="page-title text-3xl font-semibold">Discover Models</h1>
+      {collections.length > 0 && (
+        <div className="glass rounded-2xl border border-white/10 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Featured collections</h2>
+            <Link href="/collections" className="text-xs text-brand-300 underline underline-offset-4">
+              View all
+            </Link>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {collections.map((collection) => (
+              <Link
+                key={collection.id}
+                href={`/collections/${collection.slug}`}
+                className="rounded-xl border border-white/10 bg-black/20 p-3 hover:border-white/20 transition"
+              >
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Collection</p>
+                <p className="font-medium mt-2">{collection.title}</p>
+                <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                  {collection.description || 'Explore the curated lineup.'}
+                </p>
+                {collection.kind === 'material_popular' && collection.materialKey ? (
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-brand-300 mt-2">
+                    Popular in {collection.materialKey}
+                  </p>
+                ) : null}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
       <DiscoverFilters q={q} sort={sort} pageSize={pageSize} viewMode={viewMode} />
 <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-400">

@@ -22,6 +22,7 @@ export type SerializedComment = {
   createdAt: Date | string
   type: CommentKind
   imageUrl: string | null
+  imageStatus?: string | null
   imageWidth: number | null
   imageHeight: number | null
   isVerified: boolean
@@ -46,6 +47,7 @@ export function serializeComment(comment: any): SerializedComment {
     createdAt: comment.createdAt,
     type,
     imageUrl,
+    imageStatus: comment.imageStatus ?? null,
     imageWidth: comment.imageWidth ?? null,
     imageHeight: comment.imageHeight ?? null,
     isVerified: Boolean(comment.isVerified),

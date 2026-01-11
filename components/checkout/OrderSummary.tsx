@@ -33,7 +33,7 @@ export default function OrderSummary({ items, currency, total, discount }: Props
         })()
         return (
           <div
-            key={`${item.modelId}-${item.partId || 'whole'}-${item.scale}-${item.material}-${palette.join('-')}-${item.customText ?? ''}-${item.infillPct ?? 'na'}`}
+            key={`${item.modelId}-${item.partId || 'whole'}-${item.scale}-${item.material}-${palette.join('-')}-${item.finish ?? 'standard'}-${item.customText ?? ''}-${item.infillPct ?? 'na'}`}
             className="p-4 space-y-1 text-sm"
           >
             <div className="flex items-center justify-between">
@@ -45,6 +45,7 @@ export default function OrderSummary({ items, currency, total, discount }: Props
                 <div className="text-xs text-slate-400">
                   {item.qty} x scale {item.scale.toFixed(2)} | {item.material}
                   {palette.length > 0 && <> | Colors: {palette.join(', ')}</>}
+                  {item.finish && item.finish !== 'standard' ? ` | Finish: ${item.finish}` : ''}
                   {typeof item.infillPct === 'number' ? ` | ${item.infillPct}% infill` : ''}
                 </div>
               </div>

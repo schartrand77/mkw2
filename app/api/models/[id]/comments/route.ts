@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import path from 'path'
-import sharp from 'sharp'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
@@ -13,7 +12,6 @@ import {
   userHasModelReceipt,
 } from '@/lib/comments'
 import { saveBuffer } from '@/lib/storage'
-import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
 
 export const dynamic = 'force-dynamic'
 
@@ -106,23 +104,20 @@ export async function POST(req: NextRequest, { params }: ModelCommentsContext) {
   let imagePath: string | null = null
   let imageWidth: number | null = null
   let imageHeight: number | null = null
+  let imageSourcePath: string | null = null
   if (type === 'make' && imageFile) {
     const buf = Buffer.from(await imageFile.arrayBuffer())
     if (buf.length === 0) {
       return NextResponse.json({ error: 'Image upload failed' }, { status: 400 })
     }
-    const prepared = await ensureProcessableImageBuffer(buf, { filename: imageFile.name, mimeType: imageFile.type })
-    const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
-    const processed = await pipeline
-      .resize(1024, 1024, { fit: 'inside' })
-      .webp({ quality: 74, effort: 5 })
-      .toBuffer()
+    const ext = path.extname(imageFile.name) || '.bin'
+    const sourceRel = path.join(userId, 'makes', 'raw', `${model.id}-${Date.now()}${ext}`)
     const rel = path.join(userId, 'makes', `${model.id}-${Date.now()}.webp`)
-    await saveBuffer(rel, processed)
+    await saveBuffer(sourceRel, buf)
     imagePath = `/${rel.replace(/\\/g, '/')}`
-    const meta = await sharp(processed).metadata()
-    imageWidth = typeof meta.width === 'number' ? meta.width : null
-    imageHeight = typeof meta.height === 'number' ? meta.height : null
+    imageSourcePath = `/${sourceRel.replace(/\\/g, '/')}`
+    imageWidth = null
+    imageHeight = null
   }
 
   const comment = await prisma.modelComment.create({
@@ -132,6 +127,8 @@ export async function POST(req: NextRequest, { params }: ModelCommentsContext) {
       body: bodyText,
       type,
       imagePath,
+      imageStatus: imagePath ? 'processing' : undefined,
+      imageSourcePath: imageSourcePath ?? undefined,
       imageWidth,
       imageHeight,
     },

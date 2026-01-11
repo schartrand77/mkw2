@@ -7,8 +7,10 @@ import {
   clampScale,
   DIMENSION_AXES,
   getColorMultiplier,
+  getFinishMultiplier,
   getMaterialMultiplier,
   getVolumeScaleMultiplier,
+  FINISH_OPTIONS,
   MATERIAL_OPTIONS,
   normalizeMaterialName,
   resolveAxisScale,
@@ -316,8 +318,9 @@ export default function CartPage() {
     const base = item.priceUsd || 0
     const materialMultiplier = getMaterialMultiplier(item.options.material)
     const colorMultiplier = getColorMultiplier(item.options.colors)
+    const finishMultiplier = getFinishMultiplier(item.options.finish)
     const volumeMultiplier = getVolumeScaleMultiplier(item.options.scale, item.options.dimensionOverrides)
-    return base * volumeMultiplier * materialMultiplier * colorMultiplier
+    return base * volumeMultiplier * materialMultiplier * colorMultiplier * finishMultiplier
   }
 
   const subtotal = items.reduce((sum, item) => {
@@ -467,6 +470,18 @@ export default function CartPage() {
                           })().map((material) => (
                               <option key={material} value={material}>{material}</option>
                             ))}
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <span>Finish</span>
+                        <select
+                          className="w-32 input"
+                          value={(item.options.finish || 'standard').toLowerCase()}
+                          onChange={(e) => update(item.modelId, { finish: e.target.value }, item.partId)}
+                        >
+                          {FINISH_OPTIONS.map((finish) => (
+                            <option key={finish} value={finish}>{finish}</option>
+                          ))}
                         </select>
                       </label>
                       <div className="flex flex-col gap-2 text-xs text-slate-400 w-full">

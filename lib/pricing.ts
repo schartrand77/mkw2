@@ -66,6 +66,8 @@ const DEFAULT_FILL_FACTOR = 0.18 // Typical 15-20% infill for hobby prints
 export type PricingInputs = {
   cm3: number
   material?: string | null
+  infillPct?: number | null
+  finish?: string | null
   cfg?: Partial<SiteConfig> | null
   applyMinimum?: boolean
 }
@@ -85,6 +87,9 @@ export interface PricingDetails {
   materialCost: number
   energyCost: number
   extraHourlyCost: number
+  finish: string | null
+  finishSurcharge: number
+  finishMultiplier: number
   minimumApplied: boolean
   price: number
 }
@@ -101,7 +106,49 @@ function normalizeFillFactor(value?: number | null): number {
   if (value == null || Number.isNaN(value)) return DEFAULT_FILL_FACTOR
   const numeric = Number(value)
   const normalized = numeric > 2 ? numeric / 100 : numeric
-  return Math.max(0.1, Math.min(1.5, normalized))
+  return Math.max(0.05, Math.min(1.5, normalized))
+}
+
+function resolveFillFactor(cfg?: Partial<SiteConfig> | null, infillPct?: number | null): number {
+  if (infillPct != null && Number.isFinite(Number(infillPct))) {
+    return normalizeFillFactor(Number(infillPct))
+  }
+  return normalizeFillFactor(cfg?.fillFactor != null ? Number(cfg.fillFactor) : undefined)
+}
+
+const DEFAULT_FINISH_SURCHARGES: Record<string, number> = {
+  standard: 0,
+  matte: 0.05,
+  gloss: 0.1,
+  polished: 0.15,
+  textured: 0.08,
+}
+
+function parseFinishSurcharges(raw?: string | null): Record<string, number> | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return null
+    const result: Record<string, number> = {}
+    for (const [key, value] of Object.entries(parsed)) {
+      const numeric = Number(value)
+      if (!Number.isFinite(numeric)) continue
+      result[key.toLowerCase()] = numeric
+    }
+    return Object.keys(result).length ? result : null
+  } catch {
+    return null
+  }
+}
+
+function resolveFinishSurcharge(finish?: string | null): number {
+  if (!finish) return 0
+  const normalized = String(finish).trim().toLowerCase()
+  if (!normalized) return 0
+  const envMap = parseFinishSurcharges(process.env.FINISH_SURCHARGES || process.env.FINISH_SURCHARGE_MAP || null)
+  const configured = envMap?.[normalized]
+  if (configured != null && Number.isFinite(configured)) return configured
+  return DEFAULT_FINISH_SURCHARGES[normalized] ?? 0
 }
 
 function normalizeMaterialKey(material?: string | null): MaterialKey {
@@ -168,9 +215,9 @@ function resolveVolumetricSpeed(profile: PrinterProfile, cfg: Partial<SiteConfig
   return profile.volumetricSpeedCm3PerHour * Math.max(0.25, Math.min(2.5, nozzleScale))
 }
 
-export function estimatePricingDetails({ cm3, material, cfg, applyMinimum }: PricingInputs): PricingDetails {
+export function estimatePricingDetails({ cm3, material, infillPct, finish, cfg, applyMinimum }: PricingInputs): PricingDetails {
   const applyMinPrice = applyMinimum !== false
-  const fillFactor = normalizeFillFactor(cfg?.fillFactor != null ? Number(cfg.fillFactor) : undefined)
+  const fillFactor = resolveFillFactor(cfg, infillPct)
   const effectiveCm3 = cm3 * fillFactor
   const currency = getCurrency()
   const printerProfile = resolvePrinterProfile(resolvePrinterProfileKey(cfg))
@@ -206,6 +253,9 @@ export function estimatePricingDetails({ cm3, material, cfg, applyMinimum }: Pri
   const energyCost = energyRate * hours
 
   const base = materialCost + energyCost + extraHourlyCost
+  const finishSurcharge = resolveFinishSurcharge(finish)
+  const finishMultiplier = Math.max(1, 1 + finishSurcharge)
+  const finishAdjustedBase = base * finishMultiplier
   const minPriceEnv = parseFloat(
     currency === 'CAD'
       ? (process.env.MINIMUM_PRICE_CAD || process.env.MINIMUM_PRICE_USD || '0')
@@ -213,7 +263,7 @@ export function estimatePricingDetails({ cm3, material, cfg, applyMinimum }: Pri
   )
   const minPriceConfig = cfg?.minimumPriceUsd != null ? Number(cfg.minimumPriceUsd) : NaN
   const minPrice = Number.isFinite(minPriceConfig) ? Math.max(0, minPriceConfig) : Math.max(0, minPriceEnv)
-  const price = Number(Math.max(base, applyMinPrice ? minPrice : 0).toFixed(2))
+  const price = Number(Math.max(finishAdjustedBase, applyMinPrice ? minPrice : 0).toFixed(2))
 
   return {
     currency,
@@ -230,7 +280,10 @@ export function estimatePricingDetails({ cm3, material, cfg, applyMinimum }: Pri
     materialCost: Number(materialCost.toFixed(2)),
     energyCost: Number(energyCost.toFixed(2)),
     extraHourlyCost: Number(extraHourlyCost.toFixed(2)),
-    minimumApplied: applyMinPrice && price > base,
+    finish: finish ? String(finish) : null,
+    finishSurcharge: Number(finishSurcharge.toFixed(3)),
+    finishMultiplier: Number(finishMultiplier.toFixed(3)),
+    minimumApplied: applyMinPrice && price > finishAdjustedBase,
     price,
   }
 }

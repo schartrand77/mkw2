@@ -9,6 +9,11 @@ export function storageRoot() {
   return path.join(process.cwd(), 'storage')
 }
 
+export function filesPublicBaseUrl() {
+  const base = process.env.FILES_BASE_URL || process.env.FILES_CDN_BASE_URL || ''
+  return base ? base.replace(/\/+$/, '') : ''
+}
+
 export async function ensureDir(p: string) {
   await mkdir(p, { recursive: true })
 }
@@ -31,7 +36,10 @@ export async function saveBuffer(relPath: string, buf: Buffer) {
 
 export function publicFilePath(relPath: string) {
   // Return web route base `/files` + relPath for client
-  return `/files/${relPath}`.replace(/\\/g, '/').replace(/\/+/, '/')
+  const normalized = `/${relPath}`.replace(/\\/g, '/').replace(/\/+/, '/')
+  const base = filesPublicBaseUrl()
+  if (base) return `${base}${normalized}`
+  return `/files${normalized}`
 }
 
 export { toPublicHref, buildImageSrc } from './public-path'

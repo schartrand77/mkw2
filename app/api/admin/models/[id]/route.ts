@@ -5,6 +5,7 @@ import { slugify } from '@/lib/userpage'
 import { normalizeAmazonAffiliateUrl } from '@/lib/amazon'
 import { extractYouTubeId } from '@/lib/youtube'
 import { storageRoot } from '@/lib/storage'
+import { computeEffectivePriceUsd } from '@/lib/pricing-cache'
 import path from 'path'
 import { unlink } from 'fs/promises'
 export const dynamic = 'force-dynamic'
@@ -16,6 +17,16 @@ type AdminModelContext = { params: Promise<{ id: string }> }
 export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
   const { id } = await params
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  const existing = await prisma.model.findUnique({
+    where: { id },
+    select: {
+      volumeMm3: true,
+      material: true,
+      priceUsd: true,
+      salePriceUsd: true,
+    },
+  })
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   let body: any
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
@@ -77,6 +88,19 @@ export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
     } else {
       updates.salePriceUnit = raw
     }
+  }
+
+  if (body.salePriceUsd !== undefined) {
+    const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
+    const effectivePriceUsd = computeEffectivePriceUsd({
+      id,
+      volumeMm3: existing.volumeMm3,
+      material: existing.material,
+      priceUsd: existing.priceUsd,
+      salePriceUsd: updates.salePriceUsd ?? null,
+    }, cfg)
+    updates.effectivePriceUsd = effectivePriceUsd
+    updates.effectivePriceUpdatedAt = new Date()
   }
 
   // Apply updates

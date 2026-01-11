@@ -12,6 +12,7 @@ import { resolveBaseUrl } from '@/lib/base-url'
 import ModelPartsList from '@/components/ModelPartsList'
 import ModelComments from '@/components/ModelComments'
 import ModelShareButton from '@/components/ModelShareButton'
+import InstantQuoteConfigurator from '@/components/InstantQuoteConfigurator'
 
 async function fetchModel(id: string, baseUrl: string) {
   const res = await fetch(`${baseUrl}/api/models/${id}`, { cache: 'no-store' })
@@ -137,6 +138,16 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             )}
           </div>
         </div>
+        <InstantQuoteConfigurator
+          modelId={model.id}
+          title={model.title}
+          priceUsd={model.priceUsd}
+          material={model.material}
+          sizeXmm={model.sizeXmm}
+          sizeYmm={model.sizeYmm}
+          sizeZmm={model.sizeZmm}
+          thumbnail={coverHref}
+        />
         {model.affiliateUrl && (
           <div className="glass rounded-xl p-4 space-y-3">
             <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Required parts</div>
@@ -194,6 +205,26 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
               sizeZmm: p.sizeZmm,
             }))}
           />
+        )}
+        {Array.isArray(model.revisions) && model.revisions.length > 0 && (
+          <div className="glass rounded-xl p-4 space-y-2">
+            <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Revision notes</div>
+            <div className="space-y-3 text-sm text-slate-300">
+              {model.revisions.map((rev: any) => (
+                <div key={rev.id} className="rounded-lg border border-white/10 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold">
+                      v{rev.version}{rev.label ? ` · ${rev.label}` : ''}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString() : ''}
+                    </div>
+                  </div>
+                  {rev.note && <div className="text-xs text-slate-400 mt-1">{rev.note}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
         <div className="flex gap-3">
           <a

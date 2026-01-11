@@ -1,4 +1,4 @@
-﻿import { ORDER_STATUSES } from '@/lib/orders'
+import { ORDER_STATUSES } from '@/lib/order-status'
 
 const COLOR_MAP: Record<string, string> = {
   awaiting_review: 'border-amber-400/40 text-amber-200 bg-amber-500/10',
@@ -20,3 +20,4 @@ export default function OrderStatusBadge({ status }: { status: string }) {
     </span>
   )
 }
+

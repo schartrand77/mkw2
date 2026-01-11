@@ -1,0 +1,118 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { prisma } from '@/lib/db'
+import { getColorMultiplier, normalizeColors, normalizeMaterialName, resolveScaleFromDimensions } from '@/lib/cartPricing'
+import { estimatePricingDetails } from '@/lib/pricing'
+
+export const dynamic = 'force-dynamic'
+
+type QuoteContext = { params: Promise<{ id: string }> }
+
+const dimensionSchema = z.object({
+  x: z.number().positive().max(5000).optional(),
+  y: z.number().positive().max(5000).optional(),
+  z: z.number().positive().max(5000).optional(),
+}).partial()
+
+const bodySchema = z.object({
+  material: z.string().max(40).optional(),
+  colors: z.array(z.string().max(64)).optional(),
+  finish: z.string().max(40).optional(),
+  infillPct: z.number().int().min(0).max(100).optional().nullable(),
+  scale: z.number().positive().max(5).optional(),
+  scaleX: z.number().positive().max(5).optional(),
+  scaleY: z.number().positive().max(5).optional(),
+  scaleZ: z.number().positive().max(5).optional(),
+  targetDimensions: dimensionSchema.optional(),
+})
+
+export async function POST(req: NextRequest, { params }: QuoteContext) {
+  const { id } = await params
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  }
+  const parsed = bodySchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid quote payload' }, { status: 400 })
+  }
+
+  const model = await prisma.model.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      title: true,
+      material: true,
+      volumeMm3: true,
+      sizeXmm: true,
+      sizeYmm: true,
+      sizeZmm: true,
+    },
+  })
+  if (!model) return NextResponse.json({ error: 'Model not found' }, { status: 404 })
+  if (model.volumeMm3 == null || !Number.isFinite(Number(model.volumeMm3)) || Number(model.volumeMm3) <= 0) {
+    return NextResponse.json({ error: 'Model volume is missing' }, { status: 400 })
+  }
+
+  const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
+  const material = normalizeMaterialName(parsed.data.material || model.material || 'PLA')
+  const colors = normalizeColors(parsed.data.colors)
+  const finish = parsed.data.finish ? String(parsed.data.finish) : null
+  const infillPct = parsed.data.infillPct ?? null
+
+  const { scaleX, scaleY, scaleZ, uniformScale } = resolveScaleFromDimensions({
+    size: { x: model.sizeXmm ?? null, y: model.sizeYmm ?? null, z: model.sizeZmm ?? null },
+    target: parsed.data.targetDimensions ?? null,
+    scale: parsed.data.scale ?? 1,
+    scaleX: parsed.data.scaleX ?? null,
+    scaleY: parsed.data.scaleY ?? null,
+    scaleZ: parsed.data.scaleZ ?? null,
+  })
+  const volumeMultiplier = scaleX * scaleY * scaleZ
+  const cm3 = Number(model.volumeMm3) / 1000 * volumeMultiplier
+
+  const pricing = estimatePricingDetails({
+    cm3,
+    material,
+    infillPct,
+    finish,
+    cfg,
+    applyMinimum: true,
+  })
+  const colorMultiplier = getColorMultiplier(colors)
+  const priceUsd = Number((pricing.price * colorMultiplier).toFixed(2))
+
+  const targetDimensions = (() => {
+    const dims: Record<string, number> = {}
+    if (typeof model.sizeXmm === 'number' && Number.isFinite(model.sizeXmm)) {
+      dims.x = Number((model.sizeXmm * scaleX).toFixed(1))
+    }
+    if (typeof model.sizeYmm === 'number' && Number.isFinite(model.sizeYmm)) {
+      dims.y = Number((model.sizeYmm * scaleY).toFixed(1))
+    }
+    if (typeof model.sizeZmm === 'number' && Number.isFinite(model.sizeZmm)) {
+      dims.z = Number((model.sizeZmm * scaleZ).toFixed(1))
+    }
+    return Object.keys(dims).length ? dims : null
+  })()
+
+  return NextResponse.json({
+    quote: {
+      modelId: model.id,
+      material,
+      colors,
+      finish,
+      infillPct,
+      scale: uniformScale,
+      scaleX,
+      scaleY,
+      scaleZ,
+      targetDimensions,
+      priceUsd,
+      leadTimeHours: pricing.hours,
+      pricing,
+    },
+  })
+}

@@ -1,13 +1,13 @@
 import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { estimatePrice } from '@/lib/pricing'
+import { estimatePricingDetails, type PricingDetails } from '@/lib/pricing'
 import { formatCurrency, getCurrency, type Currency } from '@/lib/currency'
 import { getStripe } from '@/lib/stripe'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { z } from 'zod'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
-import { clampScale, getColorMultiplier, normalizeColors, normalizeMaterialName, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
+import { getColorMultiplier, normalizeColors, normalizeMaterialName, resolveScaleFromDimensions, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
 import { recordOrderWorksJob } from '@/lib/orderworks'
 import { summarizeDiscount, getDiscountMultiplier } from '@/lib/discounts'
 import { recordCustomerOrder } from '@/lib/orders'
@@ -47,6 +47,7 @@ const itemSchema = z.object({
   targetDimensions: dimensionSchema.optional(),
   material: z.string().max(40).optional().default('PLA'),
   colors: z.array(z.string().max(64)).max(MAX_CART_COLORS).optional(),
+  finish: z.string().max(40).optional(),
   infillPct: z.number().int().min(0).max(100).optional().nullable(),
   customText: z.string().max(140).optional().nullable(),
 })
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
     const partIds = Array.from(new Set(items.map(i => i.partId).filter((id): id is string => typeof id === 'string' && id.length > 0)))
     const [models, cfg, parts] = await Promise.all([
       prisma.model.findMany({
-        where: { id: { in: ids } },
+        where: { id: { in: ids }, visibility: 'public' },
         select: {
           id: true,
           title: true,
@@ -128,6 +129,9 @@ export async function POST(req: NextRequest) {
           salePriceUsd: true,
           volumeMm3: true,
           material: true,
+          sizeXmm: true,
+          sizeYmm: true,
+          sizeZmm: true,
           filePath: true,
           viewerFilePath: true,
           _count: { select: { parts: true } },
@@ -136,7 +140,7 @@ export async function POST(req: NextRequest) {
       prisma.siteConfig.findUnique({ where: { id: 'main' } }),
       partIds.length > 0
         ? prisma.modelPart.findMany({
-            where: { id: { in: partIds } },
+            where: { id: { in: partIds }, model: { visibility: 'public' } },
             select: {
               id: true,
               modelId: true,
@@ -181,28 +185,46 @@ export async function POST(req: NextRequest) {
     const discountMultiplier = getDiscountMultiplier(discountSummary)
 
     const publicBaseUrl = resolvePublicBaseUrl(req)
+    const checkoutId = randomUUID()
 
     const lineItems: CheckoutLineItem[] = items.map((entry) => {
       const model = modelMap.get(entry.modelId)!
       const cm3 = model.volumeMm3 ? model.volumeMm3 / 1000 : null
       const materialChoice: MaterialType = normalizeMaterialName(entry.material || model.material || 'PLA')
       const colors = normalizeColors(entry.colors)
+      const finishChoice = entry.finish ? String(entry.finish) : null
       const part = entry.partId ? partMap.get(entry.partId) || null : null
       const isMultipart = (model._count?.parts || 0) > 1
       if (entry.partId && (!part || part.modelId !== model.id)) {
         throw new Error('Invalid part specified for model')
       }
+      let pricingDetails: PricingDetails | null = null
       const basePrice = (() => {
         if (part) {
           if (isMultipart && model.volumeMm3 != null && Number.isFinite(Number(model.volumeMm3)) && part.volumeMm3 != null && Number.isFinite(Number(part.volumeMm3)) && Number(model.volumeMm3) > 0) {
-            const totalPrice = estimatePrice({ cm3: Number(model.volumeMm3) / 1000, material: materialChoice, cfg, applyMinimum: true })
-            return Number(((totalPrice * Number(part.volumeMm3)) / Number(model.volumeMm3)).toFixed(2))
+            const totalPricing = estimatePricingDetails({
+              cm3: Number(model.volumeMm3) / 1000,
+              material: materialChoice,
+              infillPct: entry.infillPct ?? null,
+              finish: finishChoice,
+              cfg,
+              applyMinimum: true,
+            })
+            pricingDetails = totalPricing
+            return Number(((totalPricing.price * Number(part.volumeMm3)) / Number(model.volumeMm3)).toFixed(2))
           }
           if (part.priceUsd != null && Number.isFinite(Number(part.priceUsd))) {
             return Number(part.priceUsd)
           }
           if (part.volumeMm3 != null && Number.isFinite(Number(part.volumeMm3))) {
-            return estimatePrice({ cm3: Number(part.volumeMm3) / 1000, material: materialChoice, cfg })
+            pricingDetails = estimatePricingDetails({
+              cm3: Number(part.volumeMm3) / 1000,
+              material: materialChoice,
+              infillPct: entry.infillPct ?? null,
+              finish: finishChoice,
+              cfg,
+            })
+            return pricingDetails.price
           }
           throw new Error(`Part ${part.id} is missing pricing data`)
         }
@@ -210,18 +232,33 @@ export async function POST(req: NextRequest) {
           return Number(model.salePriceUsd)
         }
         if (cm3 != null) {
-          return estimatePrice({ cm3, material: materialChoice, cfg })
+          pricingDetails = estimatePricingDetails({
+            cm3,
+            material: materialChoice,
+            infillPct: entry.infillPct ?? null,
+            finish: finishChoice,
+            cfg,
+          })
+          return pricingDetails.price
         }
-        return model.priceUsd ?? fallbackPrice
+        if (model.priceUsd != null && Number.isFinite(Number(model.priceUsd))) {
+          return Number(model.priceUsd)
+        }
+        throw new Error(`Model ${model.id} is missing pricing data`)
       })()
       if (!isFinite(basePrice) || basePrice <= 0) {
         throw new Error(`Model ${model.id} is missing pricing data`)
       }
-      const scaleX = clampScale(entry.scaleX ?? entry.scale)
-      const scaleY = clampScale(entry.scaleY ?? entry.scale)
-      const scaleZ = clampScale(entry.scaleZ ?? entry.scale)
+      const { scaleX, scaleY, scaleZ, uniformScale } = resolveScaleFromDimensions({
+        size: { x: model.sizeXmm ?? null, y: model.sizeYmm ?? null, z: model.sizeZmm ?? null },
+        target: entry.targetDimensions ?? null,
+        scale: entry.scale ?? 1,
+        scaleX: entry.scaleX ?? null,
+        scaleY: entry.scaleY ?? null,
+        scaleZ: entry.scaleZ ?? null,
+        lockDimensions: entry.lockDimensions ?? null,
+      })
       const volumeMultiplier = scaleX * scaleY * scaleZ
-      const uniformScale = clampScale(Math.cbrt(volumeMultiplier))
       const colorMultiplier = getColorMultiplier(colors)
       const rawUnitPrice = Number((basePrice * volumeMultiplier * colorMultiplier).toFixed(2))
       const unitPrice = Number((rawUnitPrice * discountMultiplier).toFixed(2))
@@ -252,11 +289,20 @@ export async function POST(req: NextRequest) {
         discountPercent: discountSummary.totalPercent || undefined,
         material: materialChoice,
         colors,
+        finish: finishChoice || undefined,
         infillPct: entry.infillPct ?? undefined,
         customText: entry.customText || undefined,
         targetDimensions: entry.targetDimensions || undefined,
         storagePath,
         storageUrl,
+        pricingBreakdown: {
+          base: pricingDetails,
+          volumeMultiplier,
+          colorMultiplier,
+          discountMultiplier,
+          rawUnitPrice,
+          unitPrice,
+        },
       }
     })
 
@@ -298,12 +344,7 @@ export async function POST(req: NextRequest) {
           automatic_payment_methods: { enabled: true },
           receipt_email: customerEmail || undefined,
           metadata: {
-            cart: metadataItems.slice(0, 500),
-            userId: userId || '',
-            shippingMethod: shipping?.method || 'pickup',
-            shippingAddress: shipping?.method === 'ship' && shipping.address
-              ? `${shipping.address.name || ''} | ${shipping.address.line1 || ''} ${shipping.address.line2 || ''}, ${shipping.address.city || ''}, ${shipping.address.state || ''} ${shipping.address.postalCode || ''}, ${shipping.address.country || ''}`
-              : '',
+            checkoutId,
           },
         })
         paymentIntentId = intent.id

@@ -5,11 +5,10 @@ import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer, storageRoot } from '@/lib/storage'
 import path from 'path'
 import { unlink } from 'fs/promises'
-import sharp from 'sharp'
 import { serializeModelImages } from '@/lib/model-images'
-import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
 import { revalidatePath } from 'next/cache'
 import { resolveModelPricing, estimatePricingDetails } from '@/lib/pricing'
+import { computeEffectivePriceUsd } from '@/lib/pricing-cache'
 import { extractAmazonAsin, buildAmazonImageUrl } from '@/lib/amazon'
 import { commentInclude, findVerifiedCommentUserIds, serializeComment } from '@/lib/comments'
 
@@ -23,6 +22,11 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
       modelTags: { include: { tag: true } },
       images: { orderBy: { sortOrder: 'asc' } },
       comments: commentInclude,
+      revisions: {
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        include: { user: { select: { id: true, name: true } }, parts: { select: { id: true } } },
+      },
     },
   })
   if (!model) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -31,7 +35,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
   ])
   const tags = model.modelTags.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug }))
-  const { modelTags, images, comments, ...rest } = model as any
+  const { modelTags, images, comments, revisions, coverImageSourcePath, coverImageError, ...rest } = model as any
   const pricingSummary = resolveModelPricing(model as any, cfg)
   const totalVolumeMm3 = model.volumeMm3 != null && Number.isFinite(Number(model.volumeMm3)) ? Number(model.volumeMm3) : null
   const totalPricing = totalVolumeMm3 != null
@@ -72,6 +76,15 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
         ...comment,
         isVerified: comment.userId ? verifiedComments.has(comment.userId) : false,
       })),
+      revisions: (revisions || []).map((rev: any) => ({
+        id: rev.id,
+        version: rev.version,
+        label: rev.label,
+        note: rev.note,
+        createdAt: rev.createdAt,
+        user: rev.user ? { id: rev.user.id, name: rev.user.name } : null,
+        partsCount: Array.isArray(rev.parts) ? rev.parts.length : 0,
+      })),
     },
   })
 }
@@ -81,7 +94,17 @@ export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
   const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const existing = await prisma.model.findUnique({ where: { id }, select: { userId: true, coverImagePath: true } })
+  const existing = await prisma.model.findUnique({
+    where: { id },
+    select: {
+      userId: true,
+      coverImagePath: true,
+      volumeMm3: true,
+      material: true,
+      priceUsd: true,
+      salePriceUsd: true,
+    },
+  })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   // Allow owner or admin
@@ -127,17 +150,32 @@ export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
 
   if (image) {
     const buf = Buffer.from(await image.arrayBuffer())
-    const prepared = await ensureProcessableImageBuffer(buf, { filename: image.name, mimeType: image.type })
-    // Process to reasonable size webp
-    const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
-    const out = await pipeline.resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
-    // Save cover under userId/thumbnails
+    if (buf.length === 0) {
+      return NextResponse.json({ error: 'Image upload failed' }, { status: 400 })
+    }
+    const ext = path.extname(image.name) || '.bin'
+    const sourceRel = path.join(userId, 'uploads', `cover-raw-${Date.now()}${ext}`)
+    await saveBuffer(sourceRel, buf)
     const rel = path.join(userId, 'thumbnails', `${Date.now()}-cover.webp`)
     if (existing.coverImagePath) {
       try { await unlink(path.join(storageRoot(), existing.coverImagePath.replace(/^\/+/, ''))) } catch {}
     }
-    await saveBuffer(rel, out)
     updates.coverImagePath = `/${rel.replace(/\\/g, '/')}`
+    updates.coverImageStatus = 'processing'
+    updates.coverImageSourcePath = `/${sourceRel.replace(/\\/g, '/')}`
+  }
+
+  if (material != null) {
+    const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
+    const effectivePriceUsd = computeEffectivePriceUsd({
+      id,
+      volumeMm3: existing.volumeMm3,
+      material: updates.material ?? existing.material,
+      priceUsd: existing.priceUsd,
+      salePriceUsd: existing.salePriceUsd,
+    }, cfg)
+    updates.effectivePriceUsd = effectivePriceUsd
+    updates.effectivePriceUpdatedAt = new Date()
   }
 
   const updated = await prisma.model.update({ where: { id }, data: updates })

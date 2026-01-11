@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import type { Prisma } from '@prisma/client'
-import { resolveModelPricing } from '@/lib/pricing'
 import { DiscoverSort, type ModelWithPartsCountAndTags } from '@/types/discover'
 export const dynamic = 'force-dynamic'
 
@@ -41,9 +40,9 @@ export async function GET(req: NextRequest) {
   const orderBy: Prisma.ModelOrderByWithRelationInput | Prisma.ModelOrderByWithRelationInput[] = (() => {
     switch (sort) {
       case DiscoverSort.PriceAsc:
-        return [{ salePriceUsd: 'asc' as const }, { priceUsd: 'asc' }] as any
+        return [{ effectivePriceUsd: 'asc' }, { updatedAt: 'desc' }]
       case DiscoverSort.PriceDesc:
-        return [{ salePriceUsd: 'desc' as const }, { priceUsd: 'desc' }] as any
+        return [{ effectivePriceUsd: 'desc' }, { updatedAt: 'desc' }]
       case DiscoverSort.Popular:
         return [{ likes: 'desc' }, { downloads: 'desc' }, { createdAt: 'desc' }] as any
       case DiscoverSort.Latest:
@@ -61,6 +60,7 @@ export async function GET(req: NextRequest) {
     sizeZmm: true,
     fileType: true,
     priceUsd: true,
+    effectivePriceUsd: true,
     salePriceUsd: true,
     salePriceIsFrom: true,
     salePriceUnit: true,
@@ -75,66 +75,23 @@ export async function GET(req: NextRequest) {
   } satisfies Prisma.ModelSelect
 
   const skip = (page - 1) * pageSize
-  const wantsPriceSort = sort === DiscoverSort.PriceAsc || sort === DiscoverSort.PriceDesc
-  const summariesById = new Map<string, ReturnType<typeof resolveModelPricing>>()
-
-  const totalPromise = prisma.model.count({ where })
-  const cfgPromise = prisma.siteConfig.findUnique({ where: { id: 'main' } })
-  let models: ModelWithPartsCountAndTags[] = []
-  let total = 0
-  let cfg: Awaited<ReturnType<typeof prisma.siteConfig.findUnique>> = null
-
-  if (wantsPriceSort) {
-    const priceCandidatesPromise = prisma.model.findMany({
-      where,
-      select: {
-        id: true,
-        priceUsd: true,
-        salePriceUsd: true,
-        volumeMm3: true,
-        material: true,
-        updatedAt: true,
-      },
-    })
-    const [resolvedTotal, resolvedCfg, priceCandidates] = await Promise.all([totalPromise, cfgPromise, priceCandidatesPromise])
-    total = resolvedTotal
-    cfg = resolvedCfg
-    const sortedByPrice: PriceSortEntry[] = priceCandidates
-      .map(candidate => ({
-        id: candidate.id,
-        updatedAt: candidate.updatedAt,
-        summary: resolveModelPricing(candidate, cfg),
-      }))
-      .sort((a, b) => compareByEffectivePrice(a, b, sort as DiscoverSort.PriceAsc | DiscoverSort.PriceDesc))
-    const pageEntries = sortedByPrice.slice(skip, skip + pageSize)
-    pageEntries.forEach(entry => summariesById.set(entry.id, entry.summary))
-    const pageIds = pageEntries.map(entry => entry.id)
-    if (pageIds.length) {
-      const pageModels = await prisma.model.findMany({
-        where: { id: { in: pageIds } },
-        select: modelSelect,
-      }) as ModelWithPartsCountAndTags[]
-      const ordered = new Map(pageModels.map(model => [model.id, model]))
-      models = pageIds
-        .map(id => ordered.get(id))
-        .filter((model): model is ModelWithPartsCountAndTags => Boolean(model))
-    }
-  } else {
-    const modelsPromise = prisma.model.findMany({
+  const [total, models] = await Promise.all([
+    prisma.model.count({ where }),
+    prisma.model.findMany({
       where,
       orderBy,
       skip,
       take: pageSize,
       select: modelSelect,
-    })
-    const [resolvedTotal, resolvedCfg, fetchedModels] = await Promise.all([totalPromise, cfgPromise, modelsPromise])
-    total = resolvedTotal
-    cfg = resolvedCfg
-    models = fetchedModels as ModelWithPartsCountAndTags[]
-  }
+    }) as Promise<ModelWithPartsCountAndTags[]>,
+  ])
 
   const mapped = models.map(m => {
-    const summary = summariesById.get(m.id) ?? resolveModelPricing(m, cfg)
+    const basePriceUsd = m.priceUsd != null && Number.isFinite(Number(m.priceUsd)) ? Number(m.priceUsd) : null
+    const salePriceUsd = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd)) ? Number(m.salePriceUsd) : null
+    const effectivePriceUsd = m.effectivePriceUsd != null && Number.isFinite(Number(m.effectivePriceUsd)) ? Number(m.effectivePriceUsd) : null
+    const priceUsd = effectivePriceUsd ?? salePriceUsd ?? basePriceUsd
+    const saleActive = salePriceUsd != null && basePriceUsd != null ? salePriceUsd < basePriceUsd : false
     return {
       id: m.id,
       title: m.title,
@@ -143,10 +100,10 @@ export async function GET(req: NextRequest) {
       sizeYmm: m.sizeYmm,
       sizeZmm: m.sizeZmm,
       fileType: m.fileType,
-      priceUsd: summary.priceUsd,
-      basePriceUsd: summary.basePriceUsd,
-      salePriceUsd: summary.salePriceUsd,
-      saleActive: summary.saleActive,
+      priceUsd,
+      basePriceUsd,
+      salePriceUsd,
+      saleActive,
       salePriceIsFrom: m.salePriceIsFrom,
       salePriceUnit: m.salePriceUnit ?? null,
       likes: m.likes,
@@ -158,27 +115,4 @@ export async function GET(req: NextRequest) {
     }
   })
   return NextResponse.json({ models: mapped, total, page, pageSize })
-}
-
-function compareByEffectivePrice(
-  a: PriceSortEntry,
-  b: PriceSortEntry,
-  sort: DiscoverSort.PriceAsc | DiscoverSort.PriceDesc,
-) {
-  const direction = sort === DiscoverSort.PriceAsc ? 1 : -1
-  const mapNull = sort === DiscoverSort.PriceAsc ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY
-  const priceA = typeof a.summary.priceUsd === 'number' ? a.summary.priceUsd : null
-  const priceB = typeof b.summary.priceUsd === 'number' ? b.summary.priceUsd : null
-  const safeA = priceA ?? mapNull
-  const safeB = priceB ?? mapNull
-  if (safeA === safeB) {
-    return b.updatedAt.getTime() - a.updatedAt.getTime()
-  }
-  return safeA > safeB ? direction : -direction
-}
-
-type PriceSortEntry = {
-  id: string
-  updatedAt: Date
-  summary: ReturnType<typeof resolveModelPricing>
 }

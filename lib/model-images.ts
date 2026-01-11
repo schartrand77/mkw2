@@ -12,9 +12,11 @@ function normalizeSortOrder(value: bigint | number | null | undefined) {
 
 export function serializeModelImage<T extends ModelImageLike>(image: T | null | undefined) {
   if (!image) return image
+  const { sourcePath, error, ...rest } = image as any
   return {
-    ...image,
+    ...rest,
     sortOrder: normalizeSortOrder(image.sortOrder),
+    status: (image as any).status ?? null,
   } as T
 }
 

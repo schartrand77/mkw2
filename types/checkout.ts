@@ -1,6 +1,7 @@
 import type { Currency } from '@/lib/currency'
 import type { MaterialType } from '@/lib/cartPricing'
 import type { DiscountSummary } from '@/lib/discounts'
+import type { PricingDetails } from '@/lib/pricing'
 
 export type Dimensions = {
   x?: number | null
@@ -18,6 +19,7 @@ export type CheckoutItemInput = {
   scaleZ?: number | null
   material: MaterialType
   colors?: string[] | null
+  finish?: string | null
   infillPct?: number | null
   customText?: string | null
   lockDimensions?: boolean | null
@@ -57,11 +59,20 @@ export type CheckoutLineItem = {
   discountPercent?: number
   material: MaterialType
   colors?: string[]
+  finish?: string
   infillPct?: number
   customText?: string
   targetDimensions?: Dimensions | null
   storagePath?: string | null
   storageUrl?: string | null
+  pricingBreakdown?: {
+    base: PricingDetails | null
+    volumeMultiplier: number
+    colorMultiplier: number
+    discountMultiplier: number
+    rawUnitPrice: number
+    unitPrice: number
+  } | null
 }
 
 export type CheckoutIntentResponse = {

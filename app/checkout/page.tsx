@@ -9,7 +9,7 @@ import TrustBadge from '@/components/checkout/TrustBadge'
 import { useCart } from '@/components/cart/CartProvider'
 import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, CheckoutPaymentMethod, Dimensions } from '@/types/checkout'
 import type { Appearance, PaymentIntent } from '@stripe/stripe-js'
-import { DIMENSION_AXES, normalizeColors, resolveAxisScale } from '@/lib/cartPricing'
+import { DIMENSION_AXES, normalizeColors, resolveAxisScale, normalizeMaterialName } from '@/lib/cartPricing'
 import { BRAND_LAB_NAME } from '@/lib/brand'
 
 type ProfileResponse = {
@@ -34,6 +34,19 @@ type ProfileResponse = {
   user: { name?: string | null, email: string }
 }
 
+type StockworksWarning = {
+  status: 'in_stock' | 'limited' | 'out_of_stock'
+  quantityGrams: number
+  limitedThresholdGrams: number
+  leadTimeDays?: number | null
+}
+
+type StockworksWarningResponse = {
+  enabled: boolean
+  materials: Record<string, StockworksWarning>
+  updatedAt?: string
+}
+
 export default function CheckoutPage() {
   const { items, clear } = useCart()
   const [publishableKey, setPublishableKey] = useState<string>(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
@@ -51,6 +64,7 @@ export default function CheckoutPage() {
   const [cashProcessing, setCashProcessing] = useState(false)
   const [finalizingJob, setFinalizingJob] = useState(false)
   const [applePayAvailable, setApplePayAvailable] = useState(false)
+  const [materialWarnings, setMaterialWarnings] = useState<StockworksWarningResponse | null>(null)
 
   useEffect(() => {
     setCheckoutItemsState(items)
@@ -84,6 +98,7 @@ export default function CheckoutPage() {
         scaleZ: axisScales.z,
         material: item.options.material || 'PLA',
         colors: normalizeColors(item.options.colors),
+        finish: item.options.finish || null,
         infillPct: item.options.infillPct ?? null,
         customText: item.options.customText || null,
         lockDimensions: locked,
@@ -91,6 +106,32 @@ export default function CheckoutPage() {
       }
     })
   ), [checkoutItemsState])
+
+  const checkoutMaterials = useMemo(() => {
+    const unique = new Set<string>()
+    for (const item of checkoutItems) {
+      const key = normalizeMaterialName(item.material || 'PLA')
+      if (key) unique.add(key)
+    }
+    return Array.from(unique)
+  }, [checkoutItems])
+
+  useEffect(() => {
+    let active = true
+    if (checkoutMaterials.length === 0) {
+      setMaterialWarnings(null)
+      return () => { active = false }
+    }
+    const qs = checkoutMaterials.join(',')
+    fetch(`/api/stockworks/material-warnings?materials=${encodeURIComponent(qs)}`, { cache: 'no-store' })
+      .then(async (res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.enabled) return
+        setMaterialWarnings(data)
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [checkoutMaterials])
 
   const shippingAddress: ShippingAddress | null = useMemo(() => {
     const data = profile?.profile
@@ -298,8 +339,8 @@ export default function CheckoutPage() {
           </div>
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500 mt-1">Secure checkout</p>
         </div>
-        {checkoutItemsState.length > 0 && (
-          <div className="glass rounded-xl border border-white/10">
+      {checkoutItemsState.length > 0 && (
+        <div className="glass rounded-xl border border-white/10">
             <div className="flex items-center justify-between px-4 py-3 text-xs uppercase tracking-[0.3em] text-slate-400">
               <span>Cart Items</span>
               <span>Remove</span>
@@ -319,6 +360,9 @@ export default function CheckoutPage() {
                         {normalizeColors(item.options.colors).length > 0 && (
                           <> {'\u00b7'} Colors: {normalizeColors(item.options.colors).join(', ')}</>
                         )}
+                        {item.options.finish && item.options.finish !== 'standard' && (
+                          <> {'\u00b7'} Finish: {item.options.finish}</>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -332,8 +376,28 @@ export default function CheckoutPage() {
                 </div>
               ))}
             </div>
+        </div>
+      )}
+      {materialWarnings?.enabled && (() => {
+        const warnings = Object.entries(materialWarnings.materials || {}).filter(([, warning]) => warning.status !== 'in_stock')
+        if (warnings.length === 0) return null
+        return (
+          <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm space-y-2">
+            <p className="font-semibold text-amber-200">Material availability notice</p>
+            {warnings.map(([material, warning]) => (
+              <div key={material} className="text-xs text-amber-100">
+                <span className="uppercase tracking-[0.2em]">{material}</span>
+                {warning.status === 'limited' && (
+                  <span> limited stock available. We may follow up if substitutions are needed.</span>
+                )}
+                {warning.status === 'out_of_stock' && (
+                  <span> currently out of stock. Estimated lead time {warning.leadTimeDays ?? 'TBD'} days.</span>
+                )}
+              </div>
+            ))}
           </div>
-        )}
+        )
+      })()}
         <div className="glass rounded-xl border border-white/10 p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">Shipping</h2>

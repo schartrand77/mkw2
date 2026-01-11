@@ -6,6 +6,8 @@ import {
   type MaterialType,
   normalizeMaterialName,
   normalizeColors,
+  setClientColorSurchargeRate,
+  setClientFinishSurcharges,
   setClientMaterialPrices,
   setClientMaxCartColors,
   type ScaleOverrides,
@@ -17,6 +19,7 @@ export type CartOptions = {
   scale: number // 1.0 = 100%
   material: MaterialType
   colors: string[]
+  finish?: string | null
   infillPct?: number | null // 0-100
   customText?: string | null
   dimensionOverrides?: ScaleOverrides | null
@@ -74,6 +77,7 @@ function sanitizeOptions(opts?: LegacyCartOptions | null): CartOptions {
     scale: baseScale,
     material: normalizeMaterialName(opts?.material),
     colors: normalizeColors(colorsSource),
+    finish: typeof opts?.finish === 'string' ? opts.finish : null,
     infillPct: typeof opts?.infillPct === 'number' ? Math.max(0, Math.min(100, opts.infillPct)) : null,
     customText: opts?.customText ?? null,
     dimensionOverrides: overrides,
@@ -89,6 +93,7 @@ function mergeOptions(base: CartOptions, patch?: Partial<CartOptions>): CartOpti
     scale: patch.scale != null ? patch.scale : base.scale,
     material: patch.material ?? base.material,
     colors: patch.colors !== undefined ? patch.colors : base.colors,
+    finish: patch.finish !== undefined ? patch.finish : base.finish,
     infillPct: patch.infillPct !== undefined ? patch.infillPct : base.infillPct,
     customText: patch.customText !== undefined ? patch.customText : base.customText,
     dimensionOverrides: patch.dimensionOverrides !== undefined ? patch.dimensionOverrides : base.dimensionOverrides,
@@ -148,7 +153,12 @@ export default function CartProvider({ children }: { children: React.ReactNode }
       try {
         const res = await fetch('/api/public-config', { cache: 'no-store' })
         if (!res.ok) return
-        const data = await res.json().catch(() => null) as { maxCartColors?: number; materialPrices?: Record<string, number> } | null
+        const data = await res.json().catch(() => null) as {
+          maxCartColors?: number
+          materialPrices?: Record<string, number>
+          colorSurchargeRate?: number
+          finishSurcharges?: Record<string, number>
+        } | null
         if (!data || cancelled) return
         const parsed = Number(data.maxCartColors)
         if (Number.isFinite(parsed) && parsed > 0) {
@@ -158,6 +168,12 @@ export default function CartProvider({ children }: { children: React.ReactNode }
         }
         if (data.materialPrices) {
           setClientMaterialPrices(data.materialPrices)
+        }
+        if (data.colorSurchargeRate != null) {
+          setClientColorSurchargeRate(data.colorSurchargeRate)
+        }
+        if (data.finishSurcharges) {
+          setClientFinishSurcharges(data.finishSurcharges)
         }
       } catch {}
     }

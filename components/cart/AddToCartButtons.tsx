@@ -40,7 +40,7 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
         thumbnail,
         size: { x: model.sizeXmm, y: model.sizeYmm, z: model.sizeZmm },
       },
-      { material: 'PLA', colors: [] },
+      { material: 'PLA', colors: [], finish: 'standard' },
     )
   }, [add, model.id, resolvedPrice, model.sizeXmm, model.sizeYmm, model.sizeZmm, model.title, thumbnail])
 

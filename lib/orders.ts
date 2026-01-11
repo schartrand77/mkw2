@@ -1,21 +1,10 @@
 import path from 'path'
 import { randomUUID } from 'crypto'
-import type { Prisma, PrintOrder, PrintOrderItem, PrintOrderRevision } from '@prisma/client'
+import type { Prisma, PrintOrder, PrintOrderApprovalRequest, PrintOrderItem, PrintOrderMessage, PrintOrderRevision } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import type { CheckoutLineItem, ShippingSelection, CheckoutPaymentMethod } from '@/types/checkout'
 import { saveBuffer } from '@/lib/storage'
-
-export const ORDER_STATUSES = [
-  { key: 'awaiting_review', label: 'Awaiting review' },
-  { key: 'awaiting_payment', label: 'Awaiting payment' },
-  { key: 'in_production', label: 'In production' },
-  { key: 'ready', label: 'Ready for pickup' },
-  { key: 'shipped', label: 'Shipped' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'cancelled', label: 'Cancelled' },
-] as const
-
-export type OrderStatus = (typeof ORDER_STATUSES)[number]['key']
+import type { OrderStatus } from '@/lib/order-status'
 
 type PersistOrderPayload = {
   paymentIntentId: string
@@ -56,7 +45,7 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
     material: item.material,
     colors: item.colors && item.colors.length > 0 ? item.colors : undefined,
     infillPct: item.infillPct ?? undefined,
-    finish: undefined,
+    finish: item.finish ?? undefined,
     customNotes: item.customText || undefined,
     quantity: item.qty,
     unitPriceCents: Math.max(0, Math.round(item.unitPrice * 100)),
@@ -65,6 +54,7 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
       scale: item.scale,
       colors: item.colors,
       infillPct: item.infillPct,
+      finish: item.finish,
       customText: item.customText,
       storagePath: item.storagePath,
       storageUrl: item.storageUrl,
@@ -133,6 +123,8 @@ export async function listOrdersForUser(userId: string, limit = 20): Promise<Ord
 export type OrderDetail = PrintOrder & {
   items: PrintOrderItem[]
   revisions: (PrintOrderRevision & { user?: { id: string; name: string | null; email: string } | null })[]
+  messages: (PrintOrderMessage & { user?: { id: string; name: string | null; email: string } | null })[]
+  approvalRequests: (PrintOrderApprovalRequest & { requestedBy?: { id: string; name: string | null; email: string } | null })[]
   reprintOf: { id: string; orderNumber: number | null } | null
   reprints: { id: string; orderNumber: number | null; status: string; createdAt: Date }[]
 }
@@ -148,6 +140,14 @@ export async function getOrderForUser(orderId: string, userId: string): Promise<
         include: {
           user: { select: { id: true, name: true, email: true } },
         },
+      },
+      messages: {
+        orderBy: { createdAt: 'asc' },
+        include: { user: { select: { id: true, name: true, email: true } } },
+      },
+      approvalRequests: {
+        orderBy: { createdAt: 'asc' },
+        include: { requestedBy: { select: { id: true, name: true, email: true } } },
       },
       reprintOf: { select: { id: true, orderNumber: true } },
       reprints: { select: { id: true, orderNumber: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' } },

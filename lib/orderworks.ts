@@ -3,7 +3,7 @@ import crypto from 'crypto'
 import { prisma } from '@/lib/db'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { buildAbsoluteUrl } from '@/lib/slicer'
-import type { FulfillmentStatus } from '@prisma/client'
+import type { FulfillmentStatus, Prisma } from '@prisma/client'
 
 type JobStatus = 'pending' | 'sent'
 
@@ -287,6 +287,7 @@ function buildLineItemSummaries(items: StoredLineItem[], currency: string): stri
     if (Array.isArray(item.colors) && item.colors.length > 0) {
       segments.push(`colors: ${item.colors.filter((c) => typeof c === 'string' && c.trim().length > 0).join(', ')}`)
     }
+    if (item.finish) segments.push(`finish: ${item.finish}`)
     if (typeof item.scale === 'number' && Number.isFinite(item.scale) && item.scale !== 1) {
       segments.push(`scale ${Number(item.scale.toFixed(2))}x`)
     }
@@ -320,6 +321,7 @@ function buildOrderWorksLineItems(items: StoredLineItem[], summaries: string[], 
     const partId = toSafeString(item.partId ?? null, '')
     const partName = toSafeString(item.partName ?? null, '')
     const notes = toSafeString(item.customText ?? null, '')
+    const finish = toSafeString(item.finish ?? null, '')
     const colors = Array.isArray(item.colors)
       ? item.colors.filter((color) => typeof color === 'string' && color.trim().length > 0).map((color) => color.trim())
       : []
@@ -365,6 +367,7 @@ function buildOrderWorksLineItems(items: StoredLineItem[], summaries: string[], 
         partName: partName || null,
         summary,
         currency: safeCurrency,
+        finish: finish || null,
       },
     }
   })
@@ -390,6 +393,7 @@ export async function recordOrderWorksJob({
   fulfilledAt,
 }: JobFormInput) {
   const safeCurrency = currency.toUpperCase()
+  const lineItemsPayload = JSON.parse(JSON.stringify(lineItems)) as Prisma.InputJsonValue
   const job = await prisma.jobForm.upsert({
     where: { paymentIntentId },
     create: {
@@ -398,7 +402,7 @@ export async function recordOrderWorksJob({
       customerEmail: customerEmail || null,
       totalCents: amountCents,
       currency: safeCurrency,
-      lineItems,
+      lineItems: lineItemsPayload,
       shipping: shipping ?? undefined,
       metadata: metadata ?? undefined,
       status: 'pending',
@@ -412,7 +416,7 @@ export async function recordOrderWorksJob({
       customerEmail: customerEmail || null,
       totalCents: amountCents,
       currency: safeCurrency,
-      lineItems,
+      lineItems: lineItemsPayload,
       shipping: shipping ?? undefined,
       metadata: metadata ?? undefined,
       status: 'pending' as JobStatus,

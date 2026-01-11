@@ -14,11 +14,11 @@ export type DiscoverModel = {
   id: string
   title: string
   coverImagePath?: string | null
-  updatedAt?: string | null
   fileType?: string | null
   partsCount?: number | null
   priceUsd?: number | null
   basePriceUsd?: number | null
+  salePriceUsd?: number | null
   saleActive?: boolean | null
   salePriceIsFrom?: boolean | null
   salePriceUnit?: string | null
@@ -27,6 +27,8 @@ export type DiscoverModel = {
   sizeZmm?: number | null
   likes?: number | null
   downloads?: number | null
+  createdAt?: string | Date | null
+  updatedAt?: string | Date | null
 }
 
 export type CardInfo = {
@@ -46,6 +48,7 @@ export type ModelWithPartsCountAndTags = {
   sizeZmm: number | null
   fileType: string | null
   priceUsd: number | null
+  effectivePriceUsd?: number | null
   salePriceUsd: number | null
   salePriceIsFrom: boolean
   salePriceUnit: string | null

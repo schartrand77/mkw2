@@ -1,9 +1,11 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { refreshUserAchievements } from '@/lib/achievements'
-import JSZip from 'jszip'
-import { readFile } from 'fs/promises'
+import { createReadStream, createWriteStream } from 'fs'
+import { mkdir, stat } from 'fs/promises'
 import path from 'path'
+import { PassThrough, Readable } from 'stream'
+import archiver from 'archiver'
 import { storageRoot } from '@/lib/storage'
 import { getUserIdFromCookie } from '@/lib/auth'
 export const dynamic = 'force-dynamic'
@@ -12,29 +14,50 @@ type ModelDownloadContext = { params: Promise<{ id: string }> }
 
 export async function GET(_req: NextRequest, { params }: ModelDownloadContext) {
   const { id } = await params
-  const model = await prisma.model.findUnique({ where: { id }, select: { title: true, parts: true, filePath: true, userId: true } })
+  const model = await prisma.model.findUnique({
+    where: { id },
+    select: { id: true, title: true, parts: true, filePath: true, userId: true, updatedAt: true },
+  })
   if (!model) return new Response('Not found', { status: 404 })
   const userId = await getUserIdFromCookie()
-  const zip = new JSZip()
-  if (model.parts.length > 0) {
-    for (const p of model.parts) {
-      const full = path.join(storageRoot(), p.filePath.replace(/^\//, ''))
-      const buf = await readFile(full)
-      zip.file(p.name || path.basename(full), buf)
-    }
-  } else if (model.filePath) {
-    const full = path.join(storageRoot(), model.filePath.replace(/^\//, ''))
-    const buf = await readFile(full)
-    zip.file(path.basename(full), buf)
-  }
-  // Generate as Uint8Array for Response BodyInit compatibility
-  const content = await zip.generateAsync({ type: 'uint8array' })
+  const storage = storageRoot()
+  const versionKey = model.updatedAt ? model.updatedAt.getTime() : Date.now()
+  const zipDir = path.join(storage, 'zips', model.id)
+  const zipPath = path.join(zipDir, `${versionKey}.zip`)
+  const filename = `${(model.title || 'model').replace(/[^a-z0-9\-_.]+/gi, '_')}.zip`
   const headers = new Headers({
     'Content-Type': 'application/zip',
-    'Content-Disposition': `attachment; filename="${(model.title || 'model').replace(/[^a-z0-9\-_.]+/gi, '_')}.zip"`
+    'Content-Disposition': `attachment; filename="${filename}"`
   })
-  const arrayCopy = new Uint8Array(content) // ensure backing ArrayBuffer, not SharedArrayBuffer
-  const ab: ArrayBuffer = arrayCopy.buffer.slice(0)
+
+  let body: BodyInit | null = null
+  try {
+    await stat(zipPath)
+    const fileStream = createReadStream(zipPath)
+    body = Readable.toWeb(fileStream) as BodyInit
+  } catch {
+    await mkdir(zipDir, { recursive: true })
+    const archive = archiver('zip', { zlib: { level: 9 } })
+    const passThrough = new PassThrough()
+    const writeStream = createWriteStream(zipPath)
+    archive.on('error', (err) => {
+      passThrough.destroy(err)
+      writeStream.destroy(err)
+    })
+    archive.pipe(passThrough)
+    archive.pipe(writeStream)
+    if (model.parts.length > 0) {
+      for (const p of model.parts) {
+        const full = path.join(storage, p.filePath.replace(/^\//, ''))
+        archive.file(full, { name: p.name || path.basename(full) })
+      }
+    } else if (model.filePath) {
+      const full = path.join(storage, model.filePath.replace(/^\//, ''))
+      archive.file(full, { name: path.basename(full) })
+    }
+    void archive.finalize()
+    body = Readable.toWeb(passThrough) as BodyInit
+  }
   // Increment download count and refresh achievements asynchronously
   try {
     await prisma.model.update({ where: { id }, data: { downloads: { increment: 1 } } })
@@ -47,5 +70,5 @@ export async function GET(_req: NextRequest, { params }: ModelDownloadContext) {
       })
     }
   } catch {}
-  return new Response(ab, { headers })
+  return new Response(body, { headers })
 }

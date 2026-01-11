@@ -1,10 +1,13 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { getUserIdFromCookie } from '@/lib/auth'
-import { getOrderForUser } from '@/lib/orders'
+import { getOrderForUser, type OrderDetail } from '@/lib/orders'
+import { getOrderProductionDetail } from '@/lib/production'
 import OrderStatusBadge from '@/components/orders/OrderStatusBadge'
 import RequestReprintButton from '@/components/orders/RequestReprintButton'
 import RevisionUploader from '@/components/orders/RevisionUploader'
+import ApprovalRequests from '@/components/orders/ApprovalRequests'
+import OrderMessageComposer from '@/components/orders/OrderMessageComposer'
 import { formatCurrency, type Currency } from '@/lib/currency'
 
 function formatOrderNumber(orderNumber?: number | null) {
@@ -44,6 +47,16 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
   const order = await getOrderForUser(orderId, userId)
   if (!order) return notFound()
   const shippingAddress = normalizeAddress(order.shippingAddress)
+  const production = await getOrderProductionDetail({
+    id: order.id,
+    status: order.status,
+    createdAt: order.createdAt,
+    metadata: order.metadata,
+    items: order.items,
+  })
+  const progress = buildProgress(order.status)
+  const pendingApprovals = order.approvalRequests.filter((request) => request.status === 'pending')
+  const timeline = buildTimeline(order)
 
   return (
     <div className="space-y-6">
@@ -84,6 +97,43 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
           </div>
           <div className="space-y-6">
             <div className="rounded-xl border border-white/10 p-4 bg-black/20 space-y-3">
+              <h2 className="text-lg font-semibold">Production</h2>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>Progress</span>
+                    <span>{progress.label}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-full bg-brand-500" style={{ width: `${progress.percent}%` }} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs text-slate-300">
+                  <div>
+                    <p className="text-slate-500">OrderWorks sync</p>
+                    <p className="text-sm font-medium capitalize">{production?.orderWorksStatus || 'pending'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Estimated completion</p>
+                    <p className="text-sm font-medium">
+                      {production?.estimatedCompletionAt ? formatDate(new Date(production.estimatedCompletionAt)) : 'To be scheduled'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Estimated print hours</p>
+                    <p className="text-sm font-medium">{production ? production.totalHours.toFixed(1) : 'ƒ?"'} hrs</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Queue position</p>
+                    <p className="text-sm font-medium">{production?.queuePosition ?? 'ƒ?"'}</p>
+                  </div>
+                </div>
+                {production?.orderWorksLastError ? (
+                  <p className="text-xs text-rose-200">OrderWorks error: {production.orderWorksLastError}</p>
+                ) : null}
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/10 p-4 bg-black/20 space-y-3">
               <h2 className="text-lg font-semibold">Shipping</h2>
               <p className="capitalize text-sm text-slate-300">{order.shippingMethod}</p>
               {shippingAddress && (
@@ -104,6 +154,56 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
               <RequestReprintButton orderId={order.id} />
             </div>
           </div>
+        </div>
+      </div>
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="glass rounded-2xl border border-white/10 p-6 space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold">Approvals & messages</h2>
+            <p className="text-sm text-slate-400">Respond to change requests and keep the shop updated.</p>
+          </div>
+          <div className="space-y-4">
+            {pendingApprovals.length > 0 ? (
+              <ApprovalRequests orderId={order.id} requests={pendingApprovals} />
+            ) : (
+              <p className="text-sm text-slate-400">No approvals pending.</p>
+            )}
+            <div className="border-t border-white/10 pt-4 space-y-3">
+              <h3 className="text-sm font-semibold text-slate-200">Message the shop</h3>
+              <OrderMessageComposer orderId={order.id} />
+            </div>
+          </div>
+        </div>
+        <div className="glass rounded-2xl border border-white/10 p-6 space-y-4">
+          <h2 className="text-xl font-semibold">Order timeline</h2>
+          {timeline.length === 0 ? (
+            <p className="text-sm text-slate-400">No updates yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {timeline.map((entry) => (
+                <li key={entry.id} className="rounded-lg border border-white/10 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">{entry.title}</p>
+                      {entry.actor && <p className="text-xs text-slate-400">{entry.actor}</p>}
+                    </div>
+                    <p className="text-xs text-slate-400">{formatDate(entry.createdAt)}</p>
+                  </div>
+                  {entry.detail && <p className="text-xs text-slate-300 mt-2">{entry.detail}</p>}
+                  {entry.link ? (
+                    <a
+                      href={entry.link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-brand-400 hover:text-brand-300 underline underline-offset-4 mt-2 inline-block"
+                    >
+                      {entry.link.label}
+                    </a>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
       <div className="grid lg:grid-cols-2 gap-6">
@@ -137,4 +237,83 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
       </div>
     </div>
   )
+}
+
+function buildProgress(status: string) {
+  const steps = [
+    { key: 'awaiting_review', label: 'Review' },
+    { key: 'awaiting_payment', label: 'Payment' },
+    { key: 'in_production', label: 'Printing' },
+    { key: 'ready', label: 'Ready' },
+    { key: 'shipped', label: 'Shipped' },
+    { key: 'completed', label: 'Completed' },
+  ]
+  const normalized = status === 'awaiting_payment' ? 'awaiting_payment' : status
+  const index = steps.findIndex((step) => step.key === normalized)
+  const safeIndex = index >= 0 ? index : 0
+  const percent = steps.length > 1 ? Math.round((safeIndex / (steps.length - 1)) * 100) : 0
+  return { percent, label: steps[safeIndex]?.label ?? 'Pending' }
+}
+
+type TimelineEntry = {
+  id: string
+  title: string
+  createdAt: Date
+  actor?: string
+  detail?: string
+  link?: { href: string; label: string }
+}
+
+function buildTimeline(order: OrderDetail): TimelineEntry[] {
+  const entries: TimelineEntry[] = [
+    {
+      id: `order-${order.id}`,
+      title: 'Order placed',
+      createdAt: order.createdAt,
+      actor: 'You',
+    },
+  ]
+
+  order.messages.forEach((message) => {
+    const isCustomer = message.senderRole === 'customer'
+    entries.push({
+      id: `message-${message.id}`,
+      title: isCustomer ? 'Message sent' : 'Message received',
+      createdAt: message.createdAt,
+      actor: isCustomer ? 'You' : 'Shop',
+      detail: message.body,
+    })
+  })
+
+  order.approvalRequests.forEach((request) => {
+    entries.push({
+      id: `approval-request-${request.id}`,
+      title: 'Change request',
+      createdAt: request.createdAt,
+      actor: 'Shop',
+      detail: request.message,
+    })
+    if (request.respondedAt) {
+      entries.push({
+        id: `approval-response-${request.id}`,
+        title: request.status === 'approved' ? 'Changes approved' : 'Changes requested',
+        createdAt: request.respondedAt,
+        actor: 'You',
+        detail: request.responseNote || undefined,
+      })
+    }
+  })
+
+  order.revisions.forEach((revision) => {
+    entries.push({
+      id: `revision-${revision.id}`,
+      title: `Revision v${revision.version} uploaded`,
+      createdAt: revision.createdAt,
+      actor: 'You',
+      detail: revision.note || undefined,
+      link: { href: buildFileHref(revision.filePath), label: 'Download file' },
+    })
+  })
+
+  return entries.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
 }

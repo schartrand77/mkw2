@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../../../_utils'
 import path from 'path'
-import sharp from 'sharp'
 import { saveBuffer } from '@/lib/storage'
 import { MODEL_IMAGE_LIMIT, serializeModelImage, serializeModelImages } from '@/lib/model-images'
-import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,9 +22,13 @@ export async function GET(_req: NextRequest, { params }: AdminModelImagesContext
   await requireAdmin()
   const [images, model] = await Promise.all([
     prisma.modelImage.findMany({ where: { modelId: id }, orderBy: { sortOrder: 'asc' } }),
-    prisma.model.findUnique({ where: { id }, select: { coverImagePath: true } }),
+    prisma.model.findUnique({ where: { id }, select: { coverImagePath: true, coverImageStatus: true } }),
   ])
-  return NextResponse.json({ images: serializeModelImages(images), coverImagePath: model?.coverImagePath || null })
+  return NextResponse.json({
+    images: serializeModelImages(images),
+    coverImagePath: model?.coverImagePath || null,
+    coverImageStatus: model?.coverImageStatus || null,
+  })
 }
 
 export async function POST(req: NextRequest, { params }: AdminModelImagesContext) {
@@ -47,19 +49,19 @@ export async function POST(req: NextRequest, { params }: AdminModelImagesContext
   const setCover = normalizeFlag(form.get('setCover'))
 
   const buf = Buffer.from(await image.arrayBuffer())
-  const prepared = await ensureProcessableImageBuffer(buf, { filename: image.name, mimeType: image.type })
-  const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
-  const processed = await pipeline.resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
+  if (buf.length === 0) return NextResponse.json({ error: 'Image upload failed' }, { status: 400 })
+  const ext = path.extname(image.name) || '.bin'
+  const sourceRel = path.join(model.userId, 'gallery', 'raw', `${model.id}-${Date.now()}${ext}`)
+  await saveBuffer(sourceRel, buf)
   const rel = path.join(model.userId, 'gallery', `${model.id}-${Date.now()}.webp`)
-  await saveBuffer(rel, processed)
   const publicPath = `/${rel.replace(/\\/g, '/')}`
 
   const sortOrder = BigInt(Date.now())
   const created = await prisma.modelImage.create({
-    data: { modelId: model.id, filePath: publicPath, caption, sortOrder },
+    data: { modelId: model.id, filePath: publicPath, caption, sortOrder, sourcePath: `/${sourceRel.replace(/\\/g, '/')}`, status: 'processing' },
   })
   if (setCover) {
-    await prisma.model.update({ where: { id: model.id }, data: { coverImagePath: publicPath } })
+    await prisma.model.update({ where: { id: model.id }, data: { coverImagePath: publicPath, coverImageStatus: 'processing' } })
   }
   return NextResponse.json({ image: serializeModelImage(created) })
 }

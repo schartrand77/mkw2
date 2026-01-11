@@ -45,9 +45,47 @@ export async function GET() {
       }
     }
   }
+  const colorSurchargeRate = readNumber(['NEXT_PUBLIC_COLOR_SURCHARGE_RATE', 'COLOR_SURCHARGE_RATE'], 0.05)
+  const finishSurcharges = parseFinishSurcharges(
+    process.env.FINISH_SURCHARGES
+      || process.env.FINISH_SURCHARGE_MAP
+      || process.env.NEXT_PUBLIC_FINISH_SURCHARGES
+      || process.env.NEXT_PUBLIC_FINISH_SURCHARGE_MAP
+      || null,
+  )
   return NextResponse.json({
     stripePublishableKey,
     maxCartColors,
     materialPrices: Object.keys(materialPrices).length ? materialPrices : null,
+    colorSurchargeRate,
+    finishSurcharges,
   })
+}
+
+function readNumber(keys: string[], fallback: number): number {
+  for (const key of keys) {
+    const raw = process.env[key]
+    if (raw != null && raw !== '') {
+      const parsed = Number(raw)
+      if (!Number.isNaN(parsed) && parsed >= 0) return parsed
+    }
+  }
+  return fallback
+}
+
+function parseFinishSurcharges(raw?: string | null): Record<string, number> | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return null
+    const result: Record<string, number> = {}
+    for (const [key, value] of Object.entries(parsed)) {
+      const numeric = Number(value)
+      if (!Number.isFinite(numeric)) continue
+      result[key.toLowerCase()] = numeric
+    }
+    return Object.keys(result).length ? result : null
+  } catch {
+    return null
+  }
 }

@@ -5,6 +5,7 @@ import { requireAdmin } from '../_utils'
 import { z } from 'zod'
 import { resolvePrinterProfile } from '@/lib/printerProfiles'
 import { amazonShopItems } from '@/lib/amazon'
+import { refreshEffectivePrices } from '@/lib/pricing-cache'
 export const dynamic = 'force-dynamic'
 
 const schema = z.object({
@@ -37,6 +38,25 @@ const schema = z.object({
 
 const CONFIG_ID = 'main'
 const SHOP_ITEM_IDS = new Set(amazonShopItems.map((item) => item.id))
+const PRICING_KEYS = new Set([
+  'plaPricePerKgUsd',
+  'petgPricePerKgUsd',
+  'absPricePerKgUsd',
+  'asaPricePerKgUsd',
+  'tpuPricePerKgUsd',
+  'pa6PricePerKgUsd',
+  'pa12PricePerKgUsd',
+  'nylonPricePerKgUsd',
+  'pcPricePerKgUsd',
+  'resinPricePerKgUsd',
+  'printSpeedCm3PerHour',
+  'energyUsdPerHour',
+  'minimumPriceUsd',
+  'extraHourlyUsdAfterFirst',
+  'fillFactor',
+  'printerProfileKey',
+  'printerProfileOverrides',
+])
 
 export async function GET() {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
@@ -71,6 +91,10 @@ export async function PATCH(req: NextRequest) {
       update: payload,
       create: { id: CONFIG_ID, ...payload },
     })
+    const shouldRefresh = Object.keys(parsed).some((key) => PRICING_KEYS.has(key))
+    if (shouldRefresh) {
+      await refreshEffectivePrices(prisma, cfg)
+    }
     revalidatePath('/admin')
     revalidatePath('/gear')
     return NextResponse.json({ config: cfg })

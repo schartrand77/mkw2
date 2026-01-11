@@ -6,23 +6,17 @@ import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer } from '@/lib/storage'
 import { computeStlStatsMm } from '@/lib/stl'
 import JSZip from 'jszip'
-import { estimatePriceUSD } from '@/lib/pricing'
+import { estimatePriceUSD, resolveModelPricing } from '@/lib/pricing'
 import { refreshUserAchievements } from '@/lib/achievements'
-import sharp from 'sharp'
 import { isSupportedImageFile } from '@/lib/images'
-import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
-import { XMLParser } from 'fast-xml-parser'
 import { sendAdminDiscordNotification } from '@/lib/discord'
-import { BRAND_NAME } from '@/lib/brand'
 import { sendAdminPushNotification } from '@/lib/push'
+import { enqueueModelPreviewJob } from '@/lib/model-preview-queue'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
 
-const xmlParser = new XMLParser({
-  ignoreAttributes: false,
-  attributeNamePrefix: '',
-  removeNSPrefix: true,
-})
+const MAX_UPLOAD_FILE_BYTES = readByteEnv('UPLOAD_MAX_FILE_BYTES', 100 * 1024 * 1024)
+const MAX_UPLOAD_TOTAL_BYTES = readByteEnv('UPLOAD_MAX_TOTAL_BYTES', 200 * 1024 * 1024)
 
 function normalizeOrigin(url?: string | null) {
   if (!url) return null
@@ -32,6 +26,19 @@ function normalizeOrigin(url?: string | null) {
   } catch {
     return null
   }
+}
+
+function readByteEnv(name: string, fallback: number) {
+  const raw = process.env[name]
+  if (!raw) return fallback
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function getZipEntrySize(entry: JSZip.JSZipObject): number | null {
+  const data = (entry as any)?._data
+  const size = data?.uncompressedSize ?? data?.compressedSize
+  return Number.isFinite(size) ? Number(size) : null
 }
 
 function applyCorsHeaders(req: NextRequest, res: NextResponse, directUploadUrl?: string | null) {
@@ -61,292 +68,6 @@ function applyPreflightCors(req: NextRequest, res: NextResponse, directUploadUrl
 function jsonWithCors(req: NextRequest, body: any, init: ResponseInit | undefined, directUploadUrl?: string | null) {
   const res = NextResponse.json(body, init)
   return applyCorsHeaders(req, res, directUploadUrl)
-}
-
-type Vec3 = { x: number, y: number, z: number }
-type Matrix4x4 = [number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number]
-
-function asArray<T>(value: T | T[] | undefined | null): T[] {
-  if (!value) return []
-  return Array.isArray(value) ? value : [value]
-}
-
-function toNumber(val: any, fallback = 0) {
-  if (val == null) return fallback
-  const n = Number(val)
-  return Number.isFinite(n) ? n : fallback
-}
-
-const IDENTITY_MATRIX: Matrix4x4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
-
-function parseTransformMatrix(value?: string | null): Matrix4x4 {
-  if (!value) return IDENTITY_MATRIX.slice() as Matrix4x4
-  const parts = value.trim().split(/\s+/).map(Number)
-  if (parts.length !== 12 || parts.some(v => !Number.isFinite(v))) {
-    return IDENTITY_MATRIX.slice() as Matrix4x4
-  }
-  const [m00, m01, m02, m10, m11, m12, m20, m21, m22, tx, ty, tz] = parts
-  return [
-    m00, m01, m02, tx,
-    m10, m11, m12, ty,
-    m20, m21, m22, tz,
-    0, 0, 0, 1,
-  ]
-}
-
-function multiplyMatrices(a: Matrix4x4, b: Matrix4x4): Matrix4x4 {
-  const out: Matrix4x4 = new Array(16).fill(0) as Matrix4x4
-  for (let row = 0; row < 4; row++) {
-    for (let col = 0; col < 4; col++) {
-      let sum = 0
-      for (let k = 0; k < 4; k++) {
-        sum += a[row * 4 + k] * b[k * 4 + col]
-      }
-      out[row * 4 + col] = sum
-    }
-  }
-  return out
-}
-
-function applyMatrix(v: Vec3, m: Matrix4x4): Vec3 {
-  const x = v.x, y = v.y, z = v.z
-  return {
-    x: m[0] * x + m[1] * y + m[2] * z + m[3],
-    y: m[4] * x + m[5] * y + m[6] * z + m[7],
-    z: m[8] * x + m[9] * y + m[10] * z + m[11],
-  }
-}
-
-function cloneTri(tri: Vec3[]): Vec3[] {
-  return tri.map(v => ({ ...v }))
-}
-
-function transformTriangles(tris: Vec3[][], matrix: Matrix4x4): Vec3[][] {
-  return tris.map(tri => tri.map(v => applyMatrix(v, matrix)))
-}
-
-function buildBinaryStl(tris: Vec3[][]): Buffer {
-  const header = Buffer.alloc(80)
-  const title = `${BRAND_NAME} STL Preview`.slice(0, 79)
-  header.write(title)
-  const triCount = tris.length
-  const body = Buffer.alloc(4 + triCount * 50)
-  let offset = 0
-  body.writeUInt32LE(triCount, offset); offset += 4
-  for (const [a, b, c] of tris) {
-    const abx = b.x - a.x
-    const aby = b.y - a.y
-    const abz = b.z - a.z
-    const acx = c.x - a.x
-    const acy = c.y - a.y
-    const acz = c.z - a.z
-    let nx = aby * acz - abz * acy
-    let ny = abz * acx - abx * acz
-    let nz = abx * acy - aby * acx
-    const len = Math.hypot(nx, ny, nz) || 1
-    nx /= len; ny /= len; nz /= len
-    body.writeFloatLE(nx, offset); offset += 4
-    body.writeFloatLE(ny, offset); offset += 4
-    body.writeFloatLE(nz, offset); offset += 4
-    ;[a, b, c].forEach((v) => {
-      body.writeFloatLE(v.x, offset); offset += 4
-      body.writeFloatLE(v.y, offset); offset += 4
-      body.writeFloatLE(v.z, offset); offset += 4
-    })
-    body.writeUInt16LE(0, offset); offset += 2
-  }
-  return Buffer.concat([header, body])
-}
-
-type ParsedObject = {
-  key: string
-  meshTriangles: Vec3[][]
-  components: { key: string, transform: Matrix4x4 }[]
-}
-
-function getAttr(obj: any, keys: string[]): any {
-  if (!obj) return undefined
-  for (const key of keys) {
-    if (obj[key] != null) return obj[key]
-  }
-  return undefined
-}
-
-function normalizeZipPath(p: string) {
-  const replaced = p.replace(/\\/g, '/').replace(/^\/+/, '')
-  const normalized = path.posix.normalize(replaced)
-  if (normalized.startsWith('../')) return normalized.replace(/^(\.\.\/)+/, '')
-  return normalized
-}
-
-async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles: number } | null> {
-  try {
-    const zip = await JSZip.loadAsync(buffer)
-    const embeddedStl = Object.values(zip.files).find(entry => !entry.dir && entry.name.toLowerCase().endsWith('.stl'))
-    if (embeddedStl) {
-      const stlBuf = await embeddedStl.async('nodebuffer')
-      console.info('3MF conversion: extracted embedded STL', { entry: embeddedStl.name })
-      return { buf: Buffer.from(stlBuf), triangles: -1 }
-    }
-    const modelEntry = Object.values(zip.files).find(entry => !entry.dir && entry.name.toLowerCase().endsWith('.model'))
-    if (!modelEntry) {
-      console.warn('3MF conversion: .model part not found')
-      return null
-    }
-
-    const objectMap = new Map<string, ParsedObject>()
-    const processedEntries = new Set<string>()
-    const buildItems: { key: string, transform: Matrix4x4 }[] = []
-    const queue: { path: string, collectBuild: boolean }[] = [{ path: modelEntry.name, collectBuild: true }]
-
-    while (queue.length) {
-      const { path: entryPathRaw, collectBuild } = queue.pop()!
-      const entryPath = normalizeZipPath(entryPathRaw)
-      if (processedEntries.has(entryPath)) continue
-      const entry = zip.file(entryPath)
-      if (!entry) {
-        console.warn('3MF conversion: referenced model entry missing', { entryPath })
-        continue
-      }
-      processedEntries.add(entryPath)
-      const xml = await entry.async('string')
-      const data = xmlParser.parse(xml)
-      const model = data?.model || data?.Model
-      if (!model) continue
-      const resourcesList = asArray(model.resources || model.Resources)
-
-      for (const obj of resourcesList.flatMap((res) => asArray(res?.object || res?.Object))) {
-        const rawId = getAttr(obj, ['id', 'ID'])
-        if (rawId == null) continue
-        const objectId = String(rawId)
-        const key = `${entryPath}#${objectId}`
-        if (objectMap.has(key)) continue
-        const mesh = obj?.mesh || obj?.Mesh
-        const vertexNodes = asArray(mesh?.vertices?.vertex || mesh?.vertices?.Vertex)
-        const vertices: Vec3[] = vertexNodes.map((v: any) => ({
-          x: toNumber(getAttr(v, ['x', 'X'])),
-          y: toNumber(getAttr(v, ['y', 'Y'])),
-          z: toNumber(getAttr(v, ['z', 'Z'])),
-        }))
-        const triangleNodes = asArray(mesh?.triangles?.triangle || mesh?.triangles?.Triangle)
-        const meshTriangles: Vec3[][] = []
-        if (vertices.length && triangleNodes.length) {
-          for (const tri of triangleNodes) {
-            const indices = [getAttr(tri, ['v1', 'V1']), getAttr(tri, ['v2', 'V2']), getAttr(tri, ['v3', 'V3'])]
-            if (indices.some(idx => idx == null)) continue
-            const v1 = vertices[toNumber(indices[0])]
-            const v2 = vertices[toNumber(indices[1])]
-            const v3 = vertices[toNumber(indices[2])]
-            if (v1 && v2 && v3) {
-              meshTriangles.push([{ ...v1 }, { ...v2 }, { ...v3 }])
-            }
-          }
-        }
-        const componentNodes = asArray(obj?.components?.component || obj?.components?.Component)
-        const components: { key: string, transform: Matrix4x4 }[] = []
-        for (const comp of componentNodes) {
-          const compIdRaw = getAttr(comp, ['objectid', 'objectId', 'objectID', 'object'])
-          if (compIdRaw == null) continue
-          const compId = String(compIdRaw)
-          const compPathRaw = getAttr(comp, ['path', 'Path'])
-          const targetPath = compPathRaw ? normalizeZipPath(compPathRaw) : entryPath
-          if (compPathRaw) queue.push({ path: compPathRaw, collectBuild: false })
-          const childKey = `${targetPath}#${compId}`
-          components.push({
-            key: childKey,
-            transform: parseTransformMatrix(getAttr(comp, ['transform', 'Transform'])),
-          })
-        }
-        objectMap.set(key, { key, meshTriangles, components })
-      }
-
-      if (collectBuild) {
-        const buildList = asArray(model.build?.item || model.build?.Item).map((item) => {
-          const itemId = getAttr(item, ['objectid', 'objectId', 'objectID', 'id', 'ID'])
-          if (itemId == null) return null
-          const key = `${entryPath}#${String(itemId)}`
-          return {
-            key,
-            transform: parseTransformMatrix(getAttr(item, ['transform', 'Transform'])),
-          }
-        }).filter((v): v is { key: string, transform: Matrix4x4 } => !!v)
-        buildItems.push(...buildList)
-      }
-    }
-    const triangles: Vec3[][] = []
-    const cache = new Map<string, Vec3[][]>()
-
-    // Resolve triangles iteratively to avoid deep recursion on complex component graphs
-    const resolveObjectTriangles = (rootKey: string): Vec3[][] => {
-      if (cache.has(rootKey)) return cache.get(rootKey)!
-
-      type Frame = { key: string, phase: 'enter' | 'exit' }
-      const frames: Frame[] = [{ key: rootKey, phase: 'enter' }]
-      const active = new Set<string>()
-
-      while (frames.length) {
-        const frame = frames.pop()!
-        const key = frame.key
-
-        if (frame.phase === 'enter') {
-          if (cache.has(key)) continue
-          if (active.has(key)) {
-            console.warn('3MF conversion: detected recursive component reference', { key })
-            cache.set(key, [])
-            continue
-          }
-          active.add(key)
-          const obj = objectMap.get(key)
-          if (!obj) {
-            cache.set(key, [])
-            active.delete(key)
-            continue
-          }
-          frames.push({ key, phase: 'exit' })
-          for (let i = obj.components.length - 1; i >= 0; i--) {
-            const child = obj.components[i]
-            frames.push({ key: child.key, phase: 'enter' })
-          }
-        } else {
-          active.delete(key)
-          const obj = objectMap.get(key)
-          if (!obj) {
-            cache.set(key, [])
-            continue
-          }
-          let triList = obj.meshTriangles.map(tri => tri.map(v => ({ ...v })))
-          for (const comp of obj.components) {
-            const childTris = cache.get(comp.key) || []
-            const transformed = transformTriangles(childTris, comp.transform)
-            triList = triList.concat(transformed)
-          }
-          cache.set(key, triList)
-        }
-      }
-
-      return cache.get(rootKey) || []
-    }
-
-    const itemsToProcess = buildItems.length > 0
-      ? buildItems
-      : Array.from(objectMap.keys()).map((key) => ({ key, transform: IDENTITY_MATRIX }))
-
-    for (const item of itemsToProcess) {
-      const localTris = resolveObjectTriangles(item.key)
-      if (!localTris.length) continue
-      const transformed = transformTriangles(localTris, item.transform)
-      for (const tri of transformed) triangles.push(tri)
-    }
-
-    if (triangles.length === 0) {
-      console.warn('3MF conversion: no triangles located in model', { entry: modelEntry.name })
-      return null
-    }
-    return { buf: buildBinaryStl(triangles), triangles: triangles.length }
-  } catch (err) {
-    console.warn('3MF conversion to STL failed', err)
-    return null
-  }
 }
 
 export async function OPTIONS(req: NextRequest) {
@@ -392,9 +113,17 @@ export async function POST(req: NextRequest) {
     const modelFiles: { name: string, buf: Buffer }[] = []
     const inputs = files && files.length > 0 ? files : (model ? [model] : [])
     if (!inputs || inputs.length === 0) return json({ error: 'Missing model files' }, { status: 400 })
+    const inputBytes = inputs.reduce((sum, file) => sum + (file?.size || 0), 0)
+    if (inputBytes > MAX_UPLOAD_TOTAL_BYTES) {
+      return json({ error: 'Upload exceeds total size limit.' }, { status: 413 })
+    }
 
+    let extractedBytes = 0
     for (const f of inputs) {
       const lower = f.name.toLowerCase()
+      if (f.size > MAX_UPLOAD_FILE_BYTES) {
+        return json({ error: `File too large: ${f.name}` }, { status: 413 })
+      }
       const ab = await f.arrayBuffer()
       const buf = Buffer.from(ab)
       if (lower.endsWith('.zip')) {
@@ -404,10 +133,22 @@ export async function POST(req: NextRequest) {
           if (entry.dir) continue
           const ename = entry.name
           if (!isAllowedModel(ename)) continue
+          const entrySize = getZipEntrySize(entry)
+          if (entrySize && entrySize > MAX_UPLOAD_FILE_BYTES) {
+            return json({ error: `Zip entry too large: ${path.basename(ename)}` }, { status: 413 })
+          }
           const ebuf = await entry.async('nodebuffer')
+          extractedBytes += entrySize || ebuf.length
+          if (extractedBytes > MAX_UPLOAD_TOTAL_BYTES) {
+            return json({ error: 'Upload exceeds total size limit.' }, { status: 413 })
+          }
           modelFiles.push({ name: path.basename(ename), buf: ebuf })
         }
       } else if (isAllowedModel(lower)) {
+        extractedBytes += buf.length
+        if (extractedBytes > MAX_UPLOAD_TOTAL_BYTES) {
+          return json({ error: 'Upload exceeds total size limit.' }, { status: 413 })
+        }
         modelFiles.push({ name: f.name, buf })
       }
     }
@@ -415,15 +156,18 @@ export async function POST(req: NextRequest) {
     if (modelFiles.length === 0) return json({ error: 'No valid model files found' }, { status: 400 })
 
     let coverImageRel: string | undefined
+    let coverImageSourceRel: string | undefined
     if (image && isSupportedImageFile(image.name, image.type)) {
       try {
         const imgBuf = Buffer.from(await image.arrayBuffer())
-        const prepared = await ensureProcessableImageBuffer(imgBuf, { filename: image.name, mimeType: image.type })
-        const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
-        const processed = await pipeline.resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
+        if (imgBuf.length === 0) {
+          throw new Error('Image upload failed')
+        }
+        const ext = path.extname(image.name) || '.bin'
+        coverImageSourceRel = path.join(userId, 'uploads', `cover-raw-${Date.now()}${ext}`)
+        await saveBuffer(coverImageSourceRel, imgBuf)
         // Store cover images under userId/thumbnails as consistent webp assets
         coverImageRel = path.join(userId, 'thumbnails', `${Date.now()}-${safeName(title) || 'cover'}.webp`)
-        await saveBuffer(coverImageRel, processed)
       } catch (err) {
         console.error('Failed to process cover image:', err)
       }
@@ -435,13 +179,14 @@ export async function POST(req: NextRequest) {
     let totalVolMm3 = 0
     let totalPrice = 0
     const partCreates: any[] = []
+    const previewJobs: Array<{ sourcePath: string, previewPath: string, partIndex: number }> = []
     const partVolumes: Array<number | null> = []
     let firstPath: string | null = null
     let firstViewerPath: string | null = null
     const storedExts: string[] = []
-    // overall bounding box
-    let minX = Number.POSITIVE_INFINITY, minY = Number.POSITIVE_INFINITY, minZ = Number.POSITIVE_INFINITY
-    let maxX = Number.NEGATIVE_INFINITY, maxY = Number.NEGATIVE_INFINITY, maxZ = Number.NEGATIVE_INFINITY
+    let overallSizeXmm: number | undefined
+    let overallSizeYmm: number | undefined
+    let overallSizeZmm: number | undefined
 
     for (let i = 0; i < modelFiles.length; i++) {
       const f = modelFiles[i]
@@ -450,15 +195,10 @@ export async function POST(req: NextRequest) {
       const storedBuf = f.buf
       let previewBuf: Buffer | null = null
       let previewExt: string | null = null
+      let queuedPreviewPath: string | null = null
       if (storedExt === '.3mf') {
-        const extracted = await convert3mfToStl(f.buf)
-        if (extracted) {
-          previewBuf = extracted.buf
-          previewExt = '.stl'
-          console.info('3MF converted to STL preview', { triangles: extracted.triangles })
-        } else {
-          console.warn('3MF conversion returned no data; keeping original 3MF', { file: f.name })
-        }
+        const previewRel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}-preview.stl`)
+        queuedPreviewPath = `/${previewRel.replace(/\\/g, '/')}`
       }
 
       const rel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}${storedExt}`)
@@ -472,7 +212,7 @@ export async function POST(req: NextRequest) {
         await saveBuffer(previewRel, previewBuf)
         previewPath = `/${previewRel.replace(/\\/g, '/')}`
       }
-      const viewerPath = storedExt === '.3mf' ? storedPath : (previewPath || storedPath)
+      const viewerPath = previewPath || storedPath
       if (!firstViewerPath && viewerPath) firstViewerPath = viewerPath
       let volMm3: number | null = null
       let sizeXmm: number | undefined, sizeYmm: number | undefined, sizeZmm: number | undefined
@@ -481,14 +221,10 @@ export async function POST(req: NextRequest) {
         const stats = computeStlStatsMm(statsBuf)
         volMm3 = stats.volumeMm3
         sizeXmm = stats.sizeXmm; sizeYmm = stats.sizeYmm; sizeZmm = stats.sizeZmm
-        if (sizeXmm != null && sizeYmm != null && sizeZmm != null) {
-          // update overall
-          const sx = sizeXmm, sy = sizeYmm, sz = sizeZmm
-          // We don't know min/max directly from sizes; assume centered around 0 -> approximate using size only
-          // Better: treat size as extents; expand overall by size (relative). We'll skip for now and set overall based on max of parts sizes.
-          if (sx > (maxX - minX) || minX === Infinity) { maxX = sx; minX = 0 }
-          if (sy > (maxY - minY) || minY === Infinity) { maxY = sy; minY = 0 }
-          if (sz > (maxZ - minZ) || minZ === Infinity) { maxZ = sz; minZ = 0 }
+        if (!isMultipart && sizeXmm != null && sizeYmm != null && sizeZmm != null) {
+          overallSizeXmm = sizeXmm
+          overallSizeYmm = sizeYmm
+          overallSizeZmm = sizeZmm
         }
       }
       const cm3 = volMm3 ? volMm3 / 1000 : null
@@ -507,6 +243,9 @@ export async function POST(req: NextRequest) {
         sizeZmm,
         priceUsd: p || undefined
       })
+      if (storedExt === '.3mf' && queuedPreviewPath) {
+        previewJobs.push({ sourcePath: storedPath, previewPath: queuedPreviewPath, partIndex: i })
+      }
     }
 
     if (isMultipart && totalVolMm3 > 0) {
@@ -519,6 +258,13 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    const effectivePriceUsd = resolveModelPricing({
+      volumeMm3: totalVolMm3 || null,
+      material,
+      priceUsd: totalPrice || null,
+      salePriceUsd: null,
+    }, cfg).priceUsd
+
     const created = await prisma.model.create({
       data: {
         userId,
@@ -529,17 +275,38 @@ export async function POST(req: NextRequest) {
         material,
         filePath: firstPath!,
         viewerFilePath: firstViewerPath || firstPath!,
-        coverImagePath: coverImageRel ? `/${coverImageRel.replace(/\\/g, '/')}` : undefined,
         fileType: modelFiles.length > 1 ? 'MULTI' : (storedExts[0] || path.extname(modelFiles[0].name).replace('.', '').toUpperCase()),
         volumeMm3: totalVolMm3 || undefined,
-        sizeXmm: isFinite(maxX - minX) ? (maxX - minX) : undefined,
-        sizeYmm: isFinite(maxY - minY) ? (maxY - minY) : undefined,
-        sizeZmm: isFinite(maxZ - minZ) ? (maxZ - minZ) : undefined,
+        sizeXmm: overallSizeXmm,
+        sizeYmm: overallSizeYmm,
+        sizeZmm: overallSizeZmm,
         priceUsd: totalPrice || undefined,
+        effectivePriceUsd: effectivePriceUsd ?? undefined,
+        effectivePriceUpdatedAt: effectivePriceUsd != null ? new Date() : undefined,
+        coverImagePath: coverImageRel ? `/${coverImageRel.replace(/\\/g, '/')}` : undefined,
+        coverImageStatus: coverImageRel ? 'processing' : undefined,
+        coverImageSourcePath: coverImageSourceRel ? `/${coverImageSourceRel.replace(/\\/g, '/')}` : undefined,
         modelTags: tagsRaw ? { create: await prepareTags(tagsRaw) } : undefined,
         parts: { create: partCreates }
-      }
+      },
+      include: { parts: true }
     })
+    if (previewJobs.length > 0) {
+      try {
+        for (const job of previewJobs) {
+          const part = created.parts.find((entry) => entry.index === job.partIndex)
+          if (!part) continue
+          await enqueueModelPreviewJob({
+            modelId: created.id,
+            partId: part.id,
+            sourcePath: job.sourcePath,
+            previewPath: job.previewPath,
+          })
+        }
+      } catch (err) {
+        console.warn('Failed to queue 3MF preview job', err)
+      }
+    }
     try { await refreshUserAchievements(prisma, userId) } catch {}
     try {
       const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
