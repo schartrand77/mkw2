@@ -121,8 +121,15 @@ body {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .shop-favorite-card { animation: none; }
-  .shop-favorite-card::before { animation: none; opacity: 0.2; }
+  .shop-favorite-card {
+    animation-duration: 10s;
+    animation-timing-function: ease-out;
+  }
+  .shop-favorite-card::before {
+    animation-duration: 10s;
+    animation-timing-function: ease-out;
+    opacity: 0.18;
+  }
 }
 
 .input {
