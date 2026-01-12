@@ -7,6 +7,7 @@ import { saveBuffer, storageRoot } from '@/lib/storage'
 import { computeStlStatsMm } from '@/lib/stl'
 import { estimatePriceUSD, resolveModelPricing } from '@/lib/pricing'
 import { BRAND_NAME } from '@/lib/brand'
+import { notifyModelProcessingReady } from '@/lib/model-processing-notifications'
 
 const STATUS_PENDING = 'pending'
 const STATUS_PROCESSING = 'processing'
@@ -76,6 +77,33 @@ function sanitizeError(err: unknown) {
 function asArray<T>(value: T | T[] | undefined | null): T[] {
   if (!value) return []
   return Array.isArray(value) ? value : [value]
+}
+
+async function maybeNotifyPreviewReady(modelId: string) {
+  const remainingJobs = await prisma.modelPreviewJob.count({
+    where: { modelId, status: { in: [STATUS_PENDING, STATUS_PROCESSING] } },
+  })
+  if (remainingJobs > 0) return
+  const parts = await prisma.modelPart.findMany({
+    where: { modelId },
+    select: { filePath: true, previewFilePath: true },
+  })
+  if (parts.length === 0) return
+  const has3mf = parts.some((part) => String(part.filePath || '').toLowerCase().endsWith('.3mf'))
+  if (!has3mf) return
+  const missingPreview = parts.some((part) => String(part.filePath || '').toLowerCase().endsWith('.3mf') && !part.previewFilePath)
+  if (missingPreview) return
+  const model = await prisma.model.findUnique({
+    where: { id: modelId },
+    select: { id: true, title: true, userId: true },
+  })
+  if (!model) return
+  await notifyModelProcessingReady({
+    modelId: model.id,
+    userId: model.userId,
+    modelTitle: model.title,
+    kind: 'preview',
+  })
 }
 
 function toNumber(val: any, fallback = 0) {
@@ -487,6 +515,7 @@ export async function processPendingModelPreviews(limit = 3): Promise<ProcessRes
         where: { id: job.id },
         data: { status: STATUS_READY },
       })
+      await maybeNotifyPreviewReady(job.modelId)
       processed += 1
 
     } catch (err) {
