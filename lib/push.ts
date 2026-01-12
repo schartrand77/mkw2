@@ -1,7 +1,7 @@
 import webpush from 'web-push'
 import { prisma } from '@/lib/db'
 
-type AdminPushPayload = {
+type PushPayload = {
   title: string
   body?: string | null
   url?: string | null
@@ -29,7 +29,7 @@ function ensureVapidConfigured() {
   return true
 }
 
-function buildPayload(payload: AdminPushPayload) {
+function buildPayload(payload: PushPayload) {
   return {
     title: payload.title,
     body: payload.body || '',
@@ -41,12 +41,7 @@ function buildPayload(payload: AdminPushPayload) {
   }
 }
 
-export async function sendAdminPushNotification(payload: AdminPushPayload) {
-  if (!ensureVapidConfigured()) return false
-  const subscriptions = await prisma.pushSubscription.findMany({
-    where: { user: { isAdmin: true } },
-  })
-  if (subscriptions.length === 0) return false
+async function sendPushNotifications(subscriptions: Array<{ id: string; endpoint: string; p256dh: string; auth: string }>, payload: PushPayload) {
   const message = JSON.stringify(buildPayload(payload))
   await Promise.all(subscriptions.map(async (subscription) => {
     try {
@@ -66,8 +61,27 @@ export async function sendAdminPushNotification(payload: AdminPushPayload) {
         await prisma.pushSubscription.delete({ where: { id: subscription.id } })
         return
       }
-      console.error('[push] Failed to send admin notification', err)
+      console.error('[push] Failed to send notification', err)
     }
   }))
+}
+
+export async function sendAdminPushNotification(payload: PushPayload) {
+  if (!ensureVapidConfigured()) return false
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { user: { isAdmin: true } },
+  })
+  if (subscriptions.length === 0) return false
+  await sendPushNotifications(subscriptions, payload)
+  return true
+}
+
+export async function sendUserPushNotification(userId: string, payload: PushPayload) {
+  if (!ensureVapidConfigured()) return false
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { userId },
+  })
+  if (subscriptions.length === 0) return false
+  await sendPushNotifications(subscriptions, payload)
   return true
 }
