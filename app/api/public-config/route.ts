@@ -19,8 +19,8 @@ const MATERIAL_PRICE_FIELDS = {
 } as const
 
 export async function GET() {
-  const stripePublishableKey = process.env[`STRIPE_${'PUBLISHABLE_KEY'}`]
-    || process.env[`NEXT_PUBLIC_STRIPE_${'PUBLISHABLE_KEY'}`]
+  const stripePublishableKey = getEnvValue('STRIPE_PUBLISHABLE_KEY')
+    || getEnvValue('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY')
     || ''
   const maxCartColors = getMaxCartColors()
   const cfg = await prisma.siteConfig.findUnique({
@@ -64,6 +64,14 @@ export async function GET() {
   })
   res.headers.set('Cache-Control', 'no-store, max-age=0')
   return res
+}
+
+function getEnvValue(name: string): string | undefined {
+  const entries = Object.entries(process.env)
+  for (const [key, value] of entries) {
+    if (key === name && typeof value === 'string' && value !== '') return value
+  }
+  return undefined
 }
 
 function readNumber(keys: string[], fallback: number): number {
