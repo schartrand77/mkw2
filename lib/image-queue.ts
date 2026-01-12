@@ -6,6 +6,7 @@ import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image
 import { isHeicLikeSource } from '@/lib/images'
 import { saveBuffer, storageRoot } from '@/lib/storage'
 import { sendAdminPushNotification } from '@/lib/push'
+import { notifyModelProcessingReady } from '@/lib/model-processing-notifications'
 
 const STATUS_PROCESSING = 'processing'
 const STATUS_READY = 'ready'
@@ -72,6 +73,12 @@ async function processCoverImages(limit: number): Promise<ProcessResult> {
         },
       })
       await safeUnlink(sourcePath)
+      await notifyModelProcessingReady({
+        modelId: model.id,
+        userId: model.userId,
+        modelTitle: model.title,
+        kind: 'cover',
+      })
       processed += 1
     } catch (err) {
       await prisma.model.update({
@@ -117,11 +124,23 @@ async function processModelImages(limit: number): Promise<ProcessResult> {
         where: { id: image.id },
         data: { status: STATUS_READY, sourcePath: null, error: null },
       })
+      const coverModels = await prisma.model.findMany({
+        where: { coverImagePath: image.filePath, coverImageStatus: STATUS_PROCESSING },
+        select: { id: true, title: true, userId: true },
+      })
       await prisma.model.updateMany({
         where: { coverImagePath: image.filePath, coverImageStatus: STATUS_PROCESSING },
         data: { coverImageStatus: STATUS_READY, coverImageError: null },
       })
       await safeUnlink(sourcePath)
+      if (coverModels.length) {
+        await Promise.all(coverModels.map((model) => notifyModelProcessingReady({
+          modelId: model.id,
+          userId: model.userId,
+          modelTitle: model.title,
+          kind: 'cover',
+        })))
+      }
       processed += 1
     } catch (err) {
       await prisma.modelImage.update({
