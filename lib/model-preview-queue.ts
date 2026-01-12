@@ -488,6 +488,7 @@ export async function processPendingModelPreviews(limit = 3): Promise<ProcessRes
         data: { status: STATUS_READY },
       })
       processed += 1
+
     } catch (err) {
       failed += 1
       await prisma.modelPreviewJob.update({

@@ -41,7 +41,7 @@ async function processCoverImages(limit: number): Promise<ProcessResult> {
       coverImageSourcePath: { not: null },
       coverImagePath: { not: null },
     },
-    select: { id: true, coverImageSourcePath: true, coverImagePath: true },
+    select: { id: true, title: true, userId: true, coverImageSourcePath: true, coverImagePath: true },
     take: limit,
   })
 

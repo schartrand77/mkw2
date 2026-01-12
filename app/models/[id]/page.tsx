@@ -13,6 +13,7 @@ import ModelPartsList from '@/components/ModelPartsList'
 import ModelComments from '@/components/ModelComments'
 import ModelShareButton from '@/components/ModelShareButton'
 import InstantQuoteConfigurator from '@/components/InstantQuoteConfigurator'
+import ModelProcessingNotifier from '@/components/ModelProcessingNotifier'
 
 async function fetchModel(id: string, baseUrl: string) {
   const res = await fetch(`${baseUrl}/api/models/${id}`, { cache: 'no-store' })
@@ -60,6 +61,11 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   const me = payload?.sub ? await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } }) : null
   const canEdit = !!(payload?.sub && (payload.sub === model.userId || me?.isAdmin))
   const canModerateComments = !!me?.isAdmin
+  const coverProcessing = model.coverImageStatus === 'processing'
+  const previewProcessing = Array.isArray(model.parts)
+    ? model.parts.some((part: any) => String(part.filePath || '').toLowerCase().endsWith('.3mf') && !part.previewFilePath)
+    : false
+  const isProcessing = coverProcessing || previewProcessing
   return (
     <div className="max-w-5xl mx-auto space-y-5">
       <div>
@@ -68,6 +74,27 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           Back to Discover
         </Link>
       </div>
+      {canEdit && isProcessing && (
+        <div className="glass rounded-xl p-4 text-sm text-slate-200 border border-amber-400/30">
+          <div className="font-semibold text-amber-200">Processing uploads</div>
+          <p className="text-slate-300 mt-1">
+            {coverProcessing && previewProcessing
+              ? 'Cover image and 3MF previews are processing in the background.'
+              : coverProcessing
+                ? 'Cover image is processing in the background.'
+                : '3MF previews are processing in the background.'}
+            {' '}We will email you when everything is ready.
+          </p>
+        </div>
+      )}
+      {canEdit && (
+        <ModelProcessingNotifier
+          modelId={model.id}
+          enabled={canEdit}
+          initialCoverProcessing={coverProcessing}
+          initialPreviewProcessing={previewProcessing}
+        />
+      )}
       <div className="grid lg:grid-cols-2 gap-8">
         <div>
           <Gallery
