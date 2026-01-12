@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { getMaxCartColors } from '@/lib/cartPricing'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 const MATERIAL_PRICE_FIELDS = {
   PLA: 'plaPricePerKgUsd',
@@ -18,8 +19,9 @@ const MATERIAL_PRICE_FIELDS = {
 } as const
 
 export async function GET() {
-  const publicKeyVar = 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY'
-  const stripePublishableKey = process.env.STRIPE_PUBLISHABLE_KEY || process.env[publicKeyVar] || ''
+  const stripePublishableKey = process.env['STRIPE_PUBLISHABLE_KEY']
+    || process.env['NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY']
+    || ''
   const maxCartColors = getMaxCartColors()
   const cfg = await prisma.siteConfig.findUnique({
     where: { id: 'main' },
@@ -53,13 +55,15 @@ export async function GET() {
       || process.env.NEXT_PUBLIC_FINISH_SURCHARGE_MAP
       || null,
   )
-  return NextResponse.json({
+  const res = NextResponse.json({
     stripePublishableKey,
     maxCartColors,
     materialPrices: Object.keys(materialPrices).length ? materialPrices : null,
     colorSurchargeRate,
     finishSurcharges,
   })
+  res.headers.set('Cache-Control', 'no-store, max-age=0')
+  return res
 }
 
 function readNumber(keys: string[], fallback: number): number {
