@@ -14,6 +14,7 @@ const STATUS_READY = 'ready'
 const STATUS_FAILED = 'failed'
 
 const MAX_3MF_CONVERT_BYTES = readByteEnv('UPLOAD_MAX_3MF_CONVERT_BYTES', 25 * 1024 * 1024)
+const MAX_3MF_TRIANGLES = readCountEnv('UPLOAD_MAX_3MF_TRIANGLES', 800000)
 
 const xmlParser = new XMLParser({
   ignoreAttributes: false,
@@ -49,6 +50,13 @@ function readByteEnv(name: string, fallback: number) {
   if (!raw) return fallback
   const parsed = Number(raw)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function readCountEnv(name: string, fallback: number) {
+  const raw = process.env[name]
+  if (!raw) return fallback
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
 }
 
 function resolveStoragePath(storedPath: string) {
@@ -158,7 +166,7 @@ function getZipEntrySize(entry: JSZip.JSZipObject): number | null {
   return Number.isFinite(size) ? Number(size) : null
 }
 
-async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles: number } | null> {
+export async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles: number } | null> {
   try {
     if (buffer.length > MAX_3MF_CONVERT_BYTES) {
       console.warn('3MF conversion skipped due to size limit', { bytes: buffer.length })
@@ -220,6 +228,9 @@ async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles
             const v3 = vertices[toNumber(indices[2])]
             if (v1 && v2 && v3) {
               meshTriangles.push([{ ...v1 }, { ...v2 }, { ...v3 }])
+              if (meshTriangles.length > MAX_3MF_TRIANGLES) {
+                throw new Error('3MF conversion exceeded triangle cap.')
+              }
             }
           }
         }
@@ -295,6 +306,9 @@ async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles
             const childTris = cache.get(comp.key) || []
             const transformed = transformTriangles(childTris, comp.transform)
             triList = triList.concat(transformed)
+            if (triList.length > MAX_3MF_TRIANGLES) {
+              throw new Error('3MF conversion exceeded triangle cap.')
+            }
           }
           cache.set(key, triList)
         }
@@ -310,7 +324,12 @@ async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles
       const localTris = resolveObjectTriangles(item.key)
       if (!localTris.length) continue
       const transformed = transformTriangles(localTris, item.transform)
-      for (const tri of transformed) triangles.push(tri)
+      for (const tri of transformed) {
+        triangles.push(tri)
+        if (triangles.length > MAX_3MF_TRIANGLES) {
+          throw new Error('3MF conversion exceeded triangle cap.')
+        }
+      }
     }
 
     if (triangles.length === 0) return null

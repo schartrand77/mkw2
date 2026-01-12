@@ -12,6 +12,13 @@ export const dynamic = 'force-dynamic'
 
 type ModelDownloadContext = { params: Promise<{ id: string }> }
 
+function readZipLevel() {
+  const raw = process.env.ZIP_COMPRESSION_LEVEL
+  const parsed = raw ? Number(raw) : NaN
+  if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 9) return Math.floor(parsed)
+  return 6
+}
+
 export async function GET(_req: NextRequest, { params }: ModelDownloadContext) {
   const { id } = await params
   const model = await prisma.model.findUnique({
@@ -37,7 +44,7 @@ export async function GET(_req: NextRequest, { params }: ModelDownloadContext) {
     body = Readable.toWeb(fileStream) as BodyInit
   } catch {
     await mkdir(zipDir, { recursive: true })
-    const archive = archiver('zip', { zlib: { level: 9 } })
+    const archive = archiver('zip', { zlib: { level: readZipLevel() } })
     const passThrough = new PassThrough()
     const writeStream = createWriteStream(zipPath)
     archive.on('error', (err) => {

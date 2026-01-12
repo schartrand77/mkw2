@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import path from 'path'
+import { createWriteStream } from 'fs'
+import { readFile, rename, unlink } from 'fs/promises'
+import { pipeline } from 'stream/promises'
+import { Readable, Transform } from 'stream'
+import { randomUUID } from 'crypto'
+import Busboy from 'busboy'
+import UnzipperParse from 'unzipper/lib/parse'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
-import { saveBuffer } from '@/lib/storage'
+import { ensureDir, saveBuffer, storageRoot } from '@/lib/storage'
 import { computeStlStatsMm } from '@/lib/stl'
-import JSZip from 'jszip'
 import { estimatePriceUSD, resolveModelPricing } from '@/lib/pricing'
 import { refreshUserAchievements } from '@/lib/achievements'
 import { isSupportedImageFile } from '@/lib/images'
 import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
-import { enqueueModelPreviewJob } from '@/lib/model-preview-queue'
+import { convert3mfToStl, enqueueModelPreviewJob } from '@/lib/model-preview-queue'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
 
@@ -33,12 +39,6 @@ function readByteEnv(name: string, fallback: number) {
   if (!raw) return fallback
   const parsed = Number(raw)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
-}
-
-function getZipEntrySize(entry: JSZip.JSZipObject): number | null {
-  const data = (entry as any)?._data
-  const size = data?.uncompressedSize ?? data?.compressedSize
-  return Number.isFinite(size) ? Number(size) : null
 }
 
 function applyCorsHeaders(req: NextRequest, res: NextResponse, directUploadUrl?: string | null) {
@@ -70,6 +70,270 @@ function jsonWithCors(req: NextRequest, body: any, init: ResponseInit | undefine
   return applyCorsHeaders(req, res, directUploadUrl)
 }
 
+function uploadError(message: string, status = 400) {
+  const err = new Error(message) as Error & { status?: number }
+  err.status = status
+  return err
+}
+
+type TempModelFile = {
+  originalName: string
+  ext: string
+  tempRel: string
+  tempFull: string
+  size: number
+}
+
+type ParsedUpload = {
+  fields: Record<string, string>
+  modelFiles: TempModelFile[]
+  coverImageSourceRel?: string
+  sawModelInput: boolean
+}
+
+type ZipEntry = NodeJS.ReadableStream & {
+  type: 'File' | 'Directory' | string
+  path: string
+  vars?: { uncompressedSize?: number }
+  autodrain: () => void
+}
+
+function buildTempRelPath(userId: string, filename: string) {
+  const ext = path.extname(filename) || '.bin'
+  const base = safeName(path.basename(filename, ext)) || 'upload'
+  return path.join(userId, 'tmp', `${Date.now()}-${randomUUID()}-${base}${ext}`)
+}
+
+async function streamToStorage(relPath: string, stream: NodeJS.ReadableStream, onBytes?: (size: number) => void) {
+  const full = path.join(storageRoot(), relPath)
+  await ensureDir(path.dirname(full))
+  const out = createWriteStream(full)
+  if (!onBytes) {
+    await pipeline(stream, out)
+    return full
+  }
+  const counter = new Transform({
+    transform(chunk, _enc, cb) {
+      try {
+        onBytes(chunk.length)
+        cb(null, chunk)
+      } catch (err) {
+        cb(err as Error)
+      }
+    },
+  })
+  await pipeline(stream, counter, out)
+  return full
+}
+
+async function parseMultipartUpload(req: NextRequest, userId: string) {
+  const headers: Record<string, string> = {}
+  req.headers.forEach((value, key) => {
+    headers[key] = value
+  })
+  const bb = Busboy({
+    headers,
+    limits: {
+      fileSize: MAX_UPLOAD_FILE_BYTES,
+      files: 25,
+      fields: 50,
+      parts: 100,
+    },
+  })
+  const fields: Record<string, string> = {}
+  const modelFiles: TempModelFile[] = []
+  let coverImageSourceRel: string | undefined
+  let totalModelBytes = 0
+  let sawModelInput = false
+  const fileWrites: Array<Promise<void>> = []
+  let failed = false
+  let settled = false
+  let rejectOnce: (err: Error) => void = () => undefined
+
+  const trackTotalBytes = (bytes: number) => {
+    totalModelBytes += bytes
+    if (totalModelBytes > MAX_UPLOAD_TOTAL_BYTES) {
+      throw uploadError('Upload exceeds total size limit.', 413)
+    }
+  }
+
+  const fail = (err: Error) => {
+    if (failed) return
+    failed = true
+    bb.destroy(err)
+    rejectOnce(err)
+  }
+
+  bb.on('field', (name, value) => {
+    fields[name] = value
+  })
+
+  bb.on('file', (fieldname, file, info) => {
+    const filename = info.filename || 'upload.bin'
+    const lower = filename.toLowerCase()
+
+    file.on('limit', () => {
+      fail(uploadError(`File too large: ${filename}`, 413))
+      file.resume()
+    })
+
+    if (fieldname === 'image') {
+      if (coverImageSourceRel || !isSupportedImageFile(filename, info.mimeType || '')) {
+        file.resume()
+        return
+      }
+      const ext = path.extname(filename) || '.bin'
+      coverImageSourceRel = path.join(userId, 'uploads', `cover-raw-${Date.now()}${ext}`)
+      let imageBytes = 0
+      const p: Promise<void> = (async () => {
+        try {
+          await streamToStorage(coverImageSourceRel!, file, (size) => { imageBytes += size })
+          if (imageBytes === 0) {
+            throw new Error('Image upload failed')
+          }
+        } catch (err) {
+          console.error('Failed to process cover image:', err)
+          coverImageSourceRel = undefined
+        }
+      })()
+      fileWrites.push(p)
+      return
+    }
+
+    if (fieldname !== 'files' && fieldname !== 'model') {
+      file.resume()
+      return
+    }
+    sawModelInput = true
+
+    if (lower.endsWith('.zip')) {
+      const p: Promise<void> = (async () => {
+        const zipParser = (UnzipperParse as any)({ forceStream: true })
+        const entryWrites: Array<Promise<void>> = []
+        const done = new Promise<void>((resolve, reject) => {
+          zipParser.on('error', reject)
+          zipParser.on('close', resolve)
+        })
+
+        zipParser.on('entry', (entry: ZipEntry) => {
+          const entryPromise = (async () => {
+            if (entry.type === 'Directory') {
+              entry.autodrain()
+              return
+            }
+            const entryName = path.basename(entry.path)
+            if (!isAllowedModel(entryName)) {
+              entry.autodrain()
+              return
+            }
+            const entrySize = Number(entry.vars?.uncompressedSize || 0)
+            if (entrySize && entrySize > MAX_UPLOAD_FILE_BYTES) {
+              entry.autodrain()
+              throw uploadError(`Zip entry too large: ${entryName}`, 413)
+            }
+            const ext = path.extname(entryName).toLowerCase() || '.bin'
+            const tempRel = buildTempRelPath(userId, entryName)
+            const tempFull = path.join(storageRoot(), tempRel)
+            const record: TempModelFile = {
+              originalName: entryName,
+              ext,
+              tempRel,
+              tempFull,
+              size: 0,
+            }
+            modelFiles.push(record)
+            await streamToStorage(tempRel, entry, (size) => {
+              record.size += size
+              if (record.size > MAX_UPLOAD_FILE_BYTES) {
+                throw uploadError(`Zip entry too large: ${entryName}`, 413)
+              }
+              trackTotalBytes(size)
+            })
+          })().catch((err) => {
+            zipParser.destroy(err as Error)
+            throw err
+          })
+          entryWrites.push(entryPromise)
+        })
+
+        file.pipe(zipParser)
+        await done
+        await Promise.all(entryWrites)
+      })()
+      fileWrites.push(p)
+      return
+    }
+
+    if (!isAllowedModel(lower)) {
+      file.resume()
+      return
+    }
+
+    const tempRel = buildTempRelPath(userId, filename)
+    const tempFull = path.join(storageRoot(), tempRel)
+    const record: TempModelFile = {
+      originalName: filename,
+      ext: path.extname(filename).toLowerCase() || '.bin',
+      tempRel,
+      tempFull,
+      size: 0,
+    }
+    modelFiles.push(record)
+    const p: Promise<void> = streamToStorage(tempRel, file, (size) => {
+      record.size += size
+      trackTotalBytes(size)
+    }).then(() => undefined).catch((err) => {
+      file.destroy(err as Error)
+      throw err
+    })
+    fileWrites.push(p)
+  })
+
+  return new Promise<ParsedUpload>((resolve, reject) => {
+    rejectOnce = (err) => {
+      if (settled) return
+      settled = true
+      reject(err)
+    }
+
+    bb.on('error', (err) => {
+      const error = err instanceof Error ? err : new Error(String(err))
+      rejectOnce(error)
+    })
+
+    bb.on('finish', async () => {
+      if (failed) return
+      try {
+        await Promise.all(fileWrites)
+        if (settled) return
+        settled = true
+        resolve({ fields, modelFiles, coverImageSourceRel, sawModelInput })
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err))
+        rejectOnce(error)
+      }
+    })
+
+    if (!req.body) {
+      rejectOnce(new Error('Missing request body'))
+      return
+    }
+
+    Readable.fromWeb(req.body as any).pipe(bb)
+  })
+}
+
+async function moveTempFile(tempFull: string, finalRel: string) {
+  const finalFull = path.join(storageRoot(), finalRel)
+  await ensureDir(path.dirname(finalFull))
+  await rename(tempFull, finalFull)
+  return finalFull
+}
+
+async function cleanupTempFiles(files: TempModelFile[]) {
+  await Promise.all(files.map((file) => unlink(file.tempFull).catch(() => undefined)))
+}
+
 export async function OPTIONS(req: NextRequest) {
   try {
     const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' }, select: { directUploadUrl: true } })
@@ -83,6 +347,7 @@ export async function OPTIONS(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   let directUploadUrl: string | null = process.env.DIRECT_UPLOAD_URL || null
+  let tempFiles: TempModelFile[] = []
   try {
     // Check site config for anonymous upload policy
     const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
@@ -98,79 +363,24 @@ export async function POST(req: NextRequest) {
       select: { email: true, name: true, profile: { select: { slug: true } } },
     })
 
-    const form = await req.formData()
-    const title = String(form.get('title') || '').slice(0, 200)
-    const description = String(form.get('description') || '').slice(0, 2000)
-    const creditName = ((form.get('creditName') as string) || '').slice(0, 200) || null
-    const creditUrl = ((form.get('creditUrl') as string) || '').slice(0, 500) || null
-    const material = String(form.get('material') || 'PLA').slice(0, 40)
-    const files = form.getAll('files') as File[]
-    const model = (form.get('model') as File | null) // legacy single file field
-    const tagsRaw = (form.get('tags') as string | null) || ''
-    const image = form.get('image') as File | null
+    const parsed = await parseMultipartUpload(req, userId)
+    tempFiles = parsed.modelFiles
+    const title = String(parsed.fields.title || '').slice(0, 200)
+    const description = String(parsed.fields.description || '').slice(0, 2000)
+    const creditName = String(parsed.fields.creditName || '').slice(0, 200) || null
+    const creditUrl = String(parsed.fields.creditUrl || '').slice(0, 500) || null
+    const material = String(parsed.fields.material || 'PLA').slice(0, 40)
+    const tagsRaw = String(parsed.fields.tags || '')
 
-    // Collect candidate model files (support zip or multiple file inputs)
-    const modelFiles: { name: string, buf: Buffer }[] = []
-    const inputs = files && files.length > 0 ? files : (model ? [model] : [])
-    if (!inputs || inputs.length === 0) return json({ error: 'Missing model files' }, { status: 400 })
-    const inputBytes = inputs.reduce((sum, file) => sum + (file?.size || 0), 0)
-    if (inputBytes > MAX_UPLOAD_TOTAL_BYTES) {
-      return json({ error: 'Upload exceeds total size limit.' }, { status: 413 })
-    }
-
-    let extractedBytes = 0
-    for (const f of inputs) {
-      const lower = f.name.toLowerCase()
-      if (f.size > MAX_UPLOAD_FILE_BYTES) {
-        return json({ error: `File too large: ${f.name}` }, { status: 413 })
-      }
-      const ab = await f.arrayBuffer()
-      const buf = Buffer.from(ab)
-      if (lower.endsWith('.zip')) {
-        const zip = await JSZip.loadAsync(buf)
-        const entries = Object.values(zip.files)
-        for (const entry of entries) {
-          if (entry.dir) continue
-          const ename = entry.name
-          if (!isAllowedModel(ename)) continue
-          const entrySize = getZipEntrySize(entry)
-          if (entrySize && entrySize > MAX_UPLOAD_FILE_BYTES) {
-            return json({ error: `Zip entry too large: ${path.basename(ename)}` }, { status: 413 })
-          }
-          const ebuf = await entry.async('nodebuffer')
-          extractedBytes += entrySize || ebuf.length
-          if (extractedBytes > MAX_UPLOAD_TOTAL_BYTES) {
-            return json({ error: 'Upload exceeds total size limit.' }, { status: 413 })
-          }
-          modelFiles.push({ name: path.basename(ename), buf: ebuf })
-        }
-      } else if (isAllowedModel(lower)) {
-        extractedBytes += buf.length
-        if (extractedBytes > MAX_UPLOAD_TOTAL_BYTES) {
-          return json({ error: 'Upload exceeds total size limit.' }, { status: 413 })
-        }
-        modelFiles.push({ name: f.name, buf })
-      }
-    }
-
+    const modelFiles = parsed.modelFiles
+    if (!parsed.sawModelInput) return json({ error: 'Missing model files' }, { status: 400 })
     if (modelFiles.length === 0) return json({ error: 'No valid model files found' }, { status: 400 })
 
     let coverImageRel: string | undefined
-    let coverImageSourceRel: string | undefined
-    if (image && isSupportedImageFile(image.name, image.type)) {
-      try {
-        const imgBuf = Buffer.from(await image.arrayBuffer())
-        if (imgBuf.length === 0) {
-          throw new Error('Image upload failed')
-        }
-        const ext = path.extname(image.name) || '.bin'
-        coverImageSourceRel = path.join(userId, 'uploads', `cover-raw-${Date.now()}${ext}`)
-        await saveBuffer(coverImageSourceRel, imgBuf)
-        // Store cover images under userId/thumbnails as consistent webp assets
-        coverImageRel = path.join(userId, 'thumbnails', `${Date.now()}-${safeName(title) || 'cover'}.webp`)
-      } catch (err) {
-        console.error('Failed to process cover image:', err)
-      }
+    const coverImageSourceRel = parsed.coverImageSourceRel
+    if (coverImageSourceRel) {
+      // Store cover images under userId/thumbnails as consistent webp assets
+      coverImageRel = path.join(userId, 'thumbnails', `${Date.now()}-${safeName(title) || 'cover'}.webp`)
     }
 
     // Save files and create model + parts
@@ -190,33 +400,44 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < modelFiles.length; i++) {
       const f = modelFiles[i]
-      const ext = path.extname(f.name).toLowerCase()
-      const storedExt = ext
-      const storedBuf = f.buf
-      let previewBuf: Buffer | null = null
-      let previewExt: string | null = null
+      const storedExt = f.ext
       let queuedPreviewPath: string | null = null
+      let previewRel: string | null = null
       if (storedExt === '.3mf') {
-        const previewRel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}-preview.stl`)
+        previewRel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}-preview.stl`)
         queuedPreviewPath = `/${previewRel.replace(/\\/g, '/')}`
       }
 
       const rel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}${storedExt}`)
-      await saveBuffer(rel, storedBuf)
+      const storedFull = await moveTempFile(f.tempFull, rel)
       const storedPath = `/${rel.replace(/\\/g, '/')}`
       storedExts.push(storedExt.replace('.', '').toUpperCase())
       if (!firstPath) firstPath = storedPath
       let previewPath: string | null = storedExt === '.stl' ? storedPath : null
-      if (previewBuf && previewExt) {
-        const previewRel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}-preview${previewExt}`)
-        await saveBuffer(previewRel, previewBuf)
-        previewPath = `/${previewRel.replace(/\\/g, '/')}`
+      let statsBuf: Buffer | null = null
+      let storedBuf: Buffer | null = null
+      if (storedExt === '.stl' || storedExt === '.3mf') {
+        storedBuf = await readFile(storedFull)
+      }
+      if (storedExt === '.stl' && storedBuf) {
+        statsBuf = storedBuf
+      }
+      if (storedExt === '.3mf' && storedBuf && previewRel) {
+        try {
+          const converted = await convert3mfToStl(storedBuf)
+          if (converted) {
+            await saveBuffer(previewRel, converted.buf)
+            previewPath = `/${previewRel.replace(/\\/g, '/')}`
+            statsBuf = converted.buf
+          }
+        } catch (err) {
+          console.warn('Inline 3MF conversion failed, deferring to queue', err)
+        }
       }
       const viewerPath = previewPath || storedPath
       if (!firstViewerPath && viewerPath) firstViewerPath = viewerPath
       let volMm3: number | null = null
       let sizeXmm: number | undefined, sizeYmm: number | undefined, sizeZmm: number | undefined
-      const statsBuf = previewBuf || (storedExt === '.stl' ? storedBuf : null)
       if (statsBuf) {
         const stats = computeStlStatsMm(statsBuf)
         volMm3 = stats.volumeMm3
@@ -233,7 +454,7 @@ export async function POST(req: NextRequest) {
       if (p) totalPrice += p
       partVolumes.push(volMm3)
       partCreates.push({
-        name: f.name,
+        name: f.originalName,
         index: i,
         filePath: storedPath,
         previewFilePath: previewPath || undefined,
@@ -243,7 +464,7 @@ export async function POST(req: NextRequest) {
         sizeZmm,
         priceUsd: p || undefined
       })
-      if (storedExt === '.3mf' && queuedPreviewPath) {
+      if (storedExt === '.3mf' && queuedPreviewPath && !previewPath) {
         previewJobs.push({ sourcePath: storedPath, previewPath: queuedPreviewPath, partIndex: i })
       }
     }
@@ -275,7 +496,7 @@ export async function POST(req: NextRequest) {
         material,
         filePath: firstPath!,
         viewerFilePath: firstViewerPath || firstPath!,
-        fileType: modelFiles.length > 1 ? 'MULTI' : (storedExts[0] || path.extname(modelFiles[0].name).replace('.', '').toUpperCase()),
+        fileType: modelFiles.length > 1 ? 'MULTI' : (storedExts[0] || path.extname(modelFiles[0].originalName).replace('.', '').toUpperCase()),
         volumeMm3: totalVolMm3 || undefined,
         sizeXmm: overallSizeXmm,
         sizeYmm: overallSizeYmm,
@@ -345,7 +566,11 @@ export async function POST(req: NextRequest) {
     return json({ model: created })
   } catch (e: any) {
     console.error('Upload failed:', e)
-    return jsonWithCors(req, { error: e.message || 'Upload failed' }, { status: 400 }, directUploadUrl)
+    if (tempFiles.length > 0) {
+      await cleanupTempFiles(tempFiles)
+    }
+    const status = e?.status && Number.isFinite(e.status) ? Number(e.status) : 400
+    return jsonWithCors(req, { error: e.message || 'Upload failed' }, { status }, directUploadUrl)
   }
 }
 

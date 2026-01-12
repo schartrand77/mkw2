@@ -152,8 +152,12 @@ export default function InstantQuoteConfigurator({
           const payload = await res.json().catch(() => null)
           throw new Error(payload?.error || 'Unable to fetch quote')
         }
-        const data = await res.json() as QuoteResponse
+        const data = await res.json() as QuoteResponse & { pending?: boolean }
         if (!active) return
+        if (data.pending) {
+          setQuote(null)
+          return
+        }
         setQuote(data.quote)
       } catch (err: any) {
         if (!active) return

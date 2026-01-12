@@ -3,6 +3,7 @@ import sharp from 'sharp'
 import { readFile, unlink } from 'fs/promises'
 import { prisma } from '@/lib/db'
 import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
+import { isHeicLikeSource } from '@/lib/images'
 import { saveBuffer, storageRoot } from '@/lib/storage'
 import { sendAdminPushNotification } from '@/lib/push'
 
@@ -50,9 +51,15 @@ async function processCoverImages(limit: number): Promise<ProcessResult> {
   for (const model of candidates) {
     try {
       const sourcePath = resolveStoragePath(model.coverImageSourcePath!)
-      const buf = await readFile(sourcePath)
-      const prepared = await ensureProcessableImageBuffer(buf, { filename: path.basename(sourcePath) })
-      const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
+      const filename = path.basename(sourcePath)
+      let pipeline: sharp.Sharp
+      if (isHeicLikeSource(filename)) {
+        const buf = await readFile(sourcePath)
+        const prepared = await ensureProcessableImageBuffer(buf, { filename })
+        pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
+      } else {
+        pipeline = sharp(sourcePath).rotate()
+      }
       const out = await pipeline.resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
       const targetRel = model.coverImagePath!.replace(/^\/+/, '')
       await saveBuffer(targetRel, out)
@@ -94,9 +101,15 @@ async function processModelImages(limit: number): Promise<ProcessResult> {
   for (const image of images) {
     try {
       const sourcePath = resolveStoragePath(image.sourcePath!)
-      const buf = await readFile(sourcePath)
-      const prepared = await ensureProcessableImageBuffer(buf, { filename: path.basename(sourcePath) })
-      const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
+      const filename = path.basename(sourcePath)
+      let pipeline: sharp.Sharp
+      if (isHeicLikeSource(filename)) {
+        const buf = await readFile(sourcePath)
+        const prepared = await ensureProcessableImageBuffer(buf, { filename })
+        pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
+      } else {
+        pipeline = sharp(sourcePath).rotate()
+      }
       const out = await pipeline.resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
       const targetRel = image.filePath.replace(/^\/+/, '')
       await saveBuffer(targetRel, out)
@@ -139,9 +152,15 @@ async function processProfileAvatars(limit: number): Promise<ProcessResult> {
   for (const profile of profiles) {
     try {
       const sourcePath = resolveStoragePath(profile.avatarImageSourcePath!)
-      const buf = await readFile(sourcePath)
-      const prepared = await ensureProcessableImageBuffer(buf, { filename: path.basename(sourcePath) })
-      const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
+      const filename = path.basename(sourcePath)
+      let pipeline: sharp.Sharp
+      if (isHeicLikeSource(filename)) {
+        const buf = await readFile(sourcePath)
+        const prepared = await ensureProcessableImageBuffer(buf, { filename })
+        pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
+      } else {
+        pipeline = sharp(sourcePath).rotate()
+      }
       const out = await pipeline.resize(512, 512, { fit: 'cover' }).webp({ quality: 90 }).toBuffer()
       const targetRel = profile.avatarImagePath!.replace(/^\/+/, '')
       await saveBuffer(targetRel, out)
@@ -184,9 +203,15 @@ async function processCommentImages(limit: number): Promise<ProcessResult> {
   for (const comment of comments) {
     try {
       const sourcePath = resolveStoragePath(comment.imageSourcePath!)
-      const buf = await readFile(sourcePath)
-      const prepared = await ensureProcessableImageBuffer(buf, { filename: path.basename(sourcePath) })
-      const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
+      const filename = path.basename(sourcePath)
+      let pipeline: sharp.Sharp
+      if (isHeicLikeSource(filename)) {
+        const buf = await readFile(sourcePath)
+        const prepared = await ensureProcessableImageBuffer(buf, { filename })
+        pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
+      } else {
+        pipeline = sharp(sourcePath).rotate()
+      }
       const out = await pipeline.resize(1024, 1024, { fit: 'inside' }).webp({ quality: 74, effort: 5 }).toBuffer()
       const targetRel = comment.imagePath!.replace(/^\/+/, '')
       await saveBuffer(targetRel, out)

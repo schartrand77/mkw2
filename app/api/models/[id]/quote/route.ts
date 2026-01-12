@@ -52,8 +52,18 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
     },
   })
   if (!model) return NextResponse.json({ error: 'Model not found' }, { status: 404 })
-  if (model.volumeMm3 == null || !Number.isFinite(Number(model.volumeMm3)) || Number(model.volumeMm3) <= 0) {
-    return NextResponse.json({ error: 'Model volume is missing' }, { status: 400 })
+  let volumeMm3 = model.volumeMm3
+  if (volumeMm3 == null || !Number.isFinite(Number(volumeMm3)) || Number(volumeMm3) <= 0) {
+    const parts = await prisma.modelPart.findMany({
+      where: { modelId: id },
+      select: { volumeMm3: true },
+    })
+    if (parts.length > 0 && parts.every((part) => part.volumeMm3 != null && Number.isFinite(Number(part.volumeMm3)))) {
+      volumeMm3 = parts.reduce((sum, part) => sum + Number(part.volumeMm3 || 0), 0)
+    }
+  }
+  if (volumeMm3 == null || !Number.isFinite(Number(volumeMm3)) || Number(volumeMm3) <= 0) {
+    return NextResponse.json({ pending: true, error: 'Model volume is pending' })
   }
 
   const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
@@ -71,7 +81,7 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
     scaleZ: parsed.data.scaleZ ?? null,
   })
   const volumeMultiplier = scaleX * scaleY * scaleZ
-  const cm3 = Number(model.volumeMm3) / 1000 * volumeMultiplier
+  const cm3 = Number(volumeMm3) / 1000 * volumeMultiplier
 
   const pricing = estimatePricingDetails({
     cm3,
