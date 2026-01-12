@@ -68,7 +68,8 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                     </div>
                   </div>
                   <div className="text-[10px] uppercase tracking-wide text-slate-500 flex gap-4">
-                    <span>Downloads: {m.downloads}</span>
+                    <span>Downloads: {m.downloads ?? 0}</span>
+                    <span>Comments: {m.commentsCount ?? 0}</span>
                   </div>
                 </div>
               </Link>
@@ -118,7 +119,8 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                     <span>{sizeLabel}</span>
                   </div>
                   <div className="flex justify-between text-[11px] text-slate-500">
-                    <span>Downloads: {m.downloads}</span>
+                    <span>Downloads: {m.downloads ?? 0}</span>
+                    <span>Comments: {m.commentsCount ?? 0}</span>
                   </div>
                 </div>
               </Link>

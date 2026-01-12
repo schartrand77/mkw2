@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
     downloads: true,
     createdAt: true,
     updatedAt: true,
-    _count: { select: { parts: true } },
+    _count: { select: { parts: true, comments: true } },
     modelTags: { include: { tag: true } }
   } satisfies Prisma.ModelSelect
 
@@ -111,6 +111,7 @@ export async function GET(req: NextRequest) {
       createdAt: m.createdAt,
       updatedAt: m.updatedAt,
       partsCount: m._count?.parts || 0,
+      commentsCount: m._count?.comments || 0,
       tags: m.modelTags?.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug })) || []
     }
   })

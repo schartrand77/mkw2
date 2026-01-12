@@ -24,7 +24,7 @@ type CollectionWithModels = Collection & {
       downloads: number
       createdAt: Date
       updatedAt: Date
-      _count: { parts: number }
+      _count: { parts: number; comments: number }
     }
   }[]
 }
@@ -66,7 +66,7 @@ const MODEL_SELECT = {
   downloads: true,
   createdAt: true,
   updatedAt: true,
-  _count: { select: { parts: true } },
+  _count: { select: { parts: true, comments: true } },
 } satisfies Prisma.ModelSelect
 
 export type CollectionSummary = Pick<Collection, 'id' | 'slug' | 'title' | 'description' | 'kind' | 'materialKey' | 'heroImagePath'>
@@ -113,6 +113,7 @@ function mapToDiscoverModel(model: any, cfg: any): DiscoverModel {
     salePriceUnit: model.salePriceUnit ?? null,
     likes: model.likes,
     downloads: model.downloads,
+    commentsCount: model._count?.comments || 0,
     createdAt: model.createdAt,
     updatedAt: model.updatedAt,
     partsCount: model._count?.parts || 0,

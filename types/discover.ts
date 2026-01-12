@@ -27,6 +27,7 @@ export type DiscoverModel = {
   sizeZmm?: number | null
   likes?: number | null
   downloads?: number | null
+  commentsCount?: number | null
   createdAt?: string | Date | null
   updatedAt?: string | Date | null
 }
@@ -60,6 +61,7 @@ export type ModelWithPartsCountAndTags = {
   updatedAt: Date
   _count: {
     parts: number
+    comments: number
   }
   modelTags: {
     tag: {
