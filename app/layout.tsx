@@ -99,7 +99,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </main>
         <footer className="footer-shell text-center text-sm text-slate-400/80 py-6 footer-safe">
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <span>&copy; {new Date().getFullYear()} {BRAND_FULL_NAME} &middot; Proudly made in Canada</span>
+            <span>
+              &copy; {new Date().getFullYear()} {BRAND_FULL_NAME}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="inline-block h-3 w-3 align-middle mx-2 text-red-400/90 relative -top-px"
+                fill="currentColor"
+              >
+                <path d="M12 2.2c.4 0 .7.3.8.6l1.2 3.1 3.4-.7c.3-.1.7.1.9.4.2.3.2.7 0 1l-2.3 2.7 2.1 1.3c.3.2.4.6.3 1-.1.4-.4.6-.8.6h-2.9l.8 3.7c.1.4-.1.8-.4 1-.3.2-.7.2-1 0l-2.1-1.6-2.1 1.6c-.3.2-.7.2-1 0-.3-.2-.5-.6-.4-1l.8-3.7H6.8c-.4 0-.7-.2-.8-.6-.1-.4 0-.8.3-1l2.1-1.3-2.3-2.7c-.2-.3-.2-.7 0-1 .2-.3.6-.5.9-.4l3.4.7 1.2-3.1c.1-.3.4-.6.8-.6Z" />
+              </svg>
+              Proudly made in Canada
+            </span>
             {(showApplePayBadge || showGooglePayBadge) && (
               <span className="flex items-center gap-2">
                 {showApplePayBadge && <img src="/ApplePay.svg" alt="Apple Pay" className="h-4 w-auto opacity-80" loading="lazy" />}
