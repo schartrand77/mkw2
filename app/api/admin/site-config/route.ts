@@ -27,6 +27,8 @@ const schema = z.object({
   fillFactor: z.number().positive().max(2).optional(),
   directUploadUrl: z.union([z.string().url(), z.null()]).optional(),
   favoriteShopLinkIds: z.array(z.string().min(1)).optional(),
+  showApplePayBadge: z.boolean().optional(),
+  showGooglePayBadge: z.boolean().optional(),
   printerProfileKey: z.string().min(2).optional(),
   printerProfileOverrides: z.record(
     z.object({

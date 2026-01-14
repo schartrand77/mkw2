@@ -34,6 +34,8 @@ const configSchema = z.object({
   fillFactor: z.number().positive({ message: 'Select an infill percentage.' }).max(2, { message: 'Fill factor is out of range.' }).optional(),
   directUploadUrl: z.union([z.string().url({ message: 'Enter a valid https:// URL.' }), z.null()], { invalid_type_error: 'Enter a valid URL.' }).optional(),
   favoriteShopLinkIds: z.array(z.string().min(1)).optional(),
+  showApplePayBadge: z.boolean().optional(),
+  showGooglePayBadge: z.boolean().optional(),
   printerProfileKey: z.string().optional(),
   printerProfileOverrides: z.record(printerOverrideSchema).optional(),
 })
@@ -91,6 +93,8 @@ type Config = {
   fillFactor?: number | null
   directUploadUrl?: string | null
   favoriteShopLinkIds?: string[] | null
+  showApplePayBadge?: boolean | null
+  showGooglePayBadge?: boolean | null
   printerProfileKey?: string | null
   printerProfileOverrides?: PrinterProfileOverridesState | null
 }
@@ -120,6 +124,8 @@ function buildPayload(cfg: Config): SchemaShape {
     fillFactor: cfg.fillFactor ?? undefined,
     directUploadUrl: cfg.directUploadUrl === null ? null : cfg.directUploadUrl || undefined,
     favoriteShopLinkIds: normalizeShopFavorites(cfg.favoriteShopLinkIds),
+    showApplePayBadge: typeof cfg.showApplePayBadge === 'boolean' ? cfg.showApplePayBadge : undefined,
+    showGooglePayBadge: typeof cfg.showGooglePayBadge === 'boolean' ? cfg.showGooglePayBadge : undefined,
     printerProfileKey: cfg.printerProfileKey || undefined,
     printerProfileOverrides: sanitizeOverrides(cfg.printerProfileOverrides),
   }
@@ -542,6 +548,39 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                       </button>
                     )
                   })}
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: 'footer',
+            label: 'Footer',
+            content: (
+              <div className="space-y-3">
+                <p className="text-xs text-slate-400">
+                  Show payment badges next to the Proudly made in Canada footer text.
+                </p>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!!cfg.showApplePayBadge}
+                      disabled={saving}
+                      onChange={(e) => setCfg({ ...cfg, showApplePayBadge: e.target.checked })}
+                    />
+                    <span>Show Apple Pay badge</span>
+                    <img src="/ApplePay.svg" alt="Apple Pay" className="h-4 w-auto opacity-80" loading="lazy" />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!!cfg.showGooglePayBadge}
+                      disabled={saving}
+                      onChange={(e) => setCfg({ ...cfg, showGooglePayBadge: e.target.checked })}
+                    />
+                    <span>Show Google Pay badge</span>
+                    <img src="/GooglePay.png" alt="Google Pay" className="h-4 w-auto opacity-80" loading="lazy" />
+                  </label>
                 </div>
               </div>
             ),

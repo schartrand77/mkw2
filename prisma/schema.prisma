@@ -221,11 +221,13 @@ model FeaturedModel {
 }
 
 model SiteConfig {
-  id                       String   @id
-  allowAnonymousUploads    Boolean? @default(true)
-  directUploadUrl          String?
-  favoriteShopLinkIds      Json?
-  printSpeedCm3PerHour     Float?
+    id                       String   @id
+    allowAnonymousUploads    Boolean? @default(true)
+    directUploadUrl          String?
+    favoriteShopLinkIds      Json?
+    showApplePayBadge        Boolean? @default(false)
+    showGooglePayBadge       Boolean? @default(false)
+    printSpeedCm3PerHour     Float?
   energyUsdPerHour         Float?
   minimumPriceUsd          Float?
   extraHourlyUsdAfterFirst Float?

@@ -59,6 +59,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     avatarUrl = toPublicHref(profile?.avatarImagePath)
     isAdmin = !!user?.isAdmin
   }
+  const siteConfig = await prisma.siteConfig.findUnique({
+    where: { id: 'main' },
+    select: { showApplePayBadge: true, showGooglePayBadge: true },
+  })
+  const showApplePayBadge = !!siteConfig?.showApplePayBadge
+  const showGooglePayBadge = !!siteConfig?.showGooglePayBadge
   return (
     <html lang="en">
       <body className={holidayTheme ? `holiday-${holidayTheme}` : undefined}>
@@ -92,7 +98,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
         </main>
         <footer className="footer-shell text-center text-sm text-slate-400/80 py-6 footer-safe">
-          &copy; {new Date().getFullYear()} {BRAND_FULL_NAME} &middot; Proudly made in Canada
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <span>&copy; {new Date().getFullYear()} {BRAND_FULL_NAME} &middot; Proudly made in Canada</span>
+            {(showApplePayBadge || showGooglePayBadge) && (
+              <span className="flex items-center gap-2">
+                {showApplePayBadge && <img src="/ApplePay.svg" alt="Apple Pay" className="h-4 w-auto opacity-80" loading="lazy" />}
+                {showGooglePayBadge && <img src="/GooglePay.png" alt="Google Pay" className="h-4 w-auto opacity-80" loading="lazy" />}
+              </span>
+            )}
+          </div>
         </footer>
         <Announcements enabled={authed} />
         <ExtensionsGuard />
