@@ -13,14 +13,21 @@ const fallbackAchievements = new Map(DEFAULT_ACHIEVEMENTS.map((ach) => [ach.key,
 function resolveBadgeDetails(achievement?: { key?: string | null; name?: string | null; icon?: string | null }) {
   const fallback = achievement?.key ? fallbackAchievements.get(achievement.key) : undefined
   const rawName = achievement?.name || fallback?.name || 'Badge'
-  const icon = (achievement?.icon || fallback?.icon || '').trim()
-  if (!icon) {
+  let icon = (achievement?.icon || fallback?.icon || '').trim()
+  let name = rawName
+  if (icon) {
+    const prefix = `${icon} `
+    if (name.startsWith(prefix)) {
+      name = name.slice(prefix.length)
+    }
+  } else {
     const match = rawName.match(/^([A-Z]{1,4}\d{0,2})\s+(.*)$/)
     if (match) {
-      return { icon: match[1], name: match[2] }
+      icon = match[1]
+      name = match[2]
     }
   }
-  return { icon, name: rawName }
+  return { icon, name }
 }
 
 async function getProfile(slug: string) {
