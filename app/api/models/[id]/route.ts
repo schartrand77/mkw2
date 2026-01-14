@@ -35,6 +35,12 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     prisma.modelPart.findMany({ where: { modelId: id }, orderBy: { index: 'asc' } }),
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
   ])
+  const has3mf = parts.some((part) => String(part.filePath || '').toLowerCase().endsWith('.3mf'))
+  const previewJobsPending = has3mf
+    ? await prisma.modelPreviewJob.count({
+        where: { modelId: id, status: { in: ['pending', 'processing'] } },
+      })
+    : 0
   const tags = model.modelTags.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug }))
   const { modelTags, images, comments, revisions, coverImageSourcePath, coverImageError, ...rest } = model as any
   const pricingSummary = resolveModelPricing(model as any, cfg)
@@ -52,6 +58,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
   return NextResponse.json({
     model: {
       ...rest,
+      previewProcessing: has3mf ? previewJobsPending > 0 : false,
       priceUsd: pricingSummary.priceUsd,
       basePriceUsd: pricingSummary.basePriceUsd,
       salePriceUsd: pricingSummary.salePriceUsd,

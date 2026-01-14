@@ -408,6 +408,7 @@ export default function ModelViewer({ src, srcs, fallbackSrc, fallbackSrcs, clas
 
   const firstEntry = fileEntries[0]
   const errorLink = firstEntry?.fallback || firstEntry?.src
+  const errorLabel = firstEntry?.fallback ? 'Open STL directly' : 'Open file directly'
 
   return (
     <div className={`relative ${className || ''}`} style={{ width: '100%', height }}>
@@ -419,7 +420,7 @@ export default function ModelViewer({ src, srcs, fallbackSrc, fallbackSrcs, clas
             {errorLink && (
               <p className="mt-2">
                 <a href={errorLink} target="_blank" rel="noreferrer" className="underline">
-                  Open STL directly
+                  {errorLabel}
                 </a>
               </p>
             )}
@@ -439,8 +440,7 @@ export default function ModelViewer({ src, srcs, fallbackSrc, fallbackSrcs, clas
           }}
           className="px-3 py-1.5 text-xs rounded-md border border-white/20 bg-black/40 backdrop-blur hover:border-white/40"
         >
-          Rotate 90°
-        </button>
+          Rotate 90</button>
         <button
           type="button"
           onClick={() => fitRef.current?.()}
@@ -452,3 +452,4 @@ export default function ModelViewer({ src, srcs, fallbackSrc, fallbackSrcs, clas
     </div>
   )
 }
+

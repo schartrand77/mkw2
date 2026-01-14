@@ -14,11 +14,13 @@ type Props = {
 type ModelResponse = {
   model?: {
     coverImageStatus?: string | null
+    previewProcessing?: boolean | null
     parts?: Array<{ filePath?: string | null; previewFilePath?: string | null }>
   }
 }
 
 function computePreviewProcessing(model?: ModelResponse['model']) {
+  if (typeof model?.previewProcessing === 'boolean') return model.previewProcessing
   if (!model?.parts || model.parts.length === 0) return false
   return model.parts.some((part) => {
     const filePath = String(part.filePath || '').toLowerCase()

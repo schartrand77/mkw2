@@ -268,7 +268,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
         {limitReached && (
           <div className="text-xs text-amber-300">You have reached the {MODEL_IMAGE_LIMIT}-photo limit.</div>
         )}
-        <button className="btn" disabled={busy || limitReached}>{busy ? 'Uploading…' : 'Upload'}</button>
+        <button className="btn" disabled={busy || limitReached}>{busy ? 'Uploading...' : 'Upload'}</button>
       </form>
 
       <div className="space-y-3">
@@ -371,3 +371,4 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
     </div>
   )
 }
+

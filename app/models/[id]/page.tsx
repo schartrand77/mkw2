@@ -62,9 +62,11 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   const canEdit = !!(payload?.sub && (payload.sub === model.userId || me?.isAdmin))
   const canModerateComments = !!me?.isAdmin
   const coverProcessing = model.coverImageStatus === 'processing'
-  const previewProcessing = Array.isArray(model.parts)
-    ? model.parts.some((part: any) => String(part.filePath || '').toLowerCase().endsWith('.3mf') && !part.previewFilePath)
-    : false
+  const previewProcessing = typeof model.previewProcessing === 'boolean'
+    ? model.previewProcessing
+    : Array.isArray(model.parts)
+      ? model.parts.some((part: any) => String(part.filePath || '').toLowerCase().endsWith('.3mf') && !part.previewFilePath)
+      : false
   const isProcessing = coverProcessing || previewProcessing
   return (
     <div className="max-w-5xl mx-auto space-y-5">
@@ -160,7 +162,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             </div>
             {model.pricing && (
               <p className="text-xs text-slate-400 mt-1">
-                ≈ {model.pricing.grams} g · {model.pricing.hours} h @ {model.pricing.nozzleDiameterMm} mm ({model.pricing.printerProfile.label})
+                Approx {model.pricing.grams} g - {model.pricing.hours} h @ {model.pricing.nozzleDiameterMm} mm ({model.pricing.printerProfile.label})
               </p>
             )}
           </div>
@@ -241,7 +243,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
                 <div key={rev.id} className="rounded-lg border border-white/10 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-semibold">
-                      v{rev.version}{rev.label ? ` · ${rev.label}` : ''}
+                      v{rev.version}{rev.label ? ` - ${rev.label}` : ''}
                     </div>
                     <div className="text-xs text-slate-400">
                       {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString() : ''}
