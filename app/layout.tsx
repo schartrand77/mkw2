@@ -98,7 +98,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
         </main>
         <footer className="footer-shell text-center text-sm text-slate-400/80 py-6 footer-safe">
-          <div className="flex flex-wrap items-center justify-center gap-2">
+          <div className="flex flex-col items-center justify-center gap-2">
             <span>
               &copy; {new Date().getFullYear()} {BRAND_FULL_NAME}
               <svg
