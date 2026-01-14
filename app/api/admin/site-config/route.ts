@@ -60,6 +60,14 @@ const PRICING_KEYS = new Set([
   'printerProfileOverrides',
 ])
 
+function valuesMatch(a: unknown, b: unknown) {
+  if (a === b) return true
+  const aJson = typeof a === 'object' && a !== null ? JSON.stringify(a) : null
+  const bJson = typeof b === 'object' && b !== null ? JSON.stringify(b) : null
+  if (aJson !== null || bJson !== null) return aJson === bJson
+  return false
+}
+
 export async function GET() {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const cfg = await prisma.siteConfig.upsert({
@@ -73,6 +81,7 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   try {
+    const existing = await prisma.siteConfig.findUnique({ where: { id: CONFIG_ID } })
     const json = await req.json()
     const parsed = schema.parse(json)
     const printerProfileKey = parsed.printerProfileKey ? resolvePrinterProfile(parsed.printerProfileKey).key : undefined
@@ -93,8 +102,13 @@ export async function PATCH(req: NextRequest) {
       update: payload,
       create: { id: CONFIG_ID, ...payload },
     })
-    const shouldRefresh = Object.keys(parsed).some((key) => PRICING_KEYS.has(key))
-    if (shouldRefresh) {
+    const parsedKeys = Object.keys(parsed)
+    const pricingChanged = parsedKeys.some((key) => {
+      if (!PRICING_KEYS.has(key)) return false
+      if (!existing) return true
+      return !valuesMatch((parsed as any)[key], (existing as any)[key])
+    })
+    if (pricingChanged) {
       await refreshEffectivePrices(prisma, cfg)
     }
     revalidatePath('/admin')
