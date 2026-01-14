@@ -6,7 +6,7 @@ import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer } from '@/lib/storage'
 import { computeStlStatsMm } from '@/lib/stl'
 import { estimatePriceUSD, resolveModelPricing } from '@/lib/pricing'
-import { enqueueModelPreviewJob } from '@/lib/model-preview-queue'
+import { enqueueModelPreviewJob, processPendingModelPreviews } from '@/lib/model-preview-queue'
 
 export const dynamic = 'force-dynamic'
 
@@ -271,6 +271,11 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
       }
     } catch (err) {
       console.warn('Failed to queue 3MF preview job', err)
+    }
+    try {
+      await processPendingModelPreviews(previewJobs.length, { modelId: id })
+    } catch (err) {
+      console.warn('Failed to process 3MF previews', err)
     }
   }
 

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { requireAdmin } from '../../../_utils'
 import path from 'path'
 import { saveBuffer } from '@/lib/storage'
+import { processPendingImages } from '@/lib/image-queue'
 import { MODEL_IMAGE_LIMIT, serializeModelImage, serializeModelImages } from '@/lib/model-images'
 
 export const dynamic = 'force-dynamic'
@@ -62,6 +63,11 @@ export async function POST(req: NextRequest, { params }: AdminModelImagesContext
   })
   if (setCover) {
     await prisma.model.update({ where: { id: model.id }, data: { coverImagePath: publicPath, coverImageStatus: 'processing' } })
+  }
+  try {
+    await processPendingImages(1, { modelId: model.id })
+  } catch (err) {
+    console.warn('Failed to process model image (admin)', err)
   }
   return NextResponse.json({ image: serializeModelImage(created) })
 }

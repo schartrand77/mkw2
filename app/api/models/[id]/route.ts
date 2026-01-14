@@ -11,6 +11,7 @@ import { resolveModelPricing, estimatePricingDetails } from '@/lib/pricing'
 import { computeEffectivePriceUsd } from '@/lib/pricing-cache'
 import { extractAmazonAsin, buildAmazonImageUrl } from '@/lib/amazon'
 import { commentInclude, findVerifiedCommentUserIds, serializeComment } from '@/lib/comments'
+import { processPendingImages } from '@/lib/image-queue'
 
 type ModelRouteContext = { params: Promise<{ id: string }> }
 
@@ -179,6 +180,13 @@ export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
   }
 
   const updated = await prisma.model.update({ where: { id }, data: updates })
+  if (image) {
+    try {
+      await processPendingImages(1, { modelId: id })
+    } catch (err) {
+      console.warn('Failed to process cover image', err)
+    }
+  }
   try {
     revalidatePath(`/models/${id}`)
     revalidatePath('/discover')

@@ -17,6 +17,31 @@ type ProcessResult = {
   failed: number
 }
 
+type ImageQueueOptions = {
+  modelId?: string
+  includeAvatars?: boolean
+  includeComments?: boolean
+}
+
+export function buildCoverImageWhere(options: Pick<ImageQueueOptions, 'modelId'> = {}) {
+  const where: Record<string, any> = {
+    coverImageStatus: STATUS_PROCESSING,
+    coverImageSourcePath: { not: null },
+    coverImagePath: { not: null },
+  }
+  if (options.modelId) where.id = options.modelId
+  return where
+}
+
+export function buildModelImageWhere(options: Pick<ImageQueueOptions, 'modelId'> = {}) {
+  const where: Record<string, any> = {
+    status: STATUS_PROCESSING,
+    sourcePath: { not: null },
+  }
+  if (options.modelId) where.modelId = options.modelId
+  return where
+}
+
 function resolveStoragePath(storedPath: string) {
   const normalized = storedPath.replace(/^\/+/, '')
   return path.join(storageRoot(), normalized)
@@ -35,13 +60,9 @@ async function safeUnlink(filePath: string) {
   }
 }
 
-async function processCoverImages(limit: number): Promise<ProcessResult> {
+async function processCoverImages(limit: number, modelId?: string): Promise<ProcessResult> {
   const candidates = await prisma.model.findMany({
-    where: {
-      coverImageStatus: STATUS_PROCESSING,
-      coverImageSourcePath: { not: null },
-      coverImagePath: { not: null },
-    },
+    where: buildCoverImageWhere({ modelId }),
     select: { id: true, title: true, userId: true, coverImageSourcePath: true, coverImagePath: true },
     take: limit,
   })
@@ -92,12 +113,9 @@ async function processCoverImages(limit: number): Promise<ProcessResult> {
   return { processed, failed }
 }
 
-async function processModelImages(limit: number): Promise<ProcessResult> {
+async function processModelImages(limit: number, modelId?: string): Promise<ProcessResult> {
   const images = await prisma.modelImage.findMany({
-    where: {
-      status: STATUS_PROCESSING,
-      sourcePath: { not: null },
-    },
+    where: buildModelImageWhere({ modelId }),
     select: { id: true, sourcePath: true, filePath: true },
     take: limit,
   })
@@ -259,12 +277,15 @@ async function processCommentImages(limit: number): Promise<ProcessResult> {
   return { processed, failed }
 }
 
-export async function processPendingImages(limitPerType = 5) {
+export async function processPendingImages(limitPerType = 5, options: ImageQueueOptions = {}) {
+  const modelId = options.modelId
+  const includeAvatars = options.includeAvatars ?? !modelId
+  const includeComments = options.includeComments ?? !modelId
   const [cover, modelImages, avatars, comments] = await Promise.all([
-    processCoverImages(limitPerType),
-    processModelImages(limitPerType),
-    processProfileAvatars(limitPerType),
-    processCommentImages(limitPerType),
+    processCoverImages(limitPerType, modelId),
+    processModelImages(limitPerType, modelId),
+    includeAvatars ? processProfileAvatars(limitPerType) : Promise.resolve({ processed: 0, failed: 0 }),
+    includeComments ? processCommentImages(limitPerType) : Promise.resolve({ processed: 0, failed: 0 }),
   ])
   const totalProcessed = cover.processed + modelImages.processed + avatars.processed + comments.processed
   const totalFailed = cover.failed + modelImages.failed + avatars.failed + comments.failed

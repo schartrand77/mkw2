@@ -44,6 +44,10 @@ type ProcessResult = {
   failed: number
 }
 
+type PreviewQueueOptions = {
+  modelId?: string
+}
+
 const IDENTITY_MATRIX: Matrix4x4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
 
 function readByteEnv(name: string, fallback: number) {
@@ -72,6 +76,12 @@ function normalizeStoredPath(storedPath: string) {
 function sanitizeError(err: unknown) {
   const msg = err instanceof Error ? err.message : String(err)
   return msg.slice(0, 500)
+}
+
+export function buildPreviewJobWhere(options: PreviewQueueOptions = {}) {
+  const where: Record<string, any> = { status: STATUS_PENDING }
+  if (options.modelId) where.modelId = options.modelId
+  return where
 }
 
 function asArray<T>(value: T | T[] | undefined | null): T[] {
@@ -453,9 +463,9 @@ export async function enqueueModelPreviewJob(input: PreviewJobInput) {
   })
 }
 
-export async function processPendingModelPreviews(limit = 3): Promise<ProcessResult> {
+export async function processPendingModelPreviews(limit = 3, options: PreviewQueueOptions = {}): Promise<ProcessResult> {
   const jobs = await prisma.modelPreviewJob.findMany({
-    where: { status: STATUS_PENDING },
+    where: buildPreviewJobWhere(options),
     orderBy: { createdAt: 'asc' },
     take: limit,
   })

@@ -17,7 +17,8 @@ import { refreshUserAchievements } from '@/lib/achievements'
 import { isSupportedImageFile } from '@/lib/images'
 import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
-import { convert3mfToStl, enqueueModelPreviewJob } from '@/lib/model-preview-queue'
+import { processPendingImages } from '@/lib/image-queue'
+import { convert3mfToStl, enqueueModelPreviewJob, processPendingModelPreviews } from '@/lib/model-preview-queue'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
 
@@ -526,6 +527,20 @@ export async function POST(req: NextRequest) {
         }
       } catch (err) {
         console.warn('Failed to queue 3MF preview job', err)
+      }
+    }
+    if (coverImageSourceRel) {
+      try {
+        await processPendingImages(1, { modelId: created.id })
+      } catch (err) {
+        console.warn('Failed to process cover image', err)
+      }
+    }
+    if (previewJobs.length > 0) {
+      try {
+        await processPendingModelPreviews(previewJobs.length, { modelId: created.id })
+      } catch (err) {
+        console.warn('Failed to process 3MF previews', err)
       }
     }
     try { await refreshUserAchievements(prisma, userId) } catch {}
