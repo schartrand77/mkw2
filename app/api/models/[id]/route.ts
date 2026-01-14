@@ -1,23 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { readFile, unlink } from 'fs/promises'
 export const dynamic = 'force-dynamic'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer, storageRoot } from '@/lib/storage'
 import path from 'path'
-import { unlink } from 'fs/promises'
 import { serializeModelImages } from '@/lib/model-images'
 import { revalidatePath } from 'next/cache'
 import { resolveModelPricing, estimatePricingDetails } from '@/lib/pricing'
 import { computeEffectivePriceUsd } from '@/lib/pricing-cache'
 import { extractAmazonAsin, buildAmazonImageUrl } from '@/lib/amazon'
 import { commentInclude, findVerifiedCommentUserIds, serializeComment } from '@/lib/comments'
+import { computeStlStatsMm } from '@/lib/stl'
+import { updateModelPricingForModel } from '@/lib/model-pricing'
 import { processPendingImages } from '@/lib/image-queue'
 
 type ModelRouteContext = { params: Promise<{ id: string }> }
 
 export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
   const { id } = await params
-  const model = await prisma.model.findUnique({
+  let model = await prisma.model.findUnique({
     where: { id },
     include: {
       modelTags: { include: { tag: true } },
@@ -31,10 +33,57 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     },
   })
   if (!model) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const [parts, cfg] = await Promise.all([
+  let [parts, cfg] = await Promise.all([
     prisma.modelPart.findMany({ where: { modelId: id }, orderBy: { index: 'asc' } }),
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
   ])
+  const partsNeedingStats = parts.filter((part: any) => part.previewFilePath && part.volumeMm3 == null)
+  if (partsNeedingStats.length > 0) {
+    for (const part of partsNeedingStats) {
+      const previewRel = String(part.previewFilePath || '').replace(/^\/+/, '')
+      if (!previewRel) continue
+      try {
+        const buf = await readFile(path.join(storageRoot(), previewRel))
+        const stats = computeStlStatsMm(buf)
+        if (stats.volumeMm3 != null) {
+          await prisma.modelPart.update({
+            where: { id: part.id },
+            data: {
+              volumeMm3: stats.volumeMm3 || undefined,
+              sizeXmm: stats.sizeXmm ?? undefined,
+              sizeYmm: stats.sizeYmm ?? undefined,
+              sizeZmm: stats.sizeZmm ?? undefined,
+            },
+          })
+        }
+      } catch {
+        // ignore missing preview stats
+      }
+    }
+    if (model.viewerFilePath === model.filePath) {
+      const firstPreview = parts.find((part: any) => part.index === 0 && part.previewFilePath)?.previewFilePath
+      if (firstPreview) {
+        await prisma.model.update({ where: { id }, data: { viewerFilePath: firstPreview } })
+      }
+    }
+    await updateModelPricingForModel(id)
+    model = await prisma.model.findUnique({
+      where: { id },
+      include: {
+        modelTags: { include: { tag: true } },
+        images: { orderBy: { sortOrder: 'asc' } },
+        comments: commentInclude,
+        revisions: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+          include: { user: { select: { id: true, name: true } }, parts: { select: { id: true } } },
+        },
+      },
+    })
+    if (!model) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    parts = await prisma.modelPart.findMany({ where: { modelId: id }, orderBy: { index: 'asc' } })
+    cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
+  }
   const has3mf = parts.some((part) => String(part.filePath || '').toLowerCase().endsWith('.3mf'))
   const previewJobsPending = has3mf
     ? await prisma.modelPreviewJob.count({
