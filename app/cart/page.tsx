@@ -75,6 +75,17 @@ type StockworksPalette = {
   materials: Record<string, { inStock: StockworksColor[] | string[]; orderable: StockworksColor[] | string[] }>
   materialTypes?: string[]
 }
+type StockworksWarning = {
+  status: 'in_stock' | 'limited' | 'out_of_stock'
+  quantityGrams: number
+  limitedThresholdGrams: number
+  leadTimeDays?: number | null
+}
+type StockworksWarningResponse = {
+  enabled: boolean
+  materials: Record<string, StockworksWarning>
+  updatedAt?: string
+}
 type StockworksColor = {
   name: string
   hex?: string | null
@@ -139,6 +150,7 @@ export default function CartPage() {
   const [activeColorAnchor, setActiveColorAnchor] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
   const [isMobilePalette, setIsMobilePalette] = useState(false)
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
+  const [materialWarnings, setMaterialWarnings] = useState<StockworksWarningResponse | null>(null)
   const paletteRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -179,6 +191,32 @@ export default function CartPage() {
       active = false
     }
   }, [])
+
+  const cartMaterials = useMemo(() => {
+    const unique = new Set<string>()
+    for (const item of items) {
+      const key = normalizeMaterialName(item.options.material || 'PLA')
+      if (key) unique.add(key)
+    }
+    return Array.from(unique)
+  }, [items])
+
+  useEffect(() => {
+    let active = true
+    if (cartMaterials.length === 0) {
+      setMaterialWarnings(null)
+      return () => { active = false }
+    }
+    const qs = cartMaterials.join(',')
+    fetch(`/api/stockworks/material-warnings?materials=${encodeURIComponent(qs)}`, { cache: 'no-store' })
+      .then(async (res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.enabled) return
+        setMaterialWarnings(data)
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [cartMaterials])
 
   useEffect(() => {
     if (!activeColorSlot) return
@@ -313,6 +351,13 @@ export default function CartPage() {
 
   const discountMultiplier = useMemo(() => getDiscountMultiplier(discount), [discount])
   const totalDiscountPercent = discount?.totalPercent ?? 0
+  const materialStatusEntries = useMemo(() => {
+    if (!materialWarnings?.enabled) return []
+    return Object.entries(materialWarnings.materials || {}).map(([material, warning]) => ({
+      material,
+      warning,
+    }))
+  }, [materialWarnings])
 
   const itemUnitPrice = (item: (typeof items)[number]) => {
     const base = item.priceUsd || 0
@@ -342,6 +387,44 @@ export default function CartPage() {
       <div className="glass p-4 rounded-xl text-sm text-slate-300">
         Configure every part from this cart view: tweak quantities, scale, infill, colors, material, and engraving notes before sending the job to checkout.
       </div>
+      {materialWarnings?.enabled && materialStatusEntries.length > 0 && (
+        <div className="rounded-xl border border-white/10 bg-slate-950/60 p-4 text-sm space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-semibold text-slate-100">Filament availability</p>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Live inventory</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {materialStatusEntries.map(({ material, warning }) => {
+              const statusLabel = warning.status === 'in_stock'
+                ? 'In stock'
+                : warning.status === 'limited'
+                  ? 'Limited'
+                  : 'Out of stock'
+              const tone = warning.status === 'in_stock'
+                ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100'
+                : warning.status === 'limited'
+                  ? 'border-amber-400/40 bg-amber-500/10 text-amber-100'
+                  : 'border-rose-400/40 bg-rose-500/10 text-rose-100'
+              return (
+                <div key={material} className={`rounded-lg border px-3 py-2 text-xs ${tone}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="uppercase tracking-[0.2em]">{material}</span>
+                    <span className="font-semibold">{statusLabel}</span>
+                  </div>
+                  {warning.status === 'limited' && (
+                    <div className="mt-1">Limited stock may affect production start and delivery timing.</div>
+                  )}
+                  {warning.status === 'out_of_stock' && (
+                    <div className="mt-1">
+                      Adds ~{warning.leadTimeDays ?? 'TBD'} days to production start and delivery.
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
       {items.length === 0 && (
         <div className="glass p-6 rounded-xl text-slate-400">
           Cart is empty. <Link className="underline" href="/discover">Discover models</Link>
@@ -712,6 +795,16 @@ export default function CartPage() {
               </button>
             </div>
             <div className="text-[10px] uppercase tracking-wide text-slate-400">{paletteTitle}</div>
+            <div className="flex items-center gap-3 text-[10px] uppercase tracking-wide text-slate-500 mt-2">
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 ring-1 ring-emerald-300/70" />
+                In stock
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full border border-slate-500" />
+                Orderable
+              </div>
+            </div>
             <div className="rounded-lg border border-white/10 bg-slate-900/70 p-2 max-h-40 overflow-y-auto">
               <div className="space-y-3">
                 {paletteGroups.map((group) => (
@@ -727,6 +820,7 @@ export default function CartPage() {
                           : swatchOption.inStock
                             ? 'ring-2 ring-emerald-400/80'
                             : ''
+                        const availabilityLabel = swatchOption.inStock ? 'In stock' : 'Orderable'
                         return (
                           <button
                             key={`${swatchOption.brand || 'palette'}-${swatchOption.name}-${swatchOption.hex}`}
@@ -736,7 +830,7 @@ export default function CartPage() {
                                 ? `${swatchOption.name} (${swatchOption.hex}) - In stock`
                                 : `${swatchOption.name} (${swatchOption.hex})`
                             }
-                            className={`h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${ringCls}`}
+                            className={`relative h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${ringCls}`}
                             style={{ background: swatchOption.hex }}
                             aria-label={`Select ${swatchOption.name}`}
                             onClick={() => {
@@ -749,6 +843,13 @@ export default function CartPage() {
                             }}
                           >
                             <span className="sr-only">{swatchOption.name}</span>
+                            <span
+                              className={`absolute -top-1 -right-1 h-3 w-3 rounded-full ${
+                                swatchOption.inStock ? 'bg-emerald-400' : 'bg-slate-700'
+                              } border border-slate-900`}
+                              aria-hidden="true"
+                              title={availabilityLabel}
+                            />
                           </button>
                         )
                       })}
