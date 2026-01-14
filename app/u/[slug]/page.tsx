@@ -6,6 +6,22 @@ import { buildImageSrc, toPublicHref } from '@/lib/storage'
 import { resolveModelPricing } from '@/lib/pricing'
 import { formatPriceLabel } from '@/lib/price-label'
 import { formatCurrency } from '@/lib/currency'
+import { DEFAULT_ACHIEVEMENTS } from '@/lib/achievements'
+
+const fallbackAchievements = new Map(DEFAULT_ACHIEVEMENTS.map((ach) => [ach.key, ach]))
+
+function resolveBadgeDetails(achievement?: { key?: string | null; name?: string | null; icon?: string | null }) {
+  const fallback = achievement?.key ? fallbackAchievements.get(achievement.key) : undefined
+  const rawName = achievement?.name || fallback?.name || 'Badge'
+  const icon = (achievement?.icon || fallback?.icon || '').trim()
+  if (!icon) {
+    const match = rawName.match(/^([A-Z]{1,4}\d{0,2})\s+(.*)$/)
+    if (match) {
+      return { icon: match[1], name: match[2] }
+    }
+  }
+  return { icon, name: rawName }
+}
 
 async function getProfile(slug: string) {
   return prisma.profile.findUnique({
@@ -112,12 +128,15 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
           </div>
           {profile.user.badges && profile.user.badges.length > 0 && (
             <div className="flex flex-wrap gap-2 text-sm">
-              {profile.user.badges.map((ub: any) => (
-                <span key={ub.achievementId} title={ub.achievement?.description || ''} className="px-2 py-1 rounded-md border border-white/10 bg-black/30">
-                  <span className="mr-1">{ub.achievement?.icon || 'dY?+'}</span>
-                  <span>{ub.achievement?.name}</span>
-                </span>
-              ))}
+              {profile.user.badges.map((ub: any) => {
+                const { icon, name } = resolveBadgeDetails(ub.achievement)
+                return (
+                  <span key={ub.achievementId} title={ub.achievement?.description || ''} className="px-2 py-1 rounded-md border border-white/10 bg-black/30">
+                    {icon ? <span className="mr-1">{icon}</span> : null}
+                    <span>{name}</span>
+                  </span>
+                )
+              })}
             </div>
           )}
           {profile.bio && <p className="text-slate-300 whitespace-pre-wrap">{profile.bio}</p>}

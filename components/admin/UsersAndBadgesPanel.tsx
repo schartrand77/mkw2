@@ -2,6 +2,22 @@ import UserDiscountControls from '@/components/admin/UserDiscountControls'
 import UserAdminActions from '@/components/admin/UserAdminActions'
 import type { fetchAdminUsersWithBadges } from '@/lib/admin/queries'
 import { toPublicHref } from '@/lib/public-path'
+import { DEFAULT_ACHIEVEMENTS } from '@/lib/achievements'
+
+const fallbackAchievements = new Map(DEFAULT_ACHIEVEMENTS.map((ach) => [ach.key, ach]))
+
+function resolveBadgeDetails(achievement?: { key?: string | null; name?: string | null; icon?: string | null }) {
+  const fallback = achievement?.key ? fallbackAchievements.get(achievement.key) : undefined
+  const rawName = achievement?.name || fallback?.name || 'Badge'
+  const icon = (achievement?.icon || fallback?.icon || '').trim()
+  if (!icon) {
+    const match = rawName.match(/^([A-Z]{1,4}\d{0,2})\s+(.*)$/)
+    if (match) {
+      return { icon: match[1], name: match[2] }
+    }
+  }
+  return { icon, name: rawName }
+}
 
 type AdminUser = Awaited<ReturnType<typeof fetchAdminUsersWithBadges>>[number]
 
@@ -51,12 +67,15 @@ export default function UsersAndBadgesPanel({ users, className = '' }: Props) {
               {u.badges.length === 0 && (
                 <span className="text-slate-500 text-sm">No badges yet</span>
               )}
-              {u.badges.map((b: any) => (
-                <span key={b.achievementId} title={b.achievement?.description || ''} className="px-2 py-1 rounded-md border border-white/10 bg-black/30 text-sm">
-                  <span className="mr-1">{b.achievement?.icon || 'dY?+'}</span>
-                  <span>{b.achievement?.name || 'Badge'}</span>
-                </span>
-              ))}
+              {u.badges.map((b: any) => {
+                const { icon, name } = resolveBadgeDetails(b.achievement)
+                return (
+                  <span key={b.achievementId} title={b.achievement?.description || ''} className="px-2 py-1 rounded-md border border-white/10 bg-black/30 text-sm">
+                    {icon ? <span className="mr-1">{icon}</span> : null}
+                    <span>{name}</span>
+                  </span>
+                )
+              })}
             </div>
             <div className="mt-4">
               <UserAdminActions
