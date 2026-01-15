@@ -138,8 +138,16 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
               {profile.user.badges.map((ub: any) => {
                 const { icon, name } = resolveBadgeDetails(ub.achievement)
                 return (
-                  <span key={ub.achievementId} title={ub.achievement?.description || ''} className="px-2 py-1 rounded-md border border-white/10 bg-black/30">
-                    {icon ? <span className="mr-1">{icon}</span> : null}
+                  <span
+                    key={ub.achievementId}
+                    title={ub.achievement?.description || ''}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-black/30 px-2 py-1"
+                  >
+                    {icon ? (
+                      <span className="inline-flex min-w-[1.75rem] items-center justify-center rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-white/90">
+                        {icon}
+                      </span>
+                    ) : null}
                     <span>{name}</span>
                   </span>
                 )

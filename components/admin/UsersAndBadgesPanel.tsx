@@ -77,8 +77,16 @@ export default function UsersAndBadgesPanel({ users, className = '' }: Props) {
               {u.badges.map((b: any) => {
                 const { icon, name } = resolveBadgeDetails(b.achievement)
                 return (
-                  <span key={b.achievementId} title={b.achievement?.description || ''} className="px-2 py-1 rounded-md border border-white/10 bg-black/30 text-sm">
-                    {icon ? <span className="mr-1">{icon}</span> : null}
+                  <span
+                    key={b.achievementId}
+                    title={b.achievement?.description || ''}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
+                  >
+                    {icon ? (
+                      <span className="inline-flex min-w-[1.75rem] items-center justify-center rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-white/90">
+                        {icon}
+                      </span>
+                    ) : null}
                     <span>{name}</span>
                   </span>
                 )
