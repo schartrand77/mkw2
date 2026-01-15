@@ -1,6 +1,6 @@
 "use client"
 import { PaymentElement, PaymentRequestButtonElement, useElements, useStripe } from '@stripe/react-stripe-js'
-import type { StripePaymentElementOptions, PaymentIntent, StripePaymentRequest } from '@stripe/stripe-js'
+import type { StripePaymentElementOptions, PaymentIntent, PaymentRequest } from '@stripe/stripe-js'
 import { useEffect, useMemo, useState } from 'react'
 
 type Props = {
@@ -37,7 +37,7 @@ export default function CheckoutForm({ amount, currency, clientSecret, onSuccess
   const elements = useElements()
   const [message, setMessage] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
-  const [paymentRequest, setPaymentRequest] = useState<StripePaymentRequest | null>(null)
+  const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null)
 
   const formattedTotal = useMemo(() => {
     return new Intl.NumberFormat('en', { style: 'currency', currency }).format(amount / 100)
