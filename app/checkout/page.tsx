@@ -457,7 +457,7 @@ export default function CheckoutPage() {
                 onChange={() => setPaymentMethod('card')}
                 disabled={!cardPaymentAvailable}
               />
-              Pay now (card / Apple Pay)
+              Pay now (card)
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -479,7 +479,7 @@ export default function CheckoutPage() {
           )}
           {paymentMethod === 'card' && cardPaymentAvailable && (
             <p className="text-xs text-slate-400">
-              Apple Pay appears automatically on supported devices once Stripe has Apple Pay enabled.
+              Card details are handled securely by the payment processor.
             </p>
           )}
         </div>
@@ -520,7 +520,7 @@ export default function CheckoutPage() {
         )}
         {paymentMethod === 'card' && intent?.clientSecret && stripePromise && !successIntent && (
           <Elements stripe={stripePromise} options={{ clientSecret: intent.clientSecret, appearance }}>
-            <CheckoutForm amount={intent.amount} currency={intent.currency} onSuccess={handleSuccess} />
+            <CheckoutForm amount={intent.amount} currency={intent.currency} clientSecret={intent.clientSecret} onSuccess={handleSuccess} />
           </Elements>
         )}
         {paymentMethod === 'card' && (!stripePromise || !cardPaymentAvailable) && (
