@@ -59,7 +59,8 @@ body {
     0 0 0 1px rgba(var(--shop-favorite-rgb, 34, 211, 238), 0.25),
     0 0 12px rgba(var(--shop-favorite-rgb, 34, 211, 238), 0.18),
     0 0 18px rgba(var(--shop-favorite-rgb, 34, 211, 238), 0.12);
-  animation: shop-favorite-pulse 4.5s ease-in-out infinite;
+  animation: shop-favorite-pulse var(--shop-favorite-duration, 4.5s) ease-in-out infinite;
+  animation-delay: var(--shop-favorite-delay, 0s);
   will-change: box-shadow, transform;
 }
 .shop-favorite-card::before {
@@ -76,7 +77,8 @@ body {
   opacity: 0.1;
   z-index: 0;
   pointer-events: none;
-  animation: shop-favorite-glow 4.5s ease-in-out infinite;
+  animation: shop-favorite-glow var(--shop-favorite-glow-duration, 4.5s) ease-in-out infinite;
+  animation-delay: var(--shop-favorite-glow-delay, 0s);
   will-change: transform, opacity;
 }
 .shop-favorite-card > * {

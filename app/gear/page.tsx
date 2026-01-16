@@ -34,6 +34,13 @@ export default async function AmazonStorePage() {
     if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return '34, 211, 238'
     return `${r}, ${g}, ${b}`
   }
+  const jitterFromId = (id: string, salt = 0) => {
+    let hash = 0
+    for (let i = 0; i < id.length; i += 1) {
+      hash = (hash * 31 + id.charCodeAt(i) + salt) % 1000
+    }
+    return hash / 1000
+  }
   const cfg = await prisma.siteConfig.findUnique({
     where: { id: 'main' },
     select: { favoriteShopLinkIds: true },
@@ -92,6 +99,12 @@ export default async function AmazonStorePage() {
                 const isFavorite = favoriteIds.has(item.id)
                 const favoriteColor = isFavorite ? favoriteColorMap.get(item.id) : undefined
                 const favoriteRgb = isFavorite ? favoriteRgbMap.get(item.id) : undefined
+                const jitter = isFavorite ? jitterFromId(item.id) : 0
+                const glowJitter = isFavorite ? jitterFromId(item.id, 17) : 0
+                const pulseDuration = isFavorite ? 3.2 + jitter * 2.2 : 4.5
+                const glowDuration = isFavorite ? 3.5 + glowJitter * 2.1 : 4.5
+                const pulseDelay = isFavorite ? -jitter * 4 : 0
+                const glowDelay = isFavorite ? -glowJitter * 4 : 0
                 return (
                   <a
                     key={`shortcut-${item.id}`}
@@ -104,6 +117,10 @@ export default async function AmazonStorePage() {
                         ? {
                             ['--shop-favorite-color' as any]: favoriteColor,
                             ['--shop-favorite-rgb' as any]: favoriteRgb,
+                            ['--shop-favorite-duration' as any]: `${pulseDuration.toFixed(2)}s`,
+                            ['--shop-favorite-delay' as any]: `${pulseDelay.toFixed(2)}s`,
+                            ['--shop-favorite-glow-duration' as any]: `${glowDuration.toFixed(2)}s`,
+                            ['--shop-favorite-glow-delay' as any]: `${glowDelay.toFixed(2)}s`,
                           }
                         : undefined
                     }
