@@ -7,6 +7,7 @@ import { resolveModelPricing } from '@/lib/pricing'
 import { formatPriceLabel } from '@/lib/price-label'
 import { formatCurrency } from '@/lib/currency'
 import { DEFAULT_ACHIEVEMENTS } from '@/lib/achievements'
+import { getBadgeImageSrc } from '@/lib/badge-images'
 
 const fallbackAchievements = new Map(DEFAULT_ACHIEVEMENTS.map((ach) => [ach.key, ach]))
 
@@ -137,13 +138,22 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
             <div className="flex flex-wrap gap-2 text-sm">
               {profile.user.badges.map((ub: any) => {
                 const { icon, name } = resolveBadgeDetails(ub.achievement)
+                const badgeImage = getBadgeImageSrc(icon)
                 return (
                   <span
                     key={ub.achievementId}
                     title={ub.achievement?.description || ''}
                     className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-black/30 px-2 py-1"
                   >
-                    {icon ? (
+                    {badgeImage ? (
+                      <img
+                        src={badgeImage}
+                        alt={name}
+                        className="h-6 w-6"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : icon ? (
                       <span className="inline-flex min-w-[1.75rem] items-center justify-center rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-white/90">
                         {icon}
                       </span>
