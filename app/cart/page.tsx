@@ -10,7 +10,6 @@ import {
   getFinishMultiplier,
   getMaterialMultiplier,
   getVolumeScaleMultiplier,
-  FINISH_OPTIONS,
   MATERIAL_OPTIONS,
   normalizeMaterialName,
   resolveAxisScale,
@@ -25,6 +24,7 @@ const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
   z: 'Height (Z)',
 }
 const COLOR_PICKER_FALLBACK = '#1f2937'
+const PALETTE_MARGIN = 16
 const HEX_WITH_HASH_RE = /#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
 const HEX_WITH_0X_RE = /0x([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
 const HEX_BARE_RE = /\b([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})\b/i
@@ -90,12 +90,14 @@ type StockworksColor = {
   name: string
   hex?: string | null
   brand?: string | null
+  category?: string | null
 }
 type SwatchOption = {
   name: string
   hex: string
   inStock?: boolean
   brand?: string
+  category?: string
 }
 const normalizeColorValue = (value?: string | null) => (value || '').trim().toLowerCase()
 const extractHex = (value?: string | null) => {
@@ -122,16 +124,18 @@ const normalizeColorKey = (value: string | StockworksColor) => {
   }
   const base = normalizeColorValue(value.name || value.hex || '')
   const brand = normalizeColorValue(value.brand || '')
-  return brand ? `${brand}::${base}` : base
+  const category = normalizeColorValue(value.category || '')
+  const scope = [brand, category].filter(Boolean).join('::')
+  return scope ? `${scope}::${base}` : base
 }
 const toColorMeta = (value: string | StockworksColor) => {
   if (typeof value === 'string') {
     const parsed = parseColorString(value)
-    return { name: parsed.name || value, hex: parsed.hex, brand: '' }
+    return { name: parsed.name || value, hex: parsed.hex, brand: '', category: '' }
   }
   const hex = value.hex ? normalizeAlphaHex(value.hex) : extractHex(value.name)
   const name = value.name ? value.name.replace(HEX_WITH_HASH_RE, '').replace(HEX_WITH_0X_RE, '').replace(HEX_BARE_RE, '').trim() : ''
-  return { name: name || value.name || hex || 'Unknown', hex, brand: value.brand || '' }
+  return { name: name || value.name || hex || 'Unknown', hex, brand: value.brand || '', category: value.category || '' }
 }
 const resolveSwatch = (value?: string | null) => {
   const parsed = parseColorString(value)
@@ -148,9 +152,11 @@ export default function CartPage() {
   const [discount, setDiscount] = useState<DiscountSummary | null>(null)
   const [activeColorSlot, setActiveColorSlot] = useState<{ id: string; modelId: string; partId: string | null; index: number } | null>(null)
   const [activeColorAnchor, setActiveColorAnchor] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
+  const [paletteWidth, setPaletteWidth] = useState<number | null>(null)
   const [isMobilePalette, setIsMobilePalette] = useState(false)
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
   const [materialWarnings, setMaterialWarnings] = useState<StockworksWarningResponse | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const paletteRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -241,13 +247,18 @@ export default function CartPage() {
   useEffect(() => {
     if (!activeColorSlot) {
       setActiveColorAnchor(null)
+      setPaletteWidth(null)
       return
     }
     const updateAnchor = () => {
       const button = document.querySelector(`[data-color-slot="${activeColorSlot.id}"]`)
       if (!button) return
       const rect = (button as HTMLElement).getBoundingClientRect()
+      const containerRect = containerRef.current?.getBoundingClientRect()
+      const availableWidth = Math.max(0, window.innerWidth - PALETTE_MARGIN * 2)
+      const targetWidth = Math.max(320, Math.min(containerRect?.width ?? availableWidth, availableWidth))
       setActiveColorAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
+      setPaletteWidth(targetWidth)
     }
     updateAnchor()
     window.addEventListener('resize', updateAnchor)
@@ -302,7 +313,9 @@ export default function CartPage() {
       const colorMeta = toColorMeta(color as StockworksColor | string)
       const normalized = normalizeColorValue(colorMeta.name || colorMeta.hex)
       const brandNormalized = normalizeColorValue(colorMeta.brand)
-      const uniqueKey = brandNormalized ? `${brandNormalized}::${normalized}` : normalized
+      const categoryNormalized = normalizeColorValue(colorMeta.category)
+      const scope = [brandNormalized, categoryNormalized].filter(Boolean).join('::')
+      const uniqueKey = scope ? `${scope}::${normalized}` : normalized
       if (!normalized || seen.has(uniqueKey)) continue
       seen.add(uniqueKey)
       const swatch = paletteLookup.get(normalized)
@@ -312,6 +325,7 @@ export default function CartPage() {
         hex,
         inStock: inStockSet.has(uniqueKey),
         brand: colorMeta.brand || '',
+        category: colorMeta.category || '',
       })
     }
     return output
@@ -325,22 +339,32 @@ export default function CartPage() {
     return map
   }, [paletteOptions])
   const fallbackBrandLabel = stockworksEntry ? 'Other' : 'Palette'
+  const fallbackCategoryLabel = 'Other'
+  const hasCategory = useMemo(() => paletteOptions.some((swatch) => (swatch.category || '').trim()), [paletteOptions])
   const paletteGroups = useMemo(() => {
-    const groups: { label: string; options: SwatchOption[] }[] = []
-    const groupMap = new Map<string, SwatchOption[]>()
+    const groups: { label: string; categories: { label: string; options: SwatchOption[] }[] }[] = []
+    const brandMap = new Map<string, { label: string; categories: Map<string, SwatchOption[]>; list: { label: string; options: SwatchOption[] }[] }>()
     for (const swatch of paletteOptions) {
-      const label = (swatch.brand || '').trim() || fallbackBrandLabel
-      const key = normalizeColorValue(label)
-      let list = groupMap.get(key)
-      if (!list) {
-        list = []
-        groupMap.set(key, list)
-        groups.push({ label, options: list })
+      const brandLabel = (swatch.brand || '').trim() || fallbackBrandLabel
+      const brandKey = normalizeColorValue(brandLabel)
+      let brandGroup = brandMap.get(brandKey)
+      if (!brandGroup) {
+        brandGroup = { label: brandLabel, categories: new Map(), list: [] }
+        brandMap.set(brandKey, brandGroup)
+        groups.push({ label: brandLabel, categories: brandGroup.list })
       }
-      list.push(swatch)
+      const categoryLabel = hasCategory ? ((swatch.category || '').trim() || fallbackCategoryLabel) : ''
+      const categoryKey = hasCategory ? normalizeColorValue(categoryLabel || fallbackCategoryLabel) : 'default'
+      let categoryList = brandGroup.categories.get(categoryKey)
+      if (!categoryList) {
+        categoryList = []
+        brandGroup.categories.set(categoryKey, categoryList)
+        brandGroup.list.push({ label: categoryLabel, options: categoryList })
+      }
+      categoryList.push(swatch)
     }
     return groups
-  }, [paletteOptions, fallbackBrandLabel])
+  }, [paletteOptions, fallbackBrandLabel, fallbackCategoryLabel, hasCategory])
   const activeSlotHexValue = isHexColor(activeSlotValue)
     ? activeSlotValue
     : activeSlotSwatch?.hex
@@ -377,7 +401,7 @@ export default function CartPage() {
   const discountSavings = Math.max(0, subtotal - discountedSubtotal)
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
+    <div ref={containerRef} className="max-w-3xl mx-auto space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-semibold">Your Cart</h1>
         <Link href="/discover" className="text-sm text-brand-400 hover:text-brand-300 underline underline-offset-4">
@@ -553,18 +577,6 @@ export default function CartPage() {
                           })().map((material) => (
                               <option key={material} value={material}>{material}</option>
                             ))}
-                        </select>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <span>Finish</span>
-                        <select
-                          className="w-32 input"
-                          value={(item.options.finish || 'standard').toLowerCase()}
-                          onChange={(e) => update(item.modelId, { finish: e.target.value }, item.partId)}
-                        >
-                          {FINISH_OPTIONS.map((finish) => (
-                            <option key={finish} value={finish}>{finish}</option>
-                          ))}
                         </select>
                       </label>
                       <div className="flex flex-col gap-2 text-xs text-slate-400 w-full">
@@ -780,8 +792,12 @@ export default function CartPage() {
               isMobilePalette ? 'left-1/2 bottom-6 -translate-x-1/2' : ''
             }`}
             style={isMobilePalette || !activeColorAnchor ? undefined : {
-              left: Math.min(activeColorAnchor.left, window.innerWidth - 340),
-              top: Math.max(activeColorAnchor.top + activeColorAnchor.height + 12, 16),
+              left: Math.max(
+                PALETTE_MARGIN,
+                Math.min(containerRef.current?.getBoundingClientRect().left ?? activeColorAnchor.left, window.innerWidth - (paletteWidth || 340) - PALETTE_MARGIN),
+              ),
+              top: Math.max(activeColorAnchor.top + activeColorAnchor.height + 12, PALETTE_MARGIN),
+              width: paletteWidth || undefined,
             }}
           >
             <div className="flex items-center justify-between mb-2 text-[11px] uppercase tracking-[0.3em] text-slate-400">
@@ -810,50 +826,57 @@ export default function CartPage() {
                 {paletteGroups.map((group) => (
                   <div key={group.label}>
                     <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-2">{group.label}</div>
-                    <div className="grid grid-cols-6 gap-2">
-                      {group.options.map((swatchOption) => {
-                        const swatchNormalized = normalizeColorValue(swatchOption.name || swatchOption.hex)
-                        const isSelected = activeSlotNormalized === swatchNormalized
-                          || activeSlotNormalized === normalizeColorValue(swatchOption.hex)
-                        const ringCls = isSelected
-                          ? 'ring-2 ring-amber-400'
-                          : swatchOption.inStock
-                            ? 'ring-2 ring-emerald-400/80'
-                            : ''
-                        const availabilityLabel = swatchOption.inStock ? 'In stock' : 'Orderable'
-                        return (
-                          <button
-                            key={`${swatchOption.brand || 'palette'}-${swatchOption.name}-${swatchOption.hex}`}
-                            type="button"
-                            title={
-                              swatchOption.inStock
-                                ? `${swatchOption.name} (${swatchOption.hex}) - In stock`
-                                : `${swatchOption.name} (${swatchOption.hex})`
-                            }
-                            className={`relative h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${ringCls}`}
-                            style={{ background: swatchOption.hex }}
-                            aria-label={`Select ${swatchOption.name}`}
-                            onClick={() => {
-                              const next = [...(activeSlotItem.options.colors || [])]
-                              const nextValue = swatchOption.name && swatchOption.hex
-                                ? `${swatchOption.name} ${swatchOption.hex}`
-                                : swatchOption.name || swatchOption.hex
-                              next[activeColorSlot.index] = nextValue
-                              update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
-                            }}
-                          >
-                            <span className="sr-only">{swatchOption.name}</span>
-                            <span
-                              className={`absolute -top-1 -right-1 h-3 w-3 rounded-full ${
-                                swatchOption.inStock ? 'bg-emerald-400' : 'bg-slate-700'
-                              } border border-slate-900`}
-                              aria-hidden="true"
-                              title={availabilityLabel}
-                            />
-                          </button>
-                        )
-                      })}
-                    </div>
+                    {group.categories.map((category) => (
+                      <div key={`${group.label}-${category.label || 'default'}`} className="mb-3 last:mb-0">
+                        {hasCategory && (
+                          <div className="text-[9px] uppercase tracking-wide text-slate-500 mb-2">{category.label}</div>
+                        )}
+                        <div className="grid grid-cols-6 gap-2">
+                          {category.options.map((swatchOption) => {
+                            const swatchNormalized = normalizeColorValue(swatchOption.name || swatchOption.hex)
+                            const isSelected = activeSlotNormalized === swatchNormalized
+                              || activeSlotNormalized === normalizeColorValue(swatchOption.hex)
+                            const ringCls = isSelected
+                              ? 'ring-2 ring-amber-400'
+                              : swatchOption.inStock
+                                ? 'ring-2 ring-emerald-400/80'
+                                : ''
+                            const availabilityLabel = swatchOption.inStock ? 'In stock' : 'Orderable'
+                            return (
+                              <button
+                                key={`${swatchOption.brand || 'palette'}-${swatchOption.name}-${swatchOption.hex}`}
+                                type="button"
+                                title={
+                                  swatchOption.inStock
+                                    ? `${swatchOption.name} (${swatchOption.hex}) - In stock`
+                                    : `${swatchOption.name} (${swatchOption.hex})`
+                                }
+                                className={`relative h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${ringCls}`}
+                                style={{ background: swatchOption.hex }}
+                                aria-label={`Select ${swatchOption.name}`}
+                                onClick={() => {
+                                  const next = [...(activeSlotItem.options.colors || [])]
+                                  const nextValue = swatchOption.name && swatchOption.hex
+                                    ? `${swatchOption.name} ${swatchOption.hex}`
+                                    : swatchOption.name || swatchOption.hex
+                                  next[activeColorSlot.index] = nextValue
+                                  update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
+                                }}
+                              >
+                                <span className="sr-only">{swatchOption.name}</span>
+                                <span
+                                  className={`absolute -top-1 -right-1 h-3 w-3 rounded-full ${
+                                    swatchOption.inStock ? 'bg-emerald-400' : 'bg-slate-700'
+                                  } border border-slate-900`}
+                                  aria-hidden="true"
+                                  title={availabilityLabel}
+                                />
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
