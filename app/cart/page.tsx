@@ -153,6 +153,8 @@ export default function CartPage() {
   const [activeColorSlot, setActiveColorSlot] = useState<{ id: string; modelId: string; partId: string | null; index: number } | null>(null)
   const [activeColorAnchor, setActiveColorAnchor] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
   const [paletteWidth, setPaletteWidth] = useState<number | null>(null)
+  const [paletteMaxHeight, setPaletteMaxHeight] = useState<number | null>(null)
+  const [palettePlacement, setPalettePlacement] = useState<'above' | 'below'>('below')
   const [isMobilePalette, setIsMobilePalette] = useState(false)
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
   const [materialWarnings, setMaterialWarnings] = useState<StockworksWarningResponse | null>(null)
@@ -248,6 +250,7 @@ export default function CartPage() {
     if (!activeColorSlot) {
       setActiveColorAnchor(null)
       setPaletteWidth(null)
+      setPaletteMaxHeight(null)
       return
     }
     const updateAnchor = () => {
@@ -257,8 +260,14 @@ export default function CartPage() {
       const containerRect = containerRef.current?.getBoundingClientRect()
       const availableWidth = Math.max(0, window.innerWidth - PALETTE_MARGIN * 2)
       const targetWidth = Math.max(320, Math.min(containerRect?.width ?? availableWidth, availableWidth))
+      const verticalGap = 12
+      const availableBelow = Math.max(0, window.innerHeight - (rect.top + rect.height + verticalGap) - PALETTE_MARGIN)
+      const availableAbove = Math.max(0, rect.top - verticalGap - PALETTE_MARGIN)
+      const nextPlacement = availableAbove > availableBelow ? 'above' : 'below'
       setActiveColorAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
       setPaletteWidth(targetWidth)
+      setPaletteMaxHeight(Math.max(240, nextPlacement === 'above' ? availableAbove : availableBelow))
+      setPalettePlacement(nextPlacement)
     }
     updateAnchor()
     window.addEventListener('resize', updateAnchor)
@@ -788,7 +797,7 @@ export default function CartPage() {
           <div className="absolute inset-0 bg-black/50" />
           <div
             ref={paletteRef}
-            className={`absolute bg-slate-950/95 text-white rounded-xl border border-white/10 shadow-2xl p-3 w-[320px] max-w-[calc(100vw-2rem)] ${
+            className={`absolute bg-slate-950/95 text-white rounded-xl border border-white/10 shadow-2xl p-3 w-[320px] max-w-[calc(100vw-2rem)] flex flex-col ${
               isMobilePalette ? 'left-1/2 bottom-6 -translate-x-1/2' : ''
             }`}
             style={isMobilePalette || !activeColorAnchor ? undefined : {
@@ -796,8 +805,11 @@ export default function CartPage() {
                 PALETTE_MARGIN,
                 Math.min(containerRef.current?.getBoundingClientRect().left ?? activeColorAnchor.left, window.innerWidth - (paletteWidth || 340) - PALETTE_MARGIN),
               ),
-              top: Math.max(activeColorAnchor.top + activeColorAnchor.height + 12, PALETTE_MARGIN),
+              top: palettePlacement === 'above'
+                ? Math.max(PALETTE_MARGIN, activeColorAnchor.top - 12 - (paletteMaxHeight || 0))
+                : Math.max(activeColorAnchor.top + activeColorAnchor.height + 12, PALETTE_MARGIN),
               width: paletteWidth || undefined,
+              maxHeight: paletteMaxHeight || undefined,
             }}
           >
             <div className="flex items-center justify-between mb-2 text-[11px] uppercase tracking-[0.3em] text-slate-400">
@@ -821,7 +833,7 @@ export default function CartPage() {
                 Orderable
               </div>
             </div>
-            <div className="rounded-lg border border-white/10 bg-slate-900/70 p-2 max-h-40 overflow-y-auto">
+            <div className="rounded-lg border border-white/10 bg-slate-900/70 p-2 flex-1 overflow-y-auto min-h-[160px]">
               <div className="space-y-3">
                 {paletteGroups.map((group) => (
                   <div key={group.label}>

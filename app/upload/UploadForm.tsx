@@ -32,6 +32,7 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [tags, setTags] = useState('')
   const [loading, setLoading] = useState(false)
+  const [progressPct, setProgressPct] = useState(0)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const router = useRouter()
   const uploadEndpoint = resolveUploadEndpoint(directUploadUrl)
@@ -44,6 +45,7 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
       return
     }
     setLoading(true)
+    setProgressPct(0)
     try {
       setErrorMsg(null)
       const fd = new FormData()
@@ -55,17 +57,26 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
       fd.append('tags', tags)
       Array.from(modelFiles).forEach((f) => fd.append('files', f))
       if (imageFile) fd.append('image', imageFile)
-      const options: RequestInit = {
-        method: 'POST',
-        body: fd,
-        credentials: isDirect ? 'include' : 'same-origin',
-      }
-      if (isDirect) options.mode = 'cors'
-      const res = await fetch(uploadEndpoint, options)
-      if (!res.ok) {
-        try { const j = await res.json(); throw new Error(j.error || 'Upload failed') } catch { throw new Error('Upload failed') }
-      }
-      const data = await res.json()
+      const data = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('POST', uploadEndpoint, true)
+        if (isDirect) xhr.withCredentials = true
+        xhr.responseType = 'json'
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) return
+          setProgressPct(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+        }
+        xhr.onerror = () => reject(new Error('Upload failed'))
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(xhr.response)
+            return
+          }
+          const message = (xhr.response && xhr.response.error) ? xhr.response.error : 'Upload failed'
+          reject(new Error(message))
+        }
+        xhr.send(fd)
+      })
       await notify({ type: 'success', title: 'Upload complete', message: 'Your model is ready to view.' })
       router.push(`/models/${data.model.id}`)
     } catch (err: any) {
@@ -73,6 +84,7 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
       await notify({ type: 'error', title: 'Upload failed', message: err.message || 'Upload failed' })
     } finally {
       setLoading(false)
+      setProgressPct(0)
     }
   }
 
@@ -124,6 +136,17 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
           <input type="file" accept={IMAGE_ACCEPT_ATTRIBUTE} onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
         </div>
         <button className="btn" disabled={loading}>{loading ? 'Uploading...' : 'Upload'}</button>
+        {loading && (
+          <div className="space-y-2">
+            <div className="text-xs text-slate-400">Uploading... {progressPct}%</div>
+            <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-brand-500 transition-all"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+        )}
         {isDirect && (
           <p className="text-xs text-slate-400">Uploads route through <code>{uploadEndpoint}</code> using your direct hostname.</p>
         )}
