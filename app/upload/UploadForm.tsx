@@ -33,10 +33,25 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
   const [tags, setTags] = useState('')
   const [loading, setLoading] = useState(false)
   const [progressPct, setProgressPct] = useState(0)
+  const [progressLoaded, setProgressLoaded] = useState(0)
+  const [progressTotal, setProgressTotal] = useState(0)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const router = useRouter()
   const uploadEndpoint = resolveUploadEndpoint(directUploadUrl)
   const isDirect = !!directUploadUrl
+
+  const formatBytes = (value: number) => {
+    if (!Number.isFinite(value) || value <= 0) return '0 B'
+    const units = ['B', 'KB', 'MB', 'GB', 'TB']
+    let idx = 0
+    let size = value
+    while (size >= 1024 && idx < units.length - 1) {
+      size /= 1024
+      idx += 1
+    }
+    const precision = idx === 0 ? 0 : 1
+    return `${size.toFixed(precision)} ${units[idx]}`
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,6 +61,11 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
     }
     setLoading(true)
     setProgressPct(0)
+    setProgressLoaded(0)
+    const totalSize =
+      Array.from(modelFiles).reduce((sum, file) => sum + (file?.size || 0), 0)
+      + (imageFile?.size || 0)
+    setProgressTotal(totalSize)
     try {
       setErrorMsg(null)
       const fd = new FormData()
@@ -64,6 +84,8 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
         xhr.responseType = 'json'
         xhr.upload.onprogress = (event) => {
           if (!event.lengthComputable) return
+          setProgressLoaded(event.loaded)
+          setProgressTotal(event.total)
           setProgressPct(Math.min(100, Math.round((event.loaded / event.total) * 100)))
         }
         xhr.onerror = () => reject(new Error('Upload failed'))
@@ -85,6 +107,8 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
     } finally {
       setLoading(false)
       setProgressPct(0)
+      setProgressLoaded(0)
+      setProgressTotal(0)
     }
   }
 
@@ -138,7 +162,9 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
         <button className="btn" disabled={loading}>{loading ? 'Uploading...' : 'Upload'}</button>
         {loading && (
           <div className="space-y-2">
-            <div className="text-xs text-slate-400">Uploading... {progressPct}%</div>
+            <div className="text-xs text-slate-400">
+              Uploading... {progressPct}% ({formatBytes(progressLoaded)} / {formatBytes(progressTotal)})
+            </div>
             <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
               <div
                 className="h-full rounded-full bg-brand-500 transition-all"
