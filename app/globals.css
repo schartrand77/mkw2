@@ -261,8 +261,35 @@ html.theme-light .page-title::after {
   width: max-content;
   animation: marquee-scroll 30s linear infinite;
 }
-.marquee-viewport:hover .marquee-track {
-  animation-play-state: paused;
+.marquee-control {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(5, 7, 12, 0.55);
+  color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  transition: border-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+.marquee-control:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+  transform: scale(1.04);
+}
+.marquee-control:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
+.marquee-control-icon {
+  width: 14px;
+  height: 14px;
 }
 @keyframes marquee-scroll {
   from { transform: translateX(0); }
@@ -289,6 +316,15 @@ html.theme-light .marquee-fade-left {
 }
 html.theme-light .marquee-fade-right {
   background: linear-gradient(270deg, rgba(247, 247, 249, 0.95), rgba(247, 247, 249, 0));
+}
+html.theme-light .marquee-control {
+  border-color: rgba(15, 23, 42, 0.18);
+  background: rgba(255, 255, 255, 0.85);
+  color: rgba(15, 23, 42, 0.75);
+}
+html.theme-light .marquee-control:hover {
+  border-color: rgba(15, 23, 42, 0.35);
+  color: rgba(15, 23, 42, 0.95);
 }
 
 .valentines-heart {

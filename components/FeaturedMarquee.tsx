@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { useState } from 'react'
 import { buildImageSrc } from '@/lib/public-path'
 import { formatPriceLabel } from '@/lib/price-label'
 
@@ -15,6 +18,7 @@ export default function FeaturedMarquee({ models, variant = 'default' }: Feature
       : models
   const durationSeconds = Math.max(18, models.length * 4)
   const isCompact = variant === 'compact'
+  const [paused, setPaused] = useState(false)
   const cardClassName = isCompact
     ? 'w-[220px] flex-shrink-0 glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition'
     : 'w-[280px] sm:w-[320px] md:w-[360px] flex-shrink-0 glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition'
@@ -25,7 +29,31 @@ export default function FeaturedMarquee({ models, variant = 'default' }: Feature
     <div className="marquee-viewport glass rounded-2xl border border-white/10 p-4">
       <div className="marquee-fade marquee-fade-left" aria-hidden="true" />
       <div className="marquee-fade marquee-fade-right" aria-hidden="true" />
-      <div className="marquee-track" style={{ animationDuration: `${durationSeconds}s` }}>
+      <button
+        type="button"
+        className="marquee-control"
+        aria-pressed={paused}
+        aria-label={paused ? 'Play marquee' : 'Pause marquee'}
+        title={paused ? 'Play marquee' : 'Pause marquee'}
+        onClick={() => setPaused((prev) => !prev)}
+      >
+        {paused ? (
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="marquee-control-icon">
+            <path d="M8 6l10 6-10 6V6z" fill="currentColor" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="marquee-control-icon">
+            <path d="M7 6h4v12H7zM13 6h4v12h-4z" fill="currentColor" />
+          </svg>
+        )}
+      </button>
+      <div
+        className="marquee-track"
+        style={{
+          animationDuration: `${durationSeconds}s`,
+          animationPlayState: paused ? 'paused' : 'running',
+        }}
+      >
         {loop.map((model, idx) => (
           <FeaturedCard
             key={`${model.id}-${idx}`}
