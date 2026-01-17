@@ -103,13 +103,8 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const invitePassword = (process.env.ADMIN_INVITE_PASSWORD || '').trim()
-  if (!invitePassword) {
-    return NextResponse.json({ type: 4, data: { content: 'ADMIN_INVITE_PASSWORD not set.', flags: 64 } })
-  }
-
   try {
-    const { user } = await createInviteAccount({ email, name: typeof name === 'string' ? name : null, password: invitePassword })
+    const { user } = await createInviteAccount({ email, name: typeof name === 'string' ? name : null })
     const resolvedBaseUrl = await resolveBaseUrl()
     const baseUrl = resolvedBaseUrl || (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
     const { loginUrl } = buildInviteLoginUrl(user.id, baseUrl)
@@ -119,7 +114,7 @@ export async function POST(req: NextRequest) {
       'You have been invited to MakerWorks.',
       `Login link (expires in ${ttlLabel}): ${loginUrl}`,
       `Email: ${user.email}`,
-      `Password: ${invitePassword}`,
+      'Set your password after signing in from the account settings page.',
     ].join('\n')
     const dmSent = await sendDiscordDirectMessage(targetUserId, dmBody)
     if (!dmSent) {

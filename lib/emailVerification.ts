@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto'
+import { createHash, randomBytes } from 'crypto'
 import { prisma } from './db'
 import { sendMail } from './mailer'
 import { BRAND_NAME } from './brand'
@@ -9,14 +9,19 @@ function tokenString() {
   return randomBytes(24).toString('hex')
 }
 
+export function hashVerificationToken(token: string) {
+  return createHash('sha256').update(token).digest('hex')
+}
+
 export async function createEmailVerificationToken(userId: string, email: string, minutesValid = 30) {
   const token = tokenString()
+  const tokenHash = hashVerificationToken(token)
   const expiresAt = new Date(Date.now() + minutesValid * 60 * 1000)
   await prisma.verificationToken.create({
     data: {
       userId,
       email,
-      token,
+      token: tokenHash,
       expiresAt,
     },
   })

@@ -124,7 +124,6 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
           <input type="file" accept={IMAGE_ACCEPT_ATTRIBUTE} onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
         </div>
         <button className="btn" disabled={loading}>{loading ? 'Uploading...' : 'Upload'}</button>
-        <p className="text-xs text-slate-400">Sign in not required for demo; will attach to anonymous user.</p>
         {isDirect && (
           <p className="text-xs text-slate-400">Uploads route through <code>{uploadEndpoint}</code> using your direct hostname.</p>
         )}

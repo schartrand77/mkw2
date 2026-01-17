@@ -435,6 +435,18 @@ model PushSubscription {
   @@index([userId])
 }
 
+model RateLimit {
+  key          String   @id
+  count        Int      @default(0)
+  resetAt      DateTime
+  blockedUntil DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([resetAt])
+  @@index([blockedUntil])
+}
+
 enum FulfillmentStatus {
   pending
   ready

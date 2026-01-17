@@ -26,6 +26,11 @@ Quick start (high level)
 - Optionally add Stripe keys to accept payments.
 - If you use OrderWorks or StockWorks, connect them to the same database.
 
+Security notes (recent)
+- Auth endpoints now enforce rate limiting and lockout windows. Configure via `AUTH_LOGIN_RATE_*`, `AUTH_REGISTER_RATE_*`, and `AUTH_RESEND_RATE_*` in `.env`.
+- Admin invites use a magic login link (no shared invite password).
+- Email verification tokens are stored hashed at rest.
+
 Screenshots
 ![Home](public/screenshots/mwhome.png)
 ![Discover](public/screenshots/mwdiscover.png)

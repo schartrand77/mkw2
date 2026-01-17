@@ -15,12 +15,7 @@ export async function POST(req: NextRequest) {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   try {
     const { email, name } = inviteSchema.parse(await req.json())
-    const invitePassword = (process.env.ADMIN_INVITE_PASSWORD || '').trim()
-    if (!invitePassword) {
-      return NextResponse.json({ error: 'ADMIN_INVITE_PASSWORD not set' }, { status: 500 })
-    }
-
-    const { user, profile } = await createInviteAccount({ email, name, password: invitePassword })
+    const { user, profile } = await createInviteAccount({ email, name })
     const requestOrigin = req.nextUrl.origin.replace(/\/+$/, '')
     const resolvedBaseUrl = await resolveBaseUrl()
     const envBaseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
@@ -40,7 +35,6 @@ export async function POST(req: NextRequest) {
         ],
         meta: {
           preapproved: true,
-          password: invitePassword,
         },
         url: loginUrl,
       })
@@ -62,7 +56,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       user,
-      password: invitePassword,
       loginUrl,
       discordSent,
     })

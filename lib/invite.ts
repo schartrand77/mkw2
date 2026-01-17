@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto'
 import { prisma } from '@/lib/db'
 import { hashPassword, signInviteToken } from '@/lib/auth'
 import { ensureUserPage } from '@/lib/userpage'
@@ -5,7 +6,7 @@ import { ensureUserPage } from '@/lib/userpage'
 type InviteInput = {
   email: string
   name?: string | null
-  password: string
+  password?: string
 }
 
 export async function createInviteAccount(input: InviteInput) {
@@ -16,7 +17,8 @@ export async function createInviteAccount(input: InviteInput) {
     ;(err as any).status = 409
     throw err
   }
-  const passwordHash = await hashPassword(input.password)
+  const password = input.password || randomBytes(24).toString('hex')
+  const passwordHash = await hashPassword(password)
   const user = await prisma.user.create({
     data: {
       email: normalizedEmail,
