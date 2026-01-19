@@ -72,25 +72,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <NotificationsProvider>
         <header className="sticky top-0 z-50 header-shell header-safe">
           <div className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
-            {authed ? (
-              <Link href="/" aria-label={BRAND_FULL_NAME} className="text-xl font-semibold tracking-tight">
-                <span>{BRAND_LOGO_PREFIX}</span>
-                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
-                  <GearGlyph />
-                </span>
-                {BRAND_LOGO_SUFFIX && <span>{BRAND_LOGO_SUFFIX}</span>}
-                {BRAND_VERSION && <span className="text-brand-500"> {BRAND_VERSION}</span>}
-              </Link>
-            ) : (
-              <span className="text-xl font-semibold tracking-tight select-none">
-                <span>{BRAND_LOGO_PREFIX}</span>
-                <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
-                  <GearGlyph />
-                </span>
-                {BRAND_LOGO_SUFFIX && <span>{BRAND_LOGO_SUFFIX}</span>}
-                {BRAND_VERSION && <span className="text-brand-500"> {BRAND_VERSION}</span>}
+            <Link href="/" aria-label={BRAND_FULL_NAME} className="text-xl font-semibold tracking-tight">
+              <span>{BRAND_LOGO_PREFIX}</span>
+              <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
+                <GearGlyph />
               </span>
-            )}
+              {BRAND_LOGO_SUFFIX && <span>{BRAND_LOGO_SUFFIX}</span>}
+              {BRAND_VERSION && <span className="text-brand-500"> {BRAND_VERSION}</span>}
+            </Link>
             <NavBar authed={authed} isAdmin={isAdmin} avatarUrl={avatarUrl} />
           </div>
         </header>
