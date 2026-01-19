@@ -11,12 +11,11 @@ type FeaturedMarqueeProps = {
 }
 
 export default function FeaturedMarquee({ models, variant = 'default' }: FeaturedMarqueeProps) {
-  const cloneCount = models.length >= 4 ? Math.min(models.length, 4) : 0
-  const loop =
-    cloneCount > 0
-      ? [...models, ...models.slice(0, cloneCount)]
-      : models
-  const durationSeconds = Math.max(18, models.length * 4)
+  const minVisibleCards = 6
+  const baseRepeatCount = models.length > 0 ? Math.max(1, Math.ceil(minVisibleCards / models.length)) : 1
+  const baseSequence = Array.from({ length: baseRepeatCount }, () => models).flat()
+  const loop = [...baseSequence, ...baseSequence]
+  const durationSeconds = Math.max(18, baseSequence.length * 4)
   const isCompact = variant === 'compact'
   const [paused, setPaused] = useState(false)
   const cardClassName = isCompact
@@ -58,7 +57,7 @@ export default function FeaturedMarquee({ models, variant = 'default' }: Feature
           <FeaturedCard
             key={`${model.id}-${idx}`}
             model={model}
-            ariaHidden={idx >= models.length}
+            ariaHidden={idx >= baseSequence.length}
             cardClassName={cardClassName}
             bodyClassName={bodyClassName}
             titleClassName={titleClassName}
