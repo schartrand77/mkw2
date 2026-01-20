@@ -14,6 +14,7 @@ import { commentInclude, findVerifiedCommentUserIds, serializeComment } from '@/
 import { computeStlStatsMm } from '@/lib/stl'
 import { updateModelPricingForModel } from '@/lib/model-pricing'
 import { processPendingImages } from '@/lib/image-queue'
+import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
 
 type ModelRouteContext = { params: Promise<{ id: string }> }
 
@@ -44,7 +45,12 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
       if (!previewRel) continue
       try {
         const buf = await readFile(path.join(storageRoot(), previewRel))
-        const stats = computeStlStatsMm(buf)
+        let stats = computeStlStatsMm(buf)
+        stats = scaleStatsToTargetDimensions(stats, {
+          x: model.sizeXmm ?? null,
+          y: model.sizeYmm ?? null,
+          z: model.sizeZmm ?? null,
+        })
         if (stats.volumeMm3 != null) {
           await prisma.modelPart.update({
             where: { id: part.id },

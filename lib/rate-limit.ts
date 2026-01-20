@@ -170,9 +170,5 @@ export async function consumeRateLimit(key: string, cfg: RateLimitConfig): Promi
 }
 
 export async function clearRateLimit(key: string) {
-  try {
-    await prisma.rateLimit.delete({ where: { key } })
-  } catch {
-    // ignore missing entries
-  }
+  await prisma.rateLimit.deleteMany({ where: { key } })
 }

@@ -8,6 +8,7 @@ import { computeStlStatsMm } from '@/lib/stl'
 import { BRAND_NAME } from '@/lib/brand'
 import { notifyModelProcessingReady } from '@/lib/model-processing-notifications'
 import { updateModelPricingForModel } from '@/lib/model-pricing'
+import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
 
 const STATUS_PENDING = 'pending'
 const STATUS_PROCESSING = 'processing'
@@ -15,7 +16,7 @@ const STATUS_READY = 'ready'
 const STATUS_FAILED = 'failed'
 
 const MAX_3MF_CONVERT_BYTES = readByteEnv('UPLOAD_MAX_3MF_CONVERT_BYTES', 25 * 1024 * 1024)
-const MAX_3MF_TRIANGLES = readCountEnv('UPLOAD_MAX_3MF_TRIANGLES', 800000)
+const MAX_3MF_TRIANGLES = readCountEnv('UPLOAD_MAX_3MF_TRIANGLES', 1200000)
 
 const xmlParser = new XMLParser({
   ignoreAttributes: false,
@@ -425,7 +426,7 @@ export async function processPendingModelPreviews(limit = 3, options: PreviewQue
       }
       const previewRel = normalizeStoredPath(job.previewPath)
       await saveBuffer(previewRel, converted.buf)
-      const stats = computeStlStatsMm(converted.buf)
+      let stats = computeStlStatsMm(converted.buf)
 
       const part = job.partId
         ? await prisma.modelPart.findUnique({ where: { id: job.partId }, select: { id: true, index: true } })
@@ -435,6 +436,15 @@ export async function processPendingModelPreviews(limit = 3, options: PreviewQue
       }
 
       if (part) {
+        const modelDims = await prisma.model.findUnique({
+          where: { id: job.modelId },
+          select: { sizeXmm: true, sizeYmm: true, sizeZmm: true },
+        })
+        stats = scaleStatsToTargetDimensions(stats, {
+          x: modelDims?.sizeXmm ?? null,
+          y: modelDims?.sizeYmm ?? null,
+          z: modelDims?.sizeZmm ?? null,
+        })
         await prisma.modelPart.update({
           where: { id: part.id },
           data: {

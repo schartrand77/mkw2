@@ -28,6 +28,9 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
   const [creditName, setCreditName] = useState('')
   const [creditUrl, setCreditUrl] = useState('')
   const [material, setMaterial] = useState('PLA')
+  const [sizeXmm, setSizeXmm] = useState('')
+  const [sizeYmm, setSizeYmm] = useState('')
+  const [sizeZmm, setSizeZmm] = useState('')
   const [modelFiles, setModelFiles] = useState<FileList | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [tags, setTags] = useState('')
@@ -75,6 +78,9 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
       fd.append('description', description)
       fd.append('material', material)
       fd.append('tags', tags)
+      if (sizeXmm) fd.append('sizeXmm', sizeXmm)
+      if (sizeYmm) fd.append('sizeYmm', sizeYmm)
+      if (sizeZmm) fd.append('sizeZmm', sizeZmm)
       Array.from(modelFiles).forEach((f) => fd.append('files', f))
       if (imageFile) fd.append('image', imageFile)
       const data = await new Promise<any>((resolve, reject) => {
@@ -150,6 +156,39 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
               <option key={option} value={option}>{option}</option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Target size (mm, optional)</label>
+          <div className="grid grid-cols-3 gap-2">
+            <input
+              className="input"
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={sizeXmm}
+              onChange={(e) => setSizeXmm(e.target.value)}
+              placeholder="X"
+            />
+            <input
+              className="input"
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={sizeYmm}
+              onChange={(e) => setSizeYmm(e.target.value)}
+              placeholder="Y"
+            />
+            <input
+              className="input"
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={sizeZmm}
+              onChange={(e) => setSizeZmm(e.target.value)}
+              placeholder="Z"
+            />
+          </div>
+          <p className="text-xs text-slate-400 mt-1">Use this if the model needs scaling for estimates. Applies to single-file uploads.</p>
         </div>
         <div>
           <label className="block text-sm mb-1">Model files (.stl, .obj, .3mf, or .zip)</label>

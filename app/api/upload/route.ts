@@ -19,6 +19,7 @@ import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
 import { processPendingImages } from '@/lib/image-queue'
 import { convert3mfToStl, enqueueModelPreviewJob, processPendingModelPreviews } from '@/lib/model-preview-queue'
+import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
 
@@ -351,6 +352,18 @@ export async function POST(req: NextRequest) {
     const creditUrl = String(parsed.fields.creditUrl || '').slice(0, 500) || null
     const material = String(parsed.fields.material || 'PLA').slice(0, 40)
     const tagsRaw = String(parsed.fields.tags || '')
+    const parsePositive = (value: string | undefined) => {
+      if (!value) return null
+      const numeric = Number(value)
+      if (!Number.isFinite(numeric) || numeric <= 0) return null
+      return numeric
+    }
+    const targetDimensions = {
+      x: parsePositive(parsed.fields.sizeXmm),
+      y: parsePositive(parsed.fields.sizeYmm),
+      z: parsePositive(parsed.fields.sizeZmm),
+    }
+    const hasTargetDimensions = Object.values(targetDimensions).some((val) => val != null)
 
     const modelFiles = parsed.modelFiles
     if (!parsed.sawModelInput) return json({ error: 'Missing model files' }, { status: 400 })
@@ -366,6 +379,7 @@ export async function POST(req: NextRequest) {
     // Save files and create model + parts
     const now = Date.now()
     const isMultipart = modelFiles.length > 1
+    const applyTargetDimensions = hasTargetDimensions && !isMultipart
     let totalVolMm3 = 0
     let totalPrice = 0
     const partCreates: any[] = []
@@ -419,14 +433,24 @@ export async function POST(req: NextRequest) {
       let volMm3: number | null = null
       let sizeXmm: number | undefined, sizeYmm: number | undefined, sizeZmm: number | undefined
       if (statsBuf) {
-        const stats = computeStlStatsMm(statsBuf)
+        let stats = computeStlStatsMm(statsBuf)
+        if (applyTargetDimensions) {
+          stats = scaleStatsToTargetDimensions(stats, targetDimensions)
+        }
         volMm3 = stats.volumeMm3
         sizeXmm = stats.sizeXmm; sizeYmm = stats.sizeYmm; sizeZmm = stats.sizeZmm
-        if (!isMultipart && sizeXmm != null && sizeYmm != null && sizeZmm != null) {
-          overallSizeXmm = sizeXmm
-          overallSizeYmm = sizeYmm
-          overallSizeZmm = sizeZmm
+        if (!isMultipart) {
+          if (sizeXmm != null) overallSizeXmm = sizeXmm
+          if (sizeYmm != null) overallSizeYmm = sizeYmm
+          if (sizeZmm != null) overallSizeZmm = sizeZmm
         }
+      } else if (applyTargetDimensions) {
+        if (targetDimensions.x != null) sizeXmm = targetDimensions.x
+        if (targetDimensions.y != null) sizeYmm = targetDimensions.y
+        if (targetDimensions.z != null) sizeZmm = targetDimensions.z
+        if (sizeXmm != null) overallSizeXmm = sizeXmm
+        if (sizeYmm != null) overallSizeYmm = sizeYmm
+        if (sizeZmm != null) overallSizeZmm = sizeZmm
       }
       const cm3 = volMm3 ? volMm3 / 1000 : null
       const p = cm3 != null ? estimatePriceUSD({ cm3, material, cfg, applyMinimum: !isMultipart }) : null
