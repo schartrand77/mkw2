@@ -92,13 +92,6 @@ type ParsedUpload = {
   sawModelInput: boolean
 }
 
-type ZipEntry = NodeJS.ReadableStream & {
-  type: 'File' | 'Directory' | string
-  path: string
-  vars?: { uncompressedSize?: number }
-  autodrain: () => void
-}
-
 function buildTempRelPath(userId: string, filename: string) {
   const ext = path.extname(filename) || '.bin'
   const base = safeName(path.basename(filename, ext)) || 'upload'
@@ -210,56 +203,42 @@ async function parseMultipartUpload(req: NextRequest, userId: string) {
     if (lower.endsWith('.zip')) {
       const p: Promise<void> = (async () => {
         const zipParser = (UnzipperParse as any)({ forceStream: true })
-        const entryWrites: Array<Promise<void>> = []
-        const done = new Promise<void>((resolve, reject) => {
-          zipParser.on('error', reject)
-          zipParser.on('close', resolve)
-        })
-
-        zipParser.on('entry', (entry: ZipEntry) => {
-          const entryPromise = (async () => {
-            if (entry.type === 'Directory') {
-              entry.autodrain()
-              return
-            }
-            const entryName = path.basename(entry.path)
-            if (!isAllowedModel(entryName)) {
-              entry.autodrain()
-              return
-            }
-            const entrySize = Number(entry.vars?.uncompressedSize || 0)
-            if (entrySize && entrySize > MAX_UPLOAD_FILE_BYTES) {
-              entry.autodrain()
+        const zipPromise = pipeline(file, zipParser)
+        for await (const entry of zipParser) {
+          if (entry.type === 'Directory') {
+            entry.autodrain()
+            continue
+          }
+          const entryName = path.basename(entry.path)
+          if (!isAllowedModel(entryName)) {
+            entry.autodrain()
+            continue
+          }
+          const entrySize = Number(entry.vars?.uncompressedSize || 0)
+          if (entrySize && entrySize > MAX_UPLOAD_FILE_BYTES) {
+            entry.autodrain()
+            throw uploadError(`Zip entry too large: ${entryName}`, 413)
+          }
+          const ext = path.extname(entryName).toLowerCase() || '.bin'
+          const tempRel = buildTempRelPath(userId, entryName)
+          const tempFull = path.join(storageRoot(), tempRel)
+          const record: TempModelFile = {
+            originalName: entryName,
+            ext,
+            tempRel,
+            tempFull,
+            size: 0,
+          }
+          modelFiles.push(record)
+          await streamToStorage(tempRel, entry, (size) => {
+            record.size += size
+            if (record.size > MAX_UPLOAD_FILE_BYTES) {
               throw uploadError(`Zip entry too large: ${entryName}`, 413)
             }
-            const ext = path.extname(entryName).toLowerCase() || '.bin'
-            const tempRel = buildTempRelPath(userId, entryName)
-            const tempFull = path.join(storageRoot(), tempRel)
-            const record: TempModelFile = {
-              originalName: entryName,
-              ext,
-              tempRel,
-              tempFull,
-              size: 0,
-            }
-            modelFiles.push(record)
-            await streamToStorage(tempRel, entry, (size) => {
-              record.size += size
-              if (record.size > MAX_UPLOAD_FILE_BYTES) {
-                throw uploadError(`Zip entry too large: ${entryName}`, 413)
-              }
-              trackTotalBytes(size)
-            })
-          })().catch((err) => {
-            zipParser.destroy(err as Error)
-            throw err
+            trackTotalBytes(size)
           })
-          entryWrites.push(entryPromise)
-        })
-
-        file.pipe(zipParser)
-        await done
-        await Promise.all(entryWrites)
+        }
+        await zipPromise
       })()
       fileWrites.push(p)
       return
