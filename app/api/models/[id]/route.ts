@@ -99,6 +99,10 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
   const tags = model.modelTags.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug }))
   const { modelTags, images, comments, revisions, coverImageSourcePath, coverImageError, ...rest } = model as any
   const pricingSummary = resolveModelPricing(model as any, cfg)
+  const effectivePriceUsd = model.effectivePriceUsd != null && Number.isFinite(Number(model.effectivePriceUsd))
+    ? Number(model.effectivePriceUsd)
+    : null
+  const displayPriceUsd = pricingSummary.salePriceUsd ?? effectivePriceUsd ?? pricingSummary.priceUsd
   const totalVolumeMm3 = model.volumeMm3 != null && Number.isFinite(Number(model.volumeMm3)) ? Number(model.volumeMm3) : null
   const totalPricing = totalVolumeMm3 != null
     ? estimatePricingDetails({ cm3: totalVolumeMm3 / 1000, material: rest.material, cfg, applyMinimum: true })
@@ -114,7 +118,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     model: {
       ...rest,
       previewProcessing: has3mf ? previewJobsPending > 0 : false,
-      priceUsd: pricingSummary.priceUsd,
+      priceUsd: displayPriceUsd,
       basePriceUsd: pricingSummary.basePriceUsd,
       salePriceUsd: pricingSummary.salePriceUsd,
       pricing: pricingSummary.breakdown,
