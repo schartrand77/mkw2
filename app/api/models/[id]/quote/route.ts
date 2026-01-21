@@ -26,6 +26,8 @@ const bodySchema = z.object({
   targetDimensions: dimensionSchema.optional(),
 })
 
+const DEFAULT_INFILL_PCT = 20
+
 export async function POST(req: NextRequest, { params }: QuoteContext) {
   const { id } = await params
   let body: unknown
@@ -49,6 +51,7 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
       sizeXmm: true,
       sizeYmm: true,
       sizeZmm: true,
+      salePriceUsd: true,
     },
   })
   if (!model) return NextResponse.json({ error: 'Model not found' }, { status: 404 })
@@ -92,7 +95,24 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
     applyMinimum: true,
   })
   const colorMultiplier = getColorMultiplier(colors)
-  const priceUsd = Number((pricing.price * colorMultiplier).toFixed(2))
+  let priceUsd = Number((pricing.price * colorMultiplier).toFixed(2))
+
+  if (model.salePriceUsd != null && Number.isFinite(Number(model.salePriceUsd)) && Number(model.salePriceUsd) > 0) {
+    const baseMaterial = normalizeMaterialName(model.material || 'PLA')
+    const basePricing = estimatePricingDetails({
+      cm3: Number(volumeMm3) / 1000,
+      material: baseMaterial,
+      infillPct: DEFAULT_INFILL_PCT,
+      finish: 'standard',
+      cfg,
+      applyMinimum: true,
+    })
+    if (basePricing.price > 0) {
+      priceUsd = Number(((pricing.price * colorMultiplier * Number(model.salePriceUsd)) / basePricing.price).toFixed(2))
+    } else {
+      priceUsd = Number(model.salePriceUsd)
+    }
+  }
 
   const targetDimensions = (() => {
     const dims: Record<string, number> = {}
