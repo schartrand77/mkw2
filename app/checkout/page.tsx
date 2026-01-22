@@ -106,6 +106,11 @@ export default function CheckoutPage() {
       }
     })
   ), [checkoutItemsState])
+  const missingColorItems = useMemo(
+    () => checkoutItemsState.filter((item) => normalizeColors(item.options.colors).length === 0),
+    [checkoutItemsState],
+  )
+  const hasMissingColors = missingColorItems.length > 0
 
   const checkoutMaterials = useMemo(() => {
     const unique = new Set<string>()
@@ -213,6 +218,11 @@ export default function CheckoutPage() {
       setIntent(null)
       return
     }
+    if (hasMissingColors) {
+      setError('Choose at least one filament color for every item before checking out.')
+      setIntent(null)
+      return
+    }
     if (shippingMethod === 'ship' && !shippingAddress) {
       setError('Add a shipping address under Settings → Profile before selecting shipping.')
       setIntent(null)
@@ -242,7 +252,7 @@ export default function CheckoutPage() {
     } finally {
       setLoading(false)
     }
-  }, [checkoutItems, shippingSelection, shippingAddress, shippingMethod, paymentMethod])
+  }, [checkoutItems, hasMissingColors, shippingSelection, shippingAddress, shippingMethod, paymentMethod])
 
   useEffect(() => {
     fetchIntent()
@@ -357,9 +367,13 @@ export default function CheckoutPage() {
                       <div>Qty {item.options.qty} {'\u00b7'} Scale {(item.options.scale || 1).toFixed(2)}</div>
                       <div>
                         Material {item.options.material || 'PLA'}
-                        {normalizeColors(item.options.colors).length > 0 && (
-                          <> {'\u00b7'} Colors: {normalizeColors(item.options.colors).join(', ')}</>
-                        )}
+                        {(() => {
+                          const itemColors = normalizeColors(item.options.colors)
+                          if (itemColors.length > 0) {
+                            return <> {'\u00b7'} Colors: {itemColors.join(', ')}</>
+                          }
+                          return <> {'\u00b7'} <span className="text-amber-300">Colors required</span></>
+                        })()}
                         {item.options.finish && item.options.finish !== 'standard' && (
                           <> {'\u00b7'} Finish: {item.options.finish}</>
                         )}
@@ -376,6 +390,15 @@ export default function CheckoutPage() {
                 </div>
               ))}
             </div>
+        </div>
+      )}
+      {hasMissingColors && (
+        <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm space-y-2">
+          <p className="font-semibold text-amber-200">Filament color required</p>
+          <p className="text-xs text-amber-100">Choose at least one filament color for every item before checking out.</p>
+          <Link href="/cart" className="text-xs text-brand-200 hover:text-brand-100 underline underline-offset-4">
+            Edit cart to pick colors
+          </Link>
         </div>
       )}
       {materialWarnings?.enabled && (() => {

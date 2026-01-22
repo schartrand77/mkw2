@@ -61,6 +61,8 @@ export default function InstantQuoteConfigurator({
   const [quote, setQuote] = useState<QuoteResponse['quote'] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const normalizedColors = useMemo(() => normalizeColors(colors, maxColors), [colors, maxColors])
+  const hasRequiredColor = normalizedColors.length > 0
 
   const hasDimensions = useMemo(
     () => [sizeXmm, sizeYmm, sizeZmm].some((value) => typeof value === 'number' && Number.isFinite(value) && value > 0),
@@ -138,7 +140,7 @@ export default function InstantQuoteConfigurator({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             material: materialChoice,
-            colors: normalizeColors(colors),
+            colors: normalizedColors,
             finish,
             infillPct,
             scale,
@@ -169,9 +171,10 @@ export default function InstantQuoteConfigurator({
     }
     run()
     return () => { active = false }
-  }, [modelId, materialChoice, colors, finish, infillPct, scale, axisScale, targetDimensions])
+  }, [modelId, materialChoice, normalizedColors, finish, infillPct, scale, axisScale, targetDimensions])
 
   const addToCart = useCallback(() => {
+    if (!hasRequiredColor) return
     add(
       {
         modelId,
@@ -184,14 +187,14 @@ export default function InstantQuoteConfigurator({
         qty: 1,
         scale: clampScale(scale),
         material: materialChoice,
-        colors: normalizeColors(colors, maxColors),
+        colors: normalizedColors,
         finish,
         infillPct,
         dimensionOverrides: lockDimensions ? null : dimensionOverrides,
         lockDimensions,
       },
     )
-  }, [add, modelId, title, priceUsd, quote?.priceUsd, thumbnail, sizeXmm, sizeYmm, sizeZmm, scale, materialChoice, colors, maxColors, finish, infillPct, lockDimensions, dimensionOverrides])
+  }, [add, hasRequiredColor, modelId, title, priceUsd, quote?.priceUsd, thumbnail, sizeXmm, sizeYmm, sizeZmm, scale, materialChoice, normalizedColors, finish, infillPct, lockDimensions, dimensionOverrides])
 
   return (
     <div className="glass rounded-xl p-5 space-y-4">
@@ -200,7 +203,7 @@ export default function InstantQuoteConfigurator({
           <h3 className="text-lg font-semibold">Instant quote</h3>
           <p className="text-xs text-slate-400">Tune this model and save the configuration to your cart.</p>
         </div>
-        <button className="btn" onClick={addToCart} disabled={loading}>
+        <button className="btn" onClick={addToCart} disabled={loading || !hasRequiredColor}>
           Save to cart
         </button>
       </div>
@@ -279,7 +282,7 @@ export default function InstantQuoteConfigurator({
       )}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>Colors (optional)</span>
+          <span>Colors (required)</span>
           <button
             type="button"
             className="px-2 py-1 rounded border border-white/10 hover:border-white/20"
@@ -291,8 +294,8 @@ export default function InstantQuoteConfigurator({
             Add color
           </button>
         </div>
-        {colors.length === 0 && (
-          <p className="text-xs text-slate-500">No colors selected. Add a color if you want multi-material pricing.</p>
+        {!hasRequiredColor && (
+          <p className="text-xs text-amber-300">Choose at least one filament color before saving to cart.</p>
         )}
         <div className="grid gap-2 md:grid-cols-2">
           {colors.map((color, idx) => (

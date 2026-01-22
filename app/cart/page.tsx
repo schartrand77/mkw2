@@ -11,6 +11,7 @@ import {
   getMaterialMultiplier,
   getVolumeScaleMultiplier,
   MATERIAL_OPTIONS,
+  normalizeColors,
   normalizeMaterialName,
   resolveAxisScale,
   type MaterialType,
@@ -384,6 +385,11 @@ export default function CartPage() {
 
   const discountMultiplier = useMemo(() => getDiscountMultiplier(discount), [discount])
   const totalDiscountPercent = discount?.totalPercent ?? 0
+  const itemsMissingColors = useMemo(
+    () => items.filter((item) => normalizeColors(item.options.colors).length === 0),
+    [items],
+  )
+  const hasMissingColors = itemsMissingColors.length > 0
   const materialStatusEntries = useMemo(() => {
     if (!materialWarnings?.enabled) return []
     return Object.entries(materialWarnings.materials || {}).map(([material, warning]) => ({
@@ -785,11 +791,22 @@ export default function CartPage() {
                   </div>
                 )}
               </div>
-              <Link href="/checkout" className="btn whitespace-nowrap">
-                Checkout
-              </Link>
+              {hasMissingColors ? (
+                <button type="button" className="btn whitespace-nowrap opacity-60 cursor-not-allowed" disabled>
+                  Checkout
+                </button>
+              ) : (
+                <Link href="/checkout" className="btn whitespace-nowrap">
+                  Checkout
+                </Link>
+              )}
             </div>
           </div>
+          {hasMissingColors && (
+            <p className="text-xs text-amber-300 mt-3">
+              Choose at least one filament color for each item before checking out.
+            </p>
+          )}
         </>
       )}
       {activeColorSlot && activeSlotItem && (

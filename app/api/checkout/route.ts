@@ -111,6 +111,11 @@ export async function POST(req: NextRequest) {
     if (isCash && shipping && shipping.method !== 'pickup') {
       return NextResponse.json({ error: 'Cash payments are only available for local pickup' }, { status: 400 })
     }
+    for (const entry of items) {
+      if (normalizeColors(entry.colors).length === 0) {
+        return NextResponse.json({ error: 'Select at least one filament color for each item.' }, { status: 400 })
+      }
+    }
     if (shipping?.method === 'ship') {
       const addr = shipping.address as ShippingSelection['address']
       if (!addr || !addr.name || !addr.line1 || !addr.city || !addr.postalCode || !addr.country) {
