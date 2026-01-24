@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useCart } from '@/components/cart/CartProvider'
 import {
   clampScale,
@@ -39,6 +39,118 @@ type Props = {
 
 const SCALE_MIN = 0.1
 const SCALE_MAX = 5
+type DimensionAxis = (typeof DIMENSION_AXES)[number]
+const COLOR_PICKER_FALLBACK = '#1f2937'
+const HEX_WITH_HASH_RE = /#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
+const HEX_WITH_0X_RE = /0x([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
+const HEX_BARE_RE = /\b([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})\b/i
+const isHexColor = (value?: string | null) => !!value && /^#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})$/i.test(value.trim())
+const normalizeAlphaHex = (value: string) => {
+  const trimmed = value.trim()
+  if (!/^#([0-9a-f]{8})$/i.test(trimmed)) return trimmed
+  const hex = trimmed.slice(1)
+  const alpha = hex.slice(0, 2).toLowerCase()
+  const tail = hex.slice(6, 8).toLowerCase()
+  if ((alpha === '00' || alpha === 'ff') && tail !== '00' && tail !== 'ff') {
+    return `#${hex.slice(2)}${alpha}`
+  }
+  return trimmed
+}
+const COLOR_PALETTE = [
+  { name: 'Ivory', hex: '#f8fafc' },
+  { name: 'Mist', hex: '#e2e8f0' },
+  { name: 'Dove', hex: '#94a3b8' },
+  { name: 'Slate', hex: '#64748b' },
+  { name: 'Onyx', hex: '#0f172a' },
+  { name: 'Rose', hex: '#fb7185' },
+  { name: 'Cherry', hex: '#ef4444' },
+  { name: 'Tangerine', hex: '#f97316' },
+  { name: 'Honey', hex: '#f59e0b' },
+  { name: 'Lemon', hex: '#facc15' },
+  { name: 'Lime', hex: '#84cc16' },
+  { name: 'Emerald', hex: '#22c55e' },
+  { name: 'Mint', hex: '#2dd4bf' },
+  { name: 'Teal', hex: '#14b8a6' },
+  { name: 'Sky', hex: '#38bdf8' },
+  { name: 'Ocean', hex: '#0ea5e9' },
+  { name: 'Denim', hex: '#3b82f6' },
+  { name: 'Indigo', hex: '#6366f1' },
+  { name: 'Violet', hex: '#8b5cf6' },
+  { name: 'Plum', hex: '#a855f7' },
+  { name: 'Lilac', hex: '#c084fc' },
+  { name: 'Orchid', hex: '#e879f9' },
+  { name: 'Peach', hex: '#fdba74' },
+  { name: 'Cocoa', hex: '#a16207' },
+  { name: 'Sand', hex: '#d6a981' },
+  { name: 'Forest', hex: '#15803d' },
+  { name: 'Navy', hex: '#1e3a8a' },
+  { name: 'Stone', hex: '#78716c' },
+]
+type StockworksPalette = {
+  enabled: boolean
+  materials: Record<string, { inStock: StockworksColor[] | string[]; orderable: StockworksColor[] | string[] }>
+  materialTypes?: string[]
+}
+type StockworksColor = {
+  name: string
+  hex?: string | null
+  brand?: string | null
+  category?: string | null
+}
+type SwatchOption = {
+  name: string
+  hex: string
+  inStock?: boolean
+  brand?: string
+  category?: string
+}
+const normalizeColorValue = (value?: string | null) => (value || '').trim().toLowerCase()
+const extractHex = (value?: string | null) => {
+  const trimmed = (value || '').trim()
+  if (!trimmed) return ''
+  const hashMatch = trimmed.match(HEX_WITH_HASH_RE)
+  if (hashMatch) return normalizeAlphaHex(`#${hashMatch[1]}`)
+  const hexMatch = trimmed.match(HEX_WITH_0X_RE)
+  if (hexMatch) return normalizeAlphaHex(`#${hexMatch[1]}`)
+  const bareMatch = trimmed.match(HEX_BARE_RE)
+  return bareMatch ? normalizeAlphaHex(`#${bareMatch[1]}`) : ''
+}
+const parseColorString = (value?: string | null) => {
+  const trimmed = (value || '').trim()
+  if (!trimmed) return { name: '', hex: '' }
+  const hex = extractHex(trimmed)
+  const name = trimmed.replace(HEX_WITH_HASH_RE, '').replace(HEX_WITH_0X_RE, '').replace(HEX_BARE_RE, '').trim()
+  return { name, hex }
+}
+const normalizeColorKey = (value: string | StockworksColor) => {
+  if (typeof value === 'string') {
+    const parsed = parseColorString(value)
+    return normalizeColorValue(parsed.name || parsed.hex || value)
+  }
+  const base = normalizeColorValue(value.name || value.hex || '')
+  const brand = normalizeColorValue(value.brand || '')
+  const category = normalizeColorValue(value.category || '')
+  const scope = [brand, category].filter(Boolean).join('::')
+  return scope ? `${scope}::${base}` : base
+}
+const toColorMeta = (value: string | StockworksColor) => {
+  if (typeof value === 'string') {
+    const parsed = parseColorString(value)
+    return { name: parsed.name || value, hex: parsed.hex, brand: '', category: '' }
+  }
+  const hex = value.hex ? normalizeAlphaHex(value.hex) : extractHex(value.name)
+  const name = value.name ? value.name.replace(HEX_WITH_HASH_RE, '').replace(HEX_WITH_0X_RE, '').replace(HEX_BARE_RE, '').trim() : ''
+  return { name: name || value.name || hex || 'Unknown', hex, brand: value.brand || '', category: value.category || '' }
+}
+const resolveSwatch = (value?: string | null) => {
+  const parsed = parseColorString(value)
+  const normalized = normalizeColorValue(parsed.name || parsed.hex || value)
+  if (!normalized) return null
+  const paletteMatch = COLOR_PALETTE.find((swatch) => swatch.hex.toLowerCase() === normalized || swatch.name.toLowerCase() === normalized) || null
+  if (paletteMatch) return paletteMatch
+  if (parsed.hex) return { name: parsed.name || parsed.hex, hex: parsed.hex }
+  return parsed.name ? { name: parsed.name, hex: '' } : null
+}
 
 export default function InstantQuoteConfigurator({
   modelId,
@@ -58,9 +170,14 @@ export default function InstantQuoteConfigurator({
   const [scale, setScale] = useState<number>(1)
   const [lockDimensions, setLockDimensions] = useState(true)
   const [dimensionOverrides, setDimensionOverrides] = useState<ScaleOverrides | null>(null)
+  const [dimensionInputs, setDimensionInputs] = useState<Record<DimensionAxis, string>>({ x: '', y: '', z: '' })
+  const [activeDimensionAxis, setActiveDimensionAxis] = useState<DimensionAxis | null>(null)
   const [quote, setQuote] = useState<QuoteResponse['quote'] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activeColorSlot, setActiveColorSlot] = useState<number | null>(null)
+  const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
+  const paletteRef = useRef<HTMLDivElement | null>(null)
   const normalizedColors = useMemo(() => normalizeColors(colors, maxColors), [colors, maxColors])
   const hasRequiredColor = normalizedColors.length > 0
 
@@ -90,8 +207,83 @@ export default function InstantQuoteConfigurator({
     if (!options.includes(normalized)) options.push(normalized)
     return options
   }, [materialChoice])
+  const paletteLookup = useMemo(() => {
+    const map = new Map<string, { name: string; hex: string }>()
+    for (const swatch of COLOR_PALETTE) {
+      map.set(normalizeColorValue(swatch.name), swatch)
+      map.set(normalizeColorValue(swatch.hex), swatch)
+    }
+    return map
+  }, [])
+  const activeMaterialKey = normalizeMaterialName(materialChoice)
+  const stockworksEntry = stockworksPalette?.materials?.[activeMaterialKey]
+  const paletteOptions = useMemo<SwatchOption[]>(() => {
+    if (!stockworksEntry || (stockworksEntry.inStock.length === 0 && stockworksEntry.orderable.length === 0)) {
+      return COLOR_PALETTE.map((swatch) => ({ ...swatch, brand: '' }))
+    }
+    const inStockSet = new Set(stockworksEntry.inStock.map((color) => normalizeColorKey(color as StockworksColor | string)))
+    const ordered = [...stockworksEntry.inStock, ...stockworksEntry.orderable]
+    const seen = new Set<string>()
+    const output: SwatchOption[] = []
+    for (const color of ordered) {
+      const colorMeta = toColorMeta(color as StockworksColor | string)
+      const normalized = normalizeColorValue(colorMeta.name || colorMeta.hex)
+      const brandNormalized = normalizeColorValue(colorMeta.brand)
+      const categoryNormalized = normalizeColorValue(colorMeta.category)
+      const scope = [brandNormalized, categoryNormalized].filter(Boolean).join('::')
+      const uniqueKey = scope ? `${scope}::${normalized}` : normalized
+      if (!normalized || seen.has(uniqueKey)) continue
+      seen.add(uniqueKey)
+      const swatch = paletteLookup.get(normalized)
+      const hex = colorMeta.hex || swatch?.hex || (isHexColor(colorMeta.name) ? colorMeta.name : COLOR_PICKER_FALLBACK)
+      output.push({
+        name: colorMeta.name || swatch?.name || colorMeta.hex || 'Unknown',
+        hex,
+        inStock: inStockSet.has(uniqueKey),
+        brand: colorMeta.brand || '',
+        category: colorMeta.category || '',
+      })
+    }
+    return output
+  }, [stockworksEntry, paletteLookup])
+  const paletteValueToHex = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const swatch of paletteOptions) {
+      if (swatch.name) map.set(normalizeColorValue(swatch.name), swatch.hex)
+      if (swatch.hex) map.set(normalizeColorValue(swatch.hex), swatch.hex)
+    }
+    return map
+  }, [paletteOptions])
+  const fallbackBrandLabel = stockworksEntry ? 'Other' : 'Palette'
+  const fallbackCategoryLabel = 'Other'
+  const hasCategory = useMemo(() => paletteOptions.some((swatch) => (swatch.category || '').trim()), [paletteOptions])
+  const paletteGroups = useMemo(() => {
+    const groups: { label: string; categories: { label: string; options: SwatchOption[] }[] }[] = []
+    const brandMap = new Map<string, { label: string; categories: Map<string, SwatchOption[]>; list: { label: string; options: SwatchOption[] }[] }>()
+    for (const swatch of paletteOptions) {
+      const brandLabel = (swatch.brand || '').trim() || fallbackBrandLabel
+      const brandKey = normalizeColorValue(brandLabel)
+      let brandGroup = brandMap.get(brandKey)
+      if (!brandGroup) {
+        brandGroup = { label: brandLabel, categories: new Map(), list: [] }
+        brandMap.set(brandKey, brandGroup)
+        groups.push({ label: brandLabel, categories: brandGroup.list })
+      }
+      const categoryLabel = hasCategory ? ((swatch.category || '').trim() || fallbackCategoryLabel) : ''
+      const categoryKey = hasCategory ? normalizeColorValue(categoryLabel || fallbackCategoryLabel) : 'default'
+      let categoryList = brandGroup.categories.get(categoryKey)
+      if (!categoryList) {
+        categoryList = []
+        brandGroup.categories.set(categoryKey, categoryList)
+        brandGroup.list.push({ label: categoryLabel, options: categoryList })
+      }
+      categoryList.push(swatch)
+    }
+    return groups
+  }, [paletteOptions, fallbackBrandLabel, fallbackCategoryLabel, hasCategory])
+  const paletteTitle = stockworksEntry ? 'Filament brands' : 'Palette'
 
-  const updateTargetDimension = useCallback((axis: (typeof DIMENSION_AXES)[number], nextValue: number) => {
+  const updateTargetDimension = useCallback((axis: DimensionAxis, nextValue: number) => {
     if (!hasDimensions) return
     const baseValue = axis === 'x' ? sizeXmm : axis === 'y' ? sizeYmm : sizeZmm
     if (typeof baseValue !== 'number' || !Number.isFinite(baseValue) || baseValue <= 0) return
@@ -128,6 +320,23 @@ export default function InstantQuoteConfigurator({
     setDimensionOverrides(null)
     setLockDimensions(true)
   }, [])
+
+  useEffect(() => {
+    if (!hasDimensions) return
+    setDimensionInputs((prev) => {
+      let next: Record<DimensionAxis, string> | null = null
+      for (const axis of DIMENSION_AXES) {
+        if (axis === activeDimensionAxis) continue
+        const value = targetDimensions?.[axis]
+        const nextValue = value != null ? String(value) : ''
+        if (prev[axis] !== nextValue) {
+          next = next ?? { ...prev }
+          next[axis] = nextValue
+        }
+      }
+      return next ?? prev
+    })
+  }, [hasDimensions, targetDimensions, activeDimensionAxis])
 
   useEffect(() => {
     let active = true
@@ -173,6 +382,46 @@ export default function InstantQuoteConfigurator({
     return () => { active = false }
   }, [modelId, materialChoice, normalizedColors, finish, infillPct, scale, axisScale, targetDimensions])
 
+  useEffect(() => {
+    let active = true
+    fetch('/api/stockworks/filament-colors', { cache: 'no-store' })
+      .then(async (res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active) return
+        if (!data?.enabled) {
+          setStockworksPalette(null)
+          return
+        }
+        setStockworksPalette(data)
+      })
+      .catch(() => {
+        if (active) setStockworksPalette(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeColorSlot == null) return
+    const handlePointer = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (!target) return
+      if (paletteRef.current?.contains(target)) return
+      if (target.closest(`[data-color-slot="color-slot-${activeColorSlot}"]`)) return
+      setActiveColorSlot(null)
+    }
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActiveColorSlot(null)
+    }
+    document.addEventListener('mousedown', handlePointer)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handlePointer)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [activeColorSlot])
+
   const addToCart = useCallback(() => {
     if (!hasRequiredColor) return
     add(
@@ -195,6 +444,25 @@ export default function InstantQuoteConfigurator({
       },
     )
   }, [add, hasRequiredColor, modelId, title, priceUsd, quote?.priceUsd, thumbnail, sizeXmm, sizeYmm, sizeZmm, scale, materialChoice, normalizedColors, finish, infillPct, lockDimensions, dimensionOverrides])
+
+  const activeSlotValue = activeColorSlot != null ? colors[activeColorSlot] || '' : ''
+  const activeSlotParsed = parseColorString(activeSlotValue)
+  const activeSlotSwatch = resolveSwatch(activeSlotValue)
+  const activeSlotNormalized = normalizeColorValue(activeSlotParsed.name || activeSlotParsed.hex || activeSlotValue)
+  const activeSlotHexValue = isHexColor(activeSlotValue)
+    ? activeSlotValue
+    : activeSlotSwatch?.hex
+      || activeSlotParsed.hex
+      || paletteValueToHex.get(activeSlotNormalized)
+      || COLOR_PICKER_FALLBACK
+
+  const updateColorAt = useCallback((index: number, nextValue: string) => {
+    setColors((prev) => {
+      const next = prev.slice()
+      next[index] = nextValue
+      return next
+    })
+  }, [])
 
   return (
     <div className="glass rounded-xl p-5 space-y-4">
@@ -262,7 +530,7 @@ export default function InstantQuoteConfigurator({
           </div>
           <div className="grid gap-2 md:grid-cols-3">
             {DIMENSION_AXES.map((axis) => {
-              const value = targetDimensions?.[axis]
+              const value = dimensionInputs[axis]
               return (
                 <label key={axis} className="text-xs text-slate-400 space-y-1">
                   <span>{axis.toUpperCase()}</span>
@@ -271,8 +539,19 @@ export default function InstantQuoteConfigurator({
                     type="number"
                     min={0.1}
                     step={0.1}
-                    value={value != null ? value : ''}
-                    onChange={(e) => updateTargetDimension(axis, Number(e.target.value))}
+                    value={value}
+                    onFocus={() => setActiveDimensionAxis(axis)}
+                    onBlur={() => {
+                      setActiveDimensionAxis(null)
+                      const parsed = Number(value)
+                      if (Number.isFinite(parsed) && parsed > 0) updateTargetDimension(axis, parsed)
+                    }}
+                    onChange={(e) => {
+                      const nextValue = e.target.value
+                      setDimensionInputs((prev) => ({ ...prev, [axis]: nextValue }))
+                      const parsed = Number(nextValue)
+                      if (Number.isFinite(parsed) && parsed > 0) updateTargetDimension(axis, parsed)
+                    }}
                   />
                 </label>
               )
@@ -298,27 +577,50 @@ export default function InstantQuoteConfigurator({
           <p className="text-xs text-amber-300">Choose at least one filament color before saving to cart.</p>
         )}
         <div className="grid gap-2 md:grid-cols-2">
-          {colors.map((color, idx) => (
-            <div key={`${modelId}-color-${idx}`} className="flex gap-2">
-              <input
-                className="input flex-1"
-                value={color}
-                placeholder={`Color ${idx + 1}`}
-                onChange={(e) => {
-                  const next = colors.slice()
-                  next[idx] = e.target.value
-                  setColors(next)
-                }}
-              />
-              <button
-                type="button"
-                className="px-2 py-1 rounded border border-white/10 hover:border-white/20"
-                onClick={() => setColors(colors.filter((_, i) => i !== idx))}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
+          {colors.map((color, idx) => {
+            const slotId = `color-slot-${idx}`
+            const swatch = resolveSwatch(color)
+            const parsedValue = parseColorString(color)
+            const normalizedValue = normalizeColorValue(parsedValue.name || parsedValue.hex || color)
+            const hexValue = isHexColor(color)
+              ? color
+              : swatch?.hex
+                || parsedValue.hex
+                || paletteValueToHex.get(normalizedValue)
+                || COLOR_PICKER_FALLBACK
+            const isActive = activeColorSlot === idx
+            return (
+              <div key={`${modelId}-color-${idx}`} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  data-color-slot={slotId}
+                  className={`relative h-12 w-12 rounded-xl border border-white/20 flex items-center justify-center transition-all ${isActive ? 'ring-2 ring-amber-400' : ''}`}
+                  style={{ background: hexValue }}
+                  onClick={() => setActiveColorSlot((prev) => (prev === idx ? null : idx))}
+                >
+                  {!color && <span className="text-[9px] uppercase tracking-wide text-white/70">Pick</span>}
+                </button>
+                <div className="flex-1">
+                  <div className="text-xs text-slate-400">Slot {idx + 1}</div>
+                  <div className="text-sm text-slate-100 truncate">{color || 'No color selected'}</div>
+                </div>
+                <button
+                  type="button"
+                  className="px-2 py-1 rounded border border-white/10 hover:border-white/20 text-xs"
+                  onClick={() => {
+                    setColors((prev) => prev.filter((_, i) => i !== idx))
+                    setActiveColorSlot((prev) => {
+                      if (prev == null) return prev
+                      if (prev === idx) return null
+                      return prev > idx ? prev - 1 : prev
+                    })
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            )
+          })}
         </div>
       </div>
       <div className="rounded-lg border border-white/10 bg-black/40 p-3 text-sm flex items-center justify-between">
@@ -337,6 +639,113 @@ export default function InstantQuoteConfigurator({
             : 'Size pending'}
         </div>
       </div>
+      {activeColorSlot != null && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/50" />
+          <div
+            ref={paletteRef}
+            className="absolute left-1/2 top-1/2 w-[320px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-slate-950/95 p-3 text-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between mb-2 text-[11px] uppercase tracking-[0.3em] text-slate-400">
+              <span>Slot {activeColorSlot + 1}</span>
+              <button
+                type="button"
+                className="px-2 py-1 rounded-full border border-white/10 text-[9px] uppercase tracking-wide hover:border-white/30"
+                onClick={() => setActiveColorSlot(null)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="text-[10px] uppercase tracking-wide text-slate-400">{paletteTitle}</div>
+            <div className="flex items-center gap-3 text-[10px] uppercase tracking-wide text-slate-500 mt-2">
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 ring-1 ring-emerald-300/70" />
+                In stock
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full border border-slate-500" />
+                Orderable
+              </div>
+            </div>
+            <div className="mt-2 rounded-lg border border-white/10 bg-slate-900/70 p-2 max-h-[240px] overflow-y-auto">
+              <div className="space-y-3">
+                {paletteGroups.map((group) => (
+                  <div key={group.label}>
+                    <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-2">{group.label}</div>
+                    {group.categories.map((category) => (
+                      <div key={`${group.label}-${category.label || 'default'}`} className="mb-3 last:mb-0">
+                        {hasCategory && (
+                          <div className="text-[9px] uppercase tracking-wide text-slate-500 mb-2">{category.label}</div>
+                        )}
+                        <div className="grid grid-cols-6 gap-2">
+                          {category.options.map((swatchOption) => {
+                            const swatchNormalized = normalizeColorValue(swatchOption.name || swatchOption.hex)
+                            const isSelected = activeSlotNormalized === swatchNormalized
+                              || activeSlotNormalized === normalizeColorValue(swatchOption.hex)
+                            const ringCls = isSelected
+                              ? 'ring-2 ring-amber-400'
+                              : swatchOption.inStock
+                                ? 'ring-2 ring-emerald-400/80'
+                                : ''
+                            const availabilityLabel = swatchOption.inStock ? 'In stock' : 'Orderable'
+                            return (
+                              <button
+                                key={`${swatchOption.brand || 'palette'}-${swatchOption.name}-${swatchOption.hex}`}
+                                type="button"
+                                title={
+                                  swatchOption.inStock
+                                    ? `${swatchOption.name} (${swatchOption.hex}) - In stock`
+                                    : `${swatchOption.name} (${swatchOption.hex})`
+                                }
+                                className={`relative h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${ringCls}`}
+                                style={{ background: swatchOption.hex }}
+                                aria-label={`Select ${swatchOption.name}`}
+                                onClick={() => {
+                                  const nextValue = swatchOption.name && swatchOption.hex
+                                    ? `${swatchOption.name} ${swatchOption.hex}`
+                                    : swatchOption.name || swatchOption.hex
+                                  updateColorAt(activeColorSlot, nextValue)
+                                }}
+                              >
+                                <span className="sr-only">{swatchOption.name}</span>
+                                <span
+                                  className={`absolute -top-1 -right-1 h-3 w-3 rounded-full ${
+                                    swatchOption.inStock ? 'bg-emerald-400' : 'bg-slate-700'
+                                  } border border-slate-900`}
+                                  aria-hidden="true"
+                                  title={availabilityLabel}
+                                />
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 space-y-2">
+              <input
+                className="w-full input text-sm"
+                value={activeSlotValue}
+                placeholder="Name or hex"
+                onChange={(e) => updateColorAt(activeColorSlot, e.target.value)}
+              />
+              <label className="text-[10px] uppercase tracking-wide text-slate-400">
+                Custom color
+                <input
+                  type="color"
+                  className="mt-1 h-10 w-full rounded-md border border-white/20 bg-transparent cursor-pointer"
+                  value={activeSlotHexValue}
+                  aria-label={`Pick color ${activeColorSlot + 1}`}
+                  onChange={(e) => updateColorAt(activeColorSlot, e.target.value)}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

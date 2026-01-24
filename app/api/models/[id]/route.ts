@@ -59,6 +59,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
               sizeXmm: stats.sizeXmm ?? undefined,
               sizeYmm: stats.sizeYmm ?? undefined,
               sizeZmm: stats.sizeZmm ?? undefined,
+              supportRatio: stats.supportAreaRatio ?? undefined,
             },
           })
         }
@@ -96,6 +97,21 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
         where: { modelId: id, status: { in: ['pending', 'processing'] } },
       })
     : 0
+  let supportRatio = model.supportRatio
+  if (supportRatio == null || !Number.isFinite(Number(supportRatio))) {
+    let weightedSupport = 0
+    let weightedVolume = 0
+    for (const part of parts) {
+      if (part.volumeMm3 == null || !Number.isFinite(Number(part.volumeMm3))) continue
+      if (part.supportRatio == null || !Number.isFinite(Number(part.supportRatio))) continue
+      const vol = Number(part.volumeMm3)
+      weightedSupport += Number(part.supportRatio) * vol
+      weightedVolume += vol
+    }
+    if (weightedVolume > 0) {
+      supportRatio = weightedSupport / weightedVolume
+    }
+  }
   const tags = model.modelTags.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug }))
   const { modelTags, images, comments, revisions, coverImageSourcePath, coverImageError, ...rest } = model as any
   const pricingSummary = resolveModelPricing(model as any, cfg)
@@ -105,7 +121,13 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
   const displayPriceUsd = pricingSummary.salePriceUsd ?? effectivePriceUsd ?? pricingSummary.priceUsd
   const totalVolumeMm3 = model.volumeMm3 != null && Number.isFinite(Number(model.volumeMm3)) ? Number(model.volumeMm3) : null
   const totalPricing = totalVolumeMm3 != null
-    ? estimatePricingDetails({ cm3: totalVolumeMm3 / 1000, material: rest.material, cfg, applyMinimum: true })
+    ? estimatePricingDetails({
+      cm3: totalVolumeMm3 / 1000,
+      material: rest.material,
+      supportRatio: supportRatio ?? null,
+      cfg,
+      applyMinimum: true,
+    })
     : null
   let affiliateImage: string | null = null
   if (rest.affiliateUrl) {
@@ -127,7 +149,13 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
       parts: parts.map((part) => {
         const rawPrice = part.priceUsd != null ? Number(part.priceUsd) : null
         const partPricing = part.volumeMm3 != null && Number.isFinite(Number(part.volumeMm3))
-          ? estimatePricingDetails({ cm3: Number(part.volumeMm3) / 1000, material: rest.material, cfg, applyMinimum: false })
+          ? estimatePricingDetails({
+            cm3: Number(part.volumeMm3) / 1000,
+            material: rest.material,
+            supportRatio: part.supportRatio ?? null,
+            cfg,
+            applyMinimum: false,
+          })
           : null
         const computedPrice = isMultipart && totalPricing && totalVolumeMm3 && part.volumeMm3 && totalVolumeMm3 > 0
           ? Number(((totalPricing.price * Number(part.volumeMm3)) / totalVolumeMm3).toFixed(2))
@@ -168,6 +196,7 @@ export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
       coverImagePath: true,
       volumeMm3: true,
       material: true,
+      supportRatio: true,
       priceUsd: true,
       salePriceUsd: true,
     },
@@ -238,6 +267,7 @@ export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
       id,
       volumeMm3: existing.volumeMm3,
       material: updates.material ?? existing.material,
+      supportRatio: existing.supportRatio,
       priceUsd: existing.priceUsd,
       salePriceUsd: existing.salePriceUsd,
     }, cfg)

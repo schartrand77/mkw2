@@ -7,6 +7,7 @@ type PricingCacheModel = {
   material: string | null
   priceUsd: number | null
   salePriceUsd: number | null
+  supportRatio?: number | null
 }
 
 export function computeEffectivePriceUsd(
@@ -33,6 +34,7 @@ export async function refreshEffectivePrices(
         material: true,
         priceUsd: true,
         salePriceUsd: true,
+        supportRatio: true,
       },
       orderBy: { id: 'asc' },
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

@@ -7,6 +7,7 @@ type PricedModel = {
   material?: string | null
   priceUsd?: number | null
   salePriceUsd?: number | null
+  supportRatio?: number | null
 }
 
 export const MATERIAL_DENSITY_DEFAULTS: Record<string, number> = {
@@ -62,12 +63,16 @@ type PrinterProfileOverrideMap = Record<string, PrinterProfileOverride>
 
 const KG_IN_GRAMS = 1000
 const DEFAULT_FILL_FACTOR = 0.18 // Typical 15-20% infill for hobby prints
+const DEFAULT_SUPPORT_MULTIPLIER_MAX = 0.6
+const DEFAULT_COLOR_TIME_MULTIPLIER_PER_COLOR = 0.2
 
 export type PricingInputs = {
   cm3: number
   material?: string | null
   infillPct?: number | null
   finish?: string | null
+  supportRatio?: number | null
+  colorCount?: number | null
   cfg?: Partial<SiteConfig> | null
   applyMinimum?: boolean
 }
@@ -77,6 +82,10 @@ export interface PricingDetails {
   cm3: number
   effectiveCm3: number
   fillFactor: number
+  supportRatio: number | null
+  supportMultiplier: number
+  colorCount: number | null
+  colorTimeMultiplier: number
   densityGPerCm3: number
   grams: number
   hours: number
@@ -167,6 +176,30 @@ function normalizeMaterialKey(material?: string | null): MaterialKey {
   return 'PLA'
 }
 
+function resolveSupportMultiplier(supportRatio?: number | null): { ratio: number | null, multiplier: number } {
+  if (supportRatio == null || Number.isNaN(Number(supportRatio))) {
+    return { ratio: null, multiplier: 1 }
+  }
+  const ratio = Math.max(0, Math.min(1, Number(supportRatio)))
+  const raw = process.env.SUPPORT_VOLUME_MULTIPLIER_MAX
+  const parsed = raw != null ? Number(raw) : NaN
+  const maxMultiplier = Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_SUPPORT_MULTIPLIER_MAX
+  return { ratio, multiplier: 1 + ratio * maxMultiplier }
+}
+
+function resolveColorTimeMultiplier(colorCount?: number | null): { count: number | null, multiplier: number } {
+  if (colorCount == null || Number.isNaN(Number(colorCount))) {
+    return { count: null, multiplier: 1 }
+  }
+  const count = Math.max(0, Math.floor(Number(colorCount)))
+  if (count <= 1) return { count, multiplier: 1 }
+  const raw = process.env.COLOR_TIME_MULTIPLIER_PER_COLOR
+  const parsed = raw != null ? Number(raw) : NaN
+  const rate = Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_COLOR_TIME_MULTIPLIER_PER_COLOR
+  const multiplier = 1 + Math.max(0, count - 1) * rate
+  return { count, multiplier: Math.max(1, Math.min(5, multiplier)) }
+}
+
 function resolvePrinterProfileKey(cfg?: Partial<SiteConfig> | null): string | undefined {
   return cfg?.printerProfileKey
     || process.env.PRINTER_PROFILE
@@ -215,15 +248,26 @@ function resolveVolumetricSpeed(profile: PrinterProfile, cfg: Partial<SiteConfig
   return profile.volumetricSpeedCm3PerHour * Math.max(0.25, Math.min(2.5, nozzleScale))
 }
 
-export function estimatePricingDetails({ cm3, material, infillPct, finish, cfg, applyMinimum }: PricingInputs): PricingDetails {
+export function estimatePricingDetails({
+  cm3,
+  material,
+  infillPct,
+  finish,
+  supportRatio,
+  colorCount,
+  cfg,
+  applyMinimum,
+}: PricingInputs): PricingDetails {
   const applyMinPrice = applyMinimum !== false
   const fillFactor = resolveFillFactor(cfg, infillPct)
-  const effectiveCm3 = cm3 * fillFactor
+  const support = resolveSupportMultiplier(supportRatio)
+  const effectiveCm3 = cm3 * fillFactor * support.multiplier
   const currency = getCurrency()
   const printerProfile = resolvePrinterProfile(resolvePrinterProfileKey(cfg))
   const nozzleDiameterMm = resolveNozzleDiameter(printerProfile, cfg)
   const volumetricSpeed = resolveVolumetricSpeed(printerProfile, cfg, nozzleDiameterMm)
-  const hours = effectiveCm3 / volumetricSpeed
+  const colorTime = resolveColorTimeMultiplier(colorCount)
+  const hours = (effectiveCm3 / volumetricSpeed) * colorTime.multiplier
 
   const materialKey = normalizeMaterialKey(material)
   const density = resolveMaterialDensity(materialKey, cfg, printerProfile.key)
@@ -270,6 +314,10 @@ export function estimatePricingDetails({ cm3, material, infillPct, finish, cfg, 
     cm3,
     effectiveCm3,
     fillFactor,
+    supportRatio: support.ratio,
+    supportMultiplier: Number(support.multiplier.toFixed(3)),
+    colorCount: colorTime.count,
+    colorTimeMultiplier: Number(colorTime.multiplier.toFixed(3)),
     densityGPerCm3: Number(density.toFixed(3)),
     grams: Number(grams.toFixed(1)),
     hours: Number(hours.toFixed(2)),
@@ -319,7 +367,12 @@ export function resolveModelPricing(model: PricedModel, cfg?: Partial<SiteConfig
     : null
   const volume = model.volumeMm3 != null && Number.isFinite(Number(model.volumeMm3)) ? Number(model.volumeMm3) : null
   const breakdown = volume != null
-    ? estimatePricingDetails({ cm3: volume / 1000, material: model.material || undefined, cfg })
+    ? estimatePricingDetails({
+      cm3: volume / 1000,
+      material: model.material || undefined,
+      supportRatio: model.supportRatio ?? null,
+      cfg,
+    })
     : null
   const basePrice = breakdown?.price
     ?? (model.priceUsd != null && Number.isFinite(Number(model.priceUsd)) ? Number(model.priceUsd) : null)

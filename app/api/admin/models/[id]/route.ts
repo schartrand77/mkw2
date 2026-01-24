@@ -22,6 +22,7 @@ export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
     select: {
       volumeMm3: true,
       material: true,
+      supportRatio: true,
       priceUsd: true,
       salePriceUsd: true,
     },
@@ -96,6 +97,7 @@ export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
       id,
       volumeMm3: existing.volumeMm3,
       material: existing.material,
+      supportRatio: existing.supportRatio,
       priceUsd: existing.priceUsd,
       salePriceUsd: updates.salePriceUsd ?? null,
     }, cfg)

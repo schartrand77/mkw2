@@ -137,6 +137,7 @@ export async function POST(req: NextRequest) {
           sizeXmm: true,
           sizeYmm: true,
           sizeZmm: true,
+          supportRatio: true,
           filePath: true,
           viewerFilePath: true,
           _count: { select: { parts: true } },
@@ -152,6 +153,7 @@ export async function POST(req: NextRequest) {
               name: true,
               priceUsd: true,
               volumeMm3: true,
+              supportRatio: true,
               filePath: true,
               previewFilePath: true,
             },
@@ -212,6 +214,8 @@ export async function POST(req: NextRequest) {
               material: materialChoice,
               infillPct: entry.infillPct ?? null,
               finish: finishChoice,
+              supportRatio: model.supportRatio ?? null,
+              colorCount: colors.length,
               cfg,
               applyMinimum: true,
             })
@@ -227,6 +231,8 @@ export async function POST(req: NextRequest) {
               material: materialChoice,
               infillPct: entry.infillPct ?? null,
               finish: finishChoice,
+              supportRatio: part.supportRatio ?? null,
+              colorCount: colors.length,
               cfg,
             })
             return pricingDetails.price
@@ -242,6 +248,8 @@ export async function POST(req: NextRequest) {
             material: materialChoice,
             infillPct: entry.infillPct ?? null,
             finish: finishChoice,
+            supportRatio: model.supportRatio ?? null,
+            colorCount: colors.length,
             cfg,
           })
           return pricingDetails.price

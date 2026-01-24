@@ -52,21 +52,57 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
       sizeYmm: true,
       sizeZmm: true,
       salePriceUsd: true,
+      supportRatio: true,
     },
   })
   if (!model) return NextResponse.json({ error: 'Model not found' }, { status: 404 })
   let volumeMm3 = model.volumeMm3
+  let supportRatio = model.supportRatio
+  let partsForSupport: Array<{ volumeMm3: number | null; supportRatio: number | null }> | null = null
   if (volumeMm3 == null || !Number.isFinite(Number(volumeMm3)) || Number(volumeMm3) <= 0) {
     const parts = await prisma.modelPart.findMany({
       where: { modelId: id },
-      select: { volumeMm3: true },
+      select: { volumeMm3: true, supportRatio: true },
     })
+    partsForSupport = parts
     if (parts.length > 0 && parts.every((part) => part.volumeMm3 != null && Number.isFinite(Number(part.volumeMm3)))) {
       volumeMm3 = parts.reduce((sum, part) => sum + Number(part.volumeMm3 || 0), 0)
+    }
+    if (supportRatio == null || !Number.isFinite(Number(supportRatio))) {
+      let weightedSupport = 0
+      let weightedVolume = 0
+      for (const part of parts) {
+        if (part.volumeMm3 == null || !Number.isFinite(Number(part.volumeMm3))) continue
+        if (part.supportRatio == null || !Number.isFinite(Number(part.supportRatio))) continue
+        const vol = Number(part.volumeMm3)
+        weightedSupport += Number(part.supportRatio) * vol
+        weightedVolume += vol
+      }
+      if (weightedVolume > 0) {
+        supportRatio = weightedSupport / weightedVolume
+      }
     }
   }
   if (volumeMm3 == null || !Number.isFinite(Number(volumeMm3)) || Number(volumeMm3) <= 0) {
     return NextResponse.json({ pending: true, error: 'Model volume is pending' })
+  }
+  if (supportRatio == null || !Number.isFinite(Number(supportRatio))) {
+    const parts = partsForSupport ?? await prisma.modelPart.findMany({
+      where: { modelId: id },
+      select: { volumeMm3: true, supportRatio: true },
+    })
+    let weightedSupport = 0
+    let weightedVolume = 0
+    for (const part of parts) {
+      if (part.volumeMm3 == null || !Number.isFinite(Number(part.volumeMm3))) continue
+      if (part.supportRatio == null || !Number.isFinite(Number(part.supportRatio))) continue
+      const vol = Number(part.volumeMm3)
+      weightedSupport += Number(part.supportRatio) * vol
+      weightedVolume += vol
+    }
+    if (weightedVolume > 0) {
+      supportRatio = weightedSupport / weightedVolume
+    }
   }
 
   const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
@@ -91,6 +127,8 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
     material,
     infillPct,
     finish,
+    supportRatio: supportRatio ?? null,
+    colorCount: colors.length,
     cfg,
     applyMinimum: true,
   })
@@ -104,6 +142,8 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
       material: baseMaterial,
       infillPct: DEFAULT_INFILL_PCT,
       finish: 'standard',
+      supportRatio: supportRatio ?? null,
+      colorCount: 1,
       cfg,
       applyMinimum: true,
     })

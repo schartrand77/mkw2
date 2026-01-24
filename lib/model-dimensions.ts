@@ -7,6 +7,7 @@ export type StlStats = {
   sizeXmm?: number
   sizeYmm?: number
   sizeZmm?: number
+  supportAreaRatio?: number
 }
 
 type DimensionScale = {
@@ -59,5 +60,6 @@ export function scaleStatsToTargetDimensions(stats: StlStats, target?: TargetDim
     sizeXmm: stats.sizeXmm != null ? stats.sizeXmm * scale.scaleX : stats.sizeXmm,
     sizeYmm: stats.sizeYmm != null ? stats.sizeYmm * scale.scaleY : stats.sizeYmm,
     sizeZmm: stats.sizeZmm != null ? stats.sizeZmm * scale.scaleZ : stats.sizeZmm,
+    supportAreaRatio: stats.supportAreaRatio,
   }
 }

@@ -453,6 +453,7 @@ export async function processPendingModelPreviews(limit = 3, options: PreviewQue
             sizeXmm: stats.sizeXmm ?? undefined,
             sizeYmm: stats.sizeYmm ?? undefined,
             sizeZmm: stats.sizeZmm ?? undefined,
+            supportRatio: stats.supportAreaRatio ?? undefined,
           },
         })
       }

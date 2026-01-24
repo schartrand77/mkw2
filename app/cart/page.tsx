@@ -159,6 +159,8 @@ export default function CartPage() {
   const [isMobilePalette, setIsMobilePalette] = useState(false)
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
   const [materialWarnings, setMaterialWarnings] = useState<StockworksWarningResponse | null>(null)
+  const [dimensionInputs, setDimensionInputs] = useState<Record<string, Record<(typeof DIMENSION_AXES)[number], string>>>({})
+  const [activeDimensionInput, setActiveDimensionInput] = useState<{ key: string; axis: (typeof DIMENSION_AXES)[number] } | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const paletteRef = useRef<HTMLDivElement | null>(null)
 
@@ -473,6 +475,7 @@ export default function CartPage() {
         <>
           <div className="glass rounded-xl border border-white/10 divide-y divide-white/10">
             {items.map((item) => {
+              const itemKey = `${item.modelId}-${item.partId || 'whole'}`
               const qty = Math.max(1, item.options.qty || 1)
               const baseTotal = itemUnitPrice(item) * qty
               const discountedTotal = baseTotal * discountMultiplier
@@ -497,6 +500,12 @@ export default function CartPage() {
                 } else {
                   update(item.modelId, { scale: nextScale, dimensionOverrides: null }, item.partId)
                 }
+                setDimensionInputs((prev) => {
+                  if (!prev[itemKey]) return prev
+                  const next = { ...prev }
+                  delete next[itemKey]
+                  return next
+                })
               }
               const handleDimensionChange = (axis: (typeof DIMENSION_AXES)[number], input: number) => {
                 const baseValue = item.size?.[axis]
@@ -521,9 +530,21 @@ export default function CartPage() {
                 } else {
                   update(item.modelId, { lockDimensions: true, scale: uniformScale, dimensionOverrides: null }, item.partId)
                 }
+                setDimensionInputs((prev) => {
+                  if (!prev[itemKey]) return prev
+                  const next = { ...prev }
+                  delete next[itemKey]
+                  return next
+                })
               }
               const resetDimensions = () => {
                 update(item.modelId, { scale: 1, dimensionOverrides: null, lockDimensions: true }, item.partId)
+                setDimensionInputs((prev) => {
+                  if (!prev[itemKey]) return prev
+                  const next = { ...prev }
+                  delete next[itemKey]
+                  return next
+                })
               }
 
               return (
@@ -736,6 +757,10 @@ export default function CartPage() {
                           <div className="flex flex-wrap gap-2">
                             {DIMENSION_AXES.map((axis) => {
                               const dim = getAxisSize(axis)
+                              const isActive = activeDimensionInput?.key === itemKey && activeDimensionInput.axis === axis
+                              const inputValue = isActive
+                                ? (dimensionInputs[itemKey]?.[axis] ?? '')
+                                : (dim != null ? dim.toFixed(1) : '')
                               return (
                                 <label key={`${item.modelId}-${axis}`} className="flex flex-col gap-1 text-slate-400 text-xs">
                                   <span>{AXIS_LABELS[axis]}</span>
@@ -744,8 +769,36 @@ export default function CartPage() {
                                     type="number"
                                     min="0.1"
                                     step="0.1"
-                                    value={dim != null ? dim.toFixed(1) : ''}
-                                    onChange={(e) => handleDimensionChange(axis, Number(e.target.value))}
+                                    value={inputValue}
+                                    onFocus={() => {
+                                      setActiveDimensionInput({ key: itemKey, axis })
+                                      setDimensionInputs((prev) => {
+                                        const current = prev[itemKey]?.[axis]
+                                        if (current != null) return prev
+                                        const next = { ...prev }
+                                        next[itemKey] = { ...(next[itemKey] || {}), [axis]: inputValue }
+                                        return next
+                                      })
+                                    }}
+                                    onBlur={() => {
+                                      setActiveDimensionInput(null)
+                                      setDimensionInputs((prev) => {
+                                        if (!prev[itemKey]) return prev
+                                        const next = { ...prev }
+                                        delete next[itemKey]
+                                        return next
+                                      })
+                                    }}
+                                    onChange={(e) => {
+                                      const nextValue = e.target.value
+                                      setDimensionInputs((prev) => {
+                                        const next = { ...prev }
+                                        next[itemKey] = { ...(next[itemKey] || {}), [axis]: nextValue }
+                                        return next
+                                      })
+                                      const parsed = Number(nextValue)
+                                      if (Number.isFinite(parsed) && parsed > 0) handleDimensionChange(axis, parsed)
+                                    }}
                                   />
                                 </label>
                               )

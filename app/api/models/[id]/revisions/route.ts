@@ -121,6 +121,7 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
   const isMultipart = modelFiles.length > 1
   let totalVolMm3 = 0
   let totalPrice = 0
+  let totalSupportRatio: number | null = null
   const partCreates: any[] = []
   const previewJobs: Array<{ sourcePath: string, previewPath: string, partIndex: number }> = []
   const partVolumes: Array<number | null> = []
@@ -159,11 +160,15 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
     if (!firstViewerPath && viewerPath) firstViewerPath = viewerPath
     let volMm3: number | null = null
     let sizeXmm: number | undefined, sizeYmm: number | undefined, sizeZmm: number | undefined
+    let supportRatio: number | null = null
     const statsBuf = previewBuf || (storedExt === '.stl' ? storedBuf : null)
     if (statsBuf) {
       const stats = computeStlStatsMm(statsBuf)
       volMm3 = stats.volumeMm3
       sizeXmm = stats.sizeXmm; sizeYmm = stats.sizeYmm; sizeZmm = stats.sizeZmm
+      if (stats.supportAreaRatio != null && Number.isFinite(Number(stats.supportAreaRatio))) {
+        supportRatio = Number(stats.supportAreaRatio)
+      }
       if (!isMultipart && sizeXmm != null && sizeYmm != null && sizeZmm != null) {
         overallSizeXmm = sizeXmm
         overallSizeYmm = sizeYmm
@@ -171,7 +176,9 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
       }
     }
     const cm3 = volMm3 ? volMm3 / 1000 : null
-    const p = cm3 != null ? estimatePriceUSD({ cm3, material: materialChoice, cfg, applyMinimum: !isMultipart }) : null
+    const p = cm3 != null
+      ? estimatePriceUSD({ cm3, material: materialChoice, supportRatio, cfg, applyMinimum: !isMultipart })
+      : null
     if (volMm3) totalVolMm3 += volMm3
     if (p) totalPrice += p
     partVolumes.push(volMm3)
@@ -184,6 +191,7 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
       sizeXmm,
       sizeYmm,
       sizeZmm,
+      supportRatio: supportRatio ?? undefined,
       priceUsd: p || undefined,
     })
     if (storedExt === '.3mf' && queuedPreviewPath) {
@@ -192,13 +200,33 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
   }
 
   if (isMultipart && totalVolMm3 > 0) {
-    const totalWithMinimum = estimatePriceUSD({ cm3: totalVolMm3 / 1000, material: materialChoice, cfg, applyMinimum: true })
+    let weightedSupport = 0
+    let weightedVolume = 0
+    partCreates.forEach((part, idx) => {
+      const vol = partVolumes[idx]
+      if (!vol || !Number.isFinite(vol)) return
+      if (part.supportRatio == null || !Number.isFinite(Number(part.supportRatio))) return
+      weightedSupport += Number(part.supportRatio) * vol
+      weightedVolume += vol
+    })
+    if (weightedVolume > 0) {
+      totalSupportRatio = weightedSupport / weightedVolume
+    }
+    const totalWithMinimum = estimatePriceUSD({
+      cm3: totalVolMm3 / 1000,
+      material: materialChoice,
+      supportRatio: totalSupportRatio,
+      cfg,
+      applyMinimum: true,
+    })
     totalPrice = totalWithMinimum
     partCreates.forEach((part, idx) => {
       const vol = partVolumes[idx]
       if (!vol || !Number.isFinite(vol)) return
       part.priceUsd = Number(((totalWithMinimum * vol) / totalVolMm3).toFixed(2))
     })
+  } else if (partCreates.length === 1) {
+    totalSupportRatio = partCreates[0].supportRatio ?? null
   }
 
   const revisionCount = await prisma.modelRevision.count({ where: { modelId: id } })
@@ -207,6 +235,7 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
   const effectivePriceUsd = resolveModelPricing({
     volumeMm3: totalVolMm3 || null,
     material: materialChoice,
+    supportRatio: totalSupportRatio,
     priceUsd: totalPrice || null,
     salePriceUsd: null,
   }, cfg).priceUsd
@@ -224,6 +253,7 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
         sizeXmm: overallSizeXmm,
         sizeYmm: overallSizeYmm,
         sizeZmm: overallSizeZmm,
+        supportRatio: totalSupportRatio ?? undefined,
         priceUsd: totalPrice || undefined,
         effectivePriceUsd: effectivePriceUsd ?? undefined,
         effectivePriceUpdatedAt: effectivePriceUsd != null ? new Date() : undefined,

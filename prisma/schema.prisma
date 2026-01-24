@@ -54,6 +54,7 @@ model Model {
   sizeXmm        Float?
   sizeYmm        Float?
   sizeZmm        Float?
+  supportRatio   Float?
   priceUsd       Float?
   effectivePriceUsd Float?
   effectivePriceUpdatedAt DateTime?
@@ -273,6 +274,7 @@ model ModelPart {
   sizeXmm    Float?
   sizeYmm    Float?
   sizeZmm    Float?
+  supportRatio Float?
   priceUsd   Float?
   createdAt  DateTime @default(now())
 

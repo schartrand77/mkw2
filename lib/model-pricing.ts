@@ -10,7 +10,7 @@ export async function updateModelPricingForModel(modelId: string) {
   if (!model) return
   const parts = await prisma.modelPart.findMany({
     where: { modelId },
-    select: { id: true, volumeMm3: true, sizeXmm: true, sizeYmm: true, sizeZmm: true },
+    select: { id: true, volumeMm3: true, sizeXmm: true, sizeYmm: true, sizeZmm: true, supportRatio: true },
     orderBy: { index: 'asc' },
   })
   if (parts.length === 0) return
@@ -19,14 +19,39 @@ export async function updateModelPricingForModel(modelId: string) {
   const isMultipart = parts.length > 1
   const totalVolMm3 = parts.reduce((sum, part) => sum + (part.volumeMm3 || 0), 0)
   if (totalVolMm3 <= 0) return
+  let totalSupportRatio: number | null = null
+  let weightedSupport = 0
+  let weightedVolume = 0
+  for (const part of parts) {
+    if (part.volumeMm3 == null || !Number.isFinite(Number(part.volumeMm3))) continue
+    if (part.supportRatio == null || !Number.isFinite(Number(part.supportRatio))) continue
+    const vol = Number(part.volumeMm3)
+    weightedSupport += Number(part.supportRatio) * vol
+    weightedVolume += vol
+  }
+  if (weightedVolume > 0) {
+    totalSupportRatio = weightedSupport / weightedVolume
+  }
 
   let totalPrice = parts.reduce((sum, part) => {
     const cm3 = (part.volumeMm3 || 0) / 1000
-    return sum + estimatePriceUSD({ cm3, material: model.material, cfg, applyMinimum: !isMultipart })
+    return sum + estimatePriceUSD({
+      cm3,
+      material: model.material,
+      supportRatio: part.supportRatio ?? null,
+      cfg,
+      applyMinimum: !isMultipart,
+    })
   }, 0)
 
   if (isMultipart) {
-    const totalWithMinimum = estimatePriceUSD({ cm3: totalVolMm3 / 1000, material: model.material, cfg, applyMinimum: true })
+    const totalWithMinimum = estimatePriceUSD({
+      cm3: totalVolMm3 / 1000,
+      material: model.material,
+      supportRatio: totalSupportRatio,
+      cfg,
+      applyMinimum: true,
+    })
     totalPrice = totalWithMinimum
     for (const part of parts) {
       const vol = part.volumeMm3 || 0
@@ -46,6 +71,7 @@ export async function updateModelPricingForModel(modelId: string) {
   const effectivePriceUsd = resolveModelPricing({
     volumeMm3: totalVolMm3,
     material: model.material,
+    supportRatio: totalSupportRatio,
     priceUsd: totalPrice,
     salePriceUsd: null,
   }, cfg).priceUsd
@@ -58,6 +84,7 @@ export async function updateModelPricingForModel(modelId: string) {
     where: { id: modelId },
     data: {
       volumeMm3: totalVolMm3 || undefined,
+      supportRatio: totalSupportRatio ?? undefined,
       priceUsd: totalPrice || undefined,
       effectivePriceUsd: effectivePriceUsd ?? undefined,
       effectivePriceUpdatedAt: effectivePriceUsd != null ? new Date() : undefined,
