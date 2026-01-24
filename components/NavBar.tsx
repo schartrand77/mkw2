@@ -11,6 +11,12 @@ type Props = {
   avatarUrl: string | null
 }
 
+type BeforeInstallPromptEvent = Event & {
+  readonly platforms?: string[]
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
+
 function isActivePath(pathname: string, href: string): boolean {
   if (href === '/') return pathname === '/'
   // Special-case: "/me" redirects to "/u/..." but should still count as active
@@ -22,8 +28,11 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   const pathname = usePathname() || '/'
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [avatarSrc, setAvatarSrc] = useState<string | null>(avatarUrl)
+  const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const settingsRef = useRef<HTMLDivElement | null>(null)
   const { count } = useCart()
   const logout = async () => {
     let redirectTarget = '/signed-out'
@@ -39,6 +48,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
     } catch {}
     pushSessionNotification({ type: 'info', title: 'Signed out', message: 'Come back soon!' })
     setMenuOpen(false)
+    setSettingsOpen(false)
     if (typeof window !== 'undefined') {
       window.location.href = redirectTarget
     } else {
@@ -48,8 +58,9 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
-      if (!menuRef.current) return
-      if (!menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+      const target = e.target as Node
+      if (menuRef.current && !menuRef.current.contains(target)) setMenuOpen(false)
+      if (settingsRef.current && !settingsRef.current.contains(target)) setSettingsOpen(false)
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
@@ -80,6 +91,17 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
     try { localStorage.setItem('mwv2:theme', theme) } catch {}
   }, [theme])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.matchMedia('(display-mode: standalone)').matches) return
+    const onBeforeInstall = (e: Event) => {
+      e.preventDefault()
+      setInstallEvent(e as BeforeInstallPromptEvent)
+    }
+    window.addEventListener('beforeinstallprompt', onBeforeInstall)
+    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall)
+  }, [])
+
   const linkCls = (href: string) => {
     const active = isActivePath(pathname, href)
     return active
@@ -89,6 +111,30 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   const navContainerCls = 'flex items-center gap-3 text-sm w-full min-w-0 sm:w-auto text-left'
   const scrollCls = 'flex items-center gap-3 overflow-x-auto overflow-y-visible whitespace-nowrap pr-4 [-webkit-overflow-scrolling:touch] sm:overflow-visible sm:whitespace-normal sm:pr-0'
   const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'))
+  const refreshAllData = async () => {
+    setSettingsOpen(false)
+    try {
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map((key) => caches.delete(key)))
+      }
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(registrations.map((reg) => reg.update()))
+      }
+    } catch {}
+    router.refresh()
+    if (typeof window !== 'undefined') window.location.reload()
+  }
+  const handleInstall = async () => {
+    if (!installEvent) return
+    try {
+      await installEvent.prompt()
+      await installEvent.userChoice
+    } catch {}
+    setInstallEvent(null)
+    setSettingsOpen(false)
+  }
   if (!authed) {
     return (
       <nav className={navContainerCls}>
@@ -142,12 +188,66 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
         )}
       </div>
       <>
+        <div className="relative flex-shrink-0" ref={settingsRef}>
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={settingsOpen}
+            onClick={() => {
+              setSettingsOpen(o => !o)
+              setMenuOpen(false)
+            }}
+            className={linkCls('/settings')}
+          >
+            Settings
+          </button>
+          {settingsOpen && (
+            <div role="menu" className="absolute right-0 mt-2 w-52 glass rounded-md border border-white/10 py-1 z-50">
+              {installEvent && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleInstall}
+                  className="block w-full text-left px-3 py-2 hover:bg-white/10 text-sm"
+                >
+                  Install app
+                </button>
+              )}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={toggleTheme}
+                className="block w-full text-left px-3 py-2 hover:bg-white/10 text-sm"
+              >
+                {theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={refreshAllData}
+                className="block w-full text-left px-3 py-2 hover:bg-white/10 text-sm"
+              >
+                Refresh all data
+              </button>
+              <button
+                role="menuitem"
+                onClick={logout}
+                className="block w-full text-left px-3 py-2 hover:bg-white/10 text-sm"
+              >
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
         <div className="relative flex-shrink-0" ref={menuRef}>
           <button
             type="button"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            onClick={() => setMenuOpen(o => !o)}
+            onClick={() => {
+              setMenuOpen(o => !o)
+              setSettingsOpen(false)
+            }}
             className={isActivePath(pathname, '/me') ? 'rounded-full ring-2 ring-brand-600' : ''}
           >
             {avatarSrc ? (
@@ -162,15 +262,6 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
               <Link href="/me" role="menuitem" className="block px-3 py-2 hover:bg-white/10">My Page</Link>
               <Link href="/customer/orders" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Orders</Link>
               <Link href="/settings/account" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Account</Link>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={toggleTheme}
-                className="block w-full text-left px-3 py-2 hover:bg-white/10 text-sm"
-              >
-                {theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
-              </button>
-              <button role="menuitem" onClick={logout} className="block w-full text-left px-3 py-2 hover:bg-white/10">Sign out</button>
             </div>
           )}
         </div>

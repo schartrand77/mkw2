@@ -8,7 +8,6 @@ import NavBar from '@/components/NavBar'
 import NotificationsProvider from '@/components/notifications/NotificationsProvider'
 import Announcements from '@/components/notifications/Announcements'
 import PWARegister from '@/components/PWARegister'
-import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 import ExtensionsGuard from '@/components/ExtensionsGuard'
 import CartProvider from '@/components/cart/CartProvider'
 import HolidayEffects from '@/components/HolidayEffects'
@@ -72,13 +71,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <NotificationsProvider>
         <header className="sticky top-0 z-50 header-shell header-safe">
           <div className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
-            <Link href="/" aria-label={BRAND_FULL_NAME} className="text-xl font-semibold tracking-tight">
+            <Link href="/" aria-label={BRAND_FULL_NAME} className="flex items-center gap-1 text-xl font-semibold tracking-tight leading-none">
               <span>{BRAND_LOGO_PREFIX}</span>
-              <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
+              <span className="inline-flex items-center text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
                 <GearGlyph />
               </span>
               {BRAND_LOGO_SUFFIX && <span>{BRAND_LOGO_SUFFIX}</span>}
-              {BRAND_VERSION && <span className="text-brand-500"> {BRAND_VERSION}</span>}
+              {BRAND_VERSION && <span className="text-brand-500">{BRAND_VERSION}</span>}
             </Link>
             <NavBar authed={authed} isAdmin={isAdmin} avatarUrl={avatarUrl} />
           </div>
@@ -112,7 +111,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ExtensionsGuard />
         <HolidayEffects theme={holidayTheme} />
         <PWARegister />
-        <PWAInstallPrompt />
         </NotificationsProvider>
         </CartProvider>
       </body>
