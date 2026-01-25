@@ -38,6 +38,19 @@ body {
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(18px);
 }
+@media (display-mode: standalone) {
+  .header-shell {
+    position: sticky;
+    top: 0;
+    z-index: 2000;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    pointer-events: auto;
+  }
+  .header-shell * {
+    pointer-events: auto;
+  }
+}
 .footer-shell {
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   background: linear-gradient(180deg, rgba(8, 10, 15, 0.65), rgba(8, 10, 15, 0.85));
