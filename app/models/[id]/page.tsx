@@ -106,7 +106,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           initialPreviewProcessing={previewProcessing}
         />
       )}
-      <div className="grid lg:grid-cols-2 gap-8">
+      <div className="grid lg:grid-cols-2 gap-6">
         <div>
           <Gallery
             coverSrc={coverHref}
@@ -121,7 +121,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             ) : null}
           />
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3">
         <h1 className="text-3xl font-semibold">{model.title}</h1>
         {model.tags && model.tags.length > 0 && (
           <div className="flex flex-wrap gap-2">
