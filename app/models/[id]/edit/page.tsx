@@ -25,7 +25,15 @@ export default async function EditModelPage({ params }: EditModelPageProps) {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <h1 className="text-2xl font-semibold">Edit Model</h1>
-      <ModelEditForm model={{ id: model.id, title: model.title, description: model.description, material: model.material, coverImagePath: model.coverImagePath }} />
+      <ModelEditForm model={{
+        id: model.id,
+        title: model.title,
+        description: model.description,
+        material: model.material,
+        coverImagePath: model.coverImagePath,
+        creditName: model.creditName,
+        creditUrl: model.creditUrl,
+      }} />
       <ModelRevisionsManager modelId={model.id} />
       <div className="space-y-2">
         <div>

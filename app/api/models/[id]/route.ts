@@ -211,6 +211,8 @@ export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
   let title: string | undefined
   let description: string | undefined
   let material: string | undefined
+  let creditName: string | undefined
+  let creditUrl: string | undefined
   let removeCover = false
   let image: File | null = null
 
@@ -219,6 +221,8 @@ export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
     title = (form.get('title') as string | null) || undefined
     description = (form.get('description') as string | null) || undefined
     material = (form.get('material') as string | null) || undefined
+    creditName = (form.get('creditName') as string | null) || undefined
+    creditUrl = (form.get('creditUrl') as string | null) || undefined
     const rc = (form.get('removeCover') as string | null) || 'false'
     removeCover = rc === '1' || rc === 'true'
     image = (form.get('cover') as File | null) || null
@@ -228,6 +232,8 @@ export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
       title = typeof json.title === 'string' ? json.title : undefined
       description = typeof json.description === 'string' ? json.description : undefined
       material = typeof json.material === 'string' ? json.material : undefined
+      creditName = typeof json.creditName === 'string' ? json.creditName : undefined
+      creditUrl = typeof json.creditUrl === 'string' ? json.creditUrl : undefined
       removeCover = json.removeCover === true
     } catch {
       // ignore
@@ -238,6 +244,14 @@ export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
   if (title != null) updates.title = String(title).slice(0, 200)
   if (description != null) updates.description = String(description).slice(0, 5000)
   if (material != null) updates.material = String(material).slice(0, 40)
+  if (creditName != null) {
+    const trimmed = String(creditName).trim()
+    updates.creditName = trimmed ? trimmed.slice(0, 200) : null
+  }
+  if (creditUrl != null) {
+    const trimmed = String(creditUrl).trim()
+    updates.creditUrl = trimmed ? trimmed.slice(0, 500) : null
+  }
 
   if (removeCover && existing.coverImagePath) {
     try { await unlink(path.join(storageRoot(), existing.coverImagePath.replace(/^\/+/, ''))) } catch {}

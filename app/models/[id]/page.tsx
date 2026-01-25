@@ -55,6 +55,15 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   const affiliateImage = model.affiliateImage || null
   const onSale = model.salePriceUsd != null && model.basePriceUsd != null && model.salePriceUsd < model.basePriceUsd
   const priceLabel = formatPriceLabel(model.priceUsd, { from: model.salePriceIsFrom, unit: model.salePriceUnit })
+  const creditName = typeof model.creditName === 'string' ? model.creditName.trim() : ''
+  const creditUrlRaw = typeof model.creditUrl === 'string' ? model.creditUrl.trim() : ''
+  const creditUrlHref = creditUrlRaw ? (() => {
+    try {
+      return new URL(creditUrlRaw).toString()
+    } catch {
+      return ''
+    }
+  })() : ''
   const cookieStore = await cookies()
   const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
@@ -119,6 +128,24 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             {model.tags.map((t: any) => (
               <Link key={t.slug} href={`/discover?tags=${t.slug}`} className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs">#{t.name}</Link>
             ))}
+          </div>
+        )}
+        {creditName && (
+          <div className="glass rounded-xl p-4 text-sm text-slate-300">
+            <div className="text-xs uppercase tracking-[0.3em] text-slate-400 mb-2">Credited creator</div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-medium text-white">{creditName}</span>
+              {creditUrlHref && (
+                <a
+                  href={creditUrlHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-300 hover:text-brand-200 underline underline-offset-2"
+                >
+                  View source
+                </a>
+              )}
+            </div>
           </div>
         )}
         <div className="glass rounded-xl p-4 text-slate-300 whitespace-pre-wrap">{model.description || 'No description provided.'}</div>
