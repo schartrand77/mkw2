@@ -70,7 +70,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className={holidayTheme ? `holiday-${holidayTheme}` : undefined}>
         <CartProvider>
         <NotificationsProvider>
-        <header className="sticky top-0 z-50 header-shell header-safe">
+        <header className="sticky top-0 z-[1200] header-shell header-safe relative isolate">
           <div className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
             <Link href="/" aria-label={BRAND_FULL_NAME} className="text-xl font-semibold tracking-tight">
               <span>{BRAND_LOGO_PREFIX}</span>
@@ -83,7 +83,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <NavBar authed={authed} isAdmin={isAdmin} avatarUrl={avatarUrl} />
           </div>
         </header>
-        <main className="mx-auto max-w-6xl px-4 py-8 safe-padded">
+        <main className="mx-auto max-w-6xl px-4 py-8 safe-padded relative z-0">
           {children}
         </main>
         <footer className="footer-shell text-center text-sm text-slate-400/80 py-6 footer-safe">
