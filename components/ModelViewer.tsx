@@ -128,7 +128,21 @@ export default function ModelViewer({ src, srcs, fallbackSrc, fallbackSrcs, clas
       scene.background = new THREE.Color('#000000')
       const camera = new THREE.PerspectiveCamera(45, width / h, 0.001, 5000)
       camera.position.set(2, 1.5, 2)
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+      let renderer: InstanceType<ThreeLib['WebGLRenderer']>
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+      } catch (err) {
+        const WebGL1Renderer = (THREE as any).WebGL1Renderer
+        if (WebGL1Renderer) {
+          try {
+            renderer = new WebGL1Renderer({ antialias: true, alpha: true })
+          } catch {
+            throw new Error('Unable to initialize WebGL. Check hardware acceleration or GPU/WebGL support.')
+          }
+        } else {
+          throw new Error('Unable to initialize WebGL. Check hardware acceleration or GPU/WebGL support.')
+        }
+      }
       renderer.setSize(width, h)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
       container.appendChild(renderer.domElement)
