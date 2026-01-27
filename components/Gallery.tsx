@@ -13,6 +13,7 @@ type Props = {
   coverSrc?: string | null
   parts?: Part[]
   allSrc?: string | null
+  allFallbackSrc?: string | null
   images?: GalleryImage[]
   initialKey?: string
   actions?: ReactNode
@@ -20,7 +21,7 @@ type Props = {
 
 type Item = { key: string; label: string; kind: 'image' | 'three'; src?: string; srcs?: string[]; fallbackSrc?: string; fallbackSrcs?: Array<string | null | undefined> }
 
-export default function Gallery({ coverSrc, parts = [], allSrc, images = [], initialKey, actions }: Props) {
+export default function Gallery({ coverSrc, parts = [], allSrc, allFallbackSrc, images = [], initialKey, actions }: Props) {
   const items = useMemo<Item[]>(() => {
     const arr: Item[] = []
     const partEntries = parts.map((p) => {
@@ -48,7 +49,8 @@ export default function Gallery({ coverSrc, parts = [], allSrc, images = [], ini
     }
 
     if (normalizedAllSrc) {
-      arr.push({ key: 'three:all', label: '3D View', kind: 'three', src: normalizedAllSrc, fallbackSrc: normalizedAllFallback })
+      const fallback = allFallbackSrc || normalizedAllFallback
+      arr.push({ key: 'three:all', label: '3D View', kind: 'three', src: normalizedAllSrc, fallbackSrc: fallback || undefined })
     } else if (partSrcs.length > 0) {
       arr.push({ key: 'three:all', label: '3D View: All parts', kind: 'three', srcs: partSrcs, fallbackSrcs: partFallbackSrcs })
     }

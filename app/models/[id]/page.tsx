@@ -34,7 +34,13 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   if (!model) return <div>Not found</div>
   const shareUrl = `${baseUrl}/models/${model.id}`
   const fileHref = toPublicHref(model.filePath)
-  const viewerHref = toPublicHref(model.viewerFilePath || model.filePath)
+  const filePath = typeof model.filePath === 'string' ? model.filePath : null
+  const viewerPath = typeof model.viewerFilePath === 'string' ? model.viewerFilePath : null
+  const has3mf = filePath ? filePath.toLowerCase().endsWith('.3mf') : false
+  const viewerHref = toPublicHref(has3mf ? filePath : (viewerPath || filePath))
+  const viewerFallbackHref = has3mf && viewerPath && viewerPath.toLowerCase().endsWith('.stl')
+    ? toPublicHref(viewerPath)
+    : null
   const coverHref = buildImageSrc(model.coverImagePath, model.updatedAt)
   const hasParts = Array.isArray(model.parts) && model.parts.length > 0
   const partParam = resolvedSearchParams?.part
@@ -112,6 +118,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             coverSrc={coverHref}
             parts={hasParts ? model.parts : []}
             allSrc={viewerHref || null}
+            allFallbackSrc={viewerFallbackHref}
             images={model.images || []}
             initialKey={initialGalleryKey}
             actions={payload ? (
