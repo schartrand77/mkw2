@@ -98,6 +98,7 @@ type BambuColorPlan = {
     componentIds: string[]
     componentColors: Array<number | null>
     objectColor: number | null
+    modifierIndices: Set<number>
   }>
 }
 
@@ -160,20 +161,24 @@ async function tryBuildBambuColorPlan(buffer: ArrayBuffer): Promise<BambuColorPl
   const objectNodes = Array.from(settingsDoc.getElementsByTagName('object'))
   const objectExtruders = new Map<string, string>()
   const partIndexExtruders = new Map<string, Map<number, string>>()
+  const partIndexModifiers = new Map<string, Set<number>>()
   for (const obj of objectNodes) {
     const objId = obj.getAttribute('id')
     const objectExtruder = getMetadataValue(obj, 'extruder')
     if (objId && objectExtruder) objectExtruders.set(objId, objectExtruder)
     const parts = Array.from(obj.getElementsByTagName('part'))
-    for (const part of parts) {
-      const sourceId = getMetadataValue(part, 'source_object_id')
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
       const partExtruder = getMetadataValue(part, 'extruder') || objectExtruder
-      if (!objId || !partExtruder) continue
-      if (!sourceId) continue
-      const idx = Number.parseInt(sourceId, 10)
-      if (!Number.isFinite(idx)) continue
-      if (!partIndexExtruders.has(objId)) partIndexExtruders.set(objId, new Map())
-      partIndexExtruders.get(objId)!.set(idx, partExtruder)
+      if (objId && partExtruder) {
+        if (!partIndexExtruders.has(objId)) partIndexExtruders.set(objId, new Map())
+        partIndexExtruders.get(objId)!.set(i, partExtruder)
+      }
+      const subtype = part.getAttribute('subtype')
+      if (objId && subtype === 'modifier_part') {
+        if (!partIndexModifiers.has(objId)) partIndexModifiers.set(objId, new Set())
+        partIndexModifiers.get(objId)!.add(i)
+      }
     }
   }
   if (objectExtruders.size === 0 && partIndexExtruders.size === 0) return null
@@ -202,6 +207,7 @@ async function tryBuildBambuColorPlan(buffer: ArrayBuffer): Promise<BambuColorPl
     const components = objectMap.get(objectId)
     const componentIds = components && components.length > 0 ? components : []
     const partMap = partIndexExtruders.get(objectId)
+    const modifierSet = partIndexModifiers.get(objectId) || new Set<number>()
     const componentColors: Array<number | null> = []
     if (componentIds.length > 0) {
       for (let i = 0; i < componentIds.length; i++) {
@@ -212,7 +218,7 @@ async function tryBuildBambuColorPlan(buffer: ArrayBuffer): Promise<BambuColorPl
     }
     const objectExtruder = objectExtruders.get(objectId) || null
     const objectColor = objectExtruder ? extruderColors.get(objectExtruder) ?? null : null
-    buildItems.push({ objectId, componentIds, componentColors, objectColor })
+    buildItems.push({ objectId, componentIds, componentColors, objectColor, modifierIndices: modifierSet })
   }
   if (buildItems.length === 0) return null
 
@@ -252,6 +258,10 @@ function applyBambuColors(THREE: ThreeLib, root: InstanceType<ThreeLib['Object3D
     const componentChildren = buildChild.children || []
     if (componentChildren.length > 0) {
       for (let j = 0; j < Math.min(componentChildren.length, componentIds.length); j++) {
+        if (item.modifierIndices.has(j)) {
+          componentChildren[j].visible = false
+          continue
+        }
         const color = item.componentColors[j]
         if (color != null) applyColorTo(componentChildren[j], color)
       }
@@ -260,7 +270,11 @@ function applyBambuColors(THREE: ThreeLib, root: InstanceType<ThreeLib['Object3D
         if (fallback != null) applyColorTo(buildChild, fallback)
       }
     } else if (componentIds.length === 1 && item.componentColors[0] != null) {
-      applyColorTo(buildChild, item.componentColors[0] as number)
+      if (!item.modifierIndices.has(0)) {
+        applyColorTo(buildChild, item.componentColors[0] as number)
+      } else {
+        buildChild.visible = false
+      }
     } else if (item.objectColor != null) {
       applyColorTo(buildChild, item.objectColor)
     } else {
