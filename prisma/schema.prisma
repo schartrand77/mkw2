@@ -59,6 +59,7 @@ model Model {
   effectivePriceUsd Float?
   effectivePriceUpdatedAt DateTime?
   salePriceUsd   Float?
+  defaultColors  Json?
   salePriceIsFrom Boolean  @default(false)
   salePriceUnit   String?
   visibility     String   @default("public")

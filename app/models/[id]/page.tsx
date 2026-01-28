@@ -210,6 +210,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           sizeYmm={model.sizeYmm}
           sizeZmm={model.sizeZmm}
           thumbnail={coverHref}
+          defaultColors={Array.isArray(model.defaultColors) ? model.defaultColors : null}
         />
         {model.affiliateUrl && (
           <div className="glass rounded-xl p-4 space-y-3">

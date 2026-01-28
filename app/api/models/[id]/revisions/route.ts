@@ -6,7 +6,7 @@ import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer } from '@/lib/storage'
 import { computeStlStatsMm } from '@/lib/stl'
 import { estimatePriceUSD, resolveModelPricing } from '@/lib/pricing'
-import { enqueueModelPreviewJob, processPendingModelPreviews } from '@/lib/model-preview-queue'
+import { enqueueModelPreviewJob, processPendingModelPreviews, extract3mfFilamentColors } from '@/lib/model-preview-queue'
 
 export const dynamic = 'force-dynamic'
 
@@ -127,6 +127,7 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
   const partVolumes: Array<number | null> = []
   let firstPath: string | null = null
   let firstViewerPath: string | null = null
+  let defaultColors: string[] | null = null
   const storedExts: string[] = []
   let overallSizeXmm: number | undefined
   let overallSizeYmm: number | undefined
@@ -137,6 +138,19 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
     const ext = path.extname(f.name).toLowerCase()
     const storedExt = ext
     const storedBuf = f.buf
+    if (storedExt === '.3mf') {
+      try {
+        const parsedColors = await extract3mfFilamentColors(storedBuf)
+        if (parsedColors && parsedColors.length > 0) {
+          if (!defaultColors) defaultColors = []
+          for (const color of parsedColors) {
+            if (!defaultColors.includes(color)) defaultColors.push(color)
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to extract 3MF colors', err)
+      }
+    }
     let previewBuf: Buffer | null = null
     let previewExt: string | null = null
     let queuedPreviewPath: string | null = null
@@ -257,6 +271,7 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
         priceUsd: totalPrice || undefined,
         effectivePriceUsd: effectivePriceUsd ?? undefined,
         effectivePriceUpdatedAt: effectivePriceUsd != null ? new Date() : undefined,
+        defaultColors: defaultColors?.length ? defaultColors : undefined,
       },
     })
     return tx.modelRevision.create({

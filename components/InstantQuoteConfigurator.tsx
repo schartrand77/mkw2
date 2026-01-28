@@ -35,6 +35,7 @@ type Props = {
   sizeYmm?: number | null
   sizeZmm?: number | null
   thumbnail?: string | null
+  defaultColors?: string[] | null
 }
 
 const SCALE_MIN = 0.1
@@ -161,10 +162,11 @@ export default function InstantQuoteConfigurator({
   sizeYmm,
   sizeZmm,
   thumbnail,
+  defaultColors,
 }: Props) {
   const { add, maxColors } = useCart()
   const [materialChoice, setMaterialChoice] = useState<MaterialType>(normalizeMaterialName(material))
-  const [colors, setColors] = useState<string[]>([])
+  const [colors, setColors] = useState<string[]>(() => (Array.isArray(defaultColors) ? defaultColors : []))
   const [finish, setFinish] = useState<string>('standard')
   const [infillPct, setInfillPct] = useState<number>(20)
   const [scale, setScale] = useState<number>(1)
@@ -180,6 +182,11 @@ export default function InstantQuoteConfigurator({
   const paletteRef = useRef<HTMLDivElement | null>(null)
   const normalizedColors = useMemo(() => normalizeColors(colors, maxColors), [colors, maxColors])
   const hasRequiredColor = normalizedColors.length > 0
+
+  useEffect(() => {
+    if (!Array.isArray(defaultColors) || defaultColors.length === 0) return
+    setColors((prev) => (prev.length > 0 ? prev : defaultColors))
+  }, [defaultColors])
 
   const hasDimensions = useMemo(
     () => [sizeXmm, sizeYmm, sizeZmm].some((value) => typeof value === 'number' && Number.isFinite(value) && value > 0),

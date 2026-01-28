@@ -138,6 +138,80 @@ function normalizeZipPath(p: string) {
   return normalized
 }
 
+function normalizeHexColor(value?: string | null) {
+  if (!value) return null
+  const trimmed = String(value).trim()
+  if (!trimmed) return null
+  const match = trimmed.match(/#?([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i)
+  if (!match) return null
+  return `#${match[1].toLowerCase()}`
+}
+
+function extractExtruderIds(xml: string) {
+  const matches = Array.from(xml.matchAll(/key=["']extruder["']\s+value=["'](\d+)["']/gi))
+  return matches.map((m) => m[1]).filter(Boolean)
+}
+
+export async function extract3mfFilamentColors(buffer: Buffer): Promise<string[] | null> {
+  try {
+    const zip = await JSZip.loadAsync(buffer)
+    const sliceInfo = zip.file('Metadata/slice_info.config')
+    if (!sliceInfo) return null
+    const sliceXml = await sliceInfo.async('string')
+    const sliceData = xmlParser.parse(sliceXml)
+    const plateNode = sliceData?.config?.plate || sliceData?.Config?.plate || sliceData?.config?.Plate || sliceData?.Config?.Plate
+    const filaments = asArray(
+      plateNode?.filament
+      || plateNode?.Filament
+      || sliceData?.config?.filament
+      || sliceData?.Config?.filament
+      || sliceData?.config?.Filament
+      || sliceData?.Config?.Filament
+    )
+    if (!filaments.length) return null
+
+    const colorsById = new Map<string, string>()
+    for (const filament of filaments) {
+      const id = getAttr(filament, ['id', 'ID'])
+      const colorRaw = getAttr(filament, ['color', 'Color'])
+      const normalized = normalizeHexColor(colorRaw)
+      if (id != null && normalized) {
+        colorsById.set(String(id), normalized)
+      }
+    }
+    if (colorsById.size === 0) return null
+
+    const settings = zip.file('Metadata/model_settings.config')
+    let orderedIds: string[] = []
+    if (settings) {
+      const settingsXml = await settings.async('string')
+      const usedExtruders = Array.from(new Set(extractExtruderIds(settingsXml)))
+      orderedIds = usedExtruders.length
+        ? usedExtruders.sort((a, b) => Number(a) - Number(b))
+        : []
+    }
+
+    if (orderedIds.length === 0) {
+      orderedIds = Array.from(colorsById.keys()).sort((a, b) => Number(a) - Number(b))
+    }
+
+    const unique = new Set<string>()
+    const orderedColors: string[] = []
+    for (const id of orderedIds) {
+      const color = colorsById.get(id)
+      if (color && !unique.has(color)) {
+        unique.add(color)
+        orderedColors.push(color)
+      }
+    }
+
+    return orderedColors.length ? orderedColors : null
+  } catch (err) {
+    console.warn('3MF color extraction failed', err)
+    return null
+  }
+}
+
 function parseTransformMatrix(value?: string | null): Matrix4x4 {
   if (!value) return IDENTITY_MATRIX.slice() as Matrix4x4
   const parts = value.trim().split(/\s+/).map(Number)

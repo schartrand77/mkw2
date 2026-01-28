@@ -63,6 +63,7 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                         sizeXmm: m.sizeXmm ?? undefined,
                         sizeYmm: m.sizeYmm ?? undefined,
                         sizeZmm: m.sizeZmm ?? undefined,
+                        defaultColors: Array.isArray(m.defaultColors) ? m.defaultColors : null,
                       }} />
                       {canLike && <DiscoverLikeButton modelId={m.id} initialLikes={m.likes} />}
                     </div>
@@ -106,6 +107,7 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                       sizeXmm: m.sizeXmm ?? undefined,
                       sizeYmm: m.sizeYmm ?? undefined,
                       sizeZmm: m.sizeZmm ?? undefined,
+                      defaultColors: Array.isArray(m.defaultColors) ? m.defaultColors : null,
                     }} />
                     {canLike && <DiscoverLikeButton modelId={m.id} initialLikes={m.likes} />}
                   </div>

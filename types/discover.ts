@@ -30,6 +30,7 @@ export type DiscoverModel = {
   commentsCount?: number | null
   createdAt?: string | Date | null
   updatedAt?: string | Date | null
+  defaultColors?: string[] | null
 }
 
 export type CardInfo = {

@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useCart } from './CartProvider'
 import { buildImageSrc } from '@/lib/public-path'
 
@@ -15,10 +15,12 @@ type ModelPreview = {
   sizeXmm?: number
   sizeYmm?: number
   sizeZmm?: number
+  defaultColors?: string[] | null
 }
 
 export default function AddToCartButtons({ model }: { model: ModelPreview }) {
   const { add, inc, dec, items } = useCart()
+  const [adding, setAdding] = useState(false)
   const inCart = items.find(i => i.modelId === model.id && !i.partId)
   const qty = inCart?.options.qty || 0
   const thumbnail = useMemo(() => buildImageSrc(model.coverImagePath ?? null, model.updatedAt ?? null), [model.coverImagePath, model.updatedAt])
@@ -31,7 +33,21 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
     return null
   }, [model.salePriceUsd, model.saleActive, model.priceUsd, model.basePriceUsd])
 
-  const addOne = useCallback(() => {
+  const addOne = useCallback(async () => {
+    if (adding) return
+    setAdding(true)
+    let colors = Array.isArray(model.defaultColors) ? model.defaultColors : []
+    if (colors.length === 0) {
+      try {
+        const res = await fetch(`/api/models/${model.id}`, { cache: 'no-store' })
+        if (res.ok) {
+          const data = await res.json()
+          if (Array.isArray(data?.model?.defaultColors)) {
+            colors = data.model.defaultColors
+          }
+        }
+      } catch {}
+    }
     add(
       {
         modelId: model.id,
@@ -40,9 +56,10 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
         thumbnail,
         size: { x: model.sizeXmm, y: model.sizeYmm, z: model.sizeZmm },
       },
-      { material: 'PLA', colors: [], finish: 'standard' },
+      { material: 'PLA', colors, finish: 'standard' },
     )
-  }, [add, model.id, resolvedPrice, model.sizeXmm, model.sizeYmm, model.sizeZmm, model.title, thumbnail])
+    setAdding(false)
+  }, [add, adding, model.defaultColors, model.id, model.sizeXmm, model.sizeYmm, model.sizeZmm, model.title, resolvedPrice, thumbnail])
 
   const stopPropagation = (e: React.SyntheticEvent) => {
     e.preventDefault()
@@ -58,6 +75,7 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
         type="button"
         className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20"
         onClick={qty > 0 ? () => inc(model.id) : addOne}
+        disabled={adding}
       >
         {qty > 0 ? '+' : 'Add'}
       </button>

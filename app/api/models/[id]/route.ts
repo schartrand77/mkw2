@@ -15,6 +15,7 @@ import { computeStlStatsMm } from '@/lib/stl'
 import { updateModelPricingForModel } from '@/lib/model-pricing'
 import { processPendingImages } from '@/lib/image-queue'
 import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
+import { extract3mfFilamentColors } from '@/lib/model-preview-queue'
 
 type ModelRouteContext = { params: Promise<{ id: string }> }
 
@@ -38,6 +39,26 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     prisma.modelPart.findMany({ where: { modelId: id }, orderBy: { index: 'asc' } }),
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
   ])
+  if (!Array.isArray(model.defaultColors) || model.defaultColors.length === 0) {
+    const candidates = [
+      model.filePath,
+      ...parts.map((part) => part.filePath),
+    ].filter((p): p is string => typeof p === 'string' && p.toLowerCase().endsWith('.3mf'))
+    for (const candidate of candidates) {
+      try {
+        const rel = candidate.replace(/^\/+/, '')
+        const buf = await readFile(path.join(storageRoot(), rel))
+        const parsed = await extract3mfFilamentColors(buf)
+        if (parsed && parsed.length > 0) {
+          await prisma.model.update({ where: { id }, data: { defaultColors: parsed } })
+          ;(model as any).defaultColors = parsed
+          break
+        }
+      } catch (err) {
+        console.warn('Failed to extract default colors', err)
+      }
+    }
+  }
   const partsNeedingStats = parts.filter((part: any) => part.previewFilePath && part.volumeMm3 == null)
   if (partsNeedingStats.length > 0) {
     for (const part of partsNeedingStats) {

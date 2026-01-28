@@ -18,7 +18,7 @@ import { isSupportedImageFile } from '@/lib/images'
 import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
 import { processPendingImages } from '@/lib/image-queue'
-import { convert3mfToStl, enqueueModelPreviewJob, processPendingModelPreviews } from '@/lib/model-preview-queue'
+import { convert3mfToStl, enqueueModelPreviewJob, processPendingModelPreviews, extract3mfFilamentColors } from '@/lib/model-preview-queue'
 import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
@@ -388,6 +388,7 @@ export async function POST(req: NextRequest) {
     const partVolumes: Array<number | null> = []
     let firstPath: string | null = null
     let firstViewerPath: string | null = null
+    let defaultColors: string[] | null = null
     const storedExts: string[] = []
     let overallSizeXmm: number | undefined
     let overallSizeYmm: number | undefined
@@ -413,6 +414,19 @@ export async function POST(req: NextRequest) {
       let storedBuf: Buffer | null = null
       if (storedExt === '.stl' || storedExt === '.3mf') {
         storedBuf = await readFile(storedFull)
+      }
+      if (storedExt === '.3mf' && storedBuf) {
+        try {
+          const parsedColors = await extract3mfFilamentColors(storedBuf)
+          if (parsedColors && parsedColors.length > 0) {
+            if (!defaultColors) defaultColors = []
+            for (const color of parsedColors) {
+              if (!defaultColors.includes(color)) defaultColors.push(color)
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to extract 3MF colors', err)
+        }
       }
       if (storedExt === '.stl' && storedBuf) {
         statsBuf = storedBuf
@@ -538,6 +552,7 @@ export async function POST(req: NextRequest) {
         priceUsd: totalPrice || undefined,
         effectivePriceUsd: effectivePriceUsd ?? undefined,
         effectivePriceUpdatedAt: effectivePriceUsd != null ? new Date() : undefined,
+        defaultColors: defaultColors?.length ? defaultColors : undefined,
         coverImagePath: coverImageRel ? `/${coverImageRel.replace(/\\/g, '/')}` : undefined,
         coverImageStatus: coverImageRel ? 'processing' : undefined,
         coverImageSourcePath: coverImageSourceRel ? `/${coverImageSourceRel.replace(/\\/g, '/')}` : undefined,
