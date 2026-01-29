@@ -6,6 +6,7 @@ What this app does (plain language)
 - Collects 3D print files (STL, OBJ, 3MF) in one place.
 - Shows a preview of the model and a shareable page for each item.
 - Estimates material use, print time, and price based on your settings.
+- Previews filament colors on 3MF models, including live updates in the cart when colors change.
 - Lets customers request prints and pay online (optional).
 - Gives you an admin area to review jobs, update pricing, and manage settings.
 
