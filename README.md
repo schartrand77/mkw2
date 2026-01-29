@@ -26,6 +26,18 @@ Quick start (high level)
 - Optionally add Stripe keys to accept payments.
 - If you use OrderWorks or StockWorks, connect them to the same database.
 
+Migration recovery (if startup fails)
+If you see Prisma errors like P3009/P3018 about a failed migration, mark the failed migration as rolled back, then re-run deploy.
+1) Inspect failed migrations:
+```
+docker exec -i postgres psql -U postgres -d makerworks -c "SELECT migration_name, started_at, finished_at, rolled_back_at FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL;"
+```
+2) Roll back the failed entry (replace the name if different):
+```
+docker exec -i postgres psql -U postgres -d makerworks -c "UPDATE _prisma_migrations SET rolled_back_at = NOW(), logs = COALESCE(logs,'') || E'\nmanual rollback after failure' WHERE migration_name='20260128151129_add_default_colors' AND finished_at IS NULL AND rolled_back_at IS NULL;"
+```
+3) Re-run migrations (or restart the app if it runs `prisma migrate deploy` on boot).
+
 Security notes (recent)
 - Auth endpoints now enforce rate limiting and lockout windows. Configure via `AUTH_LOGIN_RATE_*`, `AUTH_REGISTER_RATE_*`, and `AUTH_RESEND_RATE_*` in `.env`.
 - Admin invites use a magic login link (no shared invite password).
