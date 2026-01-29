@@ -717,12 +717,12 @@ export default function CartPage() {
                             const baseIndex = unitIdx * 4
                             const slotsInUnit = Math.min(4, Math.max(0, safeSlots - baseIndex))
                             return (
-                              <div key={`${item.modelId}-${item.partId || 'whole'}-ams-${unitIdx}`} className="rounded-xl border border-white/10 bg-slate-900/40 p-3">
-                                <div className="flex items-center justify-between mb-2 text-[11px] uppercase tracking-[0.3em] text-slate-500">
+                              <div key={`${item.modelId}-${item.partId || 'whole'}-ams-${unitIdx}`} className="rounded-xl border border-white/10 bg-slate-900/40 p-2">
+                                <div className="flex items-center justify-between mb-2 text-[10px] uppercase tracking-[0.25em] text-slate-500">
                                   <span>AMS #{unitIdx + 1}</span>
                                   <span>Slots {baseIndex + 1}–{baseIndex + slotsInUnit}</span>
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <div className="grid grid-cols-4 gap-2">
                                   {Array.from({ length: slotsInUnit }).map((_, slotIdx) => {
                                     const idx = baseIndex + slotIdx
                                     const slotId = `${item.modelId}-${item.partId || 'whole'}-color-${idx}`
@@ -748,7 +748,7 @@ export default function CartPage() {
                                           <button
                                             type="button"
                                             data-color-slot={slotId}
-                                            className={`relative rounded-xl border border-white/20 aspect-square w-full flex items-center justify-center transition-all ${isActive ? 'ring-2 ring-amber-400' : ''}`}
+                                            className={`relative rounded-lg border border-white/20 aspect-square w-full flex items-center justify-center transition-all ${isActive ? 'ring-2 ring-amber-400' : ''}`}
                                             style={{ background: hexValue }}
                                             onClick={(event) => {
                                               if (isActive) {
@@ -766,21 +766,21 @@ export default function CartPage() {
                                             }}
                                           >
                                             {!value && (
-                                              <span className="text-[10px] uppercase tracking-wide text-white/70">
+                                              <span className="text-[9px] uppercase tracking-wide text-white/70">
                                                 Pick colour
                                               </span>
                                             )}
                                           </button>
-                                          <div className="pointer-events-none absolute left-1 top-1 z-10 flex flex-col px-2 py-1 rounded-xl bg-black/55 text-white uppercase tracking-wide text-[9px]">
-                                            <span className="font-semibold">Slot {idx + 1}</span>
-                                            <span className="text-[8px] normal-case text-white/80 truncate max-w-[70px]">
+                                          <div className="pointer-events-none absolute left-1 top-1 z-10 flex flex-col px-2 py-1 rounded-lg bg-black/55 text-white uppercase tracking-wide text-[9px]">
+                                            <span className="font-semibold">S{idx + 1}</span>
+                                            <span className="text-[8px] normal-case text-white/80 truncate max-w-[60px]">
                                               {value || 'No color'}
                                             </span>
                                           </div>
                                           {value ? (
                                             <button
                                               type="button"
-                                              className="absolute right-1 top-1 z-10 px-2 py-1 text-[9px] uppercase rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                                              className="absolute right-1 top-1 z-10 px-2 py-1 text-[8px] uppercase rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
                                               onClick={(e) => {
                                                 e.stopPropagation()
                                                 updateColor('')

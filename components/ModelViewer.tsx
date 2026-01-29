@@ -494,9 +494,12 @@ export default function ModelViewer({
   const mountRef = useRef<HTMLDivElement | null>(null)
   const fitRef = useRef<(() => void) | null>(null)
   const pivotRef = useRef<InstanceType<ThreeLib['Group']> | null>(null)
+  const groupRef = useRef<InstanceType<ThreeLib['Group']> | null>(null)
   const threeRef = useRef<ThreeLib | null>(null)
   const bambuTargetsRef = useRef<Array<{ buffer: ArrayBuffer; root: InstanceType<ThreeLib['Object3D']> }>>([])
+  const non3mfTargetsRef = useRef<Array<InstanceType<ThreeLib['Object3D']>>>([])
   const colorOverridesRef = useRef<Array<string | null | undefined> | null>(colorOverrides)
+  const has3mfRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const fileEntries = useMemo(() => {
     const list = srcs && srcs.length ? srcs : (src ? [src] : [])
@@ -524,6 +527,7 @@ export default function ModelViewer({
       const [THREE, OrbitControlsMod, STLLoaderMod] = await Promise.all([loadThree(), loadOrbitControls(), loadStl()])
       threeRef.current = THREE
       bambuTargetsRef.current = []
+      non3mfTargetsRef.current = []
 
       const OBJLoaderModule = await loadObj().catch((err) => {
         console.warn('OBJ loader unavailable, OBJ previews disabled', err)
@@ -593,10 +597,13 @@ export default function ModelViewer({
       pivotRef.current = pivot
       const group = new THREE.Group()
       pivot.add(group)
+      groupRef.current = group
 
       const files = fileEntries
-      const palette = [0xd0d0d0]
+      const overrideColor = parseColorToHexInt(colorOverridesRef.current?.[0] ?? null)
+      const palette = [overrideColor ?? 0xd0d0d0]
       let loaded = 0
+      has3mfRef.current = files.some((entry) => entry.src.split('.').pop()?.toLowerCase() === '3mf')
 
       let fitRadius = 1
       const viewDir = new THREE.Vector3(2, 1.5, 2).normalize()
@@ -703,7 +710,11 @@ export default function ModelViewer({
         if (ext === 'obj' && objLoader) {
           objLoader.load(
             file,
-            (obj: any) => addObject(meshify(obj, color)),
+            (obj: any) => {
+              const mesh = meshify(obj, color)
+              non3mfTargetsRef.current.push(mesh)
+              addObject(mesh)
+            },
             undefined,
             handleError
           )
@@ -754,6 +765,7 @@ export default function ModelViewer({
                     } catch {}
                     const material = new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
                     const mesh = new THREE.Mesh(geometry as any, material)
+                    non3mfTargetsRef.current.push(mesh)
                     addObject(mesh)
                   },
                   undefined,
@@ -778,6 +790,7 @@ export default function ModelViewer({
                 } catch {}
                 const material = new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
                 const mesh = new THREE.Mesh(geometry as any, material)
+                non3mfTargetsRef.current.push(mesh)
                 addObject(mesh)
               },
               undefined,
@@ -796,6 +809,7 @@ export default function ModelViewer({
             } catch {}
             const material = new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
             const mesh = new THREE.Mesh(geometry as any, material)
+            non3mfTargetsRef.current.push(mesh)
             addObject(mesh)
           },
           undefined,
@@ -840,6 +854,8 @@ export default function ModelViewer({
         if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement)
         fitRef.current = null
         pivotRef.current = null
+        groupRef.current = null
+        non3mfTargetsRef.current = []
         scene.clear()
       }
     }
@@ -871,8 +887,9 @@ export default function ModelViewer({
 
   useEffect(() => {
     const targets = bambuTargetsRef.current
+    const non3mfTargets = non3mfTargetsRef.current
     const THREE = threeRef.current
-    if (!targets.length || !THREE) return
+    if (!THREE) return
     let cancelled = false
     const apply = async () => {
       for (const target of targets) {
@@ -880,6 +897,24 @@ export default function ModelViewer({
         if (cancelled || !plan) continue
         applyBambuColors(THREE, target.root, plan)
       }
+      if (cancelled) return
+      const override = parseColorToHexInt(colorOverrides?.[0] ?? null)
+      if (override == null) return
+      if (non3mfTargets.length === 0) return
+      const paint = (target: InstanceType<ThreeLib['Object3D']>) => {
+        target.traverse((child: any) => {
+          if (!(child instanceof THREE.Mesh)) return
+          const material = child.material
+          const setMatColor = (mat: any) => {
+            if (!mat || !mat.color) return
+            mat.color.setHex(override)
+            mat.needsUpdate = true
+          }
+          if (Array.isArray(material)) material.forEach((mat) => setMatColor(mat))
+          else setMatColor(material)
+        })
+      }
+      non3mfTargets.forEach((target) => paint(target))
     }
     apply()
     return () => {
