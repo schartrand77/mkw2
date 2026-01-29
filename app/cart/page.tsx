@@ -1,8 +1,10 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useCart } from '@/components/cart/CartProvider'
 import { formatCurrency } from '@/lib/currency'
+import { toPublicHref } from '@/lib/public-path'
 import {
   clampScale,
   DIMENSION_AXES,
@@ -18,6 +20,8 @@ import {
 } from '@/lib/cartPricing'
 import type { DiscountSummary } from '@/lib/discounts'
 import { getDiscountMultiplier } from '@/lib/discounts'
+
+const LazyModelViewer = dynamic(() => import('@/components/ModelViewer'), { ssr: false })
 
 const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
   x: 'Width (X)',
@@ -100,6 +104,16 @@ type SwatchOption = {
   brand?: string
   category?: string
 }
+type ModelPreviewPart = {
+  id: string
+  filePath: string
+  previewFilePath?: string | null
+}
+type ModelPreviewEntry = {
+  filePath: string | null
+  viewerFilePath: string | null
+  parts: ModelPreviewPart[]
+}
 const normalizeColorValue = (value?: string | null) => (value || '').trim().toLowerCase()
 const extractHex = (value?: string | null) => {
   const trimmed = (value || '').trim()
@@ -159,6 +173,7 @@ export default function CartPage() {
   const [isMobilePalette, setIsMobilePalette] = useState(false)
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
   const [materialWarnings, setMaterialWarnings] = useState<StockworksWarningResponse | null>(null)
+  const [modelPreviewCache, setModelPreviewCache] = useState<Record<string, ModelPreviewEntry>>({})
   const [dimensionInputs, setDimensionInputs] = useState<Record<string, Record<(typeof DIMENSION_AXES)[number], string>>>({})
   const [activeDimensionInput, setActiveDimensionInput] = useState<{ key: string; axis: (typeof DIMENSION_AXES)[number] } | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -284,6 +299,45 @@ export default function CartPage() {
   const activeSlotItem = activeColorSlot
     ? items.find((item) => item.modelId === activeColorSlot.modelId && (item.partId ?? null) === activeColorSlot.partId)
     : null
+  const selectedPreviewItem = activeSlotItem || items[0] || null
+
+  useEffect(() => {
+    if (!selectedPreviewItem) return
+    const modelId = selectedPreviewItem.modelId
+    if (modelPreviewCache[modelId]) return
+    let active = true
+    fetch(`/api/models/${modelId}`, { cache: 'no-store' })
+      .then(async (res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.model) return
+        const model = data.model as { filePath?: string | null; viewerFilePath?: string | null; parts?: any[] }
+        const parts = Array.isArray(model.parts)
+          ? model.parts
+            .map((part) => ({
+              id: String(part?.id ?? ''),
+              filePath: String(part?.filePath ?? ''),
+              previewFilePath: typeof part?.previewFilePath === 'string' ? part.previewFilePath : null,
+            }))
+            .filter((part) => part.id && part.filePath)
+          : []
+        setModelPreviewCache((prev) => {
+          if (prev[modelId]) return prev
+          return {
+            ...prev,
+            [modelId]: {
+              filePath: typeof model.filePath === 'string' ? model.filePath : null,
+              viewerFilePath: typeof model.viewerFilePath === 'string' ? model.viewerFilePath : null,
+              parts,
+            },
+          }
+        })
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [selectedPreviewItem, modelPreviewCache])
+
   const activeSlotValue = activeColorSlot && activeSlotItem ? activeSlotItem.options.colors?.[activeColorSlot.index] || '' : ''
   const activeSlotParsed = parseColorString(activeSlotValue)
   const activeSlotSwatch = resolveSwatch(activeSlotValue)
@@ -384,6 +438,17 @@ export default function CartPage() {
       || paletteValueToHex.get(activeSlotNormalized)
       || COLOR_PICKER_FALLBACK
   const paletteTitle = stockworksEntry ? 'Filament brands' : 'Palette'
+  const selectedPreview = selectedPreviewItem ? modelPreviewCache[selectedPreviewItem.modelId] : null
+  const selectedPreviewPart = selectedPreviewItem?.partId
+    ? selectedPreview?.parts.find((part) => part.id === selectedPreviewItem.partId)
+    : null
+  const selectedPreviewSource = selectedPreviewPart?.filePath || selectedPreview?.filePath || selectedPreview?.viewerFilePath || null
+  const selectedPreviewIs3mf = !!selectedPreviewSource && selectedPreviewSource.toLowerCase().endsWith('.3mf')
+  const selectedPreviewFallback = selectedPreviewIs3mf
+    ? (selectedPreviewPart?.previewFilePath || selectedPreview?.viewerFilePath || null)
+    : null
+  const selectedViewerSrc = selectedPreviewSource ? toPublicHref(selectedPreviewSource) : null
+  const selectedViewerFallback = selectedPreviewFallback ? toPublicHref(selectedPreviewFallback) : null
 
   const discountMultiplier = useMemo(() => getDiscountMultiplier(discount), [discount])
   const totalDiscountPercent = discount?.totalPercent ?? 0
@@ -427,6 +492,35 @@ export default function CartPage() {
       </div>
       <div className="glass p-4 rounded-xl text-sm text-slate-300">
         Configure every part from this cart view: tweak quantities, scale, infill, colors, material, and engraving notes before sending the job to checkout.
+      </div>
+      <div className="glass rounded-xl border border-white/10 overflow-hidden">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 text-xs uppercase tracking-[0.3em] text-slate-400">
+          <span>3D Preview</span>
+          {selectedPreviewItem && (
+            <span className="text-[10px] normal-case tracking-normal text-slate-500">
+              {selectedPreviewItem.title}{selectedPreviewItem.partName ? ` · ${selectedPreviewItem.partName}` : ''}
+            </span>
+          )}
+        </div>
+        {selectedPreviewItem ? (
+          selectedViewerSrc ? (
+            <LazyModelViewer
+              src={selectedViewerSrc}
+              fallbackSrc={selectedViewerFallback || undefined}
+              height={360}
+              className="bg-black/40"
+              colorOverrides={selectedPreviewItem.options.colors}
+            />
+          ) : (
+            <div className="h-[360px] flex items-center justify-center text-sm text-slate-400 bg-slate-900/60">
+              Preview unavailable for this model.
+            </div>
+          )
+        ) : (
+          <div className="h-[360px] flex items-center justify-center text-sm text-slate-400 bg-slate-900/60">
+            Add a model to your cart to preview colors.
+          </div>
+        )}
       </div>
       {materialWarnings?.enabled && materialStatusEntries.length > 0 && (
         <div className="rounded-xl border border-white/10 bg-slate-950/60 p-4 text-sm space-y-3">

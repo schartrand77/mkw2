@@ -53,6 +53,7 @@ type Props = {
   className?: string
   height?: number
   autoRotate?: boolean
+  colorOverrides?: Array<string | null | undefined> | null
 }
 
 function toAbsoluteUrl(url?: string | null) {
@@ -102,6 +103,21 @@ type BambuColorPlan = {
   }>
 }
 
+const HEX_COLOR_RE = /#?([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
+function parseColorToHexInt(value?: string | null) {
+  if (!value) return null
+  const match = String(value).trim().match(HEX_COLOR_RE)
+  if (!match) return null
+  let hex = match[1].toLowerCase()
+  if (hex.length === 3) {
+    hex = hex.split('').map((c) => c + c).join('')
+  } else if (hex.length === 8) {
+    hex = hex.slice(-6)
+  }
+  const parsed = Number.parseInt(hex.slice(0, 6), 16)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 function parseXml(text: string) {
   return new DOMParser().parseFromString(text, 'application/xml')
 }
@@ -115,7 +131,10 @@ function hasEmbeddedModelColors(text: string) {
   return /<(?:colorgroup|color|basematerials|texture2d|texture2dgroup|texture2dref)\b/i.test(text)
 }
 
-async function tryBuildBambuColorPlan(buffer: ArrayBuffer): Promise<BambuColorPlan | null> {
+async function tryBuildBambuColorPlan(
+  buffer: ArrayBuffer,
+  overrides?: Array<string | null | undefined> | null,
+): Promise<BambuColorPlan | null> {
   const fflate = await loadFflate()
   let zip: Record<string, Uint8Array>
   try {
@@ -162,10 +181,14 @@ async function tryBuildBambuColorPlan(buffer: ArrayBuffer): Promise<BambuColorPl
   const objectExtruders = new Map<string, string>()
   const partIndexExtruders = new Map<string, Map<number, string>>()
   const partIndexModifiers = new Map<string, Set<number>>()
+  const usedExtruders = new Set<string>()
   for (const obj of objectNodes) {
     const objId = obj.getAttribute('id')
     const objectExtruder = getMetadataValue(obj, 'extruder')
-    if (objId && objectExtruder) objectExtruders.set(objId, objectExtruder)
+    if (objId && objectExtruder) {
+      objectExtruders.set(objId, objectExtruder)
+      usedExtruders.add(objectExtruder)
+    }
     const parts = Array.from(obj.getElementsByTagName('part'))
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i]
@@ -173,6 +196,7 @@ async function tryBuildBambuColorPlan(buffer: ArrayBuffer): Promise<BambuColorPl
       if (objId && partExtruder) {
         if (!partIndexExtruders.has(objId)) partIndexExtruders.set(objId, new Map())
         partIndexExtruders.get(objId)!.set(i, partExtruder)
+        usedExtruders.add(partExtruder)
       }
       const subtype = part.getAttribute('subtype')
       if (objId && subtype === 'modifier_part') {
@@ -182,6 +206,20 @@ async function tryBuildBambuColorPlan(buffer: ArrayBuffer): Promise<BambuColorPl
     }
   }
   if (objectExtruders.size === 0 && partIndexExtruders.size === 0) return null
+
+  if (overrides && overrides.length > 0) {
+    const extruderOrder = Array.from(usedExtruders)
+      .filter(Boolean)
+      .sort((a, b) => Number(a) - Number(b))
+    const fallbackOrder = extruderOrder.length > 0
+      ? extruderOrder
+      : Array.from(extruderColors.keys()).sort((a, b) => Number(a) - Number(b))
+    for (let i = 0; i < Math.min(fallbackOrder.length, overrides.length); i++) {
+      const color = parseColorToHexInt(overrides[i] ?? null)
+      if (color == null) continue
+      extruderColors.set(fallbackOrder[i], color)
+    }
+  }
 
   const modelDoc = parseXml(mainModel)
   const objectMap = new Map<string, string[]>()
@@ -443,10 +481,22 @@ async function parse3mfSimple(THREE: ThreeLib, buffer: ArrayBuffer) {
   return root
 }
 
-export default function ModelViewer({ src, srcs, fallbackSrc, fallbackSrcs, className, height = 480, autoRotate = false }: Props) {
+export default function ModelViewer({
+  src,
+  srcs,
+  fallbackSrc,
+  fallbackSrcs,
+  className,
+  height = 480,
+  autoRotate = false,
+  colorOverrides = null,
+}: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const fitRef = useRef<(() => void) | null>(null)
   const pivotRef = useRef<InstanceType<ThreeLib['Group']> | null>(null)
+  const threeRef = useRef<ThreeLib | null>(null)
+  const bambuTargetsRef = useRef<Array<{ buffer: ArrayBuffer; root: InstanceType<ThreeLib['Object3D']> }>>([])
+  const colorOverridesRef = useRef<Array<string | null | undefined> | null>(colorOverrides)
   const [error, setError] = useState<string | null>(null)
   const fileEntries = useMemo(() => {
     const list = srcs && srcs.length ? srcs : (src ? [src] : [])
@@ -460,6 +510,10 @@ export default function ModelViewer({ src, srcs, fallbackSrc, fallbackSrcs, clas
   }, [src, srcs, fallbackSrc, fallbackSrcs])
 
   useEffect(() => {
+    colorOverridesRef.current = colorOverrides
+  }, [colorOverrides])
+
+  useEffect(() => {
     if (!mountRef.current) return
     let disposed = false
     let cleanupFn: (() => void) | null = null
@@ -468,6 +522,8 @@ export default function ModelViewer({ src, srcs, fallbackSrc, fallbackSrcs, clas
       setError(null)
       const container = mountRef.current!
       const [THREE, OrbitControlsMod, STLLoaderMod] = await Promise.all([loadThree(), loadOrbitControls(), loadStl()])
+      threeRef.current = THREE
+      bambuTargetsRef.current = []
 
       const OBJLoaderModule = await loadObj().catch((err) => {
         console.warn('OBJ loader unavailable, OBJ previews disabled', err)
@@ -671,7 +727,7 @@ export default function ModelViewer({ src, srcs, fallbackSrc, fallbackSrcs, clas
                 parsedWithFallback = Boolean(obj)
               }
               if (!obj) throw new Error('3MF parsing failed')
-              const plan = await tryBuildBambuColorPlan(buf)
+              const plan = await tryBuildBambuColorPlan(buf, colorOverridesRef.current)
               console.info('[ModelViewer] 3MF bambu color plan', {
                 hasPlan: Boolean(plan),
                 buildCount: plan?.buildItems.length || 0,
@@ -684,6 +740,7 @@ export default function ModelViewer({ src, srcs, fallbackSrc, fallbackSrcs, clas
                 fallbackParser: parsedWithFallback,
               })
               if (plan) applyBambuColors(THREE, obj, plan)
+              bambuTargetsRef.current.push({ buffer: buf, root: obj })
               addObject(preserveMaterials(obj))
             } catch (err: any) {
               console.error('[ModelViewer] 3MF load error', err)
@@ -804,12 +861,31 @@ export default function ModelViewer({ src, srcs, fallbackSrc, fallbackSrcs, clas
 
     return () => {
       disposed = true
+      bambuTargetsRef.current = []
       if (cleanupFn) {
         try { cleanupFn() } catch {}
         cleanupFn = null
       }
     }
   }, [fileEntries, height, autoRotate])
+
+  useEffect(() => {
+    const targets = bambuTargetsRef.current
+    const THREE = threeRef.current
+    if (!targets.length || !THREE) return
+    let cancelled = false
+    const apply = async () => {
+      for (const target of targets) {
+        const plan = await tryBuildBambuColorPlan(target.buffer, colorOverrides)
+        if (cancelled || !plan) continue
+        applyBambuColors(THREE, target.root, plan)
+      }
+    }
+    apply()
+    return () => {
+      cancelled = true
+    }
+  }, [colorOverrides])
 
   const firstEntry = fileEntries[0]
   const errorLink = firstEntry?.fallback || firstEntry?.src
