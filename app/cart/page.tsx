@@ -449,6 +449,19 @@ export default function CartPage() {
     : null
   const selectedViewerSrc = selectedPreviewSource ? toPublicHref(selectedPreviewSource) : null
   const selectedViewerFallback = selectedPreviewFallback ? toPublicHref(selectedPreviewFallback) : null
+  const selectedViewerColors = useMemo(() => {
+    if (!selectedPreviewItem) return []
+    return (selectedPreviewItem.options.colors || []).map((value) => {
+      if (isHexColor(value)) return value
+      const parsed = parseColorString(value)
+      const normalized = normalizeColorValue(parsed.name || parsed.hex || value)
+      const swatch = resolveSwatch(value)
+      return swatch?.hex
+        || parsed.hex
+        || paletteValueToHex.get(normalized)
+        || COLOR_PICKER_FALLBACK
+    })
+  }, [selectedPreviewItem, paletteValueToHex])
 
   const discountMultiplier = useMemo(() => getDiscountMultiplier(discount), [discount])
   const totalDiscountPercent = discount?.totalPercent ?? 0
@@ -509,7 +522,7 @@ export default function CartPage() {
               fallbackSrc={selectedViewerFallback || undefined}
               height={360}
               className="bg-black/40"
-              colorOverrides={selectedPreviewItem.options.colors}
+              colorOverrides={selectedViewerColors}
             />
           ) : (
             <div className="h-[360px] flex items-center justify-center text-sm text-slate-400 bg-slate-900/60">
