@@ -131,6 +131,11 @@ function hasEmbeddedModelColors(text: string) {
   return /<(?:colorgroup|color|basematerials|texture2d|texture2dgroup|texture2dref)\b/i.test(text)
 }
 
+function buildOverrideKey(overrides?: Array<string | null | undefined> | null) {
+  if (!overrides || overrides.length === 0) return ''
+  return overrides.map((value) => (value == null ? '' : String(value))).join('|')
+}
+
 async function tryBuildBambuColorPlan(
   buffer: ArrayBuffer,
   overrides?: Array<string | null | undefined> | null,
@@ -498,6 +503,7 @@ export default function ModelViewer({
   const threeRef = useRef<ThreeLib | null>(null)
   const bambuTargetsRef = useRef<Array<{ buffer: ArrayBuffer; root: InstanceType<ThreeLib['Object3D']> }>>([])
   const non3mfTargetsRef = useRef<Array<InstanceType<ThreeLib['Object3D']>>>([])
+  const bambuPlanCacheRef = useRef<WeakMap<ArrayBuffer, Map<string, BambuColorPlan | null>>>(new WeakMap())
   const colorOverridesRef = useRef<Array<string | null | undefined> | null>(colorOverrides)
   const has3mfRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
@@ -891,9 +897,19 @@ export default function ModelViewer({
     const THREE = threeRef.current
     if (!THREE) return
     let cancelled = false
+    const overrideKey = buildOverrideKey(colorOverrides)
     const apply = async () => {
       for (const target of targets) {
-        const plan = await tryBuildBambuColorPlan(target.buffer, colorOverrides)
+        let planCache = bambuPlanCacheRef.current.get(target.buffer)
+        if (!planCache) {
+          planCache = new Map<string, BambuColorPlan | null>()
+          bambuPlanCacheRef.current.set(target.buffer, planCache)
+        }
+        let plan = planCache.get(overrideKey)
+        if (plan === undefined) {
+          plan = await tryBuildBambuColorPlan(target.buffer, colorOverrides)
+          planCache.set(overrideKey, plan)
+        }
         if (cancelled || !plan) continue
         applyBambuColors(THREE, target.root, plan)
       }
@@ -968,4 +984,3 @@ export default function ModelViewer({
     </div>
   )
 }
-
