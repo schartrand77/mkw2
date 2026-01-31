@@ -1,6 +1,7 @@
 "use client"
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { formatCurrency } from '@/lib/currency'
 import { useCart } from '@/components/cart/CartProvider'
 import { useMemo, useState } from 'react'
@@ -28,6 +29,7 @@ type Props = {
 
 export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }: Props) {
   const { add, items } = useCart()
+  const router = useRouter()
   const hasPricedPart = parts.some((p) => typeof p.priceUsd === 'number' && Number(p.priceUsd) > 0)
   const [isOpen, setIsOpen] = useState(false)
   const memoizedParts = useMemo(() => parts, [parts])
@@ -39,6 +41,7 @@ export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }
     }
     return quantities
   }, [items, modelId])
+  const buildPreviewUrl = (partId: string) => `/cart?previewModelId=${encodeURIComponent(modelId)}&previewPartId=${encodeURIComponent(partId)}`
 
   return (
     <div className="glass rounded-xl p-4 text-sm">
@@ -129,6 +132,33 @@ export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }
                           </span>
                         )}
                       </div>
+                      <button
+                        type="button"
+                        className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs disabled:opacity-40"
+                        disabled={price == null}
+                        onClick={() => {
+                          if (price == null) return
+                          const inCart = items.some((item) => item.modelId === modelId && (item.partId ?? null) === part.id)
+                          if (!inCart) {
+                            add(
+                              {
+                                modelId,
+                                partId: part.id,
+                                partName: part.name || `Part ${i + 1}`,
+                                partIndex: part.index,
+                                title: modelTitle,
+                                priceUsd: price,
+                                thumbnail,
+                                size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
+                              },
+                              { material: 'PLA', colors: [] },
+                            )
+                          }
+                          router.push(buildPreviewUrl(part.id))
+                        }}
+                      >
+                        Configure colors
+                      </button>
                     </div>
                   </li>
                 )

@@ -36,6 +36,15 @@ type Props = {
   sizeZmm?: number | null
   thumbnail?: string | null
   defaultColors?: string[] | null
+  parts?: Array<{
+    id: string
+    name?: string | null
+    index?: number | null
+    priceUsd?: number | null
+    sizeXmm?: number | null
+    sizeYmm?: number | null
+    sizeZmm?: number | null
+  }>
 }
 
 const SCALE_MIN = 0.1
@@ -163,6 +172,7 @@ export default function InstantQuoteConfigurator({
   sizeZmm,
   thumbnail,
   defaultColors,
+  parts,
 }: Props) {
   const { add, maxColors } = useCart()
   const [materialChoice, setMaterialChoice] = useState<MaterialType>(normalizeMaterialName(material))
@@ -431,6 +441,34 @@ export default function InstantQuoteConfigurator({
 
   const addToCart = useCallback(() => {
     if (!hasRequiredColor) return
+    const opts = {
+      qty: 1,
+      scale: clampScale(scale),
+      material: materialChoice,
+      colors: normalizedColors,
+      finish,
+      infillPct,
+      dimensionOverrides: lockDimensions ? null : dimensionOverrides,
+      lockDimensions,
+    }
+    if (parts && parts.length > 0) {
+      for (const part of parts) {
+        add(
+          {
+            modelId,
+            partId: part.id,
+            partName: part.name || undefined,
+            partIndex: typeof part.index === 'number' ? part.index : undefined,
+            title,
+            priceUsd: part.priceUsd ?? null,
+            thumbnail: thumbnail ?? null,
+            size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
+          },
+          opts,
+        )
+      }
+      return
+    }
     add(
       {
         modelId,
@@ -439,18 +477,9 @@ export default function InstantQuoteConfigurator({
         thumbnail: thumbnail ?? null,
         size: { x: sizeXmm ?? undefined, y: sizeYmm ?? undefined, z: sizeZmm ?? undefined },
       },
-      {
-        qty: 1,
-        scale: clampScale(scale),
-        material: materialChoice,
-        colors: normalizedColors,
-        finish,
-        infillPct,
-        dimensionOverrides: lockDimensions ? null : dimensionOverrides,
-        lockDimensions,
-      },
+      opts,
     )
-  }, [add, hasRequiredColor, modelId, title, priceUsd, quote?.priceUsd, thumbnail, sizeXmm, sizeYmm, sizeZmm, scale, materialChoice, normalizedColors, finish, infillPct, lockDimensions, dimensionOverrides])
+  }, [add, hasRequiredColor, modelId, title, priceUsd, quote?.priceUsd, thumbnail, sizeXmm, sizeYmm, sizeZmm, scale, materialChoice, normalizedColors, finish, infillPct, lockDimensions, dimensionOverrides, parts])
 
   const activeSlotValue = activeColorSlot != null ? colors[activeColorSlot] || '' : ''
   const activeSlotParsed = parseColorString(activeSlotValue)
