@@ -211,6 +211,15 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           sizeZmm={model.sizeZmm}
           thumbnail={coverHref}
           defaultColors={Array.isArray(model.defaultColors) ? model.defaultColors : null}
+          parts={hasParts ? model.parts.map((p: any, i: number) => ({
+            id: p.id,
+            name: p.name,
+            index: typeof p.index === 'number' ? p.index : i,
+            priceUsd: p.priceUsd,
+            sizeXmm: p.sizeXmm,
+            sizeYmm: p.sizeYmm,
+            sizeZmm: p.sizeZmm,
+          })) : []}
         />
         {model.affiliateUrl && (
           <div className="glass rounded-xl p-4 space-y-3">
