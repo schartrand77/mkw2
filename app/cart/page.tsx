@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useCart } from '@/components/cart/CartProvider'
 import { formatCurrency } from '@/lib/currency'
 import { toPublicHref } from '@/lib/public-path'
@@ -176,8 +177,11 @@ export default function CartPage() {
   const [modelPreviewCache, setModelPreviewCache] = useState<Record<string, ModelPreviewEntry>>({})
   const [dimensionInputs, setDimensionInputs] = useState<Record<string, Record<(typeof DIMENSION_AXES)[number], string>>>({})
   const [activeDimensionInput, setActiveDimensionInput] = useState<{ key: string; axis: (typeof DIMENSION_AXES)[number] } | null>(null)
+  const [selectedPreviewKey, setSelectedPreviewKey] = useState<{ modelId: string; partId: string | null } | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const paletteRef = useRef<HTMLDivElement | null>(null)
+  const searchParams = useSearchParams()
+  const previewParamRef = useRef<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -299,7 +303,36 @@ export default function CartPage() {
   const activeSlotItem = activeColorSlot
     ? items.find((item) => item.modelId === activeColorSlot.modelId && (item.partId ?? null) === activeColorSlot.partId)
     : null
-  const selectedPreviewItem = activeSlotItem || items[0] || null
+  const selectedPreviewItem = activeSlotItem
+    || (selectedPreviewKey
+      ? items.find((item) => item.modelId === selectedPreviewKey.modelId && (item.partId ?? null) === selectedPreviewKey.partId)
+      : null)
+    || items[0]
+    || null
+
+  useEffect(() => {
+    if (!activeColorSlot) return
+    setSelectedPreviewKey({ modelId: activeColorSlot.modelId, partId: activeColorSlot.partId })
+  }, [activeColorSlot])
+
+  useEffect(() => {
+    if (!selectedPreviewKey) return
+    const exists = items.some((item) => item.modelId === selectedPreviewKey.modelId && (item.partId ?? null) === selectedPreviewKey.partId)
+    if (!exists) setSelectedPreviewKey(null)
+  }, [items, selectedPreviewKey])
+
+  useEffect(() => {
+    const previewModelId = searchParams?.get('previewModelId')?.trim() || ''
+    if (!previewModelId) return
+    const previewPartRaw = searchParams?.get('previewPartId')
+    const previewPartId = previewPartRaw ? previewPartRaw.trim() : ''
+    const key = `${previewModelId}::${previewPartId}`
+    if (previewParamRef.current === key) return
+    const match = items.find((item) => item.modelId === previewModelId && (item.partId ?? '') === previewPartId)
+    if (!match) return
+    previewParamRef.current = key
+    setSelectedPreviewKey({ modelId: match.modelId, partId: match.partId ?? null })
+  }, [items, searchParams])
 
   useEffect(() => {
     if (!selectedPreviewItem) return
@@ -668,9 +701,20 @@ export default function CartPage() {
                       <Link href={`/models/${item.modelId}${typeof item.partIndex === 'number' ? `?part=${item.partIndex}` : ''}`} className="font-medium hover:underline">
                         {item.title}
                       </Link>
-                      <button className="text-xs text-slate-400 hover:text-white" onClick={() => remove(item.modelId, item.partId)}>
-                        Remove
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className={`text-xs ${selectedPreviewItem?.modelId === item.modelId && (selectedPreviewItem?.partId ?? null) === (item.partId ?? null) ? 'text-emerald-300' : 'text-slate-400 hover:text-white'}`}
+                          onClick={() => setSelectedPreviewKey({ modelId: item.modelId, partId: item.partId ?? null })}
+                        >
+                          {selectedPreviewItem?.modelId === item.modelId && (selectedPreviewItem?.partId ?? null) === (item.partId ?? null)
+                            ? 'Previewing'
+                            : 'Preview'}
+                        </button>
+                        <button className="text-xs text-slate-400 hover:text-white" onClick={() => remove(item.modelId, item.partId)}>
+                          Remove
+                        </button>
+                      </div>
                     </div>
                     {item.partName && (
                       <div className="text-xs text-slate-400">Part: {item.partName}</div>
@@ -722,20 +766,20 @@ export default function CartPage() {
                             ))}
                         </select>
                       </label>
-                      <div className="flex flex-col gap-2 text-xs text-slate-400 w-full">
+                      <div className="flex flex-col gap-1 text-xs text-slate-400 w-full">
                         <span>AMS slots (tap a bay to edit)</span>
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                           {Array.from({ length: Math.max(1, Math.ceil(Math.max(1, maxColors) / 4)) }).map((_, unitIdx) => {
                             const safeSlots = Math.max(1, maxColors)
                             const baseIndex = unitIdx * 4
                             const slotsInUnit = Math.min(4, Math.max(0, safeSlots - baseIndex))
                             return (
-                              <div key={`${item.modelId}-${item.partId || 'whole'}-ams-${unitIdx}`} className="rounded-xl border border-white/10 bg-slate-900/40 p-2">
-                                <div className="flex items-center justify-between mb-2 text-[10px] uppercase tracking-[0.25em] text-slate-500">
+                              <div key={`${item.modelId}-${item.partId || 'whole'}-ams-${unitIdx}`} className="rounded-lg border border-white/10 bg-slate-900/40 px-2 py-1.5">
+                                <div className="flex items-center justify-between mb-0.5 text-[9px] uppercase tracking-[0.2em] text-slate-500">
                                   <span>AMS #{unitIdx + 1}</span>
                                   <span>Slots {baseIndex + 1}–{baseIndex + slotsInUnit}</span>
                                 </div>
-                                <div className="grid grid-cols-4 gap-2">
+                                <div className="inline-grid grid-cols-4 gap-1 w-fit">
                                   {Array.from({ length: slotsInUnit }).map((_, slotIdx) => {
                                     const idx = baseIndex + slotIdx
                                     const slotId = `${item.modelId}-${item.partId || 'whole'}-color-${idx}`
@@ -756,57 +800,53 @@ export default function CartPage() {
                                       update(item.modelId, { colors: next }, item.partId)
                                     }
                                     return (
-                                      <div key={slotId} className="flex flex-col gap-1">
-                                        <div className="relative">
-                                          <button
-                                            type="button"
-                                            data-color-slot={slotId}
-                                            className={`relative rounded-lg border border-white/20 aspect-square w-full flex items-center justify-center transition-all ${isActive ? 'ring-2 ring-amber-400' : ''}`}
-                                            style={{ background: hexValue }}
-                                            onClick={(event) => {
-                                              if (isActive) {
-                                                setActiveColorSlot(null)
-                                                return
-                                              }
-                                              const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-                                              setActiveColorAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
-                                              setActiveColorSlot({
-                                                id: slotId,
-                                                modelId: item.modelId,
-                                                partId: item.partId ?? null,
-                                                index: idx,
-                                              })
-                                            }}
-                                          >
-                                            {!value && (
-                                              <span className="text-[9px] uppercase tracking-wide text-white/70">
-                                                Pick colour
-                                              </span>
-                                            )}
-                                          </button>
-                                          <div className="pointer-events-none absolute left-1 top-1 z-10 flex flex-col px-2 py-1 rounded-lg bg-black/55 text-white uppercase tracking-wide text-[9px]">
-                                            <span className="font-semibold">S{idx + 1}</span>
-                                            <span className="text-[8px] normal-case text-white/80 truncate max-w-[60px]">
-                                              {value || 'No color'}
-                                            </span>
-                                          </div>
-                                          {value ? (
-                                            <button
-                                              type="button"
-                                              className="absolute right-1 top-1 z-10 px-2 py-1 text-[8px] uppercase rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                updateColor('')
-                                              }}
-                                            >
-                                              Clear
-                                            </button>
-                                          ) : (
-                                            <span className="pointer-events-none absolute right-1 top-1 z-10 px-2 py-1 text-[9px] uppercase rounded-full bg-black/30 text-white/70">
-                                              Empty
+                                      <div key={slotId} className="flex flex-col items-center gap-0.5">
+                                        <div className="text-[7px] uppercase tracking-wide text-slate-400">S{idx + 1}</div>
+                                        <button
+                                          type="button"
+                                          data-color-slot={slotId}
+                                          className={`relative rounded-md border border-white/20 h-8 w-8 flex items-center justify-center transition-all ${isActive ? 'ring-2 ring-amber-400' : ''}`}
+                                          style={{ background: hexValue }}
+                                          onClick={(event) => {
+                                            if (isActive) {
+                                              setActiveColorSlot(null)
+                                              return
+                                            }
+                                            const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+                                            setActiveColorAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
+                                            setActiveColorSlot({
+                                              id: slotId,
+                                              modelId: item.modelId,
+                                              partId: item.partId ?? null,
+                                              index: idx,
+                                            })
+                                          }}
+                                        >
+                                          {!value && (
+                                            <span className="text-[7px] uppercase tracking-wide text-white/70">
+                                              Pick
                                             </span>
                                           )}
+                                        </button>
+                                        <div className="text-[7px] normal-case text-slate-300 truncate max-w-[54px] text-center">
+                                          {value || 'No color'}
                                         </div>
+                                        {value ? (
+                                          <button
+                                            type="button"
+                                            className="px-2 py-0.5 text-[7px] uppercase rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              updateColor('')
+                                            }}
+                                          >
+                                            Clear
+                                          </button>
+                                        ) : (
+                                          <span className="text-[7px] uppercase rounded-full bg-black/30 text-white/70 px-2 py-0.5">
+                                            Empty
+                                          </span>
+                                        )}
                                       </div>
                                     )
                                   })}
