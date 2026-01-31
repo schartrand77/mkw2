@@ -16,29 +16,44 @@ export type AmazonShopItem = {
 
 export type AmazonShopItemWithUrl = AmazonShopItem & { url: string }
 
-const rawTag =
-  process.env.NEXT_PUBLIC_AMAZON_TAG ||
-  process.env.AMAZON_ASSOCIATE_TAG ||
-  ''
+function resolveAmazonTag(): string {
+  const env =
+    (typeof process !== 'undefined' && process.env)
+      ? (process.env as NodeJS.ProcessEnv)
+      : ({} as NodeJS.ProcessEnv)
+  const rawTag =
+    env['AMAZON_ASSOCIATE_TAG'] ||
+    env['NEXT_PUBLIC_AMAZON_TAG'] ||
+    ''
+  return rawTag.trim()
+}
 
-const AMAZON_TAG = rawTag.trim()
-
-const rawDomain =
-  process.env.NEXT_PUBLIC_AMAZON_DOMAIN ||
-  process.env.AMAZON_DOMAIN ||
-  'amazon.ca'
+function resolveAmazonDomain(): string {
+  const env =
+    (typeof process !== 'undefined' && process.env)
+      ? (process.env as NodeJS.ProcessEnv)
+      : ({} as NodeJS.ProcessEnv)
+  const rawDomain =
+    env['AMAZON_DOMAIN'] ||
+    env['NEXT_PUBLIC_AMAZON_DOMAIN'] ||
+    'amazon.ca'
+  return normalizeDomain(rawDomain) || 'amazon.ca'
+}
 
 function normalizeDomain(domain: string | undefined | null): string {
   if (!domain) return ''
   return domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '').trim().toLowerCase()
 }
 
-const AMAZON_DOMAIN = normalizeDomain(rawDomain) || 'amazon.ca'
-export const AMAZON_MARKETPLACE_HOST = AMAZON_DOMAIN
+export function getAmazonMarketplaceHost(): string {
+  return resolveAmazonDomain()
+}
 
 export const DEFAULT_AMAZON_QUERY = '3d printing accessories'
 
-const AMAZON_BASE_URL = `https://${AMAZON_DOMAIN}`
+function getAmazonBaseUrl(): string {
+  return `https://${resolveAmazonDomain()}`
+}
 
 function isAmazonHost(hostname: string): boolean {
   return hostname.toLowerCase().includes('amazon.')
@@ -55,7 +70,7 @@ function toAmazonUrl(input: string): URL | null {
       const parsed = new URL(candidate)
       if (!isAmazonHost(parsed.hostname)) continue
       parsed.protocol = 'https:'
-      parsed.hostname = AMAZON_DOMAIN
+      parsed.hostname = resolveAmazonDomain()
       parsed.port = ''
       return parsed
     } catch {
@@ -64,7 +79,7 @@ function toAmazonUrl(input: string): URL | null {
   }
 
   try {
-    return new URL(raw.startsWith('/') ? raw : `/${raw}`, AMAZON_BASE_URL)
+    return new URL(raw.startsWith('/') ? raw : `/${raw}`, getAmazonBaseUrl())
   } catch {
     return null
   }
@@ -73,10 +88,11 @@ function toAmazonUrl(input: string): URL | null {
 export function normalizeAmazonAffiliateUrl(input: string): string | null {
   const parsed = toAmazonUrl(input)
   if (!parsed) return null
-  parsed.hostname = AMAZON_DOMAIN
+  parsed.hostname = resolveAmazonDomain()
   parsed.protocol = 'https:'
   parsed.port = ''
-  if (AMAZON_TAG) parsed.searchParams.set('tag', AMAZON_TAG)
+  const tag = resolveAmazonTag()
+  if (tag) parsed.searchParams.set('tag', tag)
   return parsed.toString()
 }
 
@@ -116,7 +132,9 @@ function resolveMarketplaceCode(domain: string): string {
   return 'US'
 }
 
-const AMAZON_MARKETPLACE_CODE = resolveMarketplaceCode(AMAZON_DOMAIN)
+function getAmazonMarketplaceCode(): string {
+  return resolveMarketplaceCode(resolveAmazonDomain())
+}
 
 export function buildAmazonImageUrl(asin: string, size = 500): string {
   const clamped = Math.min(1000, Math.max(100, Math.round(size / 50) * 50))
@@ -125,10 +143,11 @@ export function buildAmazonImageUrl(asin: string, size = 500): string {
   url.searchParams.set('ASIN', asin)
   url.searchParams.set('Format', `_SL${clamped}_`)
   url.searchParams.set('ID', 'AsinImage')
-  url.searchParams.set('MarketPlace', AMAZON_MARKETPLACE_CODE)
+  url.searchParams.set('MarketPlace', getAmazonMarketplaceCode())
   url.searchParams.set('ServiceVersion', '20070822')
   url.searchParams.set('WS', '1')
-  if (AMAZON_TAG) url.searchParams.set('tag', AMAZON_TAG)
+  const tag = resolveAmazonTag()
+  if (tag) url.searchParams.set('tag', tag)
   return url.toString()
 }
 
@@ -137,11 +156,12 @@ export function buildAmazonSearchUrl(
   ref: string = 'makerworks_v2_store',
 ): string {
   const normalizedQuery = query.trim().length > 0 ? query.trim() : DEFAULT_AMAZON_QUERY
-  const url = new URL('/s', AMAZON_BASE_URL)
+  const url = new URL('/s', getAmazonBaseUrl())
   url.searchParams.set('k', normalizedQuery)
   url.searchParams.set('i', 'industrial')
   url.searchParams.set('ref', ref)
-  if (AMAZON_TAG) url.searchParams.set('tag', AMAZON_TAG)
+  const tag = resolveAmazonTag()
+  if (tag) url.searchParams.set('tag', tag)
   return url.toString()
 }
 
@@ -149,9 +169,10 @@ export function buildAmazonProductUrl(
   asin: string,
   ref: string = 'makerworks_v2_store_product',
 ): string {
-  const url = new URL(`/dp/${asin}`, AMAZON_BASE_URL)
+  const url = new URL(`/dp/${asin}`, getAmazonBaseUrl())
   url.searchParams.set('ref', ref)
-  if (AMAZON_TAG) url.searchParams.set('tag', AMAZON_TAG)
+  const tag = resolveAmazonTag()
+  if (tag) url.searchParams.set('tag', tag)
   url.searchParams.set('th', '1')
   return url.toString()
 }

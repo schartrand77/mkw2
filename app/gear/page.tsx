@@ -1,4 +1,4 @@
-import { AMAZON_MARKETPLACE_HOST, normalizeAmazonAffiliateUrl } from '@/lib/amazon'
+import { getAmazonMarketplaceHost, normalizeAmazonAffiliateUrl } from '@/lib/amazon'
 import { getAmazonSpotlightCards } from '@/lib/amazonSpotlights'
 import { BRAND_FULL_NAME, BRAND_LAB_NAME, BRAND_NAME } from '@/lib/brand'
 import { prisma } from '@/lib/db'
@@ -9,9 +9,10 @@ export const metadata = {
 }
 
 export default async function AmazonStorePage() {
+  const marketplaceHost = getAmazonMarketplaceHost()
   const supportShoppingUrl =
-    normalizeAmazonAffiliateUrl(`https://${AMAZON_MARKETPLACE_HOST}`) ||
-    `https://${AMAZON_MARKETPLACE_HOST}`
+    normalizeAmazonAffiliateUrl(`https://${marketplaceHost}`) ||
+    `https://${marketplaceHost}`
   const spotlightItems = await getAmazonSpotlightCards()
   const favoriteColors = [
     '#22d3ee',

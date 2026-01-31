@@ -4,6 +4,7 @@ import {
   amazonShopItems,
   AmazonShopItemWithUrl,
   buildAmazonSearchUrl,
+  normalizeAmazonAffiliateUrl,
 } from '@/lib/amazon'
 import {
   fetchAmazonProductMeta,
@@ -59,13 +60,14 @@ export async function getAmazonSpotlightCards(): Promise<
         ? stripDepartmentNoise(meta.description, item.description)
         : undefined
 
+      const resolvedUrl = normalizeAmazonAffiliateUrl(meta?.url || item.url) || item.url
       return {
         ...item,
         displayTitle: stripDepartmentNoise(meta?.title || item.title, item.title),
         displayImage: meta?.image || item.image,
         descriptionFromAmazon: cleanedDescription,
-        canonicalUrl: meta?.url || item.url,
-        url: meta?.url || item.url,
+        canonicalUrl: resolvedUrl,
+        url: resolvedUrl,
       }
     }),
   )
