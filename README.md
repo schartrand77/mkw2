@@ -44,6 +44,9 @@ Security notes (recent)
 - Admin invites use a magic login link (no shared invite password).
 - Email verification tokens are stored hashed at rest.
 
+For Elon
+![.for elon...](https://quickchart.io/chart?width=800&height=350&c=%7B%22type%22%3A%22bar%22%2C%22data%22%3A%7B%22labels%22%3A%5B%22.tsx%22%2C%22.ts%22%2C%22.js%22%2C%22.sql%22%2C%22.css%22%2C%22.prisma%22%2C%22.mjs%22%5D%2C%22datasets%22%3A%5B%7B%22label%22%3A%22LOC%22%2C%22data%22%3A%5B12394%2C11260%2C880%2C644%2C528%2C488%2C14%5D%2C%22backgroundColor%22%3A%5B%22%231f2937%22%2C%22%23334155%22%2C%22%2364748b%22%2C%22%230f766e%22%2C%22%230ea5e9%22%2C%22%238b5cf6%22%2C%22%2394a3b8%22%5D%7D%5D%7D%2C%22options%22%3A%7B%22plugins%22%3A%7B%22legend%22%3A%7B%22display%22%3Afalse%7D%2C%22title%22%3A%7B%22display%22%3Atrue%2C%22text%22%3A%22.for%20elon...%22%7D%7D%2C%22scales%22%3A%7B%22y%22%3A%7B%22beginAtZero%22%3Atrue%7D%7D%7D%7D)
+
 Screenshots
 ![Home](public/screenshots/mwhome.png)
 ![Discover](public/screenshots/mwdiscover.png)
