@@ -330,6 +330,7 @@ function applyBambuColors(THREE: ThreeLib, root: InstanceType<ThreeLib['Object3D
 type ParsedMesh = {
   vertices: Float32Array
   indices: Uint32Array
+  triangleColors: Array<number | null>
 }
 
 type ParsedComponent = {
@@ -373,16 +374,21 @@ function parseMeshNode(meshNode: Element): ParsedMesh {
   }
   const triNodes = Array.from(meshNode.getElementsByTagName('triangle'))
   const indices: number[] = []
+  const triangleColors: Array<number | null> = []
   for (const tri of triNodes) {
     indices.push(
       Number.parseInt(tri.getAttribute('v1') || '0', 10),
       Number.parseInt(tri.getAttribute('v2') || '0', 10),
       Number.parseInt(tri.getAttribute('v3') || '0', 10),
     )
+    const paintColor = tri.getAttribute('paint_color') || tri.getAttribute('paintColor')
+    const colorIdx = paintColor != null ? Number.parseInt(paintColor, 10) : Number.NaN
+    triangleColors.push(Number.isFinite(colorIdx) ? colorIdx : null)
   }
   return {
     vertices: new Float32Array(vertices),
     indices: new Uint32Array(indices),
+    triangleColors,
   }
 }
 
@@ -425,6 +431,26 @@ async function parse3mfSimple(THREE: ThreeLib, buffer: ArrayBuffer) {
   const decoder = new TextDecoder()
   const modelParts = new Map<string, ParsedModelPart>()
   let mainModelText: string | null = null
+  let filamentPalette: Array<number | null> | null = null
+
+  const projectSettings = zip['Metadata/project_settings.config']
+  if (projectSettings) {
+    const settingsText = decoder.decode(projectSettings)
+    try {
+      const parsed = JSON.parse(settingsText)
+      const palette = Array.isArray(parsed?.filament_colour) ? parsed.filament_colour : null
+      if (palette && palette.length > 0) {
+        filamentPalette = palette.map((val: any) => parseColorToHexInt(String(val)) ?? null) as Array<number | null>
+      }
+    } catch {
+      const match = settingsText.match(new RegExp('"filament_colour"\\s*:\\s*\\[([\\s\\S]*?)\\]', 'i'))
+      if (match) {
+        const values = match[1].split(',').map((v) => v.trim().replace(/^\"|\"$/g, '')).filter(Boolean)
+        const parsed = values.map((v) => parseColorToHexInt(v) ?? null)
+        if (parsed.length > 0) filamentPalette = parsed
+      }
+    }
+  }
 
   for (const name of Object.keys(zip)) {
     if (!name.toLowerCase().endsWith('.model')) continue
@@ -449,6 +475,28 @@ async function parse3mfSimple(THREE: ThreeLib, buffer: ArrayBuffer) {
     if (!obj) return null
     if (obj.mesh) {
       const geometry = new THREE.BufferGeometry()
+      const hasPaint = filamentPalette && filamentPalette.length > 0 && obj.mesh.triangleColors.some((c) => c != null)
+      if (hasPaint) {
+        const pos: number[] = []
+        const colors: number[] = []
+        const verts = obj.mesh.vertices
+        const idx = obj.mesh.indices
+        for (let i = 0; i < idx.length; i += 3) {
+          const cidx = obj.mesh.triangleColors[i / 3]
+          const colorHex = cidx != null ? filamentPalette![cidx] : null
+          const color = colorHex != null ? new THREE.Color(colorHex) : new THREE.Color(0xd0d0d0)
+          for (let j = 0; j < 3; j++) {
+            const vi = idx[i + j] * 3
+            pos.push(verts[vi], verts[vi + 1], verts[vi + 2])
+            colors.push(color.r, color.g, color.b)
+          }
+        }
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+        geometry.computeVertexNormals()
+        const material = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
+        return new THREE.Mesh(geometry, material)
+      }
       geometry.setAttribute('position', new THREE.BufferAttribute(obj.mesh.vertices, 3))
       geometry.setIndex(new THREE.BufferAttribute(obj.mesh.indices, 1))
       geometry.computeVertexNormals()

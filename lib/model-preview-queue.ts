@@ -152,11 +152,16 @@ function extractExtruderIds(xml: string) {
   return matches.map((m) => m[1]).filter(Boolean)
 }
 
+function hasEmbeddedModelColors(xml: string) {
+  return /<(?:colorgroup|color|basematerials|texture2d|texture2dgroup|texture2dref)\b/i.test(xml)
+}
+
 export async function extract3mfFilamentColors(buffer: Buffer): Promise<string[] | null> {
   try {
     const zip = await JSZip.loadAsync(buffer)
     const sliceInfo = zip.file('Metadata/slice_info.config')
-    if (!sliceInfo) return null
+    const modelSettings = zip.file('Metadata/model_settings.config')
+    if (!sliceInfo || !modelSettings) return null
     const sliceXml = await sliceInfo.async('string')
     const sliceData = xmlParser.parse(sliceXml)
     const plateNode = sliceData?.config?.plate || sliceData?.Config?.plate || sliceData?.config?.Plate || sliceData?.Config?.Plate
@@ -181,14 +186,17 @@ export async function extract3mfFilamentColors(buffer: Buffer): Promise<string[]
     }
     if (colorsById.size === 0) return null
 
-    const settings = zip.file('Metadata/model_settings.config')
     let orderedIds: string[] = []
-    if (settings) {
-      const settingsXml = await settings.async('string')
-      const usedExtruders = Array.from(new Set(extractExtruderIds(settingsXml)))
-      orderedIds = usedExtruders.length
-        ? usedExtruders.sort((a, b) => Number(a) - Number(b))
-        : []
+    const settingsXml = await modelSettings.async('string')
+    const usedExtruders = Array.from(new Set(extractExtruderIds(settingsXml)))
+    if (usedExtruders.length === 0) return null
+    orderedIds = usedExtruders.sort((a, b) => Number(a) - Number(b))
+
+    for (const entry of Object.values(zip.files)) {
+      if (entry.dir) continue
+      if (!entry.name.toLowerCase().endsWith('.model')) continue
+      const xml = await entry.async('string')
+      if (hasEmbeddedModelColors(xml)) return null
     }
 
     if (orderedIds.length === 0) {
