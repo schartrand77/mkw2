@@ -152,6 +152,27 @@ function extractExtruderIds(xml: string) {
   return matches.map((m) => m[1]).filter(Boolean)
 }
 
+function extractPaintColorIndices(xml: string): number[] {
+  const matches = Array.from(xml.matchAll(/paint_color=["']\s*([0-9]+)\s*C["']/gi))
+  const ids = matches.map((m) => Number(m[1])).filter((v) => Number.isFinite(v))
+  return Array.from(new Set(ids)).sort((a, b) => a - b)
+}
+
+function parseFilamentPaletteFromProjectSettings(text: string): string[] {
+  try {
+    const parsed: { filament_colour?: unknown } = JSON.parse(text)
+    const raw = Array.isArray(parsed?.filament_colour) ? parsed.filament_colour as unknown[] : []
+    return raw
+      .map((val) => normalizeHexColor(String(val)))
+      .filter((v): v is string => Boolean(v))
+  } catch {
+    const match = text.match(new RegExp('"filament_colour"\\s*:\\s*\\[([\\s\\S]*?)\\]', 'i'))
+    if (!match) return []
+    const values = match[1].split(',').map((v) => v.trim().replace(/^\"|\"$/g, '')).filter(Boolean)
+    return values.map((v) => normalizeHexColor(v)).filter((v): v is string => Boolean(v))
+  }
+}
+
 function hasEmbeddedModelColors(xml: string) {
   return /<(?:colorgroup|color|basematerials|texture2d|texture2dgroup|texture2dref)\b/i.test(xml)
 }
@@ -173,7 +194,6 @@ export async function extract3mfFilamentColors(buffer: Buffer): Promise<string[]
       || sliceData?.config?.Filament
       || sliceData?.Config?.Filament
     )
-    if (!filaments.length) return null
 
     const colorsById = new Map<string, string>()
     for (const filament of filaments) {
@@ -184,13 +204,11 @@ export async function extract3mfFilamentColors(buffer: Buffer): Promise<string[]
         colorsById.set(String(id), normalized)
       }
     }
-    if (colorsById.size === 0) return null
 
     let orderedIds: string[] = []
     const settingsXml = await modelSettings.async('string')
     const usedExtruders = Array.from(new Set(extractExtruderIds(settingsXml)))
-    if (usedExtruders.length === 0) return null
-    orderedIds = usedExtruders.sort((a, b) => Number(a) - Number(b))
+    orderedIds = usedExtruders.length ? usedExtruders.sort((a, b) => Number(a) - Number(b)) : []
 
     for (const entry of Object.values(zip.files)) {
       if (entry.dir) continue
@@ -199,18 +217,46 @@ export async function extract3mfFilamentColors(buffer: Buffer): Promise<string[]
       if (hasEmbeddedModelColors(xml)) return null
     }
 
-    if (orderedIds.length === 0) {
-      orderedIds = Array.from(colorsById.keys()).sort((a, b) => Number(a) - Number(b))
+    let orderedColors: string[] = []
+    if (colorsById.size > 0 && orderedIds.length > 0) {
+      const unique = new Set<string>()
+      for (const id of orderedIds) {
+        const color = colorsById.get(id)
+        if (color && !unique.has(color)) {
+          unique.add(color)
+          orderedColors.push(color)
+        }
+      }
     }
 
-    const unique = new Set<string>()
-    const orderedColors: string[] = []
-    for (const id of orderedIds) {
-      const color = colorsById.get(id)
-      if (color && !unique.has(color)) {
-        unique.add(color)
-        orderedColors.push(color)
+    if (orderedColors.length === 0) {
+      const projectSettings = zip.file('Metadata/project_settings.config')
+      if (projectSettings) {
+        const settingsText = await projectSettings.async('string')
+        const palette = parseFilamentPaletteFromProjectSettings(settingsText)
+        if (palette.length > 0) {
+          let usedIndices: number[] = []
+          for (const entry of Object.values(zip.files)) {
+            if (entry.dir) continue
+            if (!entry.name.toLowerCase().endsWith('.model')) continue
+            const xml = await entry.async('string')
+            usedIndices = usedIndices.concat(extractPaintColorIndices(xml))
+          }
+          usedIndices = Array.from(new Set(usedIndices)).sort((a, b) => a - b)
+          if (usedIndices.length > 0) {
+            orderedColors = usedIndices.map((idx) => palette[idx]).filter(Boolean)
+          } else {
+            orderedColors = palette
+          }
+        }
       }
+    }
+
+    if (orderedColors.length === 0 && colorsById.size > 0) {
+      orderedColors = Array.from(colorsById.keys())
+        .sort((a, b) => Number(a) - Number(b))
+        .map((id) => colorsById.get(id) || '')
+        .filter(Boolean)
     }
 
     return orderedColors.length ? orderedColors : null
