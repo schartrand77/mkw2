@@ -420,7 +420,7 @@ function parseModelPart(THREE: ThreeLib, xmlText: string): ParsedModelPart {
   return { objects }
 }
 
-async function parse3mfSimple(THREE: ThreeLib, buffer: ArrayBuffer) {
+async function parse3mfSimple(THREE: ThreeLib, buffer: ArrayBuffer, overrides?: Array<string | null | undefined> | null) {
   const fflate = await loadFflate()
   let zip: Record<string, Uint8Array>
   try {
@@ -432,15 +432,36 @@ async function parse3mfSimple(THREE: ThreeLib, buffer: ArrayBuffer) {
   const modelParts = new Map<string, ParsedModelPart>()
   let mainModelText: string | null = null
   let filamentPalette: Array<number | null> | null = null
+  let filamentSelfIndex: Array<number | null> | null = null
 
   const projectSettings = zip['Metadata/project_settings.config']
   if (projectSettings) {
     const settingsText = decoder.decode(projectSettings)
     try {
-      const parsed = JSON.parse(settingsText)
-      const palette = Array.isArray(parsed?.filament_colour) ? parsed.filament_colour : null
-      if (palette && palette.length > 0) {
-        filamentPalette = palette.map((val: any) => parseColorToHexInt(String(val)) ?? null) as Array<number | null>
+      const parsed: {
+        filament_colour?: unknown
+        filament_multi_colour?: unknown
+        filament_colour_type?: unknown
+        filament_self_index?: unknown
+      } = JSON.parse(settingsText)
+      const basePalette = Array.isArray(parsed?.filament_colour) ? parsed.filament_colour : null
+      const multiPalette = Array.isArray(parsed?.filament_multi_colour) ? parsed.filament_multi_colour : null
+      const colorType = Array.isArray(parsed?.filament_colour_type) ? parsed.filament_colour_type : null
+      if (basePalette || multiPalette) {
+        const resolved = (basePalette || []).map((val: any, idx: number) => {
+          const typeFlag = colorType?.[idx]
+          const wantsMulti = String(typeFlag ?? '') === '1'
+          const source = wantsMulti && multiPalette?.[idx] ? multiPalette[idx] : (basePalette?.[idx] ?? multiPalette?.[idx])
+          return parseColorToHexInt(String(source)) ?? null
+        })
+        filamentPalette = resolved.length > 0 ? resolved : null
+      }
+      if (Array.isArray(parsed?.filament_self_index)) {
+        filamentSelfIndex = parsed.filament_self_index
+          .map((val: any) => {
+            const n = Number(val)
+            return Number.isFinite(n) ? n : null
+          })
       }
     } catch {
       const match = settingsText.match(new RegExp('"filament_colour"\\s*:\\s*\\[([\\s\\S]*?)\\]', 'i'))
@@ -450,6 +471,10 @@ async function parse3mfSimple(THREE: ThreeLib, buffer: ArrayBuffer) {
         if (parsed.length > 0) filamentPalette = parsed
       }
     }
+  }
+  if ((!filamentPalette || filamentPalette.every((v) => v == null)) && overrides && overrides.length > 0) {
+    const parsed = overrides.map((value) => parseColorToHexInt(value ?? null))
+    if (parsed.some((v) => v != null)) filamentPalette = parsed
   }
 
   for (const name of Object.keys(zip)) {
@@ -483,7 +508,18 @@ async function parse3mfSimple(THREE: ThreeLib, buffer: ArrayBuffer) {
         const idx = obj.mesh.indices
         for (let i = 0; i < idx.length; i += 3) {
           const cidx = obj.mesh.triangleColors[i / 3]
-          const colorHex = cidx != null ? filamentPalette![cidx] : null
+          let colorHex: number | null = null
+          if (cidx != null) {
+            const direct = filamentPalette?.[cidx] ?? (cidx > 0 ? filamentPalette?.[cidx - 1] : null)
+            if (direct != null) {
+              colorHex = direct as number
+            } else if (filamentSelfIndex && filamentPalette) {
+              const selfMatchIdx = filamentSelfIndex.findIndex((v) => v === cidx || v === cidx + 1)
+              if (selfMatchIdx >= 0 && filamentPalette[selfMatchIdx] != null) {
+                colorHex = filamentPalette[selfMatchIdx] as number
+              }
+            }
+          }
           const color = colorHex != null ? new THREE.Color(colorHex) : new THREE.Color(0xd0d0d0)
           for (let j = 0; j < 3; j++) {
             const vi = idx[i + j] * 3
@@ -495,7 +531,9 @@ async function parse3mfSimple(THREE: ThreeLib, buffer: ArrayBuffer) {
         geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
         geometry.computeVertexNormals()
         const material = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
-        return new THREE.Mesh(geometry, material)
+        const mesh = new THREE.Mesh(geometry, material)
+        mesh.userData.paintTriangleColors = obj.mesh.triangleColors
+        return mesh
       }
       geometry.setAttribute('position', new THREE.BufferAttribute(obj.mesh.vertices, 3))
       geometry.setIndex(new THREE.BufferAttribute(obj.mesh.indices, 1))
@@ -788,7 +826,7 @@ export default function ModelViewer({
                 obj = tmfLoader.parse(buf)
               } catch (parseErr) {
                 console.warn('[ModelViewer] 3MF loader parse failed, trying fallback parser', parseErr)
-                obj = await parse3mfSimple(THREE, buf)
+                obj = await parse3mfSimple(THREE, buf, colorOverridesRef.current)
                 parsedWithFallback = Boolean(obj)
               }
               if (!obj) throw new Error('3MF parsing failed')
@@ -946,6 +984,35 @@ export default function ModelViewer({
     if (!THREE) return
     let cancelled = false
     const overrideKey = buildOverrideKey(colorOverrides)
+    const overridePalette = (colorOverrides || []).map((value) => parseColorToHexInt(value ?? null))
+    const applyPaintOverrides = (target: InstanceType<ThreeLib['Object3D']>) => {
+      target.traverse((child: any) => {
+        if (!(child instanceof THREE.Mesh)) return
+        const triColors: Array<number | null> | undefined = child.userData?.paintTriangleColors
+        if (!triColors || triColors.length === 0 || overridePalette.length === 0) return
+        const geometry = child.geometry
+        const colorAttr = geometry?.getAttribute?.('color')
+        const positionAttr = geometry?.getAttribute?.('position')
+        if (!colorAttr || !positionAttr) return
+        const colors = new Float32Array(positionAttr.count * 3)
+        for (let i = 0; i < triColors.length; i++) {
+          const cidx = triColors[i]
+          const colorHex = cidx != null ? (overridePalette[cidx] ?? (cidx > 0 ? overridePalette[cidx - 1] : null)) : null
+          const color = colorHex != null ? new THREE.Color(colorHex) : new THREE.Color(0xd0d0d0)
+          const base = i * 9
+          for (let j = 0; j < 3; j++) {
+            const offset = base + j * 3
+            colors[offset] = color.r
+            colors[offset + 1] = color.g
+            colors[offset + 2] = color.b
+          }
+        }
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+        const material = child.material
+        if (Array.isArray(material)) material.forEach((m) => { if (m) m.needsUpdate = true })
+        else if (material) material.needsUpdate = true
+      })
+    }
     const apply = async () => {
       for (const target of targets) {
         let planCache = bambuPlanCacheRef.current.get(target.buffer)
@@ -958,17 +1025,26 @@ export default function ModelViewer({
           plan = await tryBuildBambuColorPlan(target.buffer, colorOverrides)
           planCache.set(overrideKey, plan)
         }
-        if (cancelled || !plan) continue
-        applyBambuColors(THREE, target.root, plan)
+        if (cancelled) continue
+        if (plan) {
+          applyBambuColors(THREE, target.root, plan)
+        } else {
+          applyPaintOverrides(target.root)
+        }
       }
       if (cancelled) return
-      const override = parseColorToHexInt(colorOverrides?.[0] ?? null)
-      if (override == null) return
       if (non3mfTargets.length === 0) return
       const paint = (target: InstanceType<ThreeLib['Object3D']>) => {
         target.traverse((child: any) => {
           if (!(child instanceof THREE.Mesh)) return
           const material = child.material
+          const triColors: Array<number | null> | undefined = child.userData?.paintTriangleColors
+          if (triColors && triColors.length > 0) {
+            applyPaintOverrides(child)
+            return
+          }
+          const override = parseColorToHexInt(colorOverrides?.[0] ?? null)
+          if (override == null) return
           const setMatColor = (mat: any) => {
             if (!mat || !mat.color) return
             mat.color.setHex(override)

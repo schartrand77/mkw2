@@ -268,10 +268,10 @@ export async function extract3mfFilamentColors(buffer: Buffer): Promise<string[]
           if (usedIndices.length > 0) {
             orderedColors = usedIndices
               .map((idx) => {
-                const bySelf = paletteInfo.selfIndexMap.get(idx)
-                if (bySelf) return bySelf
                 if (palette[idx]) return palette[idx]
                 if (idx > 0 && palette[idx - 1]) return palette[idx - 1]
+                const bySelf = paletteInfo.selfIndexMap.get(idx) || paletteInfo.selfIndexMap.get(idx + 1)
+                if (bySelf) return bySelf
                 return null
               })
               .filter((v): v is string => Boolean(v))
