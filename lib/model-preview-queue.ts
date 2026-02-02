@@ -158,18 +158,39 @@ function extractPaintColorIndices(xml: string): number[] {
   return Array.from(new Set(ids)).sort((a, b) => a - b)
 }
 
-function parseFilamentPaletteFromProjectSettings(text: string): string[] {
+type FilamentPaletteInfo = {
+  palette: string[]
+  selfIndexMap: Map<number, string>
+}
+
+function buildSelfIndexMap(selfIndexRaw: unknown, palette: string[]): Map<number, string> {
+  const map = new Map<number, string>()
+  if (!Array.isArray(selfIndexRaw)) return map
+  for (let i = 0; i < Math.min(selfIndexRaw.length, palette.length); i++) {
+    const idx = Number(selfIndexRaw[i])
+    const color = palette[i]
+    if (!Number.isFinite(idx) || idx <= 0 || !color) continue
+    if (!map.has(idx)) map.set(idx, color)
+  }
+  return map
+}
+
+function parseFilamentPaletteFromProjectSettings(text: string): FilamentPaletteInfo {
   try {
-    const parsed: { filament_colour?: unknown } = JSON.parse(text)
-    const raw = Array.isArray(parsed?.filament_colour) ? parsed.filament_colour as unknown[] : []
-    return raw
+    const parsed: { filament_colour?: unknown, filament_multi_colour?: unknown, filament_self_index?: unknown } = JSON.parse(text)
+    const raw = Array.isArray(parsed?.filament_colour)
+      ? parsed.filament_colour as unknown[]
+      : (Array.isArray(parsed?.filament_multi_colour) ? parsed.filament_multi_colour as unknown[] : [])
+    const palette = raw
       .map((val) => normalizeHexColor(String(val)))
       .filter((v): v is string => Boolean(v))
+    return { palette, selfIndexMap: buildSelfIndexMap(parsed?.filament_self_index, palette) }
   } catch {
     const match = text.match(new RegExp('"filament_colour"\\s*:\\s*\\[([\\s\\S]*?)\\]', 'i'))
-    if (!match) return []
+    if (!match) return { palette: [], selfIndexMap: new Map() }
     const values = match[1].split(',').map((v) => v.trim().replace(/^\"|\"$/g, '')).filter(Boolean)
-    return values.map((v) => normalizeHexColor(v)).filter((v): v is string => Boolean(v))
+    const palette = values.map((v) => normalizeHexColor(v)).filter((v): v is string => Boolean(v))
+    return { palette, selfIndexMap: new Map() }
   }
 }
 
@@ -233,7 +254,8 @@ export async function extract3mfFilamentColors(buffer: Buffer): Promise<string[]
       const projectSettings = zip.file('Metadata/project_settings.config')
       if (projectSettings) {
         const settingsText = await projectSettings.async('string')
-        const palette = parseFilamentPaletteFromProjectSettings(settingsText)
+        const paletteInfo = parseFilamentPaletteFromProjectSettings(settingsText)
+        const palette = paletteInfo.palette
         if (palette.length > 0) {
           let usedIndices: number[] = []
           for (const entry of Object.values(zip.files)) {
@@ -244,7 +266,15 @@ export async function extract3mfFilamentColors(buffer: Buffer): Promise<string[]
           }
           usedIndices = Array.from(new Set(usedIndices)).sort((a, b) => a - b)
           if (usedIndices.length > 0) {
-            orderedColors = usedIndices.map((idx) => palette[idx]).filter(Boolean)
+            orderedColors = usedIndices
+              .map((idx) => {
+                const bySelf = paletteInfo.selfIndexMap.get(idx)
+                if (bySelf) return bySelf
+                if (palette[idx]) return palette[idx]
+                if (idx > 0 && palette[idx - 1]) return palette[idx - 1]
+                return null
+              })
+              .filter((v): v is string => Boolean(v))
           } else {
             orderedColors = palette
           }
