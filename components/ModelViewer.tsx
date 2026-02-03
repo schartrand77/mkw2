@@ -691,7 +691,7 @@ export default function ModelViewer({
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
       renderer.outputColorSpace = THREE.SRGBColorSpace
       renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.45
+      renderer.toneMappingExposure = 1.6
       container.appendChild(renderer.domElement)
 
       const keyLight = new THREE.DirectionalLight(0xffffff, 1.2)
@@ -706,8 +706,8 @@ export default function ModelViewer({
       const rimLight = new THREE.DirectionalLight(0xffffff, 0.45)
       rimLight.position.set(-2, 6, 10)
       scene.add(rimLight)
-      scene.add(new THREE.AmbientLight(0xffffff, 0.8))
-      const hemi = new THREE.HemisphereLight(0xffffff, 0x5a5a5a, 0.85)
+      scene.add(new THREE.AmbientLight(0xffffff, 0.95))
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x6a6a6a, 0.95)
       scene.add(hemi)
 
       const controls = new OrbitControlsMod.OrbitControls(camera as any, renderer.domElement)
