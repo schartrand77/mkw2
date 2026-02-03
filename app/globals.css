@@ -154,6 +154,32 @@ body {
   color: #f8fafc;
 }
 
+.discover-search-backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+}
+.discover-search-shell {
+  background: linear-gradient(165deg, rgba(12, 16, 24, 0.95), rgba(8, 11, 18, 0.86));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(18px);
+}
+.discover-search-input {
+  background: transparent;
+  color: #f8fafc;
+}
+.discover-search-input::placeholder {
+  color: rgba(148, 163, 184, 0.9);
+}
+.discover-filter-chip {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(5, 7, 12, 0.55);
+  color: rgba(226, 232, 240, 0.95);
+}
+.discover-filter-chip:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
 /* Light theme overrides */
 html.theme-light body {
   background:
@@ -185,6 +211,28 @@ html.theme-light .input {
   background: linear-gradient(180deg, #ffffff, #f3f5f9);
   color: #05060a;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+html.theme-light .discover-search-backdrop {
+  background: rgba(15, 23, 42, 0.14);
+}
+html.theme-light .discover-search-shell {
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.96), rgba(236, 239, 246, 0.92));
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.18);
+}
+html.theme-light .discover-search-input {
+  color: #0f172a;
+}
+html.theme-light .discover-search-input::placeholder {
+  color: rgba(71, 85, 105, 0.9);
+}
+html.theme-light .discover-filter-chip {
+  border-color: rgba(15, 23, 42, 0.18);
+  background: rgba(255, 255, 255, 0.9);
+  color: rgba(15, 23, 42, 0.9);
+}
+html.theme-light .discover-filter-chip:hover {
+  border-color: rgba(15, 23, 42, 0.35);
 }
 html.theme-light .btn {
   color: #fff; /* keep brand buttons readable */
