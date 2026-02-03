@@ -694,11 +694,17 @@ export default function ModelViewer({
       renderer.toneMappingExposure = 1
       container.appendChild(renderer.domElement)
 
-      const light1 = new THREE.DirectionalLight(0xffffff, 1)
-      light1.position.set(5, 10, 7.5)
-      scene.add(light1)
-      scene.add(new THREE.AmbientLight(0x888888))
-      const hemi = new THREE.HemisphereLight(0xffffff, 0x222222, 0.6)
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.1)
+      keyLight.position.set(5, 10, 7.5)
+      scene.add(keyLight)
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.55)
+      fillLight.position.set(-6, 4, -4)
+      scene.add(fillLight)
+      const rimLight = new THREE.DirectionalLight(0xffffff, 0.35)
+      rimLight.position.set(-2, 6, 10)
+      scene.add(rimLight)
+      scene.add(new THREE.AmbientLight(0xffffff, 0.28))
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x2a2a2a, 0.55)
       scene.add(hemi)
 
       const controls = new OrbitControlsMod.OrbitControls(camera as any, renderer.domElement)
