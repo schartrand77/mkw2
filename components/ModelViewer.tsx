@@ -131,6 +131,29 @@ function hasEmbeddedModelColors(text: string) {
   return /<(?:colorgroup|color|basematerials|texture2d|texture2dgroup|texture2dref)\b/i.test(text)
 }
 
+function parseProjectPalette(text: string) {
+  try {
+    const parsed: {
+      filament_colour?: unknown
+      filament_multi_colour?: unknown
+      filament_colour_type?: unknown
+    } = JSON.parse(text)
+    const basePalette = Array.isArray(parsed?.filament_colour) ? parsed.filament_colour : null
+    const multiPalette = Array.isArray(parsed?.filament_multi_colour) ? parsed.filament_multi_colour : null
+    const colorType = Array.isArray(parsed?.filament_colour_type) ? parsed.filament_colour_type : null
+    if (!basePalette && !multiPalette) return null
+    const resolved = (basePalette || multiPalette || []).map((val: any, idx: number) => {
+      const typeFlag = colorType?.[idx]
+      const wantsMulti = String(typeFlag ?? '') === '1'
+      const source = wantsMulti && multiPalette?.[idx] ? multiPalette[idx] : (basePalette?.[idx] ?? multiPalette?.[idx])
+      return parseColorToHexInt(String(source)) ?? null
+    })
+    return resolved.length > 0 ? resolved : null
+  } catch {
+    return null
+  }
+}
+
 function buildOverrideKey(overrides?: Array<string | null | undefined> | null) {
   if (!overrides || overrides.length === 0) return ''
   return overrides.map((value) => (value == null ? '' : String(value))).join('|')
@@ -157,6 +180,7 @@ async function tryBuildBambuColorPlan(
 
   const modelSettings = getText('Metadata/model_settings.config')
   const sliceInfo = getText('Metadata/slice_info.config')
+  const projectSettings = getText('Metadata/project_settings.config')
   const mainModel = getText('3D/3dmodel.model')
   if (!modelSettings || !sliceInfo || !mainModel) return null
 
@@ -178,6 +202,16 @@ async function tryBuildBambuColorPlan(
     if (hex.length < 6) continue
     const value = Number.parseInt(hex.slice(0, 6), 16)
     if (Number.isFinite(value)) extruderColors.set(id, value)
+  }
+  if (extruderColors.size === 0 && projectSettings) {
+    const palette = parseProjectPalette(projectSettings)
+    if (palette && palette.length > 0) {
+      for (let i = 0; i < palette.length; i++) {
+        const color = palette[i]
+        if (color == null) continue
+        extruderColors.set(String(i + 1), color)
+      }
+    }
   }
   if (extruderColors.size === 0) return null
 

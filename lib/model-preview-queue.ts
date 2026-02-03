@@ -177,12 +177,18 @@ function buildSelfIndexMap(selfIndexRaw: unknown, palette: string[]): Map<number
 
 function parseFilamentPaletteFromProjectSettings(text: string): FilamentPaletteInfo {
   try {
-    const parsed: { filament_colour?: unknown, filament_multi_colour?: unknown, filament_self_index?: unknown } = JSON.parse(text)
-    const raw = Array.isArray(parsed?.filament_colour)
-      ? parsed.filament_colour as unknown[]
-      : (Array.isArray(parsed?.filament_multi_colour) ? parsed.filament_multi_colour as unknown[] : [])
+    const parsed: { filament_colour?: unknown, filament_multi_colour?: unknown, filament_colour_type?: unknown, filament_self_index?: unknown } = JSON.parse(text)
+    const basePalette = Array.isArray(parsed?.filament_colour) ? parsed.filament_colour as unknown[] : null
+    const multiPalette = Array.isArray(parsed?.filament_multi_colour) ? parsed.filament_multi_colour as unknown[] : null
+    const colorType = Array.isArray(parsed?.filament_colour_type) ? parsed.filament_colour_type as unknown[] : null
+    const raw = basePalette || multiPalette || []
     const palette = raw
-      .map((val) => normalizeHexColor(String(val)))
+      .map((val, idx) => {
+        const typeFlag = colorType?.[idx]
+        const wantsMulti = String(typeFlag ?? '') === '1'
+        const source = wantsMulti && multiPalette?.[idx] ? multiPalette[idx] : (basePalette?.[idx] ?? multiPalette?.[idx] ?? val)
+        return normalizeHexColor(String(source))
+      })
       .filter((v): v is string => Boolean(v))
     return { palette, selfIndexMap: buildSelfIndexMap(parsed?.filament_self_index, palette) }
   } catch {
@@ -276,7 +282,17 @@ export async function extract3mfFilamentColors(buffer: Buffer): Promise<string[]
               })
               .filter((v): v is string => Boolean(v))
           } else {
-            orderedColors = palette
+            const extruderIds = Array.from(new Set(extractExtruderIds(settingsXml)))
+              .map((id) => Number(id))
+              .filter((v) => Number.isFinite(v))
+              .sort((a, b) => a - b)
+            if (extruderIds.length > 0) {
+              orderedColors = extruderIds
+                .map((id) => palette[id - 1] || palette[id] || null)
+                .filter((v): v is string => Boolean(v))
+            } else {
+              orderedColors = palette
+            }
           }
         }
       }
