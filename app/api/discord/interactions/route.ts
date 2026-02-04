@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import nacl from 'tweetnacl'
 import { z } from 'zod'
 import { buildInviteLoginUrl, createInviteAccount } from '@/lib/invite'
+import { sendInviteEmail } from '@/lib/inviteEmail'
 import { sendDiscordDirectMessage } from '@/lib/discord'
 import { resolveBaseUrl } from '@/lib/base-url'
 
@@ -104,12 +105,22 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { user } = await createInviteAccount({ email, name: typeof name === 'string' ? name : null })
+    const invitePassword = (process.env.ADMIN_INVITE_PASSWORD || '').trim() || null
+    const { user } = await createInviteAccount({
+      email,
+      name: typeof name === 'string' ? name : null,
+      password: invitePassword || undefined,
+    })
     const resolvedBaseUrl = await resolveBaseUrl()
     const baseUrl = resolvedBaseUrl || (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
     const { loginUrl } = buildInviteLoginUrl(user.id, baseUrl)
     const ttlHours = Number.parseInt(process.env.INVITE_LOGIN_TOKEN_TTL_HOURS || '24', 10)
     const ttlLabel = Number.isFinite(ttlHours) && ttlHours > 0 ? `${ttlHours} hours` : '24 hours'
+    try {
+      await sendInviteEmail(user.email, loginUrl, { userName: user.name, password: invitePassword })
+    } catch (mailErr) {
+      console.error('Invite email send failed:', mailErr)
+    }
     const dmBody = [
       'You have been invited to MakerWorks.',
       `Login link (expires in ${ttlLabel}): ${loginUrl}`,

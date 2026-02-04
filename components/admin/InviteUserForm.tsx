@@ -5,6 +5,7 @@ type InviteResponse = {
   ok?: boolean
   error?: string
   discordSent?: boolean
+  emailSent?: boolean
   loginUrl?: string
 }
 
@@ -15,6 +16,7 @@ export default function InviteUserForm() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [discordSent, setDiscordSent] = useState<boolean | null>(null)
+  const [emailSent, setEmailSent] = useState<boolean | null>(null)
   const [loginUrl, setLoginUrl] = useState<string | null>(null)
 
   const onSubmit = async (event: FormEvent) => {
@@ -23,6 +25,7 @@ export default function InviteUserForm() {
     setMessage(null)
     setError(null)
     setDiscordSent(null)
+    setEmailSent(null)
     setLoginUrl(null)
     try {
       const res = await fetch('/api/admin/users/invite', {
@@ -34,6 +37,7 @@ export default function InviteUserForm() {
       if (!res.ok) throw new Error(data?.error || 'Failed to invite user')
       setMessage('Invite created. User is pre-approved.')
       setDiscordSent(typeof data.discordSent === 'boolean' ? data.discordSent : null)
+      setEmailSent(typeof data.emailSent === 'boolean' ? data.emailSent : null)
       setLoginUrl(data.loginUrl || null)
       setEmail('')
       setName('')
@@ -76,7 +80,7 @@ export default function InviteUserForm() {
           {pending ? 'Inviting...' : 'Invite'}
         </button>
       </form>
-      {(message || error || discordSent !== null || loginUrl) && (
+      {(message || error || discordSent !== null || emailSent !== null || loginUrl) && (
         <div className="mt-3 text-xs text-slate-300">
           {message && <div className="text-emerald-300">{message}</div>}
           {loginUrl && (
@@ -84,6 +88,8 @@ export default function InviteUserForm() {
               Login link: <a className="text-brand-300 underline" href={loginUrl} target="_blank" rel="noreferrer">{loginUrl}</a>
             </div>
           )}
+          {emailSent === true && <div className="text-emerald-300">Invite email sent.</div>}
+          {emailSent === false && <div className="text-amber-300">Invite email not sent.</div>}
           {discordSent === false && <div className="text-amber-300">Discord notification not sent.</div>}
           {error && <div className="text-amber-300">{error}</div>}
         </div>
