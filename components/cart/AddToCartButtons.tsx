@@ -89,7 +89,7 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
     if (!fetchedParts && Array.isArray(model.defaultColors)) {
       fetchedParts = null
     }
-    if (fetchedParts && fetchedParts.length > 0) {
+    if (fetchedParts && fetchedParts.length > 1) {
       setParts(fetchedParts)
       for (const part of fetchedParts) {
         add(
@@ -107,6 +107,7 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
         )
       }
     } else {
+      setParts(fetchedParts && fetchedParts.length > 1 ? fetchedParts : null)
       add(
         {
           modelId: model.id,

@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
     const basePriceUsd = m.priceUsd != null && Number.isFinite(Number(m.priceUsd)) ? Number(m.priceUsd) : null
     const salePriceUsd = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd)) ? Number(m.salePriceUsd) : null
     const effectivePriceUsd = m.effectivePriceUsd != null && Number.isFinite(Number(m.effectivePriceUsd)) ? Number(m.effectivePriceUsd) : null
-    const priceUsd = effectivePriceUsd ?? salePriceUsd ?? basePriceUsd
+    const priceUsd = salePriceUsd ?? effectivePriceUsd ?? basePriceUsd
     const saleActive = salePriceUsd != null && basePriceUsd != null ? salePriceUsd < basePriceUsd : false
     return {
       id: m.id,

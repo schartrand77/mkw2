@@ -451,7 +451,7 @@ export default function InstantQuoteConfigurator({
       dimensionOverrides: lockDimensions ? null : dimensionOverrides,
       lockDimensions,
     }
-    if (parts && parts.length > 0) {
+    if (parts && parts.length > 1) {
       for (const part of parts) {
         add(
           {
