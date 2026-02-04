@@ -223,6 +223,10 @@ async function processProfileAvatars(limit: number): Promise<ProcessResult> {
   return { processed, failed }
 }
 
+export async function processPendingAvatars(limit = 5) {
+  return processProfileAvatars(limit)
+}
+
 async function processCommentImages(limit: number): Promise<ProcessResult> {
   const comments = await prisma.modelComment.findMany({
     where: {

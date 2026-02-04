@@ -6,6 +6,7 @@ import { ensureUserPage, slugify } from '@/lib/userpage'
 import { hashPassword } from '@/lib/auth'
 import { saveBuffer } from '@/lib/storage'
 import { isSupportedImageFile } from '@/lib/images'
+import { processPendingAvatars } from '@/lib/image-queue'
 import { unlink } from 'fs/promises'
 import path from 'path'
 
@@ -200,6 +201,7 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
       updatesProfile[key] = trimmed ? trimmed.slice(0, limit) : null
     }
 
+    let avatarQueued = false
     if (avatarFile) {
       if (!isSupportedImageFile(avatarFile.name, avatarFile.type)) {
         return NextResponse.json({ error: 'Unsupported image type' }, { status: 400 })
@@ -220,6 +222,7 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
       updatesProfile.avatarImagePath = `/${rel.replace(/\\/g, '/')}`
       updatesProfile.avatarImageStatus = 'processing'
       updatesProfile.avatarImageSourcePath = `/${sourceRel.replace(/\\/g, '/')}`
+      avatarQueued = true
     }
 
     if (Object.keys(updatesUser).length === 0 && Object.keys(updatesProfile).length === 0) {
@@ -234,6 +237,10 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
         ? prisma.profile.update({ where: { userId }, data: updatesProfile })
         : prisma.profile.findUnique({ where: { userId } }) as any,
     ])
+
+    if (avatarQueued) {
+      try { await processPendingAvatars(1) } catch {}
+    }
 
     return NextResponse.json({ user, profile })
   } catch (e: any) {
