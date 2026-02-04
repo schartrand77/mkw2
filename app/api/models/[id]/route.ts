@@ -140,7 +140,16 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     ? Number(model.effectivePriceUsd)
     : null
   const displayPriceUsd = pricingSummary.salePriceUsd ?? effectivePriceUsd ?? pricingSummary.priceUsd
-  const totalVolumeMm3 = model.volumeMm3 != null && Number.isFinite(Number(model.volumeMm3)) ? Number(model.volumeMm3) : null
+  const totalVolumeMm3 = (() => {
+    if (model.volumeMm3 != null && Number.isFinite(Number(model.volumeMm3))) {
+      return Number(model.volumeMm3)
+    }
+    const partVolumes = parts
+      .map((part) => (part.volumeMm3 != null && Number.isFinite(Number(part.volumeMm3)) ? Number(part.volumeMm3) : null))
+      .filter((vol): vol is number => vol != null)
+    if (partVolumes.length === 0) return null
+    return partVolumes.reduce((sum, vol) => sum + vol, 0)
+  })()
   const totalPricing = totalVolumeMm3 != null
     ? estimatePricingDetails({
       cm3: totalVolumeMm3 / 1000,
@@ -150,6 +159,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
       applyMinimum: true,
     })
     : null
+  const totalPriceForParts = pricingSummary.salePriceUsd ?? totalPricing?.price ?? pricingSummary.priceUsd ?? null
   let affiliateImage: string | null = null
   if (rest.affiliateUrl) {
     const asin = extractAmazonAsin(rest.affiliateUrl)
@@ -178,8 +188,8 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
             applyMinimum: false,
           })
           : null
-        const computedPrice = isMultipart && totalPricing && totalVolumeMm3 && part.volumeMm3 && totalVolumeMm3 > 0
-          ? Number(((totalPricing.price * Number(part.volumeMm3)) / totalVolumeMm3).toFixed(2))
+        const computedPrice = isMultipart && totalPriceForParts != null && totalVolumeMm3 && part.volumeMm3 && totalVolumeMm3 > 0
+          ? Number(((totalPriceForParts * Number(part.volumeMm3)) / totalVolumeMm3).toFixed(2))
           : ((rawPrice != null && Number.isFinite(rawPrice)) ? rawPrice : (partPricing?.price ?? null))
         return {
           ...part,
