@@ -1,6 +1,7 @@
 import UserDiscountControls from '@/components/admin/UserDiscountControls'
 import UserAdminActions from '@/components/admin/UserAdminActions'
 import UserOrderCreator from '@/components/admin/UserOrderCreator'
+import UserAccountEditor from '@/components/admin/UserAccountEditor'
 import type { fetchAdminUsersWithBadges } from '@/lib/admin/queries'
 import { toPublicHref } from '@/lib/public-path'
 import { DEFAULT_ACHIEVEMENTS } from '@/lib/achievements'
@@ -119,6 +120,7 @@ export default function UsersAndBadgesPanel({ users, className = '' }: Props) {
                 initialFriendsAndFamilyPercent={u.friendsAndFamilyPercent ?? 0}
               />
             </div>
+            <UserAccountEditor userId={u.id} />
             <UserOrderCreator
               userId={u.id}
               userEmail={u.email}
