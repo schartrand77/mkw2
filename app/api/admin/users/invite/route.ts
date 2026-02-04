@@ -15,7 +15,12 @@ export async function POST(req: NextRequest) {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   try {
     const { email, name } = inviteSchema.parse(await req.json())
-    const { user, profile } = await createInviteAccount({ email, name })
+    const invitePassword = (process.env.ADMIN_INVITE_PASSWORD || '').trim()
+    const { user, profile } = await createInviteAccount({
+      email,
+      name,
+      password: invitePassword ? invitePassword : undefined,
+    })
     const requestOrigin = req.nextUrl.origin.replace(/\/+$/, '')
     const resolvedBaseUrl = await resolveBaseUrl()
     const envBaseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
