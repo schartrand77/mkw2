@@ -105,6 +105,14 @@ export default function UsersAndBadgesPanel({ users, className = '' }: Props) {
               })}
             </div>
             <div className="mt-4">
+              <a
+                href={`/admin/users/${u.id}/orders`}
+                className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-1.5 text-xs text-slate-200 hover:border-white/20"
+              >
+                View orders
+              </a>
+            </div>
+            <div className="mt-4">
               <UserAdminActions
                 userId={u.id}
                 initialSuspended={!!u.isSuspended}

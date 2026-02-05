@@ -2,6 +2,7 @@
 import { PaymentElement, PaymentRequestButtonElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import type { StripePaymentElementOptions, PaymentIntent, PaymentRequest } from '@stripe/stripe-js'
 import { useEffect, useMemo, useState } from 'react'
+import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 
 type Props = {
   amount: number
@@ -75,7 +76,9 @@ export default function CheckoutForm({ amount, currency, clientSecret, onSuccess
       )
       if (error) {
         event.complete('fail')
-        setMessage(error.message || 'Payment failed. Please try again.')
+        const msg = error.message || 'Payment failed. Please try again.'
+        setMessage(msg)
+        pushSessionNotification({ type: 'error', title: 'Payment failed', message: msg })
         setProcessing(false)
         return
       }
@@ -83,15 +86,33 @@ export default function CheckoutForm({ amount, currency, clientSecret, onSuccess
       if (paymentIntent?.status === 'requires_action') {
         const { error: actionError, paymentIntent: resolvedIntent } = await stripe.confirmCardPayment(clientSecret)
         if (actionError) {
-          setMessage(actionError.message || 'Payment failed. Please try again.')
+          const msg = actionError.message || 'Payment failed. Please try again.'
+          setMessage(msg)
+          pushSessionNotification({ type: 'error', title: 'Payment failed', message: msg })
           setProcessing(false)
           return
         }
         if (resolvedIntent) {
-          await onSuccess(resolvedIntent)
+          try {
+            await onSuccess(resolvedIntent)
+          } catch (err: any) {
+            const msg = err?.message || 'Payment completed but we could not finalize your order.'
+            setMessage(msg)
+            pushSessionNotification({ type: 'error', title: 'Order finalization failed', message: msg })
+            setProcessing(false)
+            return
+          }
         }
       } else if (paymentIntent) {
-        await onSuccess(paymentIntent)
+        try {
+          await onSuccess(paymentIntent)
+        } catch (err: any) {
+          const msg = err?.message || 'Payment completed but we could not finalize your order.'
+          setMessage(msg)
+          pushSessionNotification({ type: 'error', title: 'Order finalization failed', message: msg })
+          setProcessing(false)
+          return
+        }
       }
       setProcessing(false)
     }
@@ -117,7 +138,9 @@ export default function CheckoutForm({ amount, currency, clientSecret, onSuccess
     })
 
     if (error) {
-      setMessage(error.message || 'Payment failed. Please try again.')
+      const msg = error.message || 'Payment failed. Please try again.'
+      setMessage(msg)
+      pushSessionNotification({ type: 'error', title: 'Payment failed', message: msg })
       setProcessing(false)
       return
     }
@@ -128,7 +151,9 @@ export default function CheckoutForm({ amount, currency, clientSecret, onSuccess
         try {
           await onSuccess(paymentIntent)
         } catch (err: any) {
-          setMessage(err?.message || 'Payment completed but we could not finalize your order.')
+          const msg = err?.message || 'Payment completed but we could not finalize your order.'
+          setMessage(msg)
+          pushSessionNotification({ type: 'error', title: 'Order finalization failed', message: msg })
           setProcessing(false)
           return
         }

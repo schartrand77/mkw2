@@ -6,6 +6,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import CheckoutForm from '@/components/checkout/CheckoutForm'
 import OrderSummary from '@/components/checkout/OrderSummary'
 import TrustBadge from '@/components/checkout/TrustBadge'
+import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 import { useCart } from '@/components/cart/CartProvider'
 import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, CheckoutPaymentMethod, Dimensions } from '@/types/checkout'
 import type { Appearance, PaymentIntent } from '@stripe/stripe-js'
@@ -283,9 +284,16 @@ export default function CheckoutPage() {
     try {
       await finalizeJob({ paymentIntentId: pi.id, method: 'card' })
       setSuccessIntent(pi)
+      pushSessionNotification({
+        type: 'success',
+        title: 'Payment received',
+        message: `Confirmation: ${pi.id}`,
+      })
     } catch (err: any) {
       console.error('Payment succeeded but OrderWorks job failed', err)
-      setError(err?.message || 'Payment completed but we could not queue your job. Contact support.')
+      const msg = err?.message || 'Payment completed but we could not queue your job. Contact support.'
+      setError(msg)
+      pushSessionNotification({ type: 'error', title: 'Order finalization failed', message: msg })
       setSuccessIntent(pi)
     } finally {
       setIntent(null)
@@ -305,8 +313,15 @@ export default function CheckoutPage() {
       setSuccessIntent(null)
       setIntent(null)
       clear()
+      pushSessionNotification({
+        type: 'success',
+        title: 'Cash order placed',
+        message: `Confirmation: ${data.paymentIntentId}`,
+      })
     } catch (err: any) {
-      setError(err.message || 'Unable to place cash order.')
+      const msg = err.message || 'Unable to place cash order.'
+      setError(msg)
+      pushSessionNotification({ type: 'error', title: 'Cash order failed', message: msg })
     } finally {
       setCashProcessing(false)
       setFinalizingJob(false)
