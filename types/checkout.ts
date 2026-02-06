@@ -75,6 +75,13 @@ export type CheckoutLineItem = {
   } | null
 }
 
+export type CheckoutShippingRate = {
+  id: string
+  label: string
+  amount: number
+  currency: Currency
+}
+
 export type CheckoutIntentResponse = {
   paymentIntentId: string
   clientSecret: string | null
@@ -83,6 +90,7 @@ export type CheckoutIntentResponse = {
   total: number
   lineItems: CheckoutLineItem[]
   shipping?: ShippingSelection
+  shippingRate?: CheckoutShippingRate | null
   paymentMethod: CheckoutPaymentMethod
   committed: boolean
   discount?: DiscountSummary

@@ -9,13 +9,19 @@ type Props = {
   currency: Currency
   total: number
   discount?: DiscountSummary | null
+  shippingRate?: {
+    label: string
+    amount: number
+  } | null
 }
 
-export default function OrderSummary({ items, currency, total, discount }: Props) {
+export default function OrderSummary({ items, currency, total, discount, shippingRate }: Props) {
   const totalSavings = items.reduce((sum, item) => {
     const undiscounted = item.undiscountedLineTotal ?? item.lineTotal
     return sum + Math.max(0, undiscounted - item.lineTotal)
   }, 0)
+
+  const showShipping = shippingRate && typeof shippingRate.amount === 'number'
 
   return (
     <div className="glass rounded-xl border border-white/10 divide-y divide-white/10">
@@ -66,6 +72,16 @@ export default function OrderSummary({ items, currency, total, discount }: Props
           </div>
         )
       })}
+      {showShipping && (
+        <div className="p-4 flex items-center justify-between text-sm">
+          <span>{shippingRate?.label || 'Shipping'}</span>
+          <span>
+            {shippingRate && shippingRate.amount > 0
+              ? formatCurrency(shippingRate.amount, currency)
+              : 'Free'}
+          </span>
+        </div>
+      )}
       <div className="p-4 flex items-center justify-between font-semibold">
         <span>Total</span>
         <span>{formatCurrency(total, currency)}</span>

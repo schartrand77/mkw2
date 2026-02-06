@@ -319,23 +319,57 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    const total = lineItems.reduce((sum, item) => sum + item.lineTotal, 0)
-    if (!isFinite(total) || total < 0) {
+    const itemsTotal = lineItems.reduce((sum, item) => sum + item.lineTotal, 0)
+    if (!isFinite(itemsTotal) || itemsTotal < 0) {
       return NextResponse.json({ error: 'Cart total cannot be negative' }, { status: 400 })
     }
-    const isFreeOrder = total === 0
-    const amount = Math.max(0, Math.round(total * 100))
-    const currency = getCurrency().toLowerCase()
+    const currencyCode = getCurrency().toUpperCase() as Currency
+    const currency = currencyCode.toLowerCase()
+    const shippingPayload: ShippingSelection = shipping || { method: 'pickup' }
+    const shippingRateId = (process.env.STRIPE_SHIPPING_RATE_ID || '').trim()
+    let shippingRate: { id: string; label: string; amount: number; currency: Currency } | null = null
+    let shippingAmountCents = 0
+    if (shippingPayload.method === 'ship') {
+      if (!process.env.STRIPE_SECRET_KEY) {
+        return NextResponse.json({ error: 'Stripe is not configured for shipping rates' }, { status: 500 })
+      }
+      if (!shippingRateId) {
+        return NextResponse.json({ error: 'Shipping rate is not configured' }, { status: 500 })
+      }
+      const stripe = getStripe()
+      const rate = await stripe.shippingRates.retrieve(shippingRateId)
+      if (!rate || rate.active === false) {
+        return NextResponse.json({ error: 'Shipping rate is unavailable' }, { status: 500 })
+      }
+      if (!rate.fixed_amount || typeof rate.fixed_amount.amount !== 'number') {
+        return NextResponse.json({ error: 'Shipping rate must be a fixed amount' }, { status: 500 })
+      }
+      const rateCurrency = (rate.fixed_amount.currency || '').toUpperCase()
+      if (rateCurrency !== currencyCode) {
+        return NextResponse.json({ error: `Shipping rate currency must be ${currencyCode}` }, { status: 500 })
+      }
+      shippingAmountCents = rate.fixed_amount.amount
+      shippingRate = {
+        id: rate.id,
+        label: rate.display_name || 'Shipping',
+        amount: Number((rate.fixed_amount.amount / 100).toFixed(2)),
+        currency: currencyCode,
+      }
+    }
+
+    const itemsTotalCents = Math.max(0, Math.round(itemsTotal * 100))
+    const totalCents = itemsTotalCents + shippingAmountCents
+    const total = Number((totalCents / 100).toFixed(2))
+    const isFreeOrder = totalCents === 0
+    const amount = totalCents
 
     if (!isFreeOrder && paymentMethod !== 'cash' && !process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
     }
 
-    const shippingPayload: ShippingSelection = shipping || { method: 'pickup' }
     const metadataItems = lineItems.slice(0, 20).map((item) => `${item.qty}x ${item.title}${item.partName ? ` (${item.partName})` : ''}`).join(', ')
     const customerEmail = userForCheckout?.email || undefined
     const customerName = userForCheckout?.name || shippingPayload.address?.name || undefined
-    const currencyCode = currency.toUpperCase()
 
     let paymentIntentId: string | null = providedPaymentIntentId || null
     let clientSecret: string | null = null
@@ -486,6 +520,7 @@ export async function POST(req: NextRequest) {
       total: Number(total.toFixed(2)),
       lineItems,
       shipping: shippingPayload,
+      shippingRate,
       paymentMethod,
       committed: commit,
       discount: discountSummary,

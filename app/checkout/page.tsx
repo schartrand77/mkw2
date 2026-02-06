@@ -441,6 +441,15 @@ export default function CheckoutPage() {
             <h2 className="text-lg font-semibold">Shipping</h2>
             <Link href="/settings/profile" className="text-xs text-brand-400 hover:text-brand-300 underline underline-offset-4">Edit profile</Link>
           </div>
+          {!shippingAddress && (
+            <p className="text-xs text-amber-300">
+              No shipping address on file.{' '}
+              <Link href="/settings/profile" className="text-brand-300 hover:text-brand-200 underline underline-offset-4">
+                Add one in Settings {'->'} Profile
+              </Link>
+              .
+            </p>
+          )}
           <div className="space-y-2 text-sm">
             <label className="flex items-center gap-2">
               <input
@@ -474,7 +483,13 @@ export default function CheckoutPage() {
                 <div>{shippingAddress.postalCode}{shippingAddress.country ? ` - ${shippingAddress.country}` : ''}</div>
               </div>
             ) : (
-              <p className="text-xs text-amber-300">Add your shipping address under Settings {'->'} Profile to enable shipping.</p>
+              <p className="text-xs text-amber-300">
+                Add your shipping address under{' '}
+                <Link href="/settings/profile" className="text-brand-300 hover:text-brand-200 underline underline-offset-4">
+                  Settings {'->'} Profile
+                </Link>{' '}
+                to enable shipping.
+              </p>
             )
           )}
         </div>
@@ -527,6 +542,7 @@ export default function CheckoutPage() {
             currency={intent.currency}
             total={intent.total}
             discount={intent.discount}
+            shippingRate={intent.shippingRate}
           />
         )}
         {(loading || finalizingJob) && (
