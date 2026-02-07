@@ -15,6 +15,7 @@ const patchSchema = z.object({
   name: z.string().min(1).optional().nullable(),
   password: z.string().min(6).optional(),
   isAdmin: z.boolean().optional(),
+  role: z.enum(['admin', 'staff', 'customer']).optional(),
   suspended: z.boolean().optional(),
   emailVerified: z.boolean().optional(),
   slug: z.string().optional(),
@@ -45,7 +46,7 @@ export async function GET(_req: NextRequest, { params }: AdminUserContext) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, name: true, isAdmin: true, isSuspended: true, emailVerified: true, createdAt: true },
+      select: { id: true, email: true, name: true, isAdmin: true, role: true, isSuspended: true, emailVerified: true, createdAt: true },
     })
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
     const profile = await ensureUserPage(userId, user.email, user.name)
@@ -60,6 +61,8 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
   let adminId = ''
   try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   try {
+    const actor = await prisma.user.findUnique({ where: { id: adminId }, select: { isAdmin: true, role: true } })
+    const actorIsAdmin = !!(actor?.isAdmin || actor?.role === 'admin')
     const ct = req.headers.get('content-type') || ''
     let payload: z.infer<typeof patchSchema>
     let avatarFile: File | null = null
@@ -90,6 +93,7 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
         name: nameRaw !== undefined ? (nameRaw.trim() ? nameRaw : null) : undefined,
         password: passwordRaw?.trim() ? passwordRaw : undefined,
         isAdmin: readBool('isAdmin'),
+        role: readString('role') || undefined,
         suspended: readBool('suspended'),
         emailVerified: readBool('emailVerified'),
         slug: slugRaw?.trim() ? slugRaw : undefined,
@@ -141,14 +145,20 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
       shippingCountry: 120,
     }
 
+    if ((payload.role || typeof payload.isAdmin === 'boolean') && !actorIsAdmin) {
+      return NextResponse.json({ error: 'Only admins can change roles or admin access.' }, { status: 403 })
+    }
     if (typeof payload.isAdmin === 'boolean' && userId === adminId && payload.isAdmin === false) {
+      return NextResponse.json({ error: 'Cannot remove your own admin access.' }, { status: 400 })
+    }
+    if (payload.role && userId === adminId && payload.role === 'customer') {
       return NextResponse.json({ error: 'Cannot remove your own admin access.' }, { status: 400 })
     }
     if (typeof payload.suspended === 'boolean' && userId === adminId && payload.suspended === true) {
       return NextResponse.json({ error: 'Cannot suspend your own account.' }, { status: 400 })
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true } })
+    const existingUser = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true, role: true } })
     if (!existingUser) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
     const updatesUser: Record<string, any> = {}
@@ -171,7 +181,13 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
       updatesUser.name = trimmedName ? trimmedName.slice(0, 100) : null
     }
     if (typeof payload.password === 'string') updatesUser.passwordHash = await hashPassword(payload.password)
-    if (typeof payload.isAdmin === 'boolean') updatesUser.isAdmin = payload.isAdmin
+    if (payload.role) {
+      updatesUser.role = payload.role
+      updatesUser.isAdmin = payload.role === 'admin'
+    } else if (typeof payload.isAdmin === 'boolean') {
+      updatesUser.isAdmin = payload.isAdmin
+      updatesUser.role = payload.isAdmin ? 'admin' : (existingUser.role === 'admin' ? 'customer' : existingUser.role)
+    }
     if (typeof payload.suspended === 'boolean') updatesUser.isSuspended = payload.suspended
     if (typeof payload.emailVerified === 'boolean') updatesUser.emailVerified = payload.emailVerified
 
@@ -231,8 +247,15 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
 
     const [user, profile] = await prisma.$transaction([
       Object.keys(updatesUser).length
-        ? prisma.user.update({ where: { id: userId }, data: updatesUser, select: { id: true, email: true, name: true, isAdmin: true, isSuspended: true, emailVerified: true } })
-        : prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true, isAdmin: true, isSuspended: true, emailVerified: true } }) as any,
+        ? prisma.user.update({
+          where: { id: userId },
+          data: updatesUser,
+          select: { id: true, email: true, name: true, isAdmin: true, role: true, isSuspended: true, emailVerified: true },
+        })
+        : prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, email: true, name: true, isAdmin: true, role: true, isSuspended: true, emailVerified: true },
+        }) as any,
       Object.keys(updatesProfile).length
         ? prisma.profile.update({ where: { userId }, data: updatesProfile })
         : prisma.profile.findUnique({ where: { userId } }) as any,
@@ -250,11 +273,15 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
 
 export async function DELETE(_req: NextRequest, { params }: AdminUserContext) {
   const { id: userId } = await params
-  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  let adminId = ''
+  try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   try {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, isAdmin: true } })
+    const actor = await prisma.user.findUnique({ where: { id: adminId }, select: { isAdmin: true, role: true } })
+    const actorIsAdmin = !!(actor?.isAdmin || actor?.role === 'admin')
+    if (!actorIsAdmin) return NextResponse.json({ error: 'Only admins can delete users.' }, { status: 403 })
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, isAdmin: true, role: true } })
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    if (user.isAdmin) return NextResponse.json({ error: 'Cannot delete admin accounts' }, { status: 403 })
+    if (user.isAdmin || user.role === 'admin') return NextResponse.json({ error: 'Cannot delete admin accounts' }, { status: 403 })
 
     await prisma.$transaction([
       prisma.like.deleteMany({ where: { OR: [{ userId }, { model: { userId } }] } }),

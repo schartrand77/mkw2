@@ -9,6 +9,7 @@ import OrderStatusBadge from '@/components/orders/OrderStatusBadge'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { normalizeOrderStatus } from '@/lib/order-status'
 import OrderStatusControl from '@/components/admin/OrderStatusControl'
+import SlicerProfileUploader from '@/components/admin/SlicerProfileUploader'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,8 +18,9 @@ async function requireAdminServer() {
   const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   if (!payload?.sub) return null
-  const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
-  return user?.isAdmin ? payload.sub : null
+  const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true, role: true } })
+  const role = user?.role || null
+  return (user?.isAdmin || role === 'admin' || role === 'staff') ? payload.sub : null
 }
 
 function formatOrderNumber(orderNumber?: number | null) {
@@ -75,6 +77,9 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
   })
   const progress = buildProgress(order.status)
   const timeline = buildTimeline(order)
+  const metadata = order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+    ? (order.metadata as Record<string, any>)
+    : null
 
   return (
     <div className="space-y-6">
@@ -178,6 +183,14 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Update status</p>
                 <OrderStatusControl orderId={order.id} status={order.status} />
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Slicer profile</p>
+                <SlicerProfileUploader
+                  orderId={order.id}
+                  existingName={metadata?.slicerProfileName}
+                  existingPath={metadata?.slicerProfilePath}
+                />
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Link

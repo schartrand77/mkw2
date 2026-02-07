@@ -94,7 +94,9 @@ export interface PricingDetails {
   printerProfile: Pick<PrinterProfile, 'key' | 'label'>
   materialKey: MaterialKey
   materialCost: number
+  machineCost: number
   energyCost: number
+  laborCost: number
   extraHourlyCost: number
   finish: string | null
   finishSurcharge: number
@@ -296,7 +298,27 @@ export function estimatePricingDetails({
     : (Number.isFinite(envEnergyRate) && envEnergyRate > 0 ? envEnergyRate : profileEnergy)
   const energyCost = energyRate * hours
 
-  const base = materialCost + energyCost + extraHourlyCost
+  const machineRateEnv = parseFloat(
+    currency === 'CAD'
+      ? (process.env.MACHINE_CAD_PER_HOUR || process.env.MACHINE_USD_PER_HOUR || '0')
+      : (process.env.MACHINE_USD_PER_HOUR || '0')
+  )
+  const machineRate = cfg?.machineUsdPerHour != null && Number.isFinite(Number(cfg.machineUsdPerHour))
+    ? Number(cfg.machineUsdPerHour)
+    : (Number.isFinite(machineRateEnv) && machineRateEnv > 0 ? machineRateEnv : 0)
+  const machineCost = machineRate * hours
+
+  const laborRateEnv = parseFloat(
+    currency === 'CAD'
+      ? (process.env.LABOR_CAD_PER_HOUR || process.env.LABOR_USD_PER_HOUR || '0')
+      : (process.env.LABOR_USD_PER_HOUR || '0')
+  )
+  const laborRate = cfg?.laborUsdPerHour != null && Number.isFinite(Number(cfg.laborUsdPerHour))
+    ? Number(cfg.laborUsdPerHour)
+    : (Number.isFinite(laborRateEnv) && laborRateEnv > 0 ? laborRateEnv : 0)
+  const laborCost = laborRate * hours
+
+  const base = materialCost + machineCost + energyCost + laborCost + extraHourlyCost
   const finishSurcharge = resolveFinishSurcharge(finish)
   const finishMultiplier = Math.max(1, 1 + finishSurcharge)
   const finishAdjustedBase = base * finishMultiplier
@@ -326,7 +348,9 @@ export function estimatePricingDetails({
     printerProfile: { key: printerProfile.key, label: printerProfile.label },
     materialKey,
     materialCost: Number(materialCost.toFixed(2)),
+    machineCost: Number(machineCost.toFixed(2)),
     energyCost: Number(energyCost.toFixed(2)),
+    laborCost: Number(laborCost.toFixed(2)),
     extraHourlyCost: Number(extraHourlyCost.toFixed(2)),
     finish: finish ? String(finish) : null,
     finishSurcharge: Number(finishSurcharge.toFixed(3)),

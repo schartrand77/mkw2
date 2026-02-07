@@ -15,6 +15,7 @@ model User {
   emailVerified Boolean  @default(false)
   isSuspended  Boolean  @default(false)
   isAdmin      Boolean  @default(false)
+  role         UserRole @default(customer)
   discountPercent        Float   @default(0)
   isFriendsAndFamily     Boolean @default(false)
   friendsAndFamilyPercent Float   @default(0)
@@ -33,6 +34,7 @@ model User {
   orderApprovalRequests PrintOrderApprovalRequest[] @relation("OrderApprovalRequestedBy")
   downloadReceipts ModelDownload[]
   modelRevisions ModelRevision[]
+  configChanges ConfigChangeLog[]
 }
 
 model Model {
@@ -231,6 +233,8 @@ model SiteConfig {
     showGooglePayBadge       Boolean? @default(false)
     printSpeedCm3PerHour     Float?
   energyUsdPerHour         Float?
+  machineUsdPerHour        Float?
+  laborUsdPerHour          Float?
   minimumPriceUsd          Float?
   extraHourlyUsdAfterFirst Float?
   plaPricePerKgUsd         Float?
@@ -248,6 +252,15 @@ model SiteConfig {
   printerProfileOverrides  Json?
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
+}
+
+model PricingProfile {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  data        Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Printer {
@@ -457,6 +470,12 @@ enum FulfillmentStatus {
   shipped
 }
 
+enum UserRole {
+  admin
+  staff
+  customer
+}
+
 model PrintOrder {
   id              String   @id @default(cuid())
   orderNumber     Int      @default(autoincrement()) @unique
@@ -554,4 +573,18 @@ model PrintOrderApprovalRequest {
   @@index([orderId])
   @@index([status])
   @@index([createdAt])
+}
+
+model ConfigChangeLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  section   String
+  changes   Json
+  createdAt DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([createdAt])
+  @@index([section])
 }

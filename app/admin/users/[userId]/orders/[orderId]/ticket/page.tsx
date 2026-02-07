@@ -18,8 +18,9 @@ async function requireAdminServer() {
   const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   if (!payload?.sub) return null
-  const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
-  return user?.isAdmin ? payload.sub : null
+  const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true, role: true } })
+  const role = user?.role || null
+  return (user?.isAdmin || role === 'admin' || role === 'staff') ? payload.sub : null
 }
 
 function formatOrderNumber(orderNumber?: number | null) {

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '@/app/api/admin/_utils'
 import { ORDER_STATUS_FLOW, mapOrderStatusToFulfillment } from '@/lib/order-status'
+import { maybeConsumeStockForOrder } from '@/lib/stockworks-consumption'
 
 const statusKeys = ORDER_STATUS_FLOW.map((entry) => entry.key) as [string, ...string[]]
 
@@ -38,6 +39,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         data: { fulfillmentStatus: mapOrderStatusToFulfillment(payload.status) },
       })
     }
+    await maybeConsumeStockForOrder(order.id, 'admin-status-update')
     return NextResponse.json({ order })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request.' }, { status: 400 })

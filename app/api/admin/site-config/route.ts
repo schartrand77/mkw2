@@ -22,6 +22,8 @@ const schema = z.object({
   allowAnonymousUploads: z.boolean().optional(),
   printSpeedCm3PerHour: z.number().nonnegative().optional(),
   energyUsdPerHour: z.number().nonnegative().optional(),
+  machineUsdPerHour: z.number().nonnegative().optional(),
+  laborUsdPerHour: z.number().nonnegative().optional(),
   minimumPriceUsd: z.number().nonnegative().optional(),
   extraHourlyUsdAfterFirst: z.number().nonnegative().optional(),
   fillFactor: z.number().positive().max(2).optional(),
@@ -53,6 +55,8 @@ const PRICING_KEYS = new Set([
   'resinPricePerKgUsd',
   'printSpeedCm3PerHour',
   'energyUsdPerHour',
+  'machineUsdPerHour',
+  'laborUsdPerHour',
   'minimumPriceUsd',
   'extraHourlyUsdAfterFirst',
   'fillFactor',
@@ -79,7 +83,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  let adminId = ''
+  try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   try {
     const existing = await prisma.siteConfig.findUnique({ where: { id: CONFIG_ID } })
     const json = await req.json()
@@ -97,12 +102,35 @@ export async function PATCH(req: NextRequest) {
       printerProfileOverrides: overrides,
       favoriteShopLinkIds,
     }
-    const cfg = await prisma.siteConfig.upsert({
-      where: { id: CONFIG_ID },
-      update: payload,
-      create: { id: CONFIG_ID, ...payload },
-    })
     const parsedKeys = Object.keys(parsed)
+    const changeSet: Record<string, { from: unknown; to: unknown }> = {}
+    for (const key of parsedKeys) {
+      const before = existing ? (existing as any)[key] : undefined
+      const after = (payload as any)[key]
+      if (!valuesMatch(before, after)) {
+        changeSet[key] = { from: before ?? null, to: after ?? null }
+      }
+    }
+    const changePayload = Object.keys(changeSet).length
+      ? JSON.parse(JSON.stringify({ keys: Object.keys(changeSet), updates: changeSet }))
+      : null
+
+    const [cfg] = await prisma.$transaction([
+      prisma.siteConfig.upsert({
+        where: { id: CONFIG_ID },
+        update: payload,
+        create: { id: CONFIG_ID, ...payload },
+      }),
+      changePayload
+        ? prisma.configChangeLog.create({
+          data: {
+            adminId,
+            section: 'site-config',
+            changes: changePayload,
+          },
+        })
+        : prisma.$executeRaw`SELECT 1`,
+    ])
     const pricingChanged = parsedKeys.some((key) => {
       if (!PRICING_KEYS.has(key)) return false
       if (!existing) return true

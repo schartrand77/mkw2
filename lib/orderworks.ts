@@ -224,6 +224,22 @@ function extractFilePointers(items: StoredLineItem[]): FilePointer[] {
     .filter((ptr): ptr is FilePointer => Boolean(ptr))
 }
 
+function buildSlicerProfilePointer(metadata: unknown): FilePointer | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
+  const raw = metadata as Record<string, any>
+  const storagePath = sanitizeStoragePathValue(raw.slicerProfilePath)
+  const storageUrl = typeof raw.slicerProfileUrl === 'string' ? raw.slicerProfileUrl : null
+  if (!storagePath && !storageUrl) return null
+  const fileRoute = storagePath ? buildFilesRoute(storagePath) : null
+  const downloadUrl = storageUrl || (fileRoute ? buildAbsoluteUrl(fileRoute) : null)
+  return {
+    label: typeof raw.slicerProfileName === 'string' ? raw.slicerProfileName : 'Slicer profile',
+    storagePath,
+    storageUrl,
+    downloadUrl,
+  }
+}
+
 async function hydrateLineItemFiles(items: StoredLineItem[]): Promise<StoredLineItem[]> {
   const missing = items.filter((item) => !item?.storagePath && !item?.storageUrl && (item?.modelId || item?.partId))
   if (missing.length === 0) return items
@@ -447,6 +463,8 @@ async function sendJobToOrderWorks(jobId: string, targets: WebhookTarget[] = get
   const lineItemSummaries = buildLineItemSummaries(hydratedLineItems, job.currency || 'USD')
   const orderWorksLineItems = buildOrderWorksLineItems(hydratedLineItems, lineItemSummaries, job.currency || 'USD')
   const files = extractFilePointers(hydratedLineItems)
+  const slicerProfile = buildSlicerProfilePointer(job.metadata)
+  if (slicerProfile) files.push(slicerProfile)
   const payload = {
     id: job.id,
     paymentIntentId: job.paymentIntentId,

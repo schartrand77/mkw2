@@ -53,12 +53,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   let avatarUrl: string | null = null
   let isAdmin = false
   const holidayTheme = resolveHolidayTheme()
-  if (payload?.sub) {
-    const profile = await prisma.profile.findUnique({ where: { userId: payload.sub }, select: { avatarImagePath: true } })
-    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
-    avatarUrl = toPublicHref(profile?.avatarImagePath)
-    isAdmin = !!user?.isAdmin
-  }
+    if (payload?.sub) {
+      const profile = await prisma.profile.findUnique({ where: { userId: payload.sub }, select: { avatarImagePath: true } })
+      const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true, role: true } })
+      const role = user?.role || null
+      avatarUrl = toPublicHref(profile?.avatarImagePath)
+      isAdmin = !!(user?.isAdmin || role === 'admin' || role === 'staff')
+    }
   const siteConfig = await prisma.siteConfig.findUnique({
     where: { id: 'main' },
     select: { showApplePayBadge: true, showGooglePayBadge: true },

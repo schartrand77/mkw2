@@ -13,8 +13,9 @@ export default async function AdminModelImagesPage({ params }: AdminModelImagesP
   const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   if (!payload?.sub) redirect('/login')
-  const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
-  if (!user?.isAdmin) redirect('/')
+  const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true, role: true } })
+  const role = user?.role || null
+  if (!(user?.isAdmin || role === 'admin' || role === 'staff')) redirect('/')
 
   const model = await prisma.model.findUnique({ where: { id }, select: { id: true, title: true, coverImagePath: true } })
   if (!model) redirect('/admin')

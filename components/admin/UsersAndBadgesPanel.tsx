@@ -117,7 +117,8 @@ export default function UsersAndBadgesPanel({ users, className = '' }: Props) {
                 userId={u.id}
                 initialSuspended={!!u.isSuspended}
                 initialEmailVerified={!!u.emailVerified}
-                isAdmin={!!u.isAdmin}
+                isAdmin={!!u.isAdmin || u.role === 'admin'}
+                initialRole={u.role}
               />
             </div>
             <div className="mt-4">

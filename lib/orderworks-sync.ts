@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
 import { mapFulfillmentToOrderStatus, type FulfillmentStatusKey } from '@/lib/order-status'
+import { maybeConsumeStockForOrder } from '@/lib/stockworks-consumption'
 
 type OrderStatusUpdate = { id: string; status: string } | null
 
@@ -17,9 +18,11 @@ export async function syncOrderStatusFromFulfillment(paymentIntentId: string, fu
   if (!order || order.status === 'cancelled') return null
   const nextStatus = mapFulfillmentToOrderStatus(fulfillmentStatus)
   if (order.status === nextStatus) return order
-  return prisma.printOrder.update({
+  const updated = await prisma.printOrder.update({
     where: { id: order.id },
     data: { status: nextStatus },
     select: { id: true, status: true },
   })
+  await maybeConsumeStockForOrder(order.id, 'orderworks-fulfillment')
+  return updated
 }

@@ -7,28 +7,28 @@ Last updated: 2026-02-07
 Goal: Make it rock-solid for real daily production use.
 
 Orders & Jobs
-- [ ] Estimate -> Cart -> Order -> Job pipeline
+- [x] Estimate -> Cart -> Order -> Job pipeline
 - [x] Job status workflow (queued / printing / post-process / shipped)
 - [x] Job ticket printable sheets
 - [x] QR code per job
-- [ ] Attach model + slicer profile to job
+- [x] Attach model + slicer profile to job
 
 Inventory Reliability
-- [ ] Filament level adjustments with audit log
-- [ ] Spool consumption per job
-- [ ] Low-stock alerts
-- [ ] SKU + barcode normalization
+- [x] Filament level adjustments with audit log
+- [x] Spool consumption per job
+- [x] Low-stock alerts
+- [x] SKU + barcode normalization
 
 Pricing Engine v1 Lockdown
-- [ ] Material + time + electricity + labor formula finalized
-- [ ] Admin pricing preview sandbox
-- [ ] Saved pricing profiles
+- [x] Material + time + electricity + labor formula finalized
+- [x] Admin pricing preview sandbox
+- [x] Saved pricing profiles
 
 Admin Safety
-- [ ] Role-based access
-- [ ] Config change audit log
-- [ ] Environment validation checks
-- [ ] Backup / restore button
+- [x] Role-based access
+- [x] Config change audit log
+- [x] Environment validation checks
+- [x] Backup / restore button
 
 Ship when: You could run your farm for a week without touching spreadsheets.
 

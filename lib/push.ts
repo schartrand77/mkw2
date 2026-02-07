@@ -69,7 +69,15 @@ async function sendPushNotifications(subscriptions: Array<{ id: string; endpoint
 export async function sendAdminPushNotification(payload: PushPayload) {
   if (!ensureVapidConfigured()) return false
   const subscriptions = await prisma.pushSubscription.findMany({
-    where: { user: { isAdmin: true } },
+    where: {
+      user: {
+        OR: [
+          { isAdmin: true },
+          { role: 'admin' },
+          { role: 'staff' },
+        ],
+      },
+    },
   })
   if (subscriptions.length === 0) return false
   await sendPushNotifications(subscriptions, payload)

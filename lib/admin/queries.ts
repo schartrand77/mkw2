@@ -17,6 +17,7 @@ export async function fetchAdminUsersWithBadges() {
       friendsAndFamilyPercent: true,
       isSuspended: true,
       isAdmin: true,
+      role: true,
     },
   })
 }

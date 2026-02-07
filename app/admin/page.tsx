@@ -17,6 +17,9 @@ import InviteUserForm from '@/components/admin/InviteUserForm'
 import PushNotificationsCard from '@/components/admin/PushNotificationsCard'
 import FeaturedMarquee from '@/components/FeaturedMarquee'
 import { buildImageSrc } from '@/lib/public-path'
+import StockworksLowStockCard from '@/components/admin/StockworksLowStockCard'
+import EnvCheckCard from '@/components/admin/EnvCheckCard'
+import ConfigAuditLog from '@/components/admin/ConfigAuditLog'
 
 type BackupSummary = { folder: string; createdAt: string }
 type PendingRestore = { relativePath?: string; backupPath?: string; createdAt: string }
@@ -31,8 +34,9 @@ export default async function AdminPage() {
   const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   if (!payload?.sub) redirect('/login')
-  const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
-  if (!user?.isAdmin) redirect('/')
+  const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true, role: true } })
+  const role = user?.role || null
+  if (!(user?.isAdmin || role === 'admin' || role === 'staff')) redirect('/')
 
   const featuredItems = await prisma.featuredModel.findMany({
     include: {
@@ -192,8 +196,43 @@ export default async function AdminPage() {
           </Link>
         </CollapsibleCard>
       </div>
+      <div className="grid md:grid-cols-2 gap-6">
+        <CollapsibleCard
+          title="Environment checks"
+          subtitle="Required credentials & integration health"
+          bodyClassName="space-y-3 p-6"
+        >
+          <EnvCheckCard />
+        </CollapsibleCard>
+        <CollapsibleCard
+          title="Config audit"
+          subtitle="Site configuration history"
+          bodyClassName="space-y-3 p-6"
+        >
+          <ConfigAuditLog />
+        </CollapsibleCard>
+      </div>
+      <CollapsibleCard
+        title="Inventory"
+        subtitle="Adjust filament levels & audit StockWorks movements"
+        bodyClassName="space-y-3 p-6"
+      >
+        <p className="text-sm text-slate-400">
+          Log StockWorks filament adjustments and review the audit trail from MakerWorks.
+        </p>
+        <Link href="/admin/inventory" className="inline-flex text-xs text-brand-300 underline">
+          Open inventory adjustments
+        </Link>
+      </CollapsibleCard>
       <CollapsibleCard title="Model library" subtitle="Search, curate, or moderate user uploads">
         <ModelManager />
+      </CollapsibleCard>
+      <CollapsibleCard
+        title="Low stock alerts"
+        subtitle="StockWorks reorder thresholds"
+        bodyClassName="space-y-4 p-6"
+      >
+        <StockworksLowStockCard />
       </CollapsibleCard>
     </div>
   )
