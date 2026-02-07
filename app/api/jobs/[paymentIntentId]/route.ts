@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db'
 import { requireAdmin } from '@/app/api/admin/_utils'
 import { serializeJob, type JobWithUser } from '@/app/api/admin/orderworks/jobs/_helpers'
 import { sendAdminPushNotification } from '@/lib/push'
+import { syncOrderStatusFromFulfillment } from '@/lib/orderworks-sync'
 
 const patchSchema = z.object({
   status: z.enum(['pending', 'sent']).optional(),
@@ -101,6 +102,9 @@ export async function PATCH(req: Request, { params }: Params) {
   })) as JobWithUser
 
   try {
+    if (updated.fulfillmentStatus) {
+      await syncOrderStatusFromFulfillment(paymentIntentId, updated.fulfillmentStatus)
+    }
     const paymentStatusChanged = payload.paymentStatus !== undefined && updated.paymentStatus !== previousPaymentStatus
     const paymentMethodChanged = payload.paymentMethod !== undefined && updated.paymentMethod !== previousPaymentMethod
     if (paymentStatusChanged || paymentMethodChanged) {

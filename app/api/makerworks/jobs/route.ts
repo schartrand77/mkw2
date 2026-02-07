@@ -6,6 +6,7 @@ import type { Prisma } from '@prisma/client'
 import { FulfillmentStatus } from '@prisma/client'
 import { serializeJob, type JobWithUser } from '@/app/api/admin/orderworks/jobs/_helpers'
 import { sendAdminPushNotification } from '@/lib/push'
+import { syncOrderStatusFromFulfillment } from '@/lib/orderworks-sync'
 
 const webhookPayloadSchema = z.object({
   paymentIntentId: z.string().min(4).max(200),
@@ -180,6 +181,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    if (job && job.fulfillmentStatus) {
+      await syncOrderStatusFromFulfillment(job.paymentIntentId, job.fulfillmentStatus)
+    }
     if (job) {
       const paymentStatusChanged = paymentStatus !== undefined && job.paymentStatus !== previousPaymentStatus
       const paymentMethodChanged = paymentMethod !== undefined && job.paymentMethod !== previousPaymentMethod

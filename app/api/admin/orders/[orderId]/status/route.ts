@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '@/app/api/admin/_utils'
-import { ORDER_STATUS_FLOW } from '@/lib/order-status'
+import { ORDER_STATUS_FLOW, mapOrderStatusToFulfillment } from '@/lib/order-status'
 
 const statusKeys = ORDER_STATUS_FLOW.map((entry) => entry.key) as [string, ...string[]]
 
@@ -11,6 +11,12 @@ const payloadSchema = z.object({
 })
 
 type RouteParams = { params: Promise<{ orderId: string }> }
+
+function extractPaymentIntentId(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
+  const raw = (metadata as { paymentIntentId?: unknown }).paymentIntentId
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null
+}
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
   try { await requireAdmin() } catch (e: any) {
@@ -23,8 +29,15 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     const order = await prisma.printOrder.update({
       where: { id: orderId },
       data: { status: payload.status },
-      select: { id: true, status: true },
+      select: { id: true, status: true, metadata: true },
     })
+    const paymentIntentId = extractPaymentIntentId(order.metadata)
+    if (paymentIntentId) {
+      await prisma.jobForm.updateMany({
+        where: { paymentIntentId },
+        data: { fulfillmentStatus: mapOrderStatusToFulfillment(payload.status) },
+      })
+    }
     return NextResponse.json({ order })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request.' }, { status: 400 })
