@@ -5,6 +5,8 @@ import { requireAdmin } from '../_utils'
 
 const printerSchema = z.object({
   name: z.string().min(1),
+  provider: z.string().optional(),
+  externalId: z.string().optional(),
   status: z.string().min(1).default('available'),
   active: z.boolean().optional(),
   dailyCapacityHours: z.number().min(0).optional(),
@@ -24,6 +26,8 @@ export async function POST(req: NextRequest) {
     const printer = await prisma.printer.create({
       data: {
         name: payload.name.trim(),
+        provider: payload.provider?.trim() || 'local',
+        externalId: payload.externalId?.trim() || undefined,
         status: payload.status.trim(),
         active: payload.active ?? true,
         dailyCapacityHours: payload.dailyCapacityHours ?? 8,

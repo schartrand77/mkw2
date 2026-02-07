@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import OrderStatusBadge from '@/components/orders/OrderStatusBadge'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 
@@ -11,6 +11,8 @@ type Printer = {
   active: boolean
   dailyCapacityHours: number
   notes?: string | null
+  provider?: string | null
+  externalId?: string | null
 }
 
 type OrderEntry = {
@@ -22,6 +24,10 @@ type OrderEntry = {
   customerEmail?: string | null
   orderWorksStatus?: string | null
   orderWorksLastError?: string | null
+  printerId?: string | null
+  printerName?: string | null
+  failedAt?: string | null
+  failureNote?: string | null
   totalHours: number
   queuePosition: number | null
   estimatedCompletionAt: string | null
@@ -45,8 +51,26 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
   const [composer, setComposer] = useState<{ orderId: string; mode: 'request' | 'message' } | null>(null)
   const [composerDraft, setComposerDraft] = useState('')
   const [composerSending, setComposerSending] = useState(false)
+  const [statusSnapshot, setStatusSnapshot] = useState<{ enabled: boolean; statuses: Record<string, any> }>({ enabled: false, statuses: {} })
+  const [statusLoading, setStatusLoading] = useState(false)
+  const [autoQueueing, setAutoQueueing] = useState(false)
+  const [syncingBambu, setSyncingBambu] = useState(false)
 
   const formattedGeneratedAt = useMemo(() => formatDateTime(snapshot.generatedAt), [snapshot.generatedAt])
+
+  const loadPrinterStatus = async () => {
+    setStatusLoading(true)
+    try {
+      const res = await fetch('/api/admin/printers/status', { cache: 'no-store' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Failed to load printer status')
+      setStatusSnapshot({ enabled: Boolean(data?.enabled), statuses: data?.statuses || {} })
+    } catch {
+      setStatusSnapshot({ enabled: false, statuses: {} })
+    } finally {
+      setStatusLoading(false)
+    }
+  }
 
   const refresh = async () => {
     setError(null)
@@ -55,6 +79,7 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || 'Failed to refresh')
       setSnapshot(data)
+      await loadPrinterStatus()
     } catch (err: any) {
       setError(err?.message || 'Failed to refresh')
     }
@@ -122,6 +147,56 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
     }
   }
 
+  const autoAssignQueue = async () => {
+    if (autoQueueing) return
+    setAutoQueueing(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/printers/auto-queue', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Auto-assign failed')
+      pushSessionNotification({
+        type: 'success',
+        title: 'Auto-assign complete',
+        message: `Assigned ${Array.isArray(data?.assignments) ? data.assignments.length : 0} job(s).`,
+      })
+      await refresh()
+    } catch (err: any) {
+      const message = err?.message || 'Auto-assign failed'
+      setError(message)
+      pushSessionNotification({ type: 'error', title: 'Auto-assign failed', message })
+    } finally {
+      setAutoQueueing(false)
+    }
+  }
+
+  const syncBambuView = async () => {
+    if (syncingBambu) return
+    setSyncingBambu(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/printers/sync-bambu-view', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Sync failed')
+      pushSessionNotification({
+        type: 'success',
+        title: 'Bambu View synced',
+        message: `Pulled ${Array.isArray(data?.printers) ? data.printers.length : 0} printer(s).`,
+      })
+      await refresh()
+    } catch (err: any) {
+      const message = err?.message || 'Sync failed'
+      setError(message)
+      pushSessionNotification({ type: 'error', title: 'Sync failed', message })
+    } finally {
+      setSyncingBambu(false)
+    }
+  }
+
+  useEffect(() => {
+    loadPrinterStatus()
+  }, [])
+
   const openComposer = (orderId: string, mode: 'request' | 'message') => {
     setComposer({ orderId, mode })
     setComposerDraft('')
@@ -173,9 +248,17 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
           <h1 className="text-3xl font-semibold">Production Scheduling</h1>
           <p className="text-sm text-slate-400 mt-1">Track capacity, OrderWorks syncs, and projected completion dates.</p>
         </div>
-        <button className="btn btn-outline text-sm" type="button" onClick={refresh}>
-          Refresh
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn btn-outline text-sm" type="button" onClick={refresh}>
+            Refresh
+          </button>
+          <button className="btn btn-outline text-sm" type="button" onClick={autoAssignQueue} disabled={autoQueueing}>
+            {autoQueueing ? 'Auto-assigning...' : 'Auto-assign queue'}
+          </button>
+          <button className="btn btn-outline text-sm" type="button" onClick={syncBambuView} disabled={syncingBambu}>
+            {syncingBambu ? 'Syncing Bambu View...' : 'Sync Bambu View'}
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -216,6 +299,16 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
                     <div>
                       <p className="font-medium">{printer.name}</p>
                       {printer.notes ? <p className="text-xs text-slate-400">{printer.notes}</p> : null}
+                      <p className="text-xs text-slate-500">
+                        {printer.provider ? `${printer.provider}${printer.externalId ? ` (${printer.externalId})` : ''}` : 'local'}
+                      </p>
+                      {statusSnapshot.enabled ? (
+                        <p className="text-xs text-slate-400">
+                          Status: {formatBambuStatus(statusSnapshot.statuses[printer.id])}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-500">{statusLoading ? 'Loading status...' : 'Status feed inactive'}</p>
+                      )}
                     </div>
                     <button
                       className="text-xs text-rose-300 hover:text-rose-200"
@@ -382,7 +475,7 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
                   <div className="grid sm:grid-cols-3 gap-3 mt-3 text-xs text-slate-300">
                     <div>
                       <p className="text-slate-500">Queue position</p>
-                      <p className="text-sm font-medium">{order.queuePosition ?? '—'}</p>
+                      <p className="text-sm font-medium">{order.queuePosition ?? '--'}</p>
                     </div>
                     <div>
                       <p className="text-slate-500">Estimated print hours</p>
@@ -390,8 +483,12 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
                     </div>
                     <div>
                       <p className="text-slate-500">Projected completion</p>
-                      <p className="text-sm font-medium">{order.estimatedCompletionAt ? formatDateTime(order.estimatedCompletionAt) : '—'}</p>
+                      <p className="text-sm font-medium">{order.estimatedCompletionAt ? formatDateTime(order.estimatedCompletionAt) : '--'}</p>
                     </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                    <span>Printer: {order.printerName || 'Unassigned'}</span>
+                    {order.failedAt ? <span className="text-rose-200">Failed</span> : null}
                   </div>
                   {order.orderWorksLastError ? (
                     <p className="mt-2 text-xs text-rose-200">OrderWorks error: {order.orderWorksLastError}</p>
@@ -408,6 +505,23 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
 
 function formatDateTime(value: string) {
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
+  if (Number.isNaN(date.getTime())) return '--'
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+
+function formatBambuStatus(status: any) {
+  if (!status) return 'unknown'
+  if (status?.error) return `error: ${status.error}`
+  const print = status?.print || status?.printer?.print || status
+  const rawState = print?.gcode_state || print?.gcode_status || print?.status || ''
+  const state = String(rawState || '').toLowerCase() || 'ready'
+  const progress = typeof print?.progress === 'number'
+    ? print.progress
+    : typeof print?.percentage === 'number'
+      ? print.percentage
+      : typeof print?.percent === 'number'
+        ? print.percent
+        : null
+  const progressLabel = typeof progress === 'number' ? ` (${Math.round(progress)}%)` : ''
+  return `${state}${progressLabel}`
 }

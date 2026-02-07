@@ -37,22 +37,24 @@ Ship when: You could run your farm for a week without touching spreadsheets.
 Goal: Reduce human babysitting.
 
 Printer Integration
-- [ ] Printer status dashboard
-- [ ] Job -> printer assignment
-- [ ] Auto job queue
-- [ ] Failure flag + requeue button
-- [ ] AMS tray mapping from estimate colors
+- [x] Bambu View API client + sync endpoints
+- [x] Printer records + assignment fields in schema
+- [x] Printer status dashboard
+- [x] Job -> printer assignment
+- [x] Auto job queue
+- [x] Failure flag + requeue button
+- [x] AMS tray mapping from estimate colors
 
 Smart Material Tracking
-- [ ] Auto spool deduction from slicer stats
-- [ ] Remaining spool prediction
-- [ ] Reorder thresholds
-- [ ] Vendor + cost history tracking
+- [x] Auto spool deduction from slicer stats
+- [x] Remaining spool prediction
+- [x] Reorder thresholds
+- [x] Vendor + cost history tracking
 
 Workflow Automation
-- [ ] Auto job creation from paid orders
-- [ ] Packing checklist auto-generate
-- [ ] Shipping label fields + tracking
+- [x] Auto job creation from paid orders
+- [x] Packing checklist auto-generate
+- [x] Shipping label fields + tracking
 
 Ship when: You're clicking half as much per job.
 

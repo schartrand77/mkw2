@@ -10,6 +10,10 @@ import { formatCurrency, type Currency } from '@/lib/currency'
 import { normalizeOrderStatus } from '@/lib/order-status'
 import OrderStatusControl from '@/components/admin/OrderStatusControl'
 import SlicerProfileUploader from '@/components/admin/SlicerProfileUploader'
+import PrinterAssignmentPanel from '@/components/admin/PrinterAssignmentPanel'
+import PackingChecklist from '@/components/admin/PackingChecklist'
+import ShippingTrackingForm from '@/components/admin/ShippingTrackingForm'
+import SlicerStatsForm from '@/components/admin/SlicerStatsForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,6 +84,22 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
   const metadata = order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
     ? (order.metadata as Record<string, any>)
     : null
+  const amsTrayMap = Array.isArray(metadata?.amsTrayMap) ? metadata?.amsTrayMap : null
+  const packingChecklist = Array.isArray(metadata?.packingChecklist?.items) ? metadata?.packingChecklist?.items : []
+  const slicerStats = metadata?.slicerStats && typeof metadata.slicerStats === 'object' && !Array.isArray(metadata.slicerStats)
+    ? (metadata.slicerStats as Record<string, any>)
+    : null
+  const shippingInfo = metadata?.shippingInfo && typeof metadata.shippingInfo === 'object' && !Array.isArray(metadata.shippingInfo)
+    ? (metadata.shippingInfo as Record<string, any>)
+    : null
+  const orderColors = Array.from(
+    new Set(
+      order.items
+        .flatMap((item) => Array.isArray(item.colors) ? (item.colors as string[]) : [])
+        .map((color) => color?.trim())
+        .filter((color): color is string => Boolean(color)),
+    ),
+  )
 
   return (
     <div className="space-y-6">
@@ -149,15 +169,21 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                   </div>
                   <div>
                     <p className="text-slate-500">Estimated print hours</p>
-                    <p className="text-sm font-medium">{production ? production.totalHours.toFixed(1) : '—'} hrs</p>
+                    <p className="text-sm font-medium">{production ? production.totalHours.toFixed(1) : '--'} hrs</p>
                   </div>
                   <div>
                     <p className="text-slate-500">Queue position</p>
-                    <p className="text-sm font-medium">{production?.queuePosition ?? '—'}</p>
+                    <p className="text-sm font-medium">{production?.queuePosition ?? '--'}</p>
                   </div>
                 </div>
                 {production?.orderWorksLastError ? (
                   <p className="text-xs text-rose-200">OrderWorks error: {production.orderWorksLastError}</p>
+                ) : null}
+                {order.failedAt ? (
+                  <p className="text-xs text-rose-200">
+                    Failed {formatDate(order.failedAt)}
+                    {order.failureNote ? ` - ${order.failureNote}` : ''}
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -176,13 +202,22 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                   {shippingAddress.country && <p>{shippingAddress.country}</p>}
                 </div>
               )}
+              <ShippingTrackingForm orderId={order.id} initial={shippingInfo} />
             </div>
             <div className="rounded-xl border border-white/10 p-4 bg-black/20 space-y-2">
               <h2 className="text-lg font-semibold">Actions</h2>
               <p className="text-sm text-slate-400">Customer actions are disabled in admin view.</p>
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Update status</p>
-                <OrderStatusControl orderId={order.id} status={order.status} />
+                <OrderStatusControl orderId={order.id} status={order.status} failureNote={order.failureNote} />
+              </div>
+              <div className="space-y-2">
+                <PrinterAssignmentPanel
+                  orderId={order.id}
+                  initialPrinterId={order.printerId}
+                  colors={orderColors}
+                  initialTrayMap={amsTrayMap}
+                />
               </div>
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Slicer profile</p>
@@ -191,6 +226,12 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                   existingName={metadata?.slicerProfileName}
                   existingPath={metadata?.slicerProfilePath}
                 />
+              </div>
+              <div className="space-y-2">
+                <PackingChecklist orderId={order.id} initialItems={packingChecklist} />
+              </div>
+              <div className="space-y-2">
+                <SlicerStatsForm orderId={order.id} initial={slicerStats} />
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Link
@@ -322,6 +363,7 @@ function buildProgress(status: string) {
   const steps = [
     { key: 'queued', label: 'Queued' },
     { key: 'printing', label: 'Printing' },
+    { key: 'failed', label: 'Failed' },
     { key: 'post_process', label: 'Post-process' },
     { key: 'shipped', label: 'Shipped' },
     { key: 'completed', label: 'Completed' },

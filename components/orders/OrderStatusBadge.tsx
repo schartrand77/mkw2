@@ -3,6 +3,7 @@ import { ORDER_STATUSES, ORDER_STATUS_FLOW, normalizeOrderStatus } from '@/lib/o
 const COLOR_MAP: Record<string, string> = {
   queued: 'border-amber-400/40 text-amber-200 bg-amber-500/10',
   printing: 'border-sky-400/40 text-sky-200 bg-sky-500/10',
+  failed: 'border-rose-400/50 text-rose-200 bg-rose-500/10',
   post_process: 'border-emerald-400/50 text-emerald-200 bg-emerald-500/10',
   shipped: 'border-emerald-400/50 text-emerald-200 bg-emerald-500/10',
   completed: 'border-white/20 text-slate-200 bg-white/5',

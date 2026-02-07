@@ -18,6 +18,9 @@ type StockworksInventoryItem = {
   location: string
   quantity_grams: number
   reorder_level: number
+  projectedUsage?: number
+  projectedRemaining?: number
+  projectedLow?: boolean
   material?: StockworksMaterial | null
 }
 
@@ -26,14 +29,21 @@ export default function StockworksLowStockCard() {
   const [loading, setLoading] = useState(false)
 
   const lowStock = useMemo(() => {
-    return items.filter((item) => Number(item.quantity_grams) <= Number(item.reorder_level))
-      .sort((a, b) => (a.quantity_grams - a.reorder_level) - (b.quantity_grams - b.reorder_level))
+    return items.filter((item) => {
+      const remaining = Number(item.projectedRemaining ?? item.quantity_grams)
+      return remaining <= Number(item.reorder_level)
+    })
+      .sort((a, b) => {
+        const aRemaining = Number(a.projectedRemaining ?? a.quantity_grams)
+        const bRemaining = Number(b.projectedRemaining ?? b.quantity_grams)
+        return (aRemaining - a.reorder_level) - (bRemaining - b.reorder_level)
+      })
   }, [items])
 
   const load = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/stockworks/inventory', { cache: 'no-store' })
+      const res = await fetch('/api/stockworks/predictions', { cache: 'no-store' })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || data.enabled === false) throw new Error(data?.error || 'StockWorks not available')
       setItems(Array.isArray(data.inventory) ? data.inventory : [])
@@ -53,7 +63,7 @@ export default function StockworksLowStockCard() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Low-stock alerts</h3>
-          <p className="text-xs text-slate-400">Items at or below reorder level.</p>
+          <p className="text-xs text-slate-400">Items at or below reorder level (projected).</p>
         </div>
         <button
           type="button"
@@ -77,7 +87,8 @@ export default function StockworksLowStockCard() {
                   <div className="text-xs text-amber-200/80">{item.material?.filament_type || 'Unknown type'} · {item.location}</div>
                 </div>
                 <div className="text-right text-xs text-amber-200">
-                  <div>{item.quantity_grams.toFixed(1)} g</div>
+                  <div>{(item.projectedRemaining ?? item.quantity_grams).toFixed(1)} g</div>
+                  {item.projectedUsage ? <div>Projected use {item.projectedUsage.toFixed(1)} g</div> : null}
                   <div>Reorder at {item.reorder_level.toFixed(1)} g</div>
                 </div>
               </div>

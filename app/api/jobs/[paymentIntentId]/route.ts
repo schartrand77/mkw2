@@ -7,6 +7,7 @@ import { requireAdmin } from '@/app/api/admin/_utils'
 import { serializeJob, type JobWithUser } from '@/app/api/admin/orderworks/jobs/_helpers'
 import { sendAdminPushNotification } from '@/lib/push'
 import { syncOrderStatusFromFulfillment } from '@/lib/orderworks-sync'
+import { createOrderFromJobForm } from '@/lib/orders'
 
 const patchSchema = z.object({
   status: z.enum(['pending', 'sent']).optional(),
@@ -31,6 +32,16 @@ function parseFulfilledAt(explicit: unknown): Date | null | undefined {
   if (explicit instanceof Date) return explicit
   const date = new Date(String(explicit))
   return Number.isNaN(date.getTime()) ? null : date
+}
+
+function isPaidOrder(paymentMethod?: string | null, paymentStatus?: string | null) {
+  const status = (paymentStatus || '').toLowerCase()
+  if (!status) return false
+  if (status === 'paid' || status === 'succeeded' || status === 'free' || status === 'processing' || status === 'requires_capture') {
+    return true
+  }
+  if (paymentMethod === 'cash' && status === 'paid') return true
+  return false
 }
 
 function resolveFulfilledAt(
@@ -104,6 +115,9 @@ export async function PATCH(req: Request, { params }: Params) {
   try {
     if (updated.fulfillmentStatus) {
       await syncOrderStatusFromFulfillment(paymentIntentId, updated.fulfillmentStatus)
+    }
+    if (isPaidOrder(updated.paymentMethod, updated.paymentStatus)) {
+      await createOrderFromJobForm(updated)
     }
     const paymentStatusChanged = payload.paymentStatus !== undefined && updated.paymentStatus !== previousPaymentStatus
     const paymentMethodChanged = payload.paymentMethod !== undefined && updated.paymentMethod !== previousPaymentMethod

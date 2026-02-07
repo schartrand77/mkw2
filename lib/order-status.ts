@@ -1,6 +1,7 @@
 export const ORDER_STATUS_FLOW = [
   { key: 'queued', label: 'Queued' },
   { key: 'printing', label: 'Printing' },
+  { key: 'failed', label: 'Failed' },
   { key: 'post_process', label: 'Post-process' },
   { key: 'shipped', label: 'Shipped' },
   { key: 'completed', label: 'Completed' },
@@ -28,7 +29,7 @@ export function normalizeOrderStatus(status: string): OrderStatusFlow {
   if (status === 'awaiting_review' || status === 'awaiting_payment') return 'queued'
   if (status === 'in_production') return 'printing'
   if (status === 'ready') return 'post_process'
-  if (status === 'printing' || status === 'post_process' || status === 'queued' || status === 'shipped' || status === 'completed' || status === 'cancelled') {
+  if (status === 'printing' || status === 'post_process' || status === 'queued' || status === 'shipped' || status === 'completed' || status === 'cancelled' || status === 'failed') {
     return status
   }
   return 'queued'

@@ -16,7 +16,7 @@ const MATERIAL_KEY_ALIASES: Record<string, string> = {
   RESIN: 'RESIN',
 }
 
-type InventoryItem = {
+export type InventoryItem = {
   id: number
   quantity_grams: number
   reorder_level: number
@@ -29,7 +29,7 @@ type InventoryItem = {
   } | null
 }
 
-type ConsumptionLine = {
+export type ConsumptionLine = {
   inventory_item_id: number
   change_grams: number
   movement_type: 'outgoing'
@@ -65,6 +65,42 @@ function resolveScale(config: any) {
     sy: Number.isFinite(sy) && sy > 0 ? sy : 1,
     sz: Number.isFinite(sz) && sz > 0 ? sz : 1,
   }
+}
+
+function extractSlicerStats(metadata: Record<string, any> | null) {
+  const raw = metadata?.slicerStats
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const materials = Array.isArray((raw as any).materials) ? (raw as any).materials : []
+  if (!materials.length) return null
+  return materials
+    .map((entry: any) => {
+      if (!entry || typeof entry !== 'object') return null
+      const material = typeof entry.material === 'string' ? entry.material : null
+      const grams = Number(entry.grams)
+      if (!material || !Number.isFinite(grams) || grams <= 0) return null
+      const colors = Array.isArray(entry.colors)
+        ? entry.colors.filter((c: any) => typeof c === 'string')
+        : typeof entry.color === 'string'
+          ? [entry.color]
+          : []
+      return { material, colors, grams }
+    })
+    .filter(Boolean) as { material: string; colors: string[]; grams: number }[]
+}
+
+function buildConsumptionFromSlicerStats(
+  metadata: Record<string, any> | null,
+  inventory: InventoryItem[],
+  reference: string,
+): ConsumptionLine[] {
+  const entries = extractSlicerStats(metadata)
+  if (!entries || entries.length === 0) return []
+  const lines: ConsumptionLine[] = []
+  for (const entry of entries) {
+    const materialKey = normalizeMaterialKey(entry.material)
+    lines.push(...buildConsumptionLines(inventory, materialKey, entry.colors, entry.grams, reference))
+  }
+  return lines
 }
 
 function buildConsumptionLines(
@@ -109,6 +145,77 @@ function buildConsumptionLines(
   return lines
 }
 
+export async function buildConsumptionLinesForOrder(
+  order: {
+    id: string
+    orderNumber: number | null
+    metadata?: unknown
+    items: Array<{
+      modelId?: string | null
+      partId?: string | null
+      material?: string | null
+      colors?: any
+      infillPct?: number | null
+      finish?: string | null
+      quantity?: number | null
+      configuration?: any
+    }>
+  },
+  cfg: any,
+  inventory: InventoryItem[],
+  reference: string,
+) {
+  const metadata = order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+    ? (order.metadata as Record<string, any>)
+    : null
+  const slicerLines = buildConsumptionFromSlicerStats(metadata, inventory, reference)
+  if (slicerLines.length > 0) {
+    return { lines: slicerLines, source: 'slicer_stats' as const }
+  }
+
+  const consumption: ConsumptionLine[] = []
+  const modelIds = Array.from(new Set(order.items.map((i) => i.modelId).filter(Boolean))) as string[]
+  const partIds = Array.from(new Set(order.items.map((i) => i.partId).filter(Boolean))) as string[]
+  const [models, parts] = await Promise.all([
+    modelIds.length ? prisma.model.findMany({ where: { id: { in: modelIds } }, select: { id: true, volumeMm3: true, supportRatio: true } }) : [],
+    partIds.length ? prisma.modelPart.findMany({ where: { id: { in: partIds } }, select: { id: true, volumeMm3: true, supportRatio: true, modelId: true } }) : [],
+  ])
+  const modelMap = new Map(models.map((m) => [m.id, m]))
+  const partMap = new Map(parts.map((p) => [p.id, p]))
+
+  for (const item of order.items) {
+    const qty = Math.max(1, item.quantity || 1)
+    const part = item.partId ? partMap.get(item.partId) : null
+    const model = item.modelId ? modelMap.get(item.modelId) : null
+    const volumeMm3 = part?.volumeMm3 ?? model?.volumeMm3
+    if (!volumeMm3 || !Number.isFinite(Number(volumeMm3))) continue
+    const supportRatio = part?.supportRatio ?? model?.supportRatio ?? null
+    const { sx, sy, sz } = resolveScale(item.configuration)
+    const volumeMultiplier = sx * sy * sz
+    const cm3 = (Number(volumeMm3) / 1000) * volumeMultiplier
+
+    const breakdown = estimatePricingDetails({
+      cm3,
+      material: item.material ?? undefined,
+      infillPct: item.infillPct ?? undefined,
+      finish: item.finish ?? undefined,
+      supportRatio,
+      colorCount: Array.isArray(item.colors) ? item.colors.length : null,
+      cfg,
+      applyMinimum: false,
+    })
+
+    const grams = breakdown.grams * qty
+    const materialKey = normalizeMaterialKey(item.material ?? undefined)
+    const colors = Array.isArray(item.colors)
+      ? item.colors.filter((entry): entry is string => typeof entry === 'string')
+      : []
+    consumption.push(...buildConsumptionLines(inventory, materialKey, colors, grams, reference))
+  }
+
+  return { lines: consumption, source: 'estimate' as const }
+}
+
 export async function maybeConsumeStockForOrder(orderId: string, trigger: string) {
   const order = await prisma.printOrder.findUnique({
     where: { id: orderId },
@@ -134,46 +241,7 @@ export async function maybeConsumeStockForOrder(orderId: string, trigger: string
   ])
 
   const reference = order.orderNumber ? `MW-${String(order.orderNumber).padStart(5, '0')}` : order.id
-  const consumption: ConsumptionLine[] = []
-
-  const modelIds = Array.from(new Set(order.items.map((i) => i.modelId).filter(Boolean))) as string[]
-  const partIds = Array.from(new Set(order.items.map((i) => i.partId).filter(Boolean))) as string[]
-  const [models, parts] = await Promise.all([
-    modelIds.length ? prisma.model.findMany({ where: { id: { in: modelIds } }, select: { id: true, volumeMm3: true, supportRatio: true } }) : [],
-    partIds.length ? prisma.modelPart.findMany({ where: { id: { in: partIds } }, select: { id: true, volumeMm3: true, supportRatio: true, modelId: true } }) : [],
-  ])
-  const modelMap = new Map(models.map((m) => [m.id, m]))
-  const partMap = new Map(parts.map((p) => [p.id, p]))
-
-  for (const item of order.items) {
-    const qty = Math.max(1, item.quantity || 1)
-    const part = item.partId ? partMap.get(item.partId) : null
-    const model = item.modelId ? modelMap.get(item.modelId) : null
-    const volumeMm3 = part?.volumeMm3 ?? model?.volumeMm3
-    if (!volumeMm3 || !Number.isFinite(Number(volumeMm3))) continue
-    const supportRatio = part?.supportRatio ?? model?.supportRatio ?? null
-    const { sx, sy, sz } = resolveScale(item.configuration)
-    const volumeMultiplier = sx * sy * sz
-    const cm3 = (Number(volumeMm3) / 1000) * volumeMultiplier
-
-    const breakdown = estimatePricingDetails({
-      cm3,
-      material: item.material,
-      infillPct: item.infillPct ?? undefined,
-      finish: item.finish ?? undefined,
-      supportRatio,
-      colorCount: Array.isArray(item.colors) ? item.colors.length : null,
-      cfg,
-      applyMinimum: false,
-    })
-
-    const grams = breakdown.grams * qty
-    const materialKey = normalizeMaterialKey(item.material)
-    const colors = Array.isArray(item.colors)
-      ? item.colors.filter((entry): entry is string => typeof entry === 'string')
-      : []
-    consumption.push(...buildConsumptionLines(inventory, materialKey, colors, grams, reference))
-  }
+  const { lines: consumption, source } = await buildConsumptionLinesForOrder(order, cfg, inventory, reference)
 
   if (consumption.length === 0) {
     return { ok: false, reason: 'no_consumption_lines' }
@@ -194,6 +262,7 @@ export async function maybeConsumeStockForOrder(orderId: string, trigger: string
     stockworksConsumedAt: new Date().toISOString(),
     stockworksConsumption: consumption,
     stockworksConsumptionTrigger: trigger,
+    stockworksConsumptionSource: source,
   }
 
   await prisma.printOrder.update({

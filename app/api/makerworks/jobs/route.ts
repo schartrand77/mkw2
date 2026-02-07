@@ -7,6 +7,7 @@ import { FulfillmentStatus } from '@prisma/client'
 import { serializeJob, type JobWithUser } from '@/app/api/admin/orderworks/jobs/_helpers'
 import { sendAdminPushNotification } from '@/lib/push'
 import { syncOrderStatusFromFulfillment } from '@/lib/orderworks-sync'
+import { createOrderFromJobForm } from '@/lib/orders'
 
 const webhookPayloadSchema = z.object({
   paymentIntentId: z.string().min(4).max(200),
@@ -96,6 +97,16 @@ function normalizeString(input: string | null | undefined): string | null | unde
   return trimmed.length === 0 ? null : trimmed
 }
 
+function isPaidOrder(paymentMethod?: string | null, paymentStatus?: string | null) {
+  const status = (paymentStatus || '').toLowerCase()
+  if (!status) return false
+  if (status === 'paid' || status === 'succeeded' || status === 'free' || status === 'processing' || status === 'requires_capture') {
+    return true
+  }
+  if (paymentMethod === 'cash' && status === 'paid') return true
+  return false
+}
+
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
@@ -183,6 +194,9 @@ export async function POST(req: NextRequest) {
   try {
     if (job && job.fulfillmentStatus) {
       await syncOrderStatusFromFulfillment(job.paymentIntentId, job.fulfillmentStatus)
+    }
+    if (job && isPaidOrder(job.paymentMethod, job.paymentStatus)) {
+      await createOrderFromJobForm(job)
     }
     if (job) {
       const paymentStatusChanged = paymentStatus !== undefined && job.paymentStatus !== previousPaymentStatus

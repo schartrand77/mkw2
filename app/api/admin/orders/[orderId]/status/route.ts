@@ -9,6 +9,7 @@ const statusKeys = ORDER_STATUS_FLOW.map((entry) => entry.key) as [string, ...st
 
 const payloadSchema = z.object({
   status: z.enum(statusKeys),
+  failureNote: z.string().max(400).optional(),
 })
 
 type RouteParams = { params: Promise<{ orderId: string }> }
@@ -27,9 +28,15 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   try {
     const { orderId } = await params
     const payload = payloadSchema.parse(await req.json())
+    const isFailed = payload.status === 'failed'
     const order = await prisma.printOrder.update({
       where: { id: orderId },
-      data: { status: payload.status },
+      data: {
+        status: payload.status,
+        failedAt: isFailed ? new Date() : null,
+        failureNote: isFailed ? (payload.failureNote?.trim() || null) : null,
+        ...(payload.status === 'queued' ? { printerId: null, printerAssignedAt: null, printerAssignedBy: null } : {}),
+      },
       select: { id: true, status: true, metadata: true },
     })
     const paymentIntentId = extractPaymentIntentId(order.metadata)

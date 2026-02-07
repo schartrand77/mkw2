@@ -12,6 +12,7 @@ export async function GET() {
       ...order,
       createdAt: order.createdAt.toISOString(),
       estimatedCompletionAt: order.estimatedCompletionAt ? order.estimatedCompletionAt.toISOString() : null,
+      failedAt: order.failedAt ? order.failedAt.toISOString() : null,
     })),
   })
 }

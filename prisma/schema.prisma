@@ -266,12 +266,18 @@ model PricingProfile {
 model Printer {
   id                 String   @id @default(cuid())
   name               String
+  provider           String   @default("local")
+  externalId         String?
   status             String   @default("available")
   active             Boolean  @default(true)
   dailyCapacityHours Float    @default(8)
   notes              String?
+  metadata           Json?
+  lastSeenAt         DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+
+  orders             PrintOrder[]
 
   @@index([status])
   @@index([active])
@@ -492,11 +498,17 @@ model PrintOrder {
   currency        String   @default("USD")
   notes           String?
   metadata        Json?
+  printerId       String?
+  printerAssignedAt DateTime?
+  printerAssignedBy String?
+  failedAt        DateTime?
+  failureNote     String?
   reprintOfId     String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  printer   Printer?     @relation(fields: [printerId], references: [id], onDelete: SetNull)
   items     PrintOrderItem[]
   revisions PrintOrderRevision[]
   messages PrintOrderMessage[]

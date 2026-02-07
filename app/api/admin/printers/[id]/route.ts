@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../../_utils'
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
+  provider: z.string().optional(),
+  externalId: z.string().nullable().optional(),
   status: z.string().min(1).optional(),
   active: z.boolean().optional(),
   dailyCapacityHours: z.number().min(0).optional(),
   notes: z.string().nullable().optional(),
+  metadata: z.record(z.any()).nullable().optional(),
+  lastSeenAt: z.string().datetime().nullable().optional(),
 })
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -22,10 +27,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       where: { id },
       data: {
         name: payload.name?.trim(),
+        provider: payload.provider?.trim(),
+        externalId: payload.externalId === null ? null : payload.externalId?.trim(),
         status: payload.status?.trim(),
         active: payload.active,
         dailyCapacityHours: payload.dailyCapacityHours,
         notes: payload.notes === null ? null : payload.notes?.trim(),
+        metadata: payload.metadata === null ? Prisma.JsonNull : payload.metadata,
+        lastSeenAt: payload.lastSeenAt ? new Date(payload.lastSeenAt) : undefined,
       },
     })
     return NextResponse.json({ printer })

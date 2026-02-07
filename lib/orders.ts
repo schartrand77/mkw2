@@ -1,6 +1,7 @@
 import path from 'path'
 import { randomUUID } from 'crypto'
 import type { Prisma, PrintOrder, PrintOrderApprovalRequest, PrintOrderItem, PrintOrderMessage, PrintOrderRevision } from '@prisma/client'
+import type { JobForm } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import type { CheckoutLineItem, ShippingSelection, CheckoutPaymentMethod } from '@/types/checkout'
 import { saveBuffer } from '@/lib/storage'
@@ -23,6 +24,26 @@ type PersistOrderPayload = {
 function normalizeCurrency(code: string) {
   if (!code) return 'USD'
   return code.toUpperCase()
+}
+
+function normalizeShippingSelection(raw: unknown): ShippingSelection {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { method: 'pickup' }
+  }
+  const value = raw as ShippingSelection
+  if (value.method === 'ship') {
+    return { method: 'ship', address: value.address || undefined }
+  }
+  return { method: 'pickup' }
+}
+
+function normalizePaymentMethod(raw?: string | null): CheckoutPaymentMethod {
+  return raw === 'cash' ? 'cash' : 'card'
+}
+
+function coerceLineItems(raw: unknown): CheckoutLineItem[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((item) => item && typeof item === 'object') as CheckoutLineItem[]
 }
 
 export async function recordCustomerOrder(payload: PersistOrderPayload) {
@@ -127,6 +148,42 @@ export type OrderDetail = PrintOrder & {
   approvalRequests: (PrintOrderApprovalRequest & { requestedBy?: { id: string; name: string | null; email: string } | null })[]
   reprintOf: { id: string; orderNumber: number | null } | null
   reprints: { id: string; orderNumber: number | null; status: string; createdAt: Date }[]
+}
+
+export async function createOrderFromJobForm(job: JobForm & { user?: { id: string; name: string | null; email: string | null } | null }) {
+  if (!job?.paymentIntentId) return null
+  const existing = await prisma.printOrder.findFirst({
+    where: {
+      metadata: {
+        path: ['paymentIntentId'],
+        equals: job.paymentIntentId,
+      },
+    },
+  })
+  if (existing) return existing
+
+  const lineItems = coerceLineItems(job.lineItems)
+  if (lineItems.length === 0) return null
+  const shipping = normalizeShippingSelection(job.shipping)
+  const paymentMethod = normalizePaymentMethod(job.paymentMethod)
+
+  return recordCustomerOrder({
+    paymentIntentId: job.paymentIntentId,
+    amountCents: job.totalCents,
+    currency: normalizeCurrency(job.currency),
+    lineItems,
+    shipping,
+    paymentMethod,
+    userId: job.userId || undefined,
+    customerEmail: job.customerEmail || job.user?.email || undefined,
+    customerName: job.user?.name || undefined,
+    metadata: {
+      source: 'orderworks',
+      jobFormId: job.id,
+      shipping: job.shipping,
+      ...(job.metadata && typeof job.metadata === 'object' && !Array.isArray(job.metadata) ? job.metadata : {}),
+    },
+  })
 }
 
 export async function getOrderForUser(orderId: string, userId: string): Promise<OrderDetail | null> {

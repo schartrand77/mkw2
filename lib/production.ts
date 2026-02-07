@@ -7,6 +7,7 @@ const QUEUE_STATUSES = new Set([
   'queued',
   'printing',
   'post_process',
+  'failed',
   'awaiting_review',
   'awaiting_payment',
   'in_production',
@@ -20,6 +21,8 @@ type PrinterSnapshot = {
   active: boolean
   dailyCapacityHours: number
   notes?: string | null
+  provider?: string | null
+  externalId?: string | null
 }
 
 type OrderQueueEntry = {
@@ -32,6 +35,10 @@ type OrderQueueEntry = {
   paymentIntentId?: string | null
   orderWorksStatus?: string | null
   orderWorksLastError?: string | null
+  printerId?: string | null
+  printerName?: string | null
+  failedAt?: Date | null
+  failureNote?: string | null
   totalHours: number
   queuePosition: number | null
   estimatedCompletionAt: Date | null
@@ -61,8 +68,9 @@ function normalizeStatus(status: string): number {
   const normalized = normalizeOrderStatus(status)
   if (normalized === 'queued') return 0
   if (normalized === 'printing') return 1
-  if (normalized === 'post_process') return 2
-  return 3
+  if (normalized === 'failed') return 2
+  if (normalized === 'post_process') return 3
+  return 4
 }
 
 async function loadVolumeMaps(orderItems: { modelId?: string | null; partId?: string | null }[]) {
@@ -132,6 +140,8 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
     active: printer.active,
     dailyCapacityHours: printer.dailyCapacityHours,
     notes: printer.notes,
+    provider: printer.provider,
+    externalId: printer.externalId,
   }))
   const capacityHoursPerDay = resolvePrinterCapacity(printerSnapshots)
   const orders = await prisma.printOrder.findMany({
@@ -145,6 +155,10 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
       customerName: includeCustomer ? true : false,
       customerEmail: includeCustomer ? true : false,
       metadata: true,
+      printerId: true,
+      printer: { select: { id: true, name: true } },
+      failedAt: true,
+      failureNote: true,
       items: {
         select: {
           modelId: true,
@@ -183,6 +197,10 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
         paymentIntentId,
         orderWorksStatus: jobForm?.status ?? null,
         orderWorksLastError: jobForm?.lastError ?? null,
+        printerId: order.printerId,
+        printerName: order.printer?.name ?? null,
+        failedAt: order.failedAt ?? null,
+        failureNote: order.failureNote ?? null,
         totalHours: estimateOrderHours(order.items, volumeMaps, cfg),
         queuePosition: null,
         estimatedCompletionAt: null,
