@@ -1,8 +1,17 @@
 import { prisma } from '@/lib/db'
 import { estimatePricingDetails } from '@/lib/pricing'
+import { normalizeOrderStatus } from '@/lib/order-status'
 import type { SiteConfig } from '@prisma/client'
 
-const QUEUE_STATUSES = new Set(['awaiting_review', 'awaiting_payment', 'in_production'])
+const QUEUE_STATUSES = new Set([
+  'queued',
+  'printing',
+  'post_process',
+  'awaiting_review',
+  'awaiting_payment',
+  'in_production',
+  'ready',
+])
 
 type PrinterSnapshot = {
   id: string
@@ -49,9 +58,10 @@ function resolvePrinterCapacity(printers: PrinterSnapshot[]): number {
 }
 
 function normalizeStatus(status: string): number {
-  if (status === 'in_production') return 0
-  if (status === 'awaiting_review') return 1
-  if (status === 'awaiting_payment') return 2
+  const normalized = normalizeOrderStatus(status)
+  if (normalized === 'queued') return 0
+  if (normalized === 'printing') return 1
+  if (normalized === 'post_process') return 2
   return 3
 }
 

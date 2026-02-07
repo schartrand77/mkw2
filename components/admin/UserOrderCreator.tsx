@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from 'react'
 import { MATERIAL_OPTIONS, FINISH_OPTIONS } from '@/lib/cartPricing'
-import { ORDER_STATUSES, type OrderStatus } from '@/lib/order-status'
+import { ORDER_STATUS_FLOW, type OrderStatus } from '@/lib/order-status'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 
 type LineItemDraft = {
@@ -62,7 +62,7 @@ export default function UserOrderCreator({ userId, userEmail, userName }: Props)
   const [items, setItems] = useState<LineItemDraft[]>([createItem()])
   const [customerName, setCustomerName] = useState(userName || '')
   const [customerEmail, setCustomerEmail] = useState(userEmail || '')
-  const [status, setStatus] = useState<OrderStatus>(ORDER_STATUSES[0]?.key ?? 'awaiting_review')
+  const [status, setStatus] = useState<OrderStatus>(ORDER_STATUS_FLOW[0]?.key ?? 'queued')
   const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]['value']>('cash')
   const [shippingMethod, setShippingMethod] = useState<(typeof SHIPPING_METHODS)[number]['value']>('pickup')
   const [shippingName, setShippingName] = useState('')
@@ -102,7 +102,7 @@ export default function UserOrderCreator({ userId, userEmail, userName }: Props)
     setItems([createItem()])
     setCustomerName(userName || '')
     setCustomerEmail(userEmail || '')
-    setStatus(ORDER_STATUSES[0]?.key ?? 'awaiting_review')
+    setStatus(ORDER_STATUS_FLOW[0]?.key ?? 'queued')
     setPaymentMethod('cash')
     setShippingMethod('pickup')
     setShippingName('')
@@ -259,7 +259,7 @@ export default function UserOrderCreator({ userId, userEmail, userName }: Props)
                 onChange={(e) => setStatus(e.target.value as OrderStatus)}
                 disabled={pending}
               >
-                {ORDER_STATUSES.map((entry) => (
+                {ORDER_STATUS_FLOW.map((entry) => (
                   <option key={entry.key} value={entry.key}>
                     {entry.label}
                   </option>

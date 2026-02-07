@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
         userId: user.id,
         customerEmail: payload.customerEmail || user.email || undefined,
         customerName: payload.customerName || user.name || undefined,
-        status: payload.status ?? 'awaiting_review',
+        status: payload.status ?? 'queued',
         paymentMethod: payload.paymentMethod ?? 'cash',
         shippingMethod: payload.shippingMethod ?? 'pickup',
         shippingAddress: payload.shippingMethod === 'ship' ? payload.shippingAddress : undefined,

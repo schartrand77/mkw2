@@ -8,7 +8,7 @@ Goal: Make it rock-solid for real daily production use.
 
 Orders & Jobs
 - [ ] Estimate -> Cart -> Order -> Job pipeline
-- [ ] Job status workflow (queued / printing / post-process / shipped)
+- [x] Job status workflow (queued / printing / post-process / shipped)
 - [x] Job ticket printable sheets
 - [x] QR code per job
 - [ ] Attach model + slicer profile to job

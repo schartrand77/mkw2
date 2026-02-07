@@ -33,10 +33,10 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
   const subtotalCents = Math.max(0, Math.round((subtotal > 0 ? subtotal : payload.amountCents / 100) * 100))
   const shippingData = payload.shipping || { method: 'pickup' }
   const status: OrderStatus = payload.amountCents <= 0
-    ? 'awaiting_review'
+    ? 'queued'
     : payload.paymentMethod === 'cash'
       ? 'awaiting_payment'
-      : 'awaiting_review'
+      : 'queued'
   const itemsData: Prisma.PrintOrderItemCreateWithoutOrderInput[] = payload.lineItems.map((item) => ({
     modelId: item.modelId,
     modelTitle: item.title,
@@ -175,7 +175,7 @@ export async function createReprintOrder(orderId: string, userId: string) {
       paymentMethod: source.paymentMethod,
       shippingMethod: source.shippingMethod,
       shippingAddress: source.shippingAddress ?? undefined,
-      status: 'awaiting_review',
+      status: 'queued',
       subtotalCents: source.subtotalCents,
       discountPercent: source.discountPercent,
       totalCents: source.totalCents,

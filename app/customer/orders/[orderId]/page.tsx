@@ -9,6 +9,7 @@ import RevisionUploader from '@/components/orders/RevisionUploader'
 import ApprovalRequests from '@/components/orders/ApprovalRequests'
 import OrderMessageComposer from '@/components/orders/OrderMessageComposer'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { normalizeOrderStatus } from '@/lib/order-status'
 
 function formatOrderNumber(orderNumber?: number | null) {
   if (!orderNumber || orderNumber <= 0) return 'Draft order'
@@ -241,18 +242,17 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
 
 function buildProgress(status: string) {
   const steps = [
-    { key: 'awaiting_review', label: 'Review' },
-    { key: 'awaiting_payment', label: 'Payment' },
-    { key: 'in_production', label: 'Printing' },
-    { key: 'ready', label: 'Ready' },
+    { key: 'queued', label: 'Queued' },
+    { key: 'printing', label: 'Printing' },
+    { key: 'post_process', label: 'Post-process' },
     { key: 'shipped', label: 'Shipped' },
     { key: 'completed', label: 'Completed' },
   ]
-  const normalized = status === 'awaiting_payment' ? 'awaiting_payment' : status
+  const normalized = normalizeOrderStatus(status)
   const index = steps.findIndex((step) => step.key === normalized)
   const safeIndex = index >= 0 ? index : 0
   const percent = steps.length > 1 ? Math.round((safeIndex / (steps.length - 1)) * 100) : 0
-  return { percent, label: steps[safeIndex]?.label ?? 'Pending' }
+  return { percent, label: steps[safeIndex]?.label ?? 'Queued' }
 }
 
 type TimelineEntry = {

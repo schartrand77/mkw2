@@ -7,6 +7,8 @@ import { getOrderForUser, type OrderDetail } from '@/lib/orders'
 import { getOrderProductionDetail } from '@/lib/production'
 import OrderStatusBadge from '@/components/orders/OrderStatusBadge'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { normalizeOrderStatus } from '@/lib/order-status'
+import OrderStatusControl from '@/components/admin/OrderStatusControl'
 
 export const dynamic = 'force-dynamic'
 
@@ -173,6 +175,18 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
             <div className="rounded-xl border border-white/10 p-4 bg-black/20 space-y-2">
               <h2 className="text-lg font-semibold">Actions</h2>
               <p className="text-sm text-slate-400">Customer actions are disabled in admin view.</p>
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Update status</p>
+                <OrderStatusControl orderId={order.id} status={order.status} />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={`/admin/users/${userId}/orders/${orderId}/ticket`}
+                  className="text-sm px-3 py-1.5 rounded-md border border-white/10 hover:border-white/30"
+                >
+                  Print job ticket
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -293,18 +307,17 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
 
 function buildProgress(status: string) {
   const steps = [
-    { key: 'awaiting_review', label: 'Review' },
-    { key: 'awaiting_payment', label: 'Payment' },
-    { key: 'in_production', label: 'Printing' },
-    { key: 'ready', label: 'Ready' },
+    { key: 'queued', label: 'Queued' },
+    { key: 'printing', label: 'Printing' },
+    { key: 'post_process', label: 'Post-process' },
     { key: 'shipped', label: 'Shipped' },
     { key: 'completed', label: 'Completed' },
   ]
-  const normalized = status === 'awaiting_payment' ? 'awaiting_payment' : status
+  const normalized = normalizeOrderStatus(status)
   const index = steps.findIndex((step) => step.key === normalized)
   const safeIndex = index >= 0 ? index : 0
   const percent = steps.length > 1 ? Math.round((safeIndex / (steps.length - 1)) * 100) : 0
-  return { percent, label: steps[safeIndex]?.label ?? 'Pending' }
+  return { percent, label: steps[safeIndex]?.label ?? 'Queued' }
 }
 
 type TimelineEntry = {
