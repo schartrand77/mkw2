@@ -258,6 +258,66 @@ export default async function AdminPage() {
       >
         <StockworksLowStockCard />
       </CollapsibleCard>
+      <CollapsibleCard
+        title="Material optimization"
+        subtitle="Waste, color similarity, and alternates"
+        bodyClassName="space-y-3 p-6"
+      >
+        <p className="text-sm text-slate-400">
+          Review waste deltas, suggested color substitutes, and alternate materials based on inventory.
+        </p>
+        <Link href="/admin/material-optimization" className="inline-flex text-xs text-brand-300 underline">
+          Open material optimization
+        </Link>
+      </CollapsibleCard>
+      <CollapsibleCard
+        title="Fleet intelligence"
+        subtitle="Utilization, MTBF, and maintenance"
+        bodyClassName="space-y-3 p-6"
+      >
+        <p className="text-sm text-slate-400">
+          Track per-printer utilization, success rate, and maintenance schedules.
+        </p>
+        <Link href="/admin/fleet-intelligence" className="inline-flex text-xs text-brand-300 underline">
+          Open fleet intelligence
+        </Link>
+      </CollapsibleCard>
+      <CollapsibleCard
+        title="Batch optimization"
+        subtitle="Group by material/color and optimize queue"
+        bodyClassName="space-y-3 p-6"
+      >
+        <p className="text-sm text-slate-400">
+          See suggested batches and an optimized production order to reduce swaps.
+        </p>
+        <Link href="/admin/batch-optimization" className="inline-flex text-xs text-brand-300 underline">
+          Open batch optimization
+        </Link>
+      </CollapsibleCard>
+      <CollapsibleCard
+        title="Failure photo classifier"
+        subtitle="Tag print failures from photos"
+        bodyClassName="space-y-3 p-6"
+      >
+        <p className="text-sm text-slate-400">
+          Upload a failure photo to classify the likely root cause and keep a labeled dataset.
+        </p>
+        <Link href="/admin/failure-photos" className="inline-flex text-xs text-brand-300 underline">
+          Open failure classifier
+        </Link>
+      </CollapsibleCard>
+      <CollapsibleCard
+        title="Demand forecasting"
+        subtitle="30-day order outlook"
+        bodyClassName="space-y-3 p-6"
+      >
+        <p className="text-sm text-slate-400">
+          Track demand trends and estimate upcoming order volume using historical patterns.
+        </p>
+        <Link href="/admin/demand-forecasting" className="inline-flex text-xs text-brand-300 underline">
+          Open demand forecast
+        </Link>
+      </CollapsibleCard>
     </div>
   )
 }

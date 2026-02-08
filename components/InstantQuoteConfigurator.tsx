@@ -180,6 +180,50 @@ const resolveSwatch = (value?: string | null) => {
   return parsed.name ? { name: parsed.name, hex: '' } : null
 }
 
+const normalizeHexColor = (value: string) => {
+  const trimmed = value.trim().toLowerCase()
+  if (!trimmed.startsWith('#')) return ''
+  const hex = trimmed.slice(1)
+  if (hex.length === 3) {
+    return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`
+  }
+  if (hex.length === 6) return `#${hex}`
+  if (hex.length === 8) return `#${hex.slice(2)}`
+  return ''
+}
+
+const hexToRgb = (hex: string) => {
+  const normalized = normalizeHexColor(hex)
+  if (!normalized) return null
+  const raw = normalized.slice(1)
+  const r = Number.parseInt(raw.slice(0, 2), 16)
+  const g = Number.parseInt(raw.slice(2, 4), 16)
+  const b = Number.parseInt(raw.slice(4, 6), 16)
+  if ([r, g, b].some((c) => Number.isNaN(c))) return null
+  return { r, g, b }
+}
+
+const mixHex = (a: string, b: string, ratio = 0.5) => {
+  const rgbA = hexToRgb(a)
+  const rgbB = hexToRgb(b)
+  if (!rgbA || !rgbB) return ''
+  const blend = (x: number, y: number) => Math.round(x + (y - x) * ratio)
+  const r = blend(rgbA.r, rgbB.r)
+  const g = blend(rgbA.g, rgbB.g)
+  const bVal = blend(rgbA.b, rgbB.b)
+  return `#${[r, g, bVal].map((c) => c.toString(16).padStart(2, '0')).join('')}`
+}
+
+const buildBlendGradient = (hexes: string[]) => {
+  if (hexes.length === 0) return ''
+  if (hexes.length === 1) return hexes[0]
+  const stops = hexes.map((hex, idx) => {
+    const pct = Math.round((idx / (hexes.length - 1)) * 100)
+    return `${hex} ${pct}%`
+  })
+  return `linear-gradient(90deg, ${stops.join(', ')})`
+}
+
 export default function InstantQuoteConfigurator({
   modelId,
   title,
@@ -293,6 +337,28 @@ export default function InstantQuoteConfigurator({
     }
     return map
   }, [paletteOptions])
+  const resolveColorHex = useCallback((value?: string | null) => {
+    const parsed = parseColorString(value)
+    const swatch = resolveSwatch(value)
+    const normalized = normalizeColorValue(parsed.name || parsed.hex || value)
+    const lookup = paletteValueToHex.get(normalized) || ''
+    const candidate = parsed.hex || swatch?.hex || lookup
+    return candidate ? normalizeHexColor(candidate) : ''
+  }, [paletteValueToHex])
+  const blendHexes = useMemo(
+    () => normalizedColors.map((value) => resolveColorHex(value)).filter(Boolean),
+    [normalizedColors, resolveColorHex],
+  )
+  const blendGradient = useMemo(() => buildBlendGradient(blendHexes), [blendHexes])
+  const blendPairs = useMemo(
+    () => blendHexes.slice(0, -1).map((hex, idx) => ({
+      from: hex,
+      to: blendHexes[idx + 1],
+      mixed: mixHex(hex, blendHexes[idx + 1]),
+      label: `S${idx + 1}→S${idx + 2}`,
+    })),
+    [blendHexes],
+  )
   const fallbackBrandLabel = stockworksEntry ? 'Other' : 'Palette'
   const fallbackCategoryLabel = 'Other'
   const hasCategory = useMemo(() => paletteOptions.some((swatch) => (swatch.category || '').trim()), [paletteOptions])
@@ -715,6 +781,26 @@ export default function InstantQuoteConfigurator({
           })}
         </div>
       </div>
+      {blendHexes.length >= 2 && (
+        <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-slate-300 space-y-2">
+          <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">AMS blend preview</div>
+          <div className="h-2 rounded-full border border-white/10" style={{ background: blendGradient }} />
+          <div className="flex flex-wrap gap-2">
+            {blendPairs.map((pair) => (
+              <div key={pair.label} className="flex items-center gap-1 text-[9px] text-slate-400">
+                <span
+                  className="h-4 w-4 rounded-full border border-white/20"
+                  style={{ background: `linear-gradient(135deg, ${pair.from}, ${pair.to})` }}
+                />
+                <span className="text-[8px] uppercase tracking-wide">{pair.label}</span>
+                {pair.mixed ? (
+                  <span className="h-3 w-3 rounded-full border border-white/20" style={{ background: pair.mixed }} />
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="rounded-lg border border-white/10 bg-black/40 p-3 text-sm flex items-center justify-between">
         <div>
           <div className="text-slate-400 text-xs">Estimated price</div>

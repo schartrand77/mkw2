@@ -217,6 +217,11 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
                 {model.orientationSuggestion}
               </div>
             )}
+            {model.supportStrategySuggestion && (
+              <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-slate-300">
+                {model.supportStrategySuggestion}
+              </div>
+            )}
           </div>
         )}
         <InstantQuoteConfigurator

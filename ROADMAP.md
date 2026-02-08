@@ -114,29 +114,31 @@ Ship when: Customers can self-serve without emailing you 19 times.
 ## Phase 5 - Farm Optimization
 
 Goal: Make multi-printer scaling not hurt.
+Status: Complete (2026-02-08)
 
 Fleet Intelligence
-- [ ] Printer utilization heatmaps
-- [ ] Maintenance schedules
-- [ ] MTBF tracking
-- [ ] Per-printer success rate
+- [x] Printer utilization heatmaps
+- [x] Maintenance schedules
+- [x] MTBF tracking
+- [x] Per-printer success rate
 
 Batch Optimization
-- [ ] Auto nesting suggestions
-- [ ] Batch grouping by material/color
-- [ ] Queue optimizer
-- [ ] Print cluster planning
+- [x] Auto nesting suggestions
+- [x] Batch grouping by material/color
+- [x] Queue optimizer
+- [x] Print cluster planning
 
 Material Optimization
-- [ ] Waste reports
-- [ ] Color similarity suggestions
-- [ ] Alternate filament recommendations
+- [x] Waste reports
+- [x] Color similarity suggestions
+- [x] Alternate filament recommendations
 
 Ship when: Adding printers feels easy instead of chaotic.
 
 ## Phase 6 - Integrations & Ecosystem
 
 Goal: MakerWorks becomes the hub, not the island.
+Status: Skipped (2026-02-08) - Not in scope.
 
 Integrations
 - [ ] Slicer plugins
@@ -155,13 +157,14 @@ Ship when: Other systems plug into you - not vice versa.
 ## Phase 7 - Advanced / Differentiator Tier
 
 Goal: Features competitors do not bother building.
+Status: Complete (2026-02-08)
 
-- [ ] AI orientation optimizer
-- [ ] Failure photo classifier
-- [ ] Auto support strategy suggestions
-- [ ] Color blend preview for AMS
-- [ ] Print time correction from history
-- [ ] Assembly grouping for multipart models
-- [ ] Demand forecasting
+- [x] AI orientation optimizer
+- [x] Failure photo classifier
+- [x] Auto support strategy suggestions
+- [x] Color blend preview for AMS
+- [x] Print time correction from history
+- [x] Assembly grouping for multipart models
+- [x] Demand forecasting
 
 Ship when: People accuse you of being unfair.

@@ -135,7 +135,13 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     }
   }
 
-  if (model.printabilityScore == null || model.failureRiskScore == null || model.supportLikelihood == null) {
+  if (
+    model.printabilityScore == null
+    || model.failureRiskScore == null
+    || model.supportLikelihood == null
+    || model.orientationSuggestion == null
+    || (model as any).supportStrategySuggestion == null
+  ) {
     const intelligence = computeModelIntelligence({
       sizeXmm: model.sizeXmm ?? null,
       sizeYmm: model.sizeYmm ?? null,
@@ -151,6 +157,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
           supportLikelihood: intelligence.supportLikelihood,
           failureRiskScore: intelligence.failureRiskScore,
           orientationSuggestion: intelligence.orientationSuggestion,
+          supportStrategySuggestion: intelligence.supportStrategySuggestion,
           intelligenceUpdatedAt: new Date(),
         },
       })
@@ -158,6 +165,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
       ;(model as any).supportLikelihood = intelligence.supportLikelihood
       ;(model as any).failureRiskScore = intelligence.failureRiskScore
       ;(model as any).orientationSuggestion = intelligence.orientationSuggestion
+      ;(model as any).supportStrategySuggestion = intelligence.supportStrategySuggestion
       ;(model as any).intelligenceUpdatedAt = new Date()
     }
   }

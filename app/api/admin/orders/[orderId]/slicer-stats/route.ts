@@ -10,7 +10,8 @@ const entrySchema = z.object({
 })
 
 const payloadSchema = z.object({
-  materials: z.array(entrySchema).min(1),
+  materials: z.array(entrySchema).optional(),
+  printHours: z.number().positive().optional(),
 })
 
 type RouteParams = { params: Promise<{ orderId: string }> }
@@ -42,12 +43,16 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   try {
     const { orderId } = await params
     const payload = payloadSchema.parse(await req.json())
+    if ((!payload.materials || payload.materials.length === 0) && payload.printHours == null) {
+      return NextResponse.json({ error: 'Missing slicer stats data' }, { status: 400 })
+    }
     const order = await prisma.printOrder.findUnique({ where: { id: orderId }, select: { metadata: true } })
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     const metadata = normalizeMetadata(order.metadata)
     metadata.slicerStats = {
       updatedAt: new Date().toISOString(),
-      materials: payload.materials.map((entry) => ({
+      printHours: payload.printHours != null && Number.isFinite(Number(payload.printHours)) ? Number(payload.printHours) : undefined,
+      materials: (payload.materials || []).map((entry) => ({
         material: entry.material.trim(),
         grams: Number(entry.grams),
         colors: Array.isArray(entry.colors) ? entry.colors.map((c) => c.trim()).filter(Boolean) : [],

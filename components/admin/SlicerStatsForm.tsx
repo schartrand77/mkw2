@@ -11,7 +11,7 @@ type MaterialEntry = {
 
 type Props = {
   orderId: string
-  initial?: { materials?: Array<{ material: string; grams: number; colors?: string[] }> } | null
+  initial?: { materials?: Array<{ material: string; grams: number; colors?: string[] }>; printHours?: number | null } | null
 }
 
 function toEntry(entry?: { material: string; grams: number; colors?: string[] }): MaterialEntry {
@@ -23,6 +23,9 @@ function toEntry(entry?: { material: string; grams: number; colors?: string[] })
 }
 
 export default function SlicerStatsForm({ orderId, initial }: Props) {
+  const [printHours, setPrintHours] = useState<string>(
+    initial?.printHours != null && Number.isFinite(Number(initial.printHours)) ? String(initial.printHours) : '',
+  )
   const [entries, setEntries] = useState<MaterialEntry[]>(
     (initial?.materials || []).map(toEntry).filter((entry) => entry.material || entry.grams),
   )
@@ -42,6 +45,8 @@ export default function SlicerStatsForm({ orderId, initial }: Props) {
 
   const save = async () => {
     if (saving) return
+    const hoursValue = printHours.trim() === '' ? null : Number(printHours)
+    const hasValidHours = hoursValue == null || (Number.isFinite(hoursValue) && hoursValue > 0)
     const payload = entries
       .map((entry) => {
         const grams = Number(entry.grams)
@@ -54,8 +59,18 @@ export default function SlicerStatsForm({ orderId, initial }: Props) {
       })
       .filter(Boolean) as Array<{ material: string; grams: number; colors?: string[] }>
 
-    if (payload.length === 0) {
+    if (payload.length === 0 && hoursValue == null) {
+      pushSessionNotification({ type: 'error', title: 'Missing data', message: 'Add at least one material entry or print hours.' })
+      return
+    }
+
+    if (payload.length === 0 && !hasValidHours) {
       pushSessionNotification({ type: 'error', title: 'Missing data', message: 'Add at least one material usage entry.' })
+      return
+    }
+
+    if (!hasValidHours) {
+      pushSessionNotification({ type: 'error', title: 'Invalid hours', message: 'Enter a valid print hour total.' })
       return
     }
 
@@ -64,7 +79,7 @@ export default function SlicerStatsForm({ orderId, initial }: Props) {
       const res = await fetch(`/api/admin/orders/${orderId}/slicer-stats`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ materials: payload }),
+        body: JSON.stringify({ materials: payload, printHours: hoursValue }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.error || 'Failed to save slicer stats')
@@ -79,6 +94,20 @@ export default function SlicerStatsForm({ orderId, initial }: Props) {
   return (
     <div className="space-y-3">
       <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Slicer material stats</p>
+      <div className="grid gap-2 md:grid-cols-2 text-sm">
+        <label className="space-y-1">
+          <span className="text-xs text-slate-400">Actual print hours</span>
+          <input
+            className="input"
+            value={printHours}
+            onChange={(e) => setPrintHours(e.target.value)}
+            placeholder="e.g. 6.4"
+          />
+        </label>
+        <div className="text-xs text-slate-500 self-end">
+          Used to calibrate time estimates across the fleet.
+        </div>
+      </div>
       {entries.length === 0 ? (
         <p className="text-sm text-slate-400">No slicer stats yet. Add usage to drive auto-consumption.</p>
       ) : (

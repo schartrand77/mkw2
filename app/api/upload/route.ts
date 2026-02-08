@@ -568,6 +568,7 @@ export async function POST(req: NextRequest) {
         supportLikelihood: intelligence?.supportLikelihood,
         failureRiskScore: intelligence?.failureRiskScore,
         orientationSuggestion: intelligence?.orientationSuggestion,
+        supportStrategySuggestion: intelligence?.supportStrategySuggestion,
         intelligenceUpdatedAt: intelligence ? new Date() : undefined,
         priceUsd: totalPrice || undefined,
         effectivePriceUsd: effectivePriceUsd ?? undefined,

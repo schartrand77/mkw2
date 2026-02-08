@@ -89,6 +89,9 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
   const slicerStats = metadata?.slicerStats && typeof metadata.slicerStats === 'object' && !Array.isArray(metadata.slicerStats)
     ? (metadata.slicerStats as Record<string, any>)
     : null
+  const slicerPrintHours = slicerStats?.printHours != null && Number.isFinite(Number(slicerStats.printHours))
+    ? Number(slicerStats.printHours)
+    : null
   const shippingInfo = metadata?.shippingInfo && typeof metadata.shippingInfo === 'object' && !Array.isArray(metadata.shippingInfo)
     ? (metadata.shippingInfo as Record<string, any>)
     : null
@@ -170,6 +173,10 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                   <div>
                     <p className="text-slate-500">Estimated print hours</p>
                     <p className="text-sm font-medium">{production ? production.totalHours.toFixed(1) : '--'} hrs</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Actual print hours</p>
+                    <p className="text-sm font-medium">{slicerPrintHours != null ? slicerPrintHours.toFixed(1) : '--'} hrs</p>
                   </div>
                   <div>
                     <p className="text-slate-500">Queue position</p>

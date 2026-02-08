@@ -89,6 +89,7 @@ export interface PricingDetails {
   densityGPerCm3: number
   grams: number
   hours: number
+  timeCorrectionFactor?: number
   volumetricSpeedCm3PerHour: number
   nozzleDiameterMm: number
   printerProfile: Pick<PrinterProfile, 'key' | 'label'>
@@ -250,6 +251,14 @@ function resolveVolumetricSpeed(profile: PrinterProfile, cfg: Partial<SiteConfig
   return profile.volumetricSpeedCm3PerHour * Math.max(0.25, Math.min(2.5, nozzleScale))
 }
 
+function resolveTimeCorrectionFactor(cfg?: Partial<SiteConfig> | null): number {
+  const raw = cfg?.printTimeCorrectionFactor
+  if (raw == null || !Number.isFinite(Number(raw))) return 1
+  const normalized = Number(raw)
+  if (normalized <= 0) return 1
+  return Math.max(0.5, Math.min(2.5, normalized))
+}
+
 export function estimatePricingDetails({
   cm3,
   material,
@@ -269,7 +278,9 @@ export function estimatePricingDetails({
   const nozzleDiameterMm = resolveNozzleDiameter(printerProfile, cfg)
   const volumetricSpeed = resolveVolumetricSpeed(printerProfile, cfg, nozzleDiameterMm)
   const colorTime = resolveColorTimeMultiplier(colorCount)
-  const hours = (effectiveCm3 / volumetricSpeed) * colorTime.multiplier
+  const rawHours = (effectiveCm3 / volumetricSpeed) * colorTime.multiplier
+  const timeCorrectionFactor = resolveTimeCorrectionFactor(cfg)
+  const hours = rawHours * timeCorrectionFactor
 
   const materialKey = normalizeMaterialKey(material)
   const density = resolveMaterialDensity(materialKey, cfg, printerProfile.key)
@@ -343,6 +354,7 @@ export function estimatePricingDetails({
     densityGPerCm3: Number(density.toFixed(3)),
     grams: Number(grams.toFixed(1)),
     hours: Number(hours.toFixed(2)),
+    timeCorrectionFactor: timeCorrectionFactor !== 1 ? Number(timeCorrectionFactor.toFixed(3)) : undefined,
     volumetricSpeedCm3PerHour: Number(volumetricSpeed.toFixed(2)),
     nozzleDiameterMm: Number(nozzleDiameterMm.toFixed(2)),
     printerProfile: { key: printerProfile.key, label: printerProfile.label },

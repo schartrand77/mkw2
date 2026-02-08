@@ -36,6 +36,7 @@ const configSchema = z.object({
   minimumPriceUsd: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   minimumOrderSubtotalUsd: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   minimumOrderNotes: z.string().max(300).optional(),
+  printTimeCorrectionFactor: z.number().min(0.5).max(2.5).optional(),
   extraHourlyUsdAfterFirst: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   demandSurgeMultiplier: z.number().positive().max(5).optional(),
   rushMultiplier: z.number().positive().max(5).optional(),
@@ -105,6 +106,7 @@ type Config = {
   minimumPriceUsd?: number | null
   minimumOrderSubtotalUsd?: number | null
   minimumOrderNotes?: string | null
+  printTimeCorrectionFactor?: number | null
   extraHourlyUsdAfterFirst?: number | null
   demandSurgeMultiplier?: number | null
   rushMultiplier?: number | null
@@ -153,6 +155,7 @@ const PRICING_PROFILE_KEYS: (keyof Config)[] = [
   'machineUsdPerHour',
   'laborUsdPerHour',
   'minimumPriceUsd',
+  'printTimeCorrectionFactor',
   'extraHourlyUsdAfterFirst',
   'demandSurgeMultiplier',
   'rushMultiplier',
@@ -197,6 +200,7 @@ function buildPayload(cfg: Config): SchemaShape {
     minimumPriceUsd: cfg.minimumPriceUsd ?? undefined,
     minimumOrderSubtotalUsd: cfg.minimumOrderSubtotalUsd ?? undefined,
     minimumOrderNotes: cfg.minimumOrderNotes ?? undefined,
+    printTimeCorrectionFactor: cfg.printTimeCorrectionFactor ?? undefined,
     extraHourlyUsdAfterFirst: cfg.extraHourlyUsdAfterFirst ?? undefined,
     demandSurgeMultiplier: cfg.demandSurgeMultiplier ?? undefined,
     rushMultiplier: cfg.rushMultiplier ?? undefined,
@@ -297,6 +301,14 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [correctionInfo, setCorrectionInfo] = useState<{
+    suggestedFactor: number
+    totalActualHours: number
+    totalEstimatedHours: number
+    samples: number
+    rangeDays: number
+  } | null>(null)
+  const [correctionBusy, setCorrectionBusy] = useState(false)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<TouchMap>({})
   const [profileEditorKey, setProfileEditorKey] = useState(() => cfg.printerProfileKey || DEFAULT_PROFILE_KEY)
@@ -339,6 +351,21 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
   useEffect(() => {
     loadProfiles().catch(() => {})
   }, [])
+
+  const fetchCorrectionSuggestion = async () => {
+    if (correctionBusy) return
+    setCorrectionBusy(true)
+    try {
+      const res = await fetch('/api/admin/print-time-correction?days=90', { cache: 'no-store' })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Failed to compute correction')
+      setCorrectionInfo(data)
+    } catch (error: any) {
+      setErr(error?.message || 'Failed to compute correction')
+    } finally {
+      setCorrectionBusy(false)
+    }
+  }
 
   const markTouched = (field: FieldKey) => setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }))
   const fieldHasError = (field: FieldKey) => Boolean(touched[field] && errors[field])
@@ -630,6 +657,53 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                     />
                     <p className="text-xs text-slate-400 mt-1">Values 0-3 are treated as cm3 per minute for convenience.</p>
                     {fieldHasError('printSpeedCm3PerHour') && <p className="text-xs text-rose-300 mt-1">{errors.printSpeedCm3PerHour}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Print time correction factor</label>
+                    <input
+                      className={`input ${fieldHasError('printTimeCorrectionFactor') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                      type="number"
+                      step="0.01"
+                      min="0.5"
+                      max="2.5"
+                      value={cfg.printTimeCorrectionFactor ?? ''}
+                      disabled={saving || correctionBusy}
+                      onChange={(e) => {
+                        markTouched('printTimeCorrectionFactor')
+                        setCfg({ ...cfg, printTimeCorrectionFactor: e.target.value === '' ? null : Number(e.target.value) })
+                      }}
+                      onBlur={() => markTouched('printTimeCorrectionFactor')}
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Scales estimated print hours using slicer history (0.5x - 2.5x).</p>
+                    {correctionInfo && (
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Suggest {correctionInfo.suggestedFactor}x based on {correctionInfo.samples} samples ({correctionInfo.totalActualHours}h actual / {correctionInfo.totalEstimatedHours}h estimated).
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <button
+                        type="button"
+                        className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs"
+                        onClick={() => fetchCorrectionSuggestion()}
+                        disabled={saving || correctionBusy}
+                      >
+                        {correctionBusy ? 'Calculating…' : 'Recalculate from history'}
+                      </button>
+                      {correctionInfo && (
+                        <button
+                          type="button"
+                          className="px-2 py-1 rounded-md border border-brand-500/40 hover:border-brand-500 text-xs text-brand-200"
+                          onClick={() => {
+                            setCfg({ ...cfg, printTimeCorrectionFactor: correctionInfo.suggestedFactor })
+                            markTouched('printTimeCorrectionFactor')
+                          }}
+                          disabled={saving}
+                        >
+                          Apply suggestion
+                        </button>
+                      )}
+                    </div>
+                    {fieldHasError('printTimeCorrectionFactor') && <p className="text-xs text-rose-300 mt-1">{errors.printTimeCorrectionFactor}</p>}
                   </div>
                   <div>
                     <label className="block text-sm mb-1">Energy cost per hour ({currency})</label>

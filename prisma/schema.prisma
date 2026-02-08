@@ -36,6 +36,7 @@ model User {
   modelRevisions ModelRevision[]
   configChanges ConfigChangeLog[]
   presets CustomerPreset[]
+  failurePhotos FailurePhoto[]
 }
 
 model Model {
@@ -72,6 +73,7 @@ model Model {
   supportLikelihood Float?
   failureRiskScore Float?
   orientationSuggestion String?
+  supportStrategySuggestion String?
   intelligenceUpdatedAt DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -93,6 +95,7 @@ model Model {
   collectionEntries CollectionModel[]
   previewJobs ModelPreviewJob[]
   productTemplates ProductTemplate[]
+  failurePhotos FailurePhoto[]
 
   @@index([effectivePriceUsd])
   @@index([visibility])
@@ -245,6 +248,7 @@ model SiteConfig {
   minimumPriceUsd          Float?
   minimumOrderSubtotalUsd  Float?
   minimumOrderNotes        String?
+  printTimeCorrectionFactor Float?
   extraHourlyUsdAfterFirst Float?
   plaPricePerKgUsd         Float?
   petgPricePerKgUsd        Float?
@@ -316,12 +320,16 @@ model Printer {
   active             Boolean  @default(true)
   dailyCapacityHours Float    @default(8)
   notes              String?
+  lastMaintenanceAt  DateTime?
+  maintenanceIntervalHours Float?
+  maintenanceNotes   String?
   metadata           Json?
   lastSeenAt         DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   orders             PrintOrder[]
+  failurePhotos      FailurePhoto[]
 
   @@index([status])
   @@index([active])
@@ -559,6 +567,36 @@ model PrintOrder {
   approvalRequests PrintOrderApprovalRequest[]
   reprintOf PrintOrder?   @relation("ReprintSource", fields: [reprintOfId], references: [id])
   reprints  PrintOrder[]  @relation("ReprintSource")
+  failurePhotos FailurePhoto[]
+}
+
+model FailurePhoto {
+  id           String   @id @default(cuid())
+  filePath     String
+  originalName String?
+  label        String
+  confidence   Float?
+  signals      Json?
+  note         String?
+  sizeBytes    Int?
+  width        Int?
+  height       Int?
+  orderId      String?
+  printerId    String?
+  modelId      String?
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  order      PrintOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  printer    Printer?    @relation(fields: [printerId], references: [id], onDelete: SetNull)
+  model      Model?      @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  uploadedBy User?       @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([label])
+  @@index([createdAt])
+  @@index([orderId])
+  @@index([printerId])
+  @@index([modelId])
 }
 
 model PrintOrderItem {

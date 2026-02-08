@@ -6,6 +6,7 @@ import { formatCurrency } from '@/lib/currency'
 import { useCart } from '@/components/cart/CartProvider'
 import { useMemo, useState } from 'react'
 import type { PricingDetails } from '@/lib/pricing'
+import { buildAssemblyGroups } from '@/lib/assembly-grouping'
 
 type Part = {
   id: string
@@ -33,6 +34,7 @@ export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }
   const hasPricedPart = parts.some((p) => typeof p.priceUsd === 'number' && Number(p.priceUsd) > 0)
   const [isOpen, setIsOpen] = useState(false)
   const memoizedParts = useMemo(() => parts, [parts])
+  const assemblyGroups = useMemo(() => buildAssemblyGroups(memoizedParts), [memoizedParts])
   const partQuantities = useMemo(() => {
     const quantities: Record<string, number> = {}
     for (const item of items) {
@@ -67,6 +69,72 @@ export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }
         <div id="parts-breakdown-body" className="mt-3 space-y-3">
           {memoizedParts.length === 0 && (
             <p className="text-xs text-slate-500">This model does not have individual parts listed.</p>
+          )}
+
+          {assemblyGroups.length > 0 && (
+            <div className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs uppercase tracking-[0.25em] text-slate-400">Assembly groups</div>
+                <div className="text-[11px] text-slate-500">{assemblyGroups.length} groups</div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {assemblyGroups.map((group) => {
+                  const groupParts = group.parts.map((part) => memoizedParts.find((p) => p.id === part.id)).filter(Boolean) as Part[]
+                  const allPriced = groupParts.every((part) => typeof part.priceUsd === 'number' && Number(part.priceUsd) > 0)
+                  const groupLabel = `${group.label} (${groupParts.length})`
+                  return (
+                    <div key={group.key} className="rounded-lg border border-white/10 bg-black/30 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="font-medium text-sm">{groupLabel}</div>
+                        <div className="text-[10px] text-slate-500">Confidence {Math.round(group.confidence * 100)}%</div>
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        {groupParts.map((part, idx) => (
+                          <span key={part.id}>
+                            {part.name || `Part ${idx + 1}`}{idx < groupParts.length - 1 ? ', ' : ''}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <button
+                          type="button"
+                          className="px-2 py-1 rounded-md border border-brand-500/40 hover:border-brand-500 text-brand-200 disabled:opacity-40"
+                          disabled={!allPriced}
+                          onClick={() => {
+                            if (!allPriced) return
+                            for (const part of groupParts) {
+                              add(
+                                {
+                                  modelId,
+                                  partId: part.id,
+                                  partName: part.name || 'Part',
+                                  partIndex: part.index,
+                                  title: modelTitle,
+                                  priceUsd: part.priceUsd ?? null,
+                                  thumbnail,
+                                  size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
+                                },
+                                { material: 'PLA', colors: [] },
+                              )
+                            }
+                          }}
+                        >
+                          Add group to cart
+                        </button>
+                        {groupParts[0] && (
+                          <Link
+                            className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20"
+                            href={`/models/${modelId}?part=${groupParts[0].index}`}
+                          >
+                            Preview group
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           )}
 
           {memoizedParts.length > 0 && (
