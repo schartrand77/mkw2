@@ -23,9 +23,6 @@ export function serializeJob(job: JobWithUser) {
     paymentStatus: job.paymentStatus || null,
     fulfillmentStatus: job.fulfillmentStatus,
     fulfilledAt: job.fulfilledAt ? job.fulfilledAt.toISOString() : null,
-    webhookAttempts: job.webhookAttempts,
-    lastAttemptAt: job.lastAttemptAt ? job.lastAttemptAt.toISOString() : null,
-    lastError: job.lastError,
     createdAt: job.createdAt.toISOString(),
     updatedAt: job.updatedAt.toISOString(),
     user: job.user

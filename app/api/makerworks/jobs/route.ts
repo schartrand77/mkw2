@@ -40,7 +40,7 @@ function timingSafeEqual(a: string, b: string) {
 }
 
 function getSecret(): string | null {
-  return process.env['MAKERWORKS_INBOUND_SECRET'] || process.env['ORDERWORKS_WEBHOOK_SECRET'] || null
+  return process.env['MAKERWORKS_INBOUND_SECRET'] || null
 }
 
 function verifyBearerSecret(req: NextRequest, secret: string) {

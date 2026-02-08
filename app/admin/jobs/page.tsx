@@ -30,7 +30,7 @@ export default async function AdminJobsPage() {
           <p className="text-xs text-brand-400 uppercase tracking-[0.3em]">OrderWorks</p>
           <h1 className="text-3xl font-semibold">Job queue</h1>
           <p className="text-sm text-slate-400 mt-1">
-            Monitor webhook attempts, resend failed jobs, or remove duplicates.
+            Monitor job attempts, resend failed jobs, or remove duplicates.
           </p>
         </div>
         <Link href="/admin" className="px-3 py-1.5 rounded-md border border-white/10 text-sm hover:border-white/20">
@@ -42,7 +42,6 @@ export default async function AdminJobsPage() {
           initialJobs={jobs}
           pendingCount={pendingCount}
           totalCount={totalCount}
-          orderWorksEnabled={Boolean(process.env['ORDERWORKS_WEBHOOK_URL'])}
         />
       </div>
     </div>

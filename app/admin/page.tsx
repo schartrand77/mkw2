@@ -66,7 +66,6 @@ export default async function AdminPage() {
     fetchAdminUsersWithBadges(),
     fetchJobQueueSnapshot(100),
   ])
-  const orderWorksEnabled = Boolean(process.env['ORDERWORKS_WEBHOOK_URL'])
 
   return (
     <div className="space-y-8 min-w-0 overflow-x-hidden">
@@ -179,17 +178,16 @@ export default async function AdminPage() {
         </CollapsibleCard>
         <CollapsibleCard
           title="Job queue"
-          subtitle="Inspect background tasks and OrderWorks webhooks"
+          subtitle="Inspect background tasks and OrderWorks jobs"
           bodyClassName="space-y-4 p-6"
         >
           <p className="text-sm text-slate-400">
-            Monitor queued or failed jobs, retry stuck webhooks, and confirm OrderWorks automation is healthy.
+            Monitor queued or failed jobs, retry stuck jobs, and confirm OrderWorks automation is healthy.
           </p>
           <JobQueue
             initialJobs={jobSnapshot.jobs}
             pendingCount={jobSnapshot.pendingCount}
             totalCount={jobSnapshot.totalCount}
-            orderWorksEnabled={orderWorksEnabled}
           />
           <Link href="/admin/jobs" className="inline-flex text-xs text-brand-300 underline">
             Open full job console

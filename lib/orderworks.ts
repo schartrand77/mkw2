@@ -1,5 +1,3 @@
-import crypto from 'crypto'
-
 import { prisma } from '@/lib/db'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { buildAbsoluteUrl } from '@/lib/slicer'
@@ -34,18 +32,6 @@ type FilePointer = {
   storagePath?: string | null
   storageUrl?: string | null
   downloadUrl?: string | null
-}
-
-type WebhookTarget = {
-  url: string
-  secret?: string
-  label: string
-}
-
-type MakerWorksSignature = {
-  timestamp: number
-  bodyDigest: string
-  timestampDigest: string
 }
 
 type OrderWorksLineItem = {
@@ -94,83 +80,6 @@ type ModelFileRecord = {
   id: string
   filePath: string | null
   viewerFilePath: string | null
-}
-
-type OrderWorksRetryFailure = {
-  jobId: string
-  message: string
-}
-
-function readEnv(key: string): string | undefined {
-  if (typeof process === 'undefined') return undefined
-  const value = process.env?.[key]
-  return typeof value === 'string' ? value : undefined
-}
-
-function buildMakerWorksSignature(secret: string, body: string): MakerWorksSignature {
-  const timestamp = Math.floor(Date.now() / 1000)
-  const canonicalPayload = `${timestamp}.${body}`
-  const bodyDigest = crypto.createHmac('sha256', secret).update(body).digest('hex')
-  const timestampDigest = crypto.createHmac('sha256', secret).update(canonicalPayload).digest('hex')
-  return {
-    timestamp,
-    bodyDigest,
-    timestampDigest,
-  }
-}
-
-function parseAdditionalTargets(): WebhookTarget[] {
-  const raw = readEnv('ORDERWORKS_ADDITIONAL_WEBHOOKS') || readEnv('ORDERWORKS_EXTRA_WEBHOOKS')
-  if (!raw) return []
-  try {
-    const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) {
-      return parsed
-        .map((entry, idx) => {
-          if (!entry) return null
-          if (typeof entry === 'string') return { url: entry, label: `extra-${idx + 1}` }
-          if (typeof entry === 'object') {
-            const url = typeof entry.url === 'string' ? entry.url : typeof entry.href === 'string' ? entry.href : null
-            if (!url) return null
-            return {
-              url,
-              secret: typeof entry.secret === 'string' ? entry.secret : undefined,
-              label: typeof entry.label === 'string' ? entry.label : typeof entry.name === 'string' ? entry.name : `extra-${idx + 1}`,
-            }
-          }
-          return null
-        })
-        .filter((item): item is WebhookTarget => Boolean(item?.url))
-    }
-  } catch {
-    // Fallback to comma-separated entries like url|secret,url2
-    return raw
-      .split(',')
-      .map((entry, idx) => entry.trim())
-      .filter(Boolean)
-      .map((entry, idx) => {
-        const [url, secret] = entry.split('|').map((part) => part.trim())
-        return { url, secret: secret || undefined, label: `extra-${idx + 1}` }
-      })
-      .filter((item) => Boolean(item.url))
-  }
-  return []
-}
-
-function buildPrimaryTarget(): WebhookTarget[] {
-  const url = readEnv('ORDERWORKS_WEBHOOK_URL')
-  if (!url) return []
-  return [
-    {
-      url,
-      secret: readEnv('ORDERWORKS_WEBHOOK_SECRET') || undefined,
-      label: 'orderworks',
-    },
-  ]
-}
-
-function getWebhookTargets(): WebhookTarget[] {
-  return [...buildPrimaryTarget(), ...parseAdditionalTargets()]
 }
 
 function sanitizeStoragePathValue(path?: string | null) {
@@ -442,129 +351,5 @@ export async function recordOrderWorksJob({
       fulfilledAt: fulfilledAt ?? undefined,
     },
   })
-  try {
-    await queueOrderWorksJob(job.id)
-  } catch (err) {
-    console.error('OrderWorks webhook error:', err)
-    throw err
-  }
   return job
-}
-
-async function sendJobToOrderWorks(jobId: string, targets: WebhookTarget[] = getWebhookTargets()) {
-  if (targets.length === 0) {
-    console.warn('No OrderWorks webhook targets configured; skipping sync.')
-    return
-  }
-  const job = await prisma.jobForm.findUnique({ where: { id: jobId } })
-  if (!job) return
-  const storedLineItems = coerceLineItems(job.lineItems)
-  const hydratedLineItems = await hydrateLineItemFiles(storedLineItems)
-  const lineItemSummaries = buildLineItemSummaries(hydratedLineItems, job.currency || 'USD')
-  const orderWorksLineItems = buildOrderWorksLineItems(hydratedLineItems, lineItemSummaries, job.currency || 'USD')
-  const files = extractFilePointers(hydratedLineItems)
-  const slicerProfile = buildSlicerProfilePointer(job.metadata)
-  if (slicerProfile) files.push(slicerProfile)
-  const payload = {
-    id: job.id,
-    paymentIntentId: job.paymentIntentId,
-    totalCents: job.totalCents,
-    currency: job.currency,
-    lineItems: orderWorksLineItems,
-    lineItemSummaries,
-    makerworksLineItems: hydratedLineItems,
-    files,
-    shipping: job.shipping,
-    metadata: job.metadata,
-    userId: job.userId,
-    customerEmail: job.customerEmail,
-    createdAt: job.createdAt,
-  }
-  const errors: string[] = []
-  const jsonBody = JSON.stringify(payload)
-  for (const target of targets) {
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const bodyToSend: BodyInit = jsonBody
-      const bodyForSignature = jsonBody
-      if (target.secret) {
-        const signature = buildMakerWorksSignature(target.secret, bodyForSignature)
-        headers.Authorization = `Bearer ${target.secret}`
-        headers['X-MakerWorks-Signature'] = `sha256=${signature.bodyDigest}`
-        headers['MakerWorks-Signature'] = `sha256=${signature.bodyDigest}`
-        headers['X-MakerWorks-Signature-V1'] = `t=${signature.timestamp},v1=${signature.timestampDigest}`
-        headers['MakerWorks-Signature-V1'] = `t=${signature.timestamp},v1=${signature.timestampDigest}`
-        headers['X-MakerWorks-Timestamp'] = String(signature.timestamp)
-        headers['X-Hub-Signature-256'] = `sha256=${signature.bodyDigest}`
-      }
-      const response = await fetch(target.url, {
-        method: 'POST',
-        headers,
-        body: bodyToSend,
-      })
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '')
-        errors.push(`${target.label} responded ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`.trim())
-      }
-    } catch (err: any) {
-      errors.push(`${target.label} error: ${err?.message || String(err)}`)
-    }
-  }
-  const success = errors.length === 0
-  await prisma.jobForm.update({
-    where: { id: job.id },
-    data: {
-      status: success ? 'sent' : 'pending',
-      webhookAttempts: { increment: 1 },
-      lastAttemptAt: new Date(),
-      lastError: success ? null : errors.join(' | ').slice(0, 500),
-    },
-  })
-  if (!success) {
-    throw new Error(`OrderWorks webhook failures: ${errors.join('; ')}`)
-  }
-}
-
-export async function queueOrderWorksJob(jobId: string) {
-  await sendJobToOrderWorks(jobId)
-}
-
-export async function retryPendingOrderWorksJobs(limit = 10) {
-  const targets = getWebhookTargets()
-  if (targets.length === 0) {
-    const error: any = new Error('ORDERWORKS_WEBHOOK_URL is not configured; cannot retry jobs.')
-    error.code = 'ORDERWORKS_CONFIG_MISSING'
-    error.status = 400
-    throw error
-  }
-  const jobs = await prisma.jobForm.findMany({
-    where: { status: 'pending' },
-    orderBy: [{ lastAttemptAt: 'asc' }, { createdAt: 'asc' }],
-    take: limit,
-  })
-  let processed = 0
-  const failures: OrderWorksRetryFailure[] = []
-  for (const job of jobs) {
-    try {
-      await sendJobToOrderWorks(job.id, targets)
-      processed++
-    } catch (err) {
-      console.error('Failed OrderWorks retry', err)
-      failures.push({
-        jobId: job.id,
-        message: (err as Error)?.message ? String((err as Error).message).slice(0, 500) : 'Unknown error',
-      })
-    }
-  }
-  const remaining = await prisma.jobForm.count({ where: { status: 'pending' } })
-  if (failures.length > 0) {
-    const error: any = new Error(`Failed to resend ${failures.length} job${failures.length === 1 ? '' : 's'}.`)
-    error.code = 'ORDERWORKS_RETRY_FAILED'
-    error.status = 502
-    error.failures = failures
-    error.processed = processed
-    error.remaining = remaining
-    throw error
-  }
-  return { processed, remaining }
 }

@@ -19,9 +19,6 @@ type JobRecord = {
   paymentStatus?: string | null
   fulfillmentStatus?: FulfillmentStatus | null
   fulfilledAt?: string | null
-  webhookAttempts: number
-  lastAttemptAt?: string | null
-  lastError?: string | null
   createdAt: string
   updatedAt: string
   user?: { id: string; name: string | null; email: string | null } | null
@@ -31,10 +28,9 @@ type Props = {
   initialJobs: JobRecord[]
   pendingCount: number
   totalCount: number
-  orderWorksEnabled: boolean
 }
 
-type Summary = Pick<Props, 'pendingCount' | 'totalCount' | 'orderWorksEnabled'>
+type Summary = Pick<Props, 'pendingCount' | 'totalCount'>
 
 const formatterCache = new Map<string, Intl.NumberFormat>()
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -196,214 +192,6 @@ function JobStatusControls({ job, onUpdated }: StatusFormProps) {
       </div>
       {error && <div className="text-xs text-rose-300">{error}</div>}
       {success && <div className="text-xs text-emerald-300">{success}</div>}
-      <button
-        type="submit"
-        className="px-3 py-1.5 rounded-md border border-white/20 text-xs hover:border-white/40 disabled:opacity-50"
-        disabled={saving}
-      >
-        {saving ? 'Saving…' : 'Save status'}
-      </button>
-    </form>
-  )
-}
-
-export default function JobQueue({ initialJobs, pendingCount, totalCount, orderWorksEnabled }: Props) {
-  const [jobs, setJobs] = useState<JobRecord[]>(initialJobs)
-  const [summary, setSummary] = useState<Summary>({ pendingCount, totalCount, orderWorksEnabled })
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'sent'>('all')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-  const [busy, setBusy] = useState<Record<string, 'retry' | 'delete' | null>>({})
-
-  const toggleExpanded = (id: string) => {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
-  }
-
-  const updateJob = (next: JobRecord) => {
-    setJobs((prev) => {
-      const exists = prev.find((job) => job.id === next.id)
-      if (exists) {
-        return prev.map((j) => (j.id === next.id ? next : j))
-      }
-      return [next, ...prev]
-    })
-  }
-
-  const removeJob = (id: string) => {
-    setJobs((prev) => prev.filter((job) => job.id !== id))
-  }
-
-  const refresh = useCallback(async (overrideStatus?: 'all' | 'pending' | 'sent') => {
-    const status = overrideStatus || statusFilter
-    setLoading(true); setError(null); setMessage(null)
-    try {
-      const res = await fetch(`/api/admin/orderworks/jobs?limit=200&status=${status}`, { cache: 'no-store' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || 'Failed to load queue')
-      setJobs(Array.isArray(data.jobs) ? data.jobs : [])
-      setSummary({
-        pendingCount: data.pendingCount ?? summary.pendingCount,
-        totalCount: data.totalCount ?? summary.totalCount,
-        orderWorksEnabled: Boolean(data.orderWorksEnabled ?? summary.orderWorksEnabled),
-      })
-      setMessage('Queue refreshed.')
-    } catch (err: any) {
-      setError(err?.message || 'Failed to refresh jobs')
-    } finally {
-      setLoading(false)
-    }
-  }, [statusFilter, summary.pendingCount, summary.totalCount, summary.orderWorksEnabled])
-
-  const handleRetry = async (id: string) => {
-    setBusy((prev) => ({ ...prev, [id]: 'retry' }))
-    setError(null); setMessage(null)
-    try {
-      const res = await fetch(`/api/admin/orderworks/jobs/${id}/retry`, { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || 'Retry failed')
-      if (data.job) updateJob(data.job)
-      setMessage(data?.mode === 'sync' ? 'Job flagged for OrderWorks sync.' : 'Job resent to OrderWorks.')
-    } catch (err: any) {
-      setError(err?.message || 'Failed to resend job')
-    } finally {
-      setBusy((prev) => ({ ...prev, [id]: null }))
-    }
-  }
-
-  const handleDelete = async (id: string) => {
-    const jobToDelete = jobs.find((job) => job.id === id)
-    if (typeof window !== 'undefined') {
-      const confirmed = window.confirm('Delete this job form? This cannot be undone.')
-      if (!confirmed) return
-    }
-    setBusy((prev) => ({ ...prev, [id]: 'delete' }))
-    setError(null); setMessage(null)
-    try {
-      const res = await fetch(`/api/admin/orderworks/jobs/${id}`, { method: 'DELETE' })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data?.error || 'Failed to delete job')
-      removeJob(id)
-      setSummary((prev) => ({
-        ...prev,
-        totalCount: Math.max(0, prev.totalCount - 1),
-        pendingCount: jobToDelete?.status === 'pending'
-          ? Math.max(0, prev.pendingCount - 1)
-          : prev.pendingCount,
-      }))
-      setMessage('Job deleted.')
-    } catch (err: any) {
-      setError(err?.message || 'Failed to delete job')
-    } finally {
-      setBusy((prev) => ({ ...prev, [id]: null }))
-    }
-  }
-
-  const handleFilterChange = (value: 'all' | 'pending' | 'sent') => {
-    setStatusFilter(value)
-    refresh(value).catch(() => {})
-  }
-
-  const pendingJobs = useMemo(() => jobs.filter((job) => job.status === 'pending').length, [jobs])
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div>
-          <p className="text-sm text-slate-400">Queue size</p>
-          <p className="text-2xl font-semibold">
-            {jobs.length} <span className="text-base text-slate-500">loaded</span>
-          </p>
-        </div>
-        <div>
-          <p className="text-sm text-slate-400">Pending</p>
-          <p className="text-2xl font-semibold">{pendingJobs}</p>
-        </div>
-        <div>
-          <p className="text-sm text-slate-400">All-time</p>
-          <p className="text-2xl font-semibold">{summary.totalCount}</p>
-        </div>
-        <div className="flex-1 min-w-[200px]" />
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            className="input w-32"
-            value={statusFilter}
-            onChange={(e) => handleFilterChange(e.target.value as 'all' | 'pending' | 'sent')}
-            disabled={loading}
-          >
-            <option value="all">All jobs</option>
-            <option value="pending">Pending only</option>
-            <option value="sent">Sent</option>
-          </select>
-          <button type="button" className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20" onClick={() => refresh()} disabled={loading}>
-            {loading ? 'Refreshing…' : 'Refresh'}
-          </button>
-        </div>
-      </div>
-      {error && <div className="text-sm text-amber-400">{error}</div>}
-      {message && <div className="text-sm text-emerald-300">{message}</div>}
-      <div className="space-y-3">
-        {jobs.length === 0 && (
-          <div className="rounded-lg border border-white/10 bg-black/20 px-4 py-6 text-center text-sm text-slate-400">
-            No jobs match this filter.
-          </div>
-        )}
-        {jobs.map((job) => {
-          const isExpanded = !!expanded[job.id]
-          const busyState = busy[job.id]
-          const lineItems = Array.isArray(job.lineItems) ? job.lineItems : []
-          const shipping = job.shipping && typeof job.shipping === 'object' ? job.shipping : null
-          return (
-            <div key={job.id} className="border border-white/10 rounded-lg bg-white/5 p-4 space-y-3">
-              <div className="flex flex-wrap items-start gap-3">
-                <div className="flex-1 min-w-[220px] space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${job.status === 'pending' ? 'bg-amber-400/20 text-amber-100' : 'bg-emerald-500/20 text-emerald-100'}`}>
-                      {job.status}
-                    </span>
-                    <span className="text-sm text-slate-400">#{job.paymentIntentId}</span>
-                  </div>
-                  <div className="text-base font-medium">{formatCurrency(job.totalCents, job.currency)}</div>
-                  <div className="text-xs text-slate-400">
-                    Created {formatDate(job.createdAt)} • Attempts {job.webhookAttempts}
-                    {job.lastAttemptAt && ` • Last attempt ${formatDate(job.lastAttemptAt)}`}
-                  </div>
-                  <div className="text-xs text-slate-400">
-                    Fulfillment: {formatFulfillment(job.fulfillmentStatus)}{job.fulfilledAt ? ` - Fulfilled ${formatDate(job.fulfilledAt)}` : ''}
-                  </div>
-                  {job.lastError && (
-                    <div className="text-xs text-rose-300">Last error: {job.lastError}</div>
-                  )}
-                </div>
-                <div className="text-sm text-slate-300">
-                  <div>
-                    User:{' '}
-                    {job.user
-                      ? `${job.user.name || job.user.email} (${job.user.email || 'no email'})`
-                      : 'anonymous'}
-                  </div>
-                  <div>Customer email: {job.customerEmail || 'N/A'}</div>
-                  <div>Payment method: {job.paymentMethod || 'N/A'}</div>
-                  <div>Payment status: {job.paymentStatus || 'N/A'}</div>
-                </div>
-                <div className="flex items-center gap-2 ml-auto">
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 rounded-md border border-white/15 text-xs hover:border-white/30 disabled:opacity-50"
-                    onClick={() => toggleExpanded(job.id)}
-                    aria-expanded={isExpanded}
-                  >
-                    {isExpanded ? 'Hide details' : 'Show details'}
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 rounded-md border border-brand-400/50 text-xs text-brand-200 hover:border-brand-300 disabled:opacity-50"
-                    onClick={() => handleRetry(job.id)}
-                    disabled={busyState === 'retry'}
-                  >
-                    {busyState === 'retry' ? 'Retrying…' : 'Retry'}
-                  </button>
                   <button
                     type="button"
                     className="px-3 py-1.5 rounded-md border border-rose-400/50 text-xs text-rose-200 hover:border-rose-300 disabled:opacity-50"
