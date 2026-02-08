@@ -86,8 +86,8 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
       ? 'px-3 py-1.5 rounded-md bg-brand-600 border border-brand-600 text-white flex-shrink-0'
       : 'px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 flex-shrink-0'
   }
-  const navContainerCls = 'flex items-center gap-3 text-sm w-full min-w-0 sm:w-auto text-left'
-  const scrollCls = 'flex items-center gap-3 overflow-x-auto overflow-y-visible whitespace-nowrap pr-4 [-webkit-overflow-scrolling:touch] sm:overflow-visible sm:whitespace-normal sm:pr-0'
+  const navContainerCls = 'flex flex-col gap-2 text-sm w-full min-w-0 sm:flex-row sm:items-center sm:gap-3 sm:w-auto text-left'
+  const scrollCls = 'flex flex-wrap items-center gap-2 w-full sm:w-auto sm:flex-nowrap sm:gap-3'
   const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'))
   if (!authed) {
     return (
@@ -144,7 +144,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
         )}
       </div>
       <>
-        <div className="relative flex-shrink-0" ref={menuRef}>
+        <div className="relative flex-shrink-0 self-end sm:self-auto" ref={menuRef}>
           <button
             type="button"
             aria-haspopup="menu"
