@@ -201,6 +201,24 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             )}
           </div>
         </div>
+        {(model.printabilityScore != null || model.failureRiskScore != null || model.supportLikelihood != null) && (
+          <div className="glass rounded-xl p-4 space-y-3 text-sm">
+            <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Model intelligence</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="text-slate-400">Printability score</div>
+              <div>{model.printabilityScore != null ? `${model.printabilityScore}/100` : 'N/A'}</div>
+              <div className="text-slate-400">Failure risk</div>
+              <div>{model.failureRiskScore != null ? `${model.failureRiskScore}%` : 'N/A'}</div>
+              <div className="text-slate-400">Support likelihood</div>
+              <div>{model.supportLikelihood != null ? `${Math.round(model.supportLikelihood * 100)}%` : 'N/A'}</div>
+            </div>
+            {model.orientationSuggestion && (
+              <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-slate-300">
+                {model.orientationSuggestion}
+              </div>
+            )}
+          </div>
+        )}
         <InstantQuoteConfigurator
           modelId={model.id}
           title={model.title}

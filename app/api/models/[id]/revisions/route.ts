@@ -6,6 +6,7 @@ import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer } from '@/lib/storage'
 import { computeStlStatsMm } from '@/lib/stl'
 import { estimatePriceUSD, resolveModelPricing } from '@/lib/pricing'
+import { computeModelIntelligence } from '@/lib/model-intelligence'
 import { enqueueModelPreviewJob, processPendingModelPreviews, extract3mfFilamentColors } from '@/lib/model-preview-queue'
 
 export const dynamic = 'force-dynamic'
@@ -254,6 +255,20 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
     salePriceUsd: null,
   }, cfg).priceUsd
 
+  if (isMultipart) {
+    if (overallSizeXmm == null) overallSizeXmm = Math.max(0, ...partCreates.map((part) => Number(part.sizeXmm || 0)))
+    if (overallSizeYmm == null) overallSizeYmm = Math.max(0, ...partCreates.map((part) => Number(part.sizeYmm || 0)))
+    if (overallSizeZmm == null) overallSizeZmm = Math.max(0, ...partCreates.map((part) => Number(part.sizeZmm || 0)))
+  }
+
+  const intelligence = computeModelIntelligence({
+    sizeXmm: overallSizeXmm ?? null,
+    sizeYmm: overallSizeYmm ?? null,
+    sizeZmm: overallSizeZmm ?? null,
+    volumeMm3: totalVolMm3 || null,
+    supportRatio: totalSupportRatio,
+  })
+
   const created = await prisma.$transaction(async (tx) => {
     await tx.modelPart.deleteMany({ where: { modelId: id } })
     await tx.modelPart.createMany({ data: partCreates.map((part) => ({ ...part, modelId: id })) })
@@ -268,6 +283,11 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
         sizeYmm: overallSizeYmm,
         sizeZmm: overallSizeZmm,
         supportRatio: totalSupportRatio ?? undefined,
+        printabilityScore: intelligence?.printabilityScore,
+        supportLikelihood: intelligence?.supportLikelihood,
+        failureRiskScore: intelligence?.failureRiskScore,
+        orientationSuggestion: intelligence?.orientationSuggestion,
+        intelligenceUpdatedAt: intelligence ? new Date() : undefined,
         priceUsd: totalPrice || undefined,
         effectivePriceUsd: effectivePriceUsd ?? undefined,
         effectivePriceUpdatedAt: effectivePriceUsd != null ? new Date() : undefined,

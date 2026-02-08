@@ -35,6 +35,12 @@ const configSchema = z.object({
   laborUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   minimumPriceUsd: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   extraHourlyUsdAfterFirst: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
+  demandSurgeMultiplier: z.number().positive().max(5).optional(),
+  rushMultiplier: z.number().positive().max(5).optional(),
+  batchDiscountTiers: z.array(z.object({
+    minQty: z.number().int().min(1),
+    percent: z.number().min(0).max(100),
+  })).optional(),
   fillFactor: z.number().positive({ message: 'Select an infill percentage.' }).max(2, { message: 'Fill factor is out of range.' }).optional(),
   directUploadUrl: z.union([z.string().url({ message: 'Enter a valid https:// URL.' }), z.null()], { invalid_type_error: 'Enter a valid URL.' }).optional(),
   favoriteShopLinkIds: z.array(z.string().min(1)).optional(),
@@ -96,6 +102,9 @@ type Config = {
   laborUsdPerHour?: number | null
   minimumPriceUsd?: number | null
   extraHourlyUsdAfterFirst?: number | null
+  demandSurgeMultiplier?: number | null
+  rushMultiplier?: number | null
+  batchDiscountTiers?: Array<{ minQty: number; percent: number }> | null
   fillFactor?: number | null
   directUploadUrl?: string | null
   favoriteShopLinkIds?: string[] | null
@@ -141,6 +150,9 @@ const PRICING_PROFILE_KEYS: (keyof Config)[] = [
   'laborUsdPerHour',
   'minimumPriceUsd',
   'extraHourlyUsdAfterFirst',
+  'demandSurgeMultiplier',
+  'rushMultiplier',
+  'batchDiscountTiers',
   'fillFactor',
   'printerProfileKey',
   'printerProfileOverrides',
@@ -180,6 +192,9 @@ function buildPayload(cfg: Config): SchemaShape {
     laborUsdPerHour: cfg.laborUsdPerHour ?? undefined,
     minimumPriceUsd: cfg.minimumPriceUsd ?? undefined,
     extraHourlyUsdAfterFirst: cfg.extraHourlyUsdAfterFirst ?? undefined,
+    demandSurgeMultiplier: cfg.demandSurgeMultiplier ?? undefined,
+    rushMultiplier: cfg.rushMultiplier ?? undefined,
+    batchDiscountTiers: normalizeBatchDiscountTiers(cfg.batchDiscountTiers),
     fillFactor: cfg.fillFactor ?? undefined,
     directUploadUrl: cfg.directUploadUrl === null ? null : cfg.directUploadUrl || undefined,
     favoriteShopLinkIds: normalizeShopFavorites(cfg.favoriteShopLinkIds),
@@ -188,6 +203,20 @@ function buildPayload(cfg: Config): SchemaShape {
     printerProfileKey: cfg.printerProfileKey || undefined,
     printerProfileOverrides: sanitizeOverrides(cfg.printerProfileOverrides),
   }
+}
+
+function normalizeBatchDiscountTiers(raw?: Array<{ minQty?: number; percent?: number }> | null) {
+  if (!raw || !Array.isArray(raw)) return undefined
+  const cleaned = raw
+    .map((tier) => {
+      const minQty = Number(tier.minQty)
+      const percent = Number(tier.percent)
+      if (!Number.isFinite(minQty) || minQty <= 0) return null
+      if (!Number.isFinite(percent) || percent <= 0) return null
+      return { minQty: Math.floor(minQty), percent: Math.min(100, Math.max(0, percent)) }
+    })
+    .filter((tier): tier is { minQty: number; percent: number } => Boolean(tier))
+  return cleaned.length ? cleaned : undefined
 }
 
 function mapErrors(result: z.SafeParseReturnType<SchemaShape, SchemaShape>): FieldErrors {
@@ -459,6 +488,39 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
     }))
   }
 
+  const updateBatchTier = (index: number, field: 'minQty' | 'percent', value: string) => {
+    setCfg((prev) => {
+      const tiers = Array.isArray(prev.batchDiscountTiers) ? [...prev.batchDiscountTiers] : []
+      const existing = tiers[index] || { minQty: 1, percent: 0 }
+      const numeric = value === '' ? null : Number(value)
+      const next = {
+        ...existing,
+        [field]: numeric == null || Number.isNaN(numeric) ? existing[field] : numeric,
+      }
+      tiers[index] = next
+      return { ...prev, batchDiscountTiers: tiers }
+    })
+    markTouched('batchDiscountTiers')
+  }
+
+  const addBatchTier = () => {
+    setCfg((prev) => {
+      const tiers = Array.isArray(prev.batchDiscountTiers) ? [...prev.batchDiscountTiers] : []
+      tiers.push({ minQty: 5, percent: 5 })
+      return { ...prev, batchDiscountTiers: tiers }
+    })
+    markTouched('batchDiscountTiers')
+  }
+
+  const removeBatchTier = (index: number) => {
+    setCfg((prev) => {
+      const tiers = Array.isArray(prev.batchDiscountTiers) ? [...prev.batchDiscountTiers] : []
+      tiers.splice(index, 1)
+      return { ...prev, batchDiscountTiers: tiers.length ? tiers : undefined }
+    })
+    markTouched('batchDiscountTiers')
+  }
+
   const toggleShopFavorite = (id: string) => {
     setCfg((prev) => {
       const current = prev.favoriteShopLinkIds || []
@@ -647,6 +709,93 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                 </div>
 
                 <p className="text-xs text-slate-400">Material costs are derived from the per-kg prices; no multipliers needed.</p>
+
+                <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-3">
+                  <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Pricing adjustments</div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm mb-1">Demand surge multiplier</label>
+                      <input
+                        className={`input ${fieldHasError('demandSurgeMultiplier') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                        type="number"
+                        step="0.01"
+                        min={1}
+                        value={cfg.demandSurgeMultiplier ?? ''}
+                        disabled={saving}
+                        onChange={(e) => {
+                          markTouched('demandSurgeMultiplier')
+                          setCfg({ ...cfg, demandSurgeMultiplier: e.target.value === '' ? null : Number(e.target.value) })
+                        }}
+                        onBlur={() => markTouched('demandSurgeMultiplier')}
+                      />
+                      {fieldHasError('demandSurgeMultiplier') && <p className="text-xs text-rose-300 mt-1">{errors.demandSurgeMultiplier}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Rush multiplier</label>
+                      <input
+                        className={`input ${fieldHasError('rushMultiplier') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                        type="number"
+                        step="0.01"
+                        min={1}
+                        value={cfg.rushMultiplier ?? ''}
+                        disabled={saving}
+                        onChange={(e) => {
+                          markTouched('rushMultiplier')
+                          setCfg({ ...cfg, rushMultiplier: e.target.value === '' ? null : Number(e.target.value) })
+                        }}
+                        onBlur={() => markTouched('rushMultiplier')}
+                      />
+                      {fieldHasError('rushMultiplier') && <p className="text-xs text-rose-300 mt-1">{errors.rushMultiplier}</p>}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm">Batch discount tiers</label>
+                      <button type="button" className="text-xs px-2 py-1 rounded border border-white/10 hover:border-white/20" onClick={addBatchTier}>
+                        Add tier
+                      </button>
+                    </div>
+                    {(cfg.batchDiscountTiers || []).length === 0 && (
+                      <p className="text-xs text-slate-500">No batch discounts configured.</p>
+                    )}
+                    {(cfg.batchDiscountTiers || []).map((tier, index) => (
+                      <div key={`tier-${index}`} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                        <label className="text-xs text-slate-400">
+                          Min qty
+                          <input
+                            className="input mt-1"
+                            type="number"
+                            min={1}
+                            value={tier.minQty}
+                            disabled={saving}
+                            onChange={(e) => updateBatchTier(index, 'minQty', e.target.value)}
+                          />
+                        </label>
+                        <label className="text-xs text-slate-400">
+                          Discount %
+                          <input
+                            className="input mt-1"
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={0.5}
+                            value={tier.percent}
+                            disabled={saving}
+                            onChange={(e) => updateBatchTier(index, 'percent', e.target.value)}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="text-xs text-rose-300 hover:text-rose-200"
+                          onClick={() => removeBatchTier(index)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    {fieldHasError('batchDiscountTiers') && <p className="text-xs text-rose-300">{errors.batchDiscountTiers}</p>}
+                  </div>
+                </div>
 
                 <div>
                   <label className="block text-sm mb-1">Infill (%)</label>

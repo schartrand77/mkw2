@@ -213,6 +213,18 @@ export default async function AdminPage() {
         </CollapsibleCard>
       </div>
       <CollapsibleCard
+        title="Analytics & insight"
+        subtitle="Profitability, failure rates, and utilization trends"
+        bodyClassName="space-y-3 p-6"
+      >
+        <p className="text-sm text-slate-400">
+          Review estimated profitability per job, material mix, and utilization from recent orders.
+        </p>
+        <Link href="/admin/analytics" className="inline-flex text-xs text-brand-300 underline">
+          Open analytics dashboard
+        </Link>
+      </CollapsibleCard>
+      <CollapsibleCard
         title="Inventory"
         subtitle="Adjust filament levels & audit StockWorks movements"
         bodyClassName="space-y-3 p-6"

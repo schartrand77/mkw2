@@ -13,6 +13,7 @@ import { extractAmazonAsin, buildAmazonImageUrl } from '@/lib/amazon'
 import { commentInclude, findVerifiedCommentUserIds, serializeComment } from '@/lib/comments'
 import { computeStlStatsMm } from '@/lib/stl'
 import { updateModelPricingForModel } from '@/lib/model-pricing'
+import { computeModelIntelligence } from '@/lib/model-intelligence'
 import { processPendingImages } from '@/lib/image-queue'
 import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
 import { extract3mfFilamentColors } from '@/lib/model-preview-queue'
@@ -131,6 +132,33 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     }
     if (weightedVolume > 0) {
       supportRatio = weightedSupport / weightedVolume
+    }
+  }
+
+  if (model.printabilityScore == null || model.failureRiskScore == null || model.supportLikelihood == null) {
+    const intelligence = computeModelIntelligence({
+      sizeXmm: model.sizeXmm ?? null,
+      sizeYmm: model.sizeYmm ?? null,
+      sizeZmm: model.sizeZmm ?? null,
+      volumeMm3: model.volumeMm3 ?? null,
+      supportRatio: supportRatio ?? null,
+    })
+    if (intelligence) {
+      await prisma.model.update({
+        where: { id },
+        data: {
+          printabilityScore: intelligence.printabilityScore,
+          supportLikelihood: intelligence.supportLikelihood,
+          failureRiskScore: intelligence.failureRiskScore,
+          orientationSuggestion: intelligence.orientationSuggestion,
+          intelligenceUpdatedAt: new Date(),
+        },
+      })
+      ;(model as any).printabilityScore = intelligence.printabilityScore
+      ;(model as any).supportLikelihood = intelligence.supportLikelihood
+      ;(model as any).failureRiskScore = intelligence.failureRiskScore
+      ;(model as any).orientationSuggestion = intelligence.orientationSuggestion
+      ;(model as any).intelligenceUpdatedAt = new Date()
     }
   }
   const tags = model.modelTags.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug }))

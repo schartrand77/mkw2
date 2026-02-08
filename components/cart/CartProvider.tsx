@@ -26,6 +26,12 @@ export type CartOptions = {
   lockDimensions?: boolean
 }
 
+export type PricingAdjustments = {
+  demandSurgeMultiplier: number
+  rushMultiplier: number
+  batchDiscountTiers: Array<{ minQty: number; percent: number }>
+}
+
 export type CartItem = {
   modelId: string
   partId?: string | null
@@ -42,6 +48,7 @@ type CartCtx = {
   items: CartItem[]
   count: number
   maxColors: number
+  pricingAdjustments: PricingAdjustments
   add: (item: Omit<CartItem, 'options'>, opts?: Partial<CartOptions>) => void
   remove: (modelId: string, partId?: string | null) => void
   inc: (modelId: string, partId?: string | null) => void
@@ -130,6 +137,11 @@ export function useCart() {
 export default function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
   const [maxColors, setMaxColors] = useState<number>(MAX_CART_COLORS)
+  const [pricingAdjustments, setPricingAdjustments] = useState<PricingAdjustments>({
+    demandSurgeMultiplier: 1,
+    rushMultiplier: 1,
+    batchDiscountTiers: [],
+  })
 
   useEffect(() => {
     try {
@@ -158,6 +170,9 @@ export default function CartProvider({ children }: { children: React.ReactNode }
           materialPrices?: Record<string, number>
           colorSurchargeRate?: number
           finishSurcharges?: Record<string, number>
+          demandSurgeMultiplier?: number
+          rushMultiplier?: number
+          batchDiscountTiers?: Array<{ minQty: number; percent: number }>
         } | null
         if (!data || cancelled) return
         const parsed = Number(data.maxCartColors)
@@ -175,6 +190,11 @@ export default function CartProvider({ children }: { children: React.ReactNode }
         if (data.finishSurcharges) {
           setClientFinishSurcharges(data.finishSurcharges)
         }
+        setPricingAdjustments({
+          demandSurgeMultiplier: typeof data.demandSurgeMultiplier === 'number' ? data.demandSurgeMultiplier : 1,
+          rushMultiplier: typeof data.rushMultiplier === 'number' ? data.rushMultiplier : 1,
+          batchDiscountTiers: Array.isArray(data.batchDiscountTiers) ? data.batchDiscountTiers : [],
+        })
       } catch {}
     }
     loadConfig()
@@ -222,13 +242,14 @@ export default function CartProvider({ children }: { children: React.ReactNode }
     items,
     count: items.reduce((a, b) => a + (b.options.qty || 0), 0),
     maxColors,
+    pricingAdjustments,
     add,
     remove,
     inc,
     dec,
     update,
     clear,
-  }), [items, maxColors, add, remove, inc, dec, update, clear])
+  }), [items, maxColors, pricingAdjustments, add, remove, inc, dec, update, clear])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

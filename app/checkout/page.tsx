@@ -66,10 +66,25 @@ export default function CheckoutPage() {
   const [finalizingJob, setFinalizingJob] = useState(false)
   const [applePayAvailable, setApplePayAvailable] = useState(false)
   const [materialWarnings, setMaterialWarnings] = useState<StockworksWarningResponse | null>(null)
+  const [rush, setRush] = useState(false)
+  const [rushMultiplier, setRushMultiplier] = useState(1)
 
   useEffect(() => {
     setCheckoutItemsState(items)
   }, [items])
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('mwv2:cart:rush')
+      if (stored) setRush(stored === '1')
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mwv2:cart:rush', rush ? '1' : '0')
+    } catch {}
+  }, [rush])
 
   const checkoutItems = useMemo<CheckoutItemInput[]>(() => (
     checkoutItemsState.map((item) => {
@@ -171,8 +186,11 @@ export default function CheckoutPage() {
       try {
         const res = await fetch('/api/public-config', { cache: 'no-store' })
         if (!res.ok) return
-        const data = await res.json().catch(() => null) as { stripePublishableKey?: string } | null
+        const data = await res.json().catch(() => null) as { stripePublishableKey?: string; rushMultiplier?: number } | null
         const runtimeKey = data?.stripePublishableKey || ''
+        if (typeof data?.rushMultiplier === 'number') {
+          setRushMultiplier(data.rushMultiplier)
+        }
         if (cancelled || !runtimeKey || runtimeKey === publishableKey) return
         setPublishableKey(runtimeKey)
         setPaymentMethod((current) => (current === 'cash' ? 'card' : current))
@@ -239,6 +257,7 @@ export default function CheckoutPage() {
           items: checkoutItems,
           shipping: shippingSelection,
           paymentMethod,
+          rush,
           commit: false,
         }),
       })
@@ -253,7 +272,7 @@ export default function CheckoutPage() {
     } finally {
       setLoading(false)
     }
-  }, [checkoutItems, hasMissingColors, shippingSelection, shippingAddress, shippingMethod, paymentMethod])
+  }, [checkoutItems, hasMissingColors, shippingSelection, shippingAddress, shippingMethod, paymentMethod, rush])
 
   useEffect(() => {
     fetchIntent()
@@ -267,6 +286,7 @@ export default function CheckoutPage() {
         items: checkoutItems,
         shipping: shippingSelection,
         paymentMethod: method,
+        rush,
         commit: true,
         paymentIntentId,
       }),
@@ -276,7 +296,7 @@ export default function CheckoutPage() {
       throw new Error(body.error || 'Unable to finalize checkout.')
     }
     return res.json() as Promise<CheckoutIntentResponse>
-  }, [checkoutItems, shippingSelection])
+  }, [checkoutItems, shippingSelection, rush])
 
   const handleSuccess = useCallback(async (pi: PaymentIntent) => {
     setFinalizingJob(true)
@@ -535,6 +555,22 @@ export default function CheckoutPage() {
               Card details are handled securely by the payment processor.
             </p>
           )}
+        </div>
+        <div className="glass rounded-xl border border-white/10 p-4 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Production priority</h2>
+          </div>
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span>Rush production</span>
+            <input
+              type="checkbox"
+              checked={rush}
+              onChange={(e) => setRush(e.target.checked)}
+            />
+          </label>
+          <p className="text-xs text-slate-400">
+            Rush adds {Math.max(0, Math.round((rushMultiplier - 1) * 100))}% to prioritize your print in the queue.
+          </p>
         </div>
         {intent && (
           <OrderSummary

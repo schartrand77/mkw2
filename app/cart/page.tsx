@@ -21,6 +21,7 @@ import {
 } from '@/lib/cartPricing'
 import type { DiscountSummary } from '@/lib/discounts'
 import { getDiscountMultiplier } from '@/lib/discounts'
+import { applyPricingAdjustments, resolveBatchDiscountPercent } from '@/lib/estimate-adjustments'
 
 const LazyModelViewer = dynamic(() => import('@/components/ModelViewer'), { ssr: false })
 
@@ -164,8 +165,9 @@ const resolveSwatch = (value?: string | null) => {
 }
 
 export default function CartPage() {
-  const { items, inc, dec, update, remove, clear, maxColors } = useCart()
+  const { items, inc, dec, update, remove, clear, maxColors, pricingAdjustments } = useCart()
   const [discount, setDiscount] = useState<DiscountSummary | null>(null)
+  const [rush, setRush] = useState(false)
   const [activeColorSlot, setActiveColorSlot] = useState<{ id: string; modelId: string; partId: string | null; index: number } | null>(null)
   const [activeColorAnchor, setActiveColorAnchor] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
   const [paletteWidth, setPaletteWidth] = useState<number | null>(null)
@@ -182,6 +184,19 @@ export default function CartPage() {
   const paletteRef = useRef<HTMLDivElement | null>(null)
   const searchParams = useSearchParams()
   const previewParamRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('mwv2:cart:rush')
+      if (stored) setRush(stored === '1')
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mwv2:cart:rush', rush ? '1' : '0')
+    } catch {}
+  }, [rush])
 
   useEffect(() => {
     let active = true
@@ -517,7 +532,18 @@ export default function CartPage() {
     const colorMultiplier = getColorMultiplier(item.options.colors)
     const finishMultiplier = getFinishMultiplier(item.options.finish)
     const volumeMultiplier = getVolumeScaleMultiplier(item.options.scale, item.options.dimensionOverrides)
-    return base * volumeMultiplier * materialMultiplier * colorMultiplier * finishMultiplier
+    const rawUnit = base * volumeMultiplier * materialMultiplier * colorMultiplier * finishMultiplier
+    const qty = Math.max(1, item.options.qty || 1)
+    const batchDiscountPercent = resolveBatchDiscountPercent(qty, pricingAdjustments.batchDiscountTiers)
+    const adjusted = applyPricingAdjustments({
+      unitPrice: rawUnit,
+      qty,
+      rush,
+      demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
+      rushMultiplier: pricingAdjustments.rushMultiplier,
+      batchDiscountPercent,
+    })
+    return adjusted.adjustedUnitPrice
   }
 
   const subtotal = items.reduce((sum, item) => {
@@ -617,9 +643,11 @@ export default function CartPage() {
             {items.map((item) => {
               const itemKey = `${item.modelId}-${item.partId || 'whole'}`
               const qty = Math.max(1, item.options.qty || 1)
-              const baseTotal = itemUnitPrice(item) * qty
+              const unit = itemUnitPrice(item)
+              const baseTotal = unit * qty
               const discountedTotal = baseTotal * discountMultiplier
               const lineSavings = Math.max(0, baseTotal - discountedTotal)
+              const batchDiscountPercent = resolveBatchDiscountPercent(qty, pricingAdjustments.batchDiscountTiers)
               const locked = item.options.lockDimensions !== false
               const getAxisScale = (axis: (typeof DIMENSION_AXES)[number]) => resolveAxisScale(item.options.scale, locked ? null : item.options.dimensionOverrides, axis)
               const getAxisSize = (axis: (typeof DIMENSION_AXES)[number]) => {
@@ -956,10 +984,19 @@ export default function CartPage() {
                     ) : (
                       <div className="text-xs text-slate-500">Size metadata missing — add model dimensions to enable dimension controls.</div>
                     )}
-                    <div className="text-xs text-emerald-300">
-                      Est. item total: {formatCurrency(discountedTotal)}
-                      {totalDiscountPercent > 0 && lineSavings > 0.01 && (
-                        <span className="ml-2 text-emerald-200">(-{formatCurrency(lineSavings)} with discount)</span>
+                    <div className="text-xs text-emerald-300 space-y-1">
+                      <div>
+                        Est. item total: {formatCurrency(discountedTotal)}
+                        {totalDiscountPercent > 0 && lineSavings > 0.01 && (
+                          <span className="ml-2 text-emerald-200">(-{formatCurrency(lineSavings)} with discount)</span>
+                        )}
+                      </div>
+                      {(rush || pricingAdjustments.demandSurgeMultiplier > 1 || batchDiscountPercent > 0) && (
+                        <div className="text-[11px] text-slate-400">
+                          {rush ? 'Rush pricing applied.' : 'Standard timing.'}{' '}
+                          {pricingAdjustments.demandSurgeMultiplier > 1 ? `Demand surge x${pricingAdjustments.demandSurgeMultiplier.toFixed(2)}.` : ''}
+                          {batchDiscountPercent > 0 ? ` Batch discount ${batchDiscountPercent}% included.` : ''}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -973,6 +1010,19 @@ export default function CartPage() {
             </button>
             <div className="flex items-center gap-3">
               <div className="text-right">
+                <div className="mb-2 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-slate-300">
+                  <label className="flex items-center justify-between gap-2">
+                    <span className="text-slate-400">Rush production</span>
+                    <input
+                      type="checkbox"
+                      checked={rush}
+                      onChange={(e) => setRush(e.target.checked)}
+                    />
+                  </label>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    Adds {Math.max(0, Math.round((pricingAdjustments.rushMultiplier - 1) * 100))}% to prioritize print time.
+                  </div>
+                </div>
                 <div className="text-slate-400 text-sm">Estimated subtotal</div>
                 {totalDiscountPercent > 0 && (
                   <>

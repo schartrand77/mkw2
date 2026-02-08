@@ -13,6 +13,7 @@ import { summarizeDiscount, getDiscountMultiplier } from '@/lib/discounts'
 import { recordCustomerOrder } from '@/lib/orders'
 import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
+import { applyPricingAdjustments, getPricingAdjustmentConfig, resolveBatchDiscountPercent } from '@/lib/estimate-adjustments'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,6 +57,7 @@ const payloadSchema = z.object({
   items: z.array(itemSchema).min(1),
   shipping: shippingSchema,
   paymentMethod: z.enum(['card', 'cash']).default('card'),
+  rush: z.boolean().optional(),
   commit: z.boolean().optional(),
   paymentIntentId: z.string().max(200).optional(),
 })
@@ -105,6 +107,7 @@ export async function POST(req: NextRequest) {
     const commit = Boolean(parsed.data.commit)
     const isCash = paymentMethod === 'cash'
     const providedPaymentIntentId = (parsed.data.paymentIntentId || '').trim()
+    const rush = Boolean(parsed.data.rush)
 
     const items = parsed.data.items
     const shipping = parsed.data.shipping as ShippingSelection | undefined
@@ -190,6 +193,7 @@ export async function POST(req: NextRequest) {
       : null
     const discountSummary = summarizeDiscount(userForCheckout)
     const discountMultiplier = getDiscountMultiplier(discountSummary)
+    const pricingAdjustments = getPricingAdjustmentConfig(cfg || undefined)
 
     const publicBaseUrl = resolvePublicBaseUrl(req)
     const checkoutId = randomUUID()
@@ -274,9 +278,18 @@ export async function POST(req: NextRequest) {
       const volumeMultiplier = scaleX * scaleY * scaleZ
       const colorMultiplier = getColorMultiplier(colors)
       const rawUnitPrice = Number((basePrice * volumeMultiplier * colorMultiplier).toFixed(2))
-      const unitPrice = Number((rawUnitPrice * discountMultiplier).toFixed(2))
+      const batchDiscountPercent = resolveBatchDiscountPercent(entry.qty || 1, pricingAdjustments.batchDiscountTiers)
+      const adjusted = applyPricingAdjustments({
+        unitPrice: rawUnitPrice,
+        qty: entry.qty || 1,
+        rush,
+        demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
+        rushMultiplier: pricingAdjustments.rushMultiplier,
+        batchDiscountPercent,
+      })
+      const unitPrice = Number((adjusted.adjustedUnitPrice * discountMultiplier).toFixed(2))
       const qty = entry.qty || 1
-      const undiscountedLineTotal = Number((rawUnitPrice * qty).toFixed(2))
+      const undiscountedLineTotal = Number((adjusted.adjustedUnitPrice * qty).toFixed(2))
       const lineTotal = Number((unitPrice * qty).toFixed(2))
       const storagePath = normalizeStoragePath(
         part?.filePath ||
@@ -315,6 +328,10 @@ export async function POST(req: NextRequest) {
           discountMultiplier,
           rawUnitPrice,
           unitPrice,
+          batchDiscountPercent,
+          rush,
+          demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
+          rushMultiplier: pricingAdjustments.rushMultiplier,
         },
       }
     })
@@ -433,6 +450,9 @@ export async function POST(req: NextRequest) {
             cartItems: items,
             shipping,
             paymentMethod,
+            rush,
+            demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
+            rushMultiplier: pricingAdjustments.rushMultiplier,
           },
           paymentMethod,
           paymentStatus: finalizedPaymentStatus || (paymentMethod === 'cash' ? 'pending' : null),
@@ -464,6 +484,9 @@ export async function POST(req: NextRequest) {
             cartItems: items,
             shipping,
             paymentMethod,
+            rush,
+            demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
+            rushMultiplier: pricingAdjustments.rushMultiplier,
           },
         })
       } catch (err) {

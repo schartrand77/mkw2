@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { getColorMultiplier, normalizeColors, normalizeMaterialName, resolveScaleFromDimensions } from '@/lib/cartPricing'
 import { estimatePricingDetails } from '@/lib/pricing'
+import { applyPricingAdjustments, getPricingAdjustmentConfig, resolveBatchDiscountPercent } from '@/lib/estimate-adjustments'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,8 @@ const bodySchema = z.object({
   colors: z.array(z.string().max(64)).optional(),
   finish: z.string().max(40).optional(),
   infillPct: z.number().int().min(0).max(100).optional().nullable(),
+  qty: z.number().int().min(1).max(50).optional(),
+  rush: z.boolean().optional(),
   scale: z.number().positive().max(5).optional(),
   scaleX: z.number().positive().max(5).optional(),
   scaleY: z.number().positive().max(5).optional(),
@@ -110,6 +113,8 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
   const colors = normalizeColors(parsed.data.colors)
   const finish = parsed.data.finish ? String(parsed.data.finish) : null
   const infillPct = parsed.data.infillPct ?? null
+  const qty = parsed.data.qty ?? 1
+  const rush = Boolean(parsed.data.rush)
 
   const { scaleX, scaleY, scaleZ, uniformScale } = resolveScaleFromDimensions({
     size: { x: model.sizeXmm ?? null, y: model.sizeYmm ?? null, z: model.sizeZmm ?? null },
@@ -133,7 +138,7 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
     applyMinimum: true,
   })
   const colorMultiplier = getColorMultiplier(colors)
-  let priceUsd = Number((pricing.price * colorMultiplier).toFixed(2))
+  let basePrice = Number((pricing.price * colorMultiplier).toFixed(2))
 
   if (model.salePriceUsd != null && Number.isFinite(Number(model.salePriceUsd)) && Number(model.salePriceUsd) > 0) {
     const baseMaterial = normalizeMaterialName(model.material || 'PLA')
@@ -148,11 +153,23 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
       applyMinimum: true,
     })
     if (basePricing.price > 0) {
-      priceUsd = Number(((pricing.price * colorMultiplier * Number(model.salePriceUsd)) / basePricing.price).toFixed(2))
+      basePrice = Number(((pricing.price * colorMultiplier * Number(model.salePriceUsd)) / basePricing.price).toFixed(2))
     } else {
-      priceUsd = Number(model.salePriceUsd)
+      basePrice = Number(model.salePriceUsd)
     }
   }
+
+  const adjustments = getPricingAdjustmentConfig(cfg || undefined)
+  const batchDiscountPercent = resolveBatchDiscountPercent(qty, adjustments.batchDiscountTiers)
+  const adjusted = applyPricingAdjustments({
+    unitPrice: basePrice,
+    qty,
+    rush,
+    demandSurgeMultiplier: adjustments.demandSurgeMultiplier,
+    rushMultiplier: adjustments.rushMultiplier,
+    batchDiscountPercent,
+  })
+  const priceUsd = adjusted.adjustedUnitPrice
 
   const targetDimensions = (() => {
     const dims: Record<string, number> = {}
@@ -183,6 +200,12 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
       priceUsd,
       leadTimeHours: pricing.hours,
       pricing,
+      adjustments: {
+        batchDiscountPercent,
+        rush,
+        demandSurgeMultiplier: adjustments.demandSurgeMultiplier,
+        rushMultiplier: adjustments.rushMultiplier,
+      },
     },
   })
 }

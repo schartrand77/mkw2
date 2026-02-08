@@ -67,6 +67,11 @@ model Model {
   visibility     String   @default("public")
   downloads      Int      @default(0)
   likes          Int      @default(0)
+  printabilityScore Float?
+  supportLikelihood Float?
+  failureRiskScore Float?
+  orientationSuggestion String?
+  intelligenceUpdatedAt DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   affiliateTitle String?
@@ -250,6 +255,9 @@ model SiteConfig {
   fillFactor               Float?
   printerProfileKey        String?
   printerProfileOverrides  Json?
+  demandSurgeMultiplier    Float?
+  rushMultiplier           Float?
+  batchDiscountTiers       Json?
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 }

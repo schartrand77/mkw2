@@ -1,6 +1,6 @@
 # MakerWorks Feature Roadmap (By Phase)
 
-Last updated: 2026-02-07
+Last updated: 2026-02-08
 
 ## Phase 1 - Operational Core (Stability + Daily Use)
 
@@ -61,27 +61,28 @@ Ship when: You're clicking half as much per job.
 ## Phase 3 - Intelligence & Insight
 
 Goal: Stop guessing. Start knowing.
+Status: Complete (2026-02-08)
 
 Analytics
-- [ ] Profit per job
-- [ ] Profit per printer hour
-- [ ] Failure rate per model/material
-- [ ] Revenue per filament type
-- [ ] Utilization charts
+- [x] Profit per job
+- [x] Profit per printer hour
+- [x] Failure rate per model/material
+- [x] Revenue per filament type
+- [x] Utilization charts
 
 Model Intelligence
-- [ ] Mesh analysis on upload
-- [ ] Printability score
-- [ ] Support likelihood detection
-- [ ] Orientation suggestions
-- [ ] Estimated failure risk score
+- [x] Mesh analysis on upload
+- [x] Printability score
+- [x] Support likelihood detection
+- [x] Orientation suggestions
+- [x] Estimated failure risk score
 
 Estimate Engine v2
-- [ ] G-code parser import
-- [ ] Multi-material breakdown
-- [ ] Batch discounts
-- [ ] Rush pricing toggle
-- [ ] Demand surge multiplier
+- [x] G-code parser import
+- [x] Multi-material breakdown
+- [x] Batch discounts
+- [x] Rush pricing toggle
+- [x] Demand surge multiplier
 
 Ship when: You can answer "is this job worth it?" instantly.
 

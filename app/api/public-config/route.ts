@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getMaxCartColors } from '@/lib/cartPricing'
+import { getPricingAdjustmentConfig } from '@/lib/estimate-adjustments'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -36,6 +37,9 @@ export async function GET() {
       nylonPricePerKgUsd: true,
       pcPricePerKgUsd: true,
       resinPricePerKgUsd: true,
+      demandSurgeMultiplier: true,
+      rushMultiplier: true,
+      batchDiscountTiers: true,
     },
   })
   const materialPrices: Record<string, number> = {}
@@ -55,12 +59,16 @@ export async function GET() {
       || process.env.NEXT_PUBLIC_FINISH_SURCHARGE_MAP
       || null,
   )
+  const adjustments = getPricingAdjustmentConfig(cfg || undefined)
   const res = NextResponse.json({
     stripePublishableKey,
     maxCartColors,
     materialPrices: Object.keys(materialPrices).length ? materialPrices : null,
     colorSurchargeRate,
     finishSurcharges,
+    demandSurgeMultiplier: adjustments.demandSurgeMultiplier,
+    rushMultiplier: adjustments.rushMultiplier,
+    batchDiscountTiers: adjustments.batchDiscountTiers,
   })
   res.headers.set('Cache-Control', 'no-store, max-age=0')
   return res

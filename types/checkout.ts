@@ -72,6 +72,10 @@ export type CheckoutLineItem = {
     discountMultiplier: number
     rawUnitPrice: number
     unitPrice: number
+    batchDiscountPercent?: number
+    rush?: boolean
+    demandSurgeMultiplier?: number
+    rushMultiplier?: number
   } | null
 }
 

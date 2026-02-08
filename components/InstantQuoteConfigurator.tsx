@@ -26,6 +26,24 @@ type QuoteResponse = {
   }
 }
 
+type GcodeEstimate = {
+  estimate: {
+    material: string
+    cm3: number
+    estimatedSeconds: number | null
+    filamentMm: number | null
+    filamentGrams: number | null
+    materialBreakdown: Array<{ material: string; filamentMm: number }> | null
+    priceUsd: number
+    adjustments?: {
+      batchDiscountPercent?: number
+      rush?: boolean
+      demandSurgeMultiplier?: number
+      rushMultiplier?: number
+    }
+  }
+}
+
 type Props = {
   modelId: string
   title: string
@@ -180,6 +198,7 @@ export default function InstantQuoteConfigurator({
   const [finish, setFinish] = useState<string>('standard')
   const [infillPct, setInfillPct] = useState<number>(20)
   const [scale, setScale] = useState<number>(1)
+  const [rush, setRush] = useState(false)
   const [lockDimensions, setLockDimensions] = useState(true)
   const [dimensionOverrides, setDimensionOverrides] = useState<ScaleOverrides | null>(null)
   const [dimensionInputs, setDimensionInputs] = useState<Record<DimensionAxis, string>>({ x: '', y: '', z: '' })
@@ -187,6 +206,9 @@ export default function InstantQuoteConfigurator({
   const [quote, setQuote] = useState<QuoteResponse['quote'] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [gcodeEstimate, setGcodeEstimate] = useState<GcodeEstimate['estimate'] | null>(null)
+  const [gcodeError, setGcodeError] = useState<string | null>(null)
+  const [gcodeLoading, setGcodeLoading] = useState(false)
   const [activeColorSlot, setActiveColorSlot] = useState<number | null>(null)
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
   const paletteRef = useRef<HTMLDivElement | null>(null)
@@ -369,6 +391,7 @@ export default function InstantQuoteConfigurator({
             colors: normalizedColors,
             finish,
             infillPct,
+            rush,
             scale,
             scaleX: axisScale.x,
             scaleY: axisScale.y,
@@ -397,7 +420,7 @@ export default function InstantQuoteConfigurator({
     }
     run()
     return () => { active = false }
-  }, [modelId, materialChoice, normalizedColors, finish, infillPct, scale, axisScale, targetDimensions])
+  }, [modelId, materialChoice, normalizedColors, finish, infillPct, rush, scale, axisScale, targetDimensions])
 
   useEffect(() => {
     let active = true
@@ -481,6 +504,29 @@ export default function InstantQuoteConfigurator({
     )
   }, [add, hasRequiredColor, modelId, title, priceUsd, quote?.priceUsd, thumbnail, sizeXmm, sizeYmm, sizeZmm, scale, materialChoice, normalizedColors, finish, infillPct, lockDimensions, dimensionOverrides, parts])
 
+  const uploadGcode = async (file: File) => {
+    setGcodeLoading(true)
+    setGcodeError(null)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('material', materialChoice)
+      form.append('qty', '1')
+      form.append('rush', rush ? 'true' : 'false')
+      const res = await fetch('/api/estimate/gcode', { method: 'POST', body: form })
+      const data = await res.json().catch(() => null) as GcodeEstimate | null
+      if (!res.ok || !data?.estimate) {
+        throw new Error((data as any)?.error || 'Unable to parse G-code.')
+      }
+      setGcodeEstimate(data.estimate)
+    } catch (err: any) {
+      setGcodeError(err?.message || 'Unable to parse G-code.')
+      setGcodeEstimate(null)
+    } finally {
+      setGcodeLoading(false)
+    }
+  }
+
   const activeSlotValue = activeColorSlot != null ? colors[activeColorSlot] || '' : ''
   const activeSlotParsed = parseColorString(activeSlotValue)
   const activeSlotSwatch = resolveSwatch(activeSlotValue)
@@ -551,6 +597,16 @@ export default function InstantQuoteConfigurator({
             value={scale.toFixed(2)}
             onChange={(e) => setScale(clampScale(Number(e.target.value)))}
           />
+        </label>
+        <label className="text-sm space-y-1">
+          <span className="text-slate-400">Rush pricing</span>
+          <button
+            type="button"
+            className={`input text-left ${rush ? 'border-amber-400/60 text-amber-200' : ''}`}
+            onClick={() => setRush((prev) => !prev)}
+          >
+            {rush ? 'Enabled' : 'Standard'}
+          </button>
         </label>
       </div>
       {hasDimensions && (
@@ -663,7 +719,9 @@ export default function InstantQuoteConfigurator({
         <div>
           <div className="text-slate-400 text-xs">Estimated price</div>
           <div className="text-lg font-semibold">
-            {quote ? formatCurrency(quote.priceUsd) : (priceUsd ? formatCurrency(priceUsd) : '...')}
+            {gcodeEstimate
+              ? formatCurrency(gcodeEstimate.priceUsd)
+              : (quote ? formatCurrency(quote.priceUsd) : (priceUsd ? formatCurrency(priceUsd) : '...'))}
           </div>
           <div className="text-xs text-slate-400">
             Lead time: {quote ? `${quote.leadTimeHours.toFixed(1)} hrs` : '...'}
@@ -674,6 +732,47 @@ export default function InstantQuoteConfigurator({
             ? `Size: ${DIMENSION_AXES.map((axis) => targetDimensions?.[axis]).filter(Boolean).join(' x ')} mm`
             : 'Size pending'}
         </div>
+      </div>
+      <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-slate-300 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">G-code import</p>
+            <p className="text-slate-400">Drop a slicer-exported G-code for a tighter estimate.</p>
+          </div>
+          {gcodeEstimate && (
+            <button
+              type="button"
+              className="px-2 py-1 rounded border border-white/10 hover:border-white/20 text-[11px]"
+              onClick={() => setGcodeEstimate(null)}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <input
+          type="file"
+          accept=".gcode,.gc,.gco,.ngc,.txt"
+          className="block w-full text-xs"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) uploadGcode(file)
+          }}
+        />
+        {gcodeLoading && <div className="text-slate-400">Parsing G-code...</div>}
+        {gcodeError && <div className="text-amber-300">{gcodeError}</div>}
+        {gcodeEstimate && (
+          <div className="text-slate-400 space-y-1">
+            <div>Estimated material: {gcodeEstimate.filamentMm ? `${Math.round(gcodeEstimate.filamentMm)} mm` : 'Unknown'}</div>
+            {gcodeEstimate.estimatedSeconds != null && (
+              <div>Estimated time: {(gcodeEstimate.estimatedSeconds / 3600).toFixed(2)} hrs</div>
+            )}
+            {gcodeEstimate.materialBreakdown && gcodeEstimate.materialBreakdown.length > 0 && (
+              <div>
+                Materials: {gcodeEstimate.materialBreakdown.map((row) => `${row.material} ${Math.round(row.filamentMm)}mm`).join(', ')}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       {activeColorSlot != null && (
         <div className="fixed inset-0 z-50">
