@@ -89,24 +89,25 @@ Ship when: You can answer "is this job worth it?" instantly.
 ## Phase 4 - Storefront Power
 
 Goal: Turn MakerWorks into a real customer-facing platform.
+Status: Complete (2026-02-08)
 
 Product Builder
-- [ ] Configurable products
-- [ ] Material/color/size options
-- [ ] Live price preview
-- [ ] Saved product templates
+- [x] Configurable products
+- [x] Material/color/size options
+- [x] Live price preview
+- [x] Saved product templates
 
 Customer Portal
-- [ ] Upload model -> instant estimate
-- [ ] Order tracking page
-- [ ] Approval checkpoints
-- [ ] Saved presets
+- [x] Upload model -> instant estimate
+- [x] Order tracking page
+- [x] Approval checkpoints
+- [x] Saved presets
 
 Commerce Features
-- [ ] Bulk pricing tiers
-- [ ] Minimum order rules
-- [ ] Quote approval flow
-- [ ] Invoice + PO mode
+- [x] Bulk pricing tiers
+- [x] Minimum order rules
+- [x] Quote approval flow
+- [x] Invoice + PO mode
 
 Ship when: Customers can self-serve without emailing you 19 times.
 

@@ -11,6 +11,7 @@ import { useCart } from '@/components/cart/CartProvider'
 import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, CheckoutPaymentMethod, Dimensions } from '@/types/checkout'
 import type { Appearance, PaymentIntent } from '@stripe/stripe-js'
 import { DIMENSION_AXES, normalizeColors, resolveAxisScale, normalizeMaterialName } from '@/lib/cartPricing'
+import { formatCurrency } from '@/lib/currency'
 import { BRAND_LAB_NAME } from '@/lib/brand'
 
 type ProfileResponse = {
@@ -49,7 +50,7 @@ type StockworksWarningResponse = {
 }
 
 export default function CheckoutPage() {
-  const { items, clear } = useCart()
+  const { items, clear, minimumOrder } = useCart()
   const [publishableKey, setPublishableKey] = useState<string>('')
   const stripePromise = useMemo(() => (publishableKey ? loadStripe(publishableKey) : null), [publishableKey])
   const cardPaymentAvailable = Boolean(stripePromise)
@@ -68,6 +69,24 @@ export default function CheckoutPage() {
   const [materialWarnings, setMaterialWarnings] = useState<StockworksWarningResponse | null>(null)
   const [rush, setRush] = useState(false)
   const [rushMultiplier, setRushMultiplier] = useState(1)
+  const [paymentDetails, setPaymentDetails] = useState({
+    purchaseOrderNumber: '',
+    billingEmail: '',
+    billingContact: '',
+    notes: '',
+  })
+  const normalizedPaymentDetails = useMemo(() => {
+    const details: Record<string, string> = {}
+    const purchaseOrderNumber = paymentDetails.purchaseOrderNumber.trim()
+    const billingEmail = paymentDetails.billingEmail.trim()
+    const billingContact = paymentDetails.billingContact.trim()
+    const notes = paymentDetails.notes.trim()
+    if (purchaseOrderNumber) details.purchaseOrderNumber = purchaseOrderNumber
+    if (billingEmail) details.billingEmail = billingEmail
+    if (billingContact) details.billingContact = billingContact
+    if (notes) details.notes = notes
+    return Object.keys(details).length ? details : undefined
+  }, [paymentDetails])
 
   useEffect(() => {
     setCheckoutItemsState(items)
@@ -119,6 +138,7 @@ export default function CheckoutPage() {
         customText: item.options.customText || null,
         lockDimensions: locked,
         targetDimensions,
+        priceMultiplier: item.options.priceMultiplier ?? null,
       }
     })
   ), [checkoutItemsState])
@@ -176,9 +196,9 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (shippingMethod === 'ship' && paymentMethod === 'cash') {
-      setPaymentMethod('card')
+      setPaymentMethod(cardPaymentAvailable ? 'card' : 'invoice')
     }
-  }, [shippingMethod, paymentMethod])
+  }, [shippingMethod, paymentMethod, cardPaymentAvailable])
 
   useEffect(() => {
     let cancelled = false
@@ -258,6 +278,7 @@ export default function CheckoutPage() {
           shipping: shippingSelection,
           paymentMethod,
           rush,
+          paymentDetails: normalizedPaymentDetails,
           commit: false,
         }),
       })
@@ -272,7 +293,7 @@ export default function CheckoutPage() {
     } finally {
       setLoading(false)
     }
-  }, [checkoutItems, hasMissingColors, shippingSelection, shippingAddress, shippingMethod, paymentMethod, rush])
+  }, [checkoutItems, hasMissingColors, shippingSelection, shippingAddress, shippingMethod, paymentMethod, rush, normalizedPaymentDetails])
 
   useEffect(() => {
     fetchIntent()
@@ -287,6 +308,7 @@ export default function CheckoutPage() {
         shipping: shippingSelection,
         paymentMethod: method,
         rush,
+        paymentDetails: normalizedPaymentDetails,
         commit: true,
         paymentIntentId,
       }),
@@ -296,7 +318,7 @@ export default function CheckoutPage() {
       throw new Error(body.error || 'Unable to finalize checkout.')
     }
     return res.json() as Promise<CheckoutIntentResponse>
-  }, [checkoutItems, shippingSelection, rush])
+  }, [checkoutItems, shippingSelection, rush, normalizedPaymentDetails])
 
   const handleSuccess = useCallback(async (pi: PaymentIntent) => {
     setFinalizingJob(true)
@@ -322,26 +344,33 @@ export default function CheckoutPage() {
     }
   }, [clear, finalizeJob])
 
-  const handleCashConfirm = async () => {
-    if (!checkoutItems.length || paymentMethod !== 'cash') return
+  const handleDeferredConfirm = async () => {
+    if (!checkoutItems.length || paymentMethod === 'card') return
     setCashProcessing(true)
     setFinalizingJob(true)
     setError(null)
     try {
-      const data = await finalizeJob({ method: 'cash' })
+      const data = await finalizeJob({ method: paymentMethod })
       setCashConfirmationId(data.paymentIntentId)
       setSuccessIntent(null)
       setIntent(null)
       clear()
+      const label = paymentMethod === 'cash'
+        ? 'Cash order placed'
+        : paymentMethod === 'invoice'
+          ? 'Invoice request sent'
+          : paymentMethod === 'po'
+            ? 'PO request sent'
+            : 'Quote request sent'
       pushSessionNotification({
         type: 'success',
-        title: 'Cash order placed',
+        title: label,
         message: `Confirmation: ${data.paymentIntentId}`,
       })
     } catch (err: any) {
-      const msg = err.message || 'Unable to place cash order.'
+      const msg = err.message || 'Unable to submit order.'
       setError(msg)
-      pushSessionNotification({ type: 'error', title: 'Cash order failed', message: msg })
+      pushSessionNotification({ type: 'error', title: 'Order failed', message: msg })
     } finally {
       setCashProcessing(false)
       setFinalizingJob(false)
@@ -358,12 +387,28 @@ export default function CheckoutPage() {
     },
   }), [])
 
+  const isInvoicePayment = paymentMethod === 'invoice'
+  const isPoPayment = paymentMethod === 'po'
+  const isQuotePayment = paymentMethod === 'quote'
+  const isDeferredPayment = paymentMethod !== 'card'
   const trustBadgeProviders = paymentMethod === 'card' && cardPaymentAvailable
     ? (applePayAvailable ? ['Stripe', 'Apple Pay'] : ['Stripe'])
     : []
   const trustBadgeNote = paymentMethod === 'cash'
     ? 'No card details are required for cash orders.'
-    : 'Card details are encrypted and handled by the payment processor.'
+    : paymentMethod === 'invoice'
+      ? 'We will invoice you before production begins.'
+      : paymentMethod === 'po'
+        ? 'Provide a PO and we will confirm before printing.'
+        : paymentMethod === 'quote'
+          ? 'Submit a quote request and approve it before production.'
+          : 'Card details are encrypted and handled by the payment processor.'
+  const intentSubtotal = intent?.lineItems?.reduce((sum, item) => sum + (item.lineTotal || 0), 0) ?? null
+  const minimumOrderSubtotal = typeof minimumOrder.subtotal === 'number' && Number.isFinite(minimumOrder.subtotal)
+    ? minimumOrder.subtotal
+    : null
+  const meetsMinimumOrder = !minimumOrderSubtotal || (intentSubtotal != null && intentSubtotal >= minimumOrderSubtotal)
+  const disableFinalize = hasMissingColors || !meetsMinimumOrder
 
   if (!checkoutItemsState.length && !successIntent && !cashConfirmationId) {
     return (
@@ -543,6 +588,36 @@ export default function CheckoutPage() {
               />
               Pay cash at pickup
             </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="payment"
+                value="invoice"
+                checked={paymentMethod === 'invoice'}
+                onChange={() => setPaymentMethod('invoice')}
+              />
+              Invoice me
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="payment"
+                value="po"
+                checked={paymentMethod === 'po'}
+                onChange={() => setPaymentMethod('po')}
+              />
+              Purchase order (PO)
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="payment"
+                value="quote"
+                checked={paymentMethod === 'quote'}
+                onChange={() => setPaymentMethod('quote')}
+              />
+              Request quote approval
+            </label>
           </div>
           {shippingMethod !== 'pickup' && (
             <p className="text-xs text-slate-400">Switch to local pickup to enable cash payments.</p>
@@ -554,6 +629,47 @@ export default function CheckoutPage() {
             <p className="text-xs text-slate-400">
               Card details are handled securely by the payment processor.
             </p>
+          )}
+          {isDeferredPayment && (
+            <div className="mt-3 rounded-lg border border-white/10 bg-black/30 p-3 space-y-2 text-xs text-slate-300">
+              {(isInvoicePayment || isPoPayment) && (
+                <>
+                  <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Billing details</div>
+                  <input
+                    className="input text-xs"
+                    placeholder="Billing contact name"
+                    value={paymentDetails.billingContact}
+                    onChange={(e) => setPaymentDetails((prev) => ({ ...prev, billingContact: e.target.value }))}
+                  />
+                  <input
+                    className="input text-xs"
+                    placeholder="Billing email"
+                    type="email"
+                    value={paymentDetails.billingEmail}
+                    onChange={(e) => setPaymentDetails((prev) => ({ ...prev, billingEmail: e.target.value }))}
+                  />
+                </>
+              )}
+              {isPoPayment && (
+                <input
+                  className="input text-xs"
+                  placeholder="PO number"
+                  value={paymentDetails.purchaseOrderNumber}
+                  onChange={(e) => setPaymentDetails((prev) => ({ ...prev, purchaseOrderNumber: e.target.value }))}
+                />
+              )}
+              {isQuotePayment && (
+                <>
+                  <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Quote notes</div>
+                  <textarea
+                    className="input text-xs min-h-[80px]"
+                    placeholder="Share any deadlines or requirements."
+                    value={paymentDetails.notes}
+                    onChange={(e) => setPaymentDetails((prev) => ({ ...prev, notes: e.target.value }))}
+                  />
+                </>
+              )}
+            </div>
           )}
         </div>
         <div className="glass rounded-xl border border-white/10 p-4 space-y-2">
@@ -585,16 +701,30 @@ export default function CheckoutPage() {
           <p className="text-sm text-slate-400">
             {finalizingJob
               ? 'Wrapping up your order...'
-              : paymentMethod === 'cash'
-                ? 'Calculating total...'
-                : 'Preparing secure payment...'}
+              : paymentMethod === 'card'
+                ? 'Preparing secure payment...'
+                : 'Preparing order...'}
           </p>
         )}
         {error && <p className="text-sm text-amber-300">{error}</p>}
+        {!meetsMinimumOrder && minimumOrderSubtotal && (
+          <p className="text-sm text-amber-300">
+            Minimum order subtotal is {formatCurrency(minimumOrderSubtotal)}.
+            {minimumOrder.notes ? ` ${minimumOrder.notes}` : ''}
+          </p>
+        )}
         {(successIntent || cashConfirmationId) && (
           <div className="glass rounded-xl border border-emerald-500/30 p-4 text-sm">
             <p className="font-semibold text-emerald-300">
-              {successIntent ? 'Payment received!' : 'Cash order placed!'}
+              {successIntent
+                ? 'Payment received!'
+                : paymentMethod === 'cash'
+                  ? 'Cash order placed!'
+                  : paymentMethod === 'invoice'
+                    ? 'Invoice request sent!'
+                    : paymentMethod === 'po'
+                      ? 'PO request sent!'
+                      : 'Quote request sent!'}
             </p>
             <p>Confirmation: {successIntent ? successIntent.id : cashConfirmationId}</p>
           </div>
@@ -608,25 +738,52 @@ export default function CheckoutPage() {
         {!intent && !loading && !successIntent && !cashConfirmationId && (
           <p className="text-sm text-slate-400">Add items to your cart to start checkout.</p>
         )}
-        {paymentMethod === 'card' && intent?.clientSecret && stripePromise && !successIntent && (
+        {paymentMethod === 'card' && intent?.clientSecret && stripePromise && !successIntent && meetsMinimumOrder && (
           <Elements stripe={stripePromise} options={{ clientSecret: intent.clientSecret, appearance }}>
             <CheckoutForm amount={intent.amount} currency={intent.currency} clientSecret={intent.clientSecret} onSuccess={handleSuccess} />
           </Elements>
         )}
+        {paymentMethod === 'card' && !meetsMinimumOrder && (
+          <p className="text-sm text-amber-300">
+            Minimum order subtotal is {formatCurrency(minimumOrderSubtotal || 0)}.
+          </p>
+        )}
         {paymentMethod === 'card' && (!stripePromise || !cardPaymentAvailable) && (
           <p className="text-sm text-amber-300">Stripe publishable key is not configured. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to enable card payments.</p>
         )}
-        {paymentMethod === 'cash' && intent && !cashConfirmationId && (
+        {paymentMethod !== 'card' && intent && !cashConfirmationId && (
           <div className="space-y-3 text-sm text-slate-300">
-            <p>Bring exact cash to {BRAND_LAB_NAME} when you pick up your order. We will email you once printing is complete.</p>
+            <p>
+              {paymentMethod === 'cash'
+                ? `Bring exact cash to ${BRAND_LAB_NAME} when you pick up your order.`
+                : paymentMethod === 'invoice'
+                  ? 'We will review your request and send an invoice before production.'
+                  : paymentMethod === 'po'
+                    ? 'We will review the PO details and confirm before production.'
+                    : 'Submit your quote request and approve it before production.'}
+            </p>
             <button
               type="button"
-              onClick={handleCashConfirm}
-              disabled={cashProcessing || finalizingJob}
+              onClick={handleDeferredConfirm}
+              disabled={cashProcessing || finalizingJob || disableFinalize}
               className="btn w-full justify-center disabled:opacity-60"
             >
-              {cashProcessing ? 'Placing order...' : 'Confirm cash order'}
+              {cashProcessing
+                ? 'Submitting...'
+                : paymentMethod === 'cash'
+                  ? 'Confirm cash order'
+                  : paymentMethod === 'invoice'
+                    ? 'Submit invoice request'
+                    : paymentMethod === 'po'
+                      ? 'Submit PO request'
+                      : 'Request quote'}
             </button>
+            {!meetsMinimumOrder && minimumOrderSubtotal && (
+              <p className="text-xs text-amber-300">
+                Minimum order subtotal is {formatCurrency(minimumOrderSubtotal)}.
+                {minimumOrder.notes ? ` ${minimumOrder.notes}` : ''}
+              </p>
+            )}
           </div>
         )}
         {(successIntent || cashConfirmationId) && (

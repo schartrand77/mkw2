@@ -116,6 +116,18 @@ type ModelPreviewEntry = {
   viewerFilePath: string | null
   parts: ModelPreviewPart[]
 }
+type CustomerPreset = {
+  id: string
+  name: string
+  data: {
+    material?: string | null
+    colors?: string[] | null
+    finish?: string | null
+    infillPct?: number | null
+    scale?: number | null
+    priceMultiplier?: number | null
+  }
+}
 const normalizeColorValue = (value?: string | null) => (value || '').trim().toLowerCase()
 const extractHex = (value?: string | null) => {
   const trimmed = (value || '').trim()
@@ -165,7 +177,7 @@ const resolveSwatch = (value?: string | null) => {
 }
 
 export default function CartPage() {
-  const { items, inc, dec, update, remove, clear, maxColors, pricingAdjustments } = useCart()
+  const { items, inc, dec, update, remove, clear, maxColors, pricingAdjustments, minimumOrder } = useCart()
   const [discount, setDiscount] = useState<DiscountSummary | null>(null)
   const [rush, setRush] = useState(false)
   const [activeColorSlot, setActiveColorSlot] = useState<{ id: string; modelId: string; partId: string | null; index: number } | null>(null)
@@ -180,6 +192,9 @@ export default function CartPage() {
   const [dimensionInputs, setDimensionInputs] = useState<Record<string, Record<(typeof DIMENSION_AXES)[number], string>>>({})
   const [activeDimensionInput, setActiveDimensionInput] = useState<{ key: string; axis: (typeof DIMENSION_AXES)[number] } | null>(null)
   const [selectedPreviewKey, setSelectedPreviewKey] = useState<{ modelId: string; partId: string | null } | null>(null)
+  const [presets, setPresets] = useState<CustomerPreset[]>([])
+  const [presetError, setPresetError] = useState<string | null>(null)
+  const [presetNames, setPresetNames] = useState<Record<string, string>>({})
   const containerRef = useRef<HTMLDivElement | null>(null)
   const paletteRef = useRef<HTMLDivElement | null>(null)
   const searchParams = useSearchParams()
@@ -209,6 +224,21 @@ export default function CartPage() {
     return () => {
       active = false
     }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/presets', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) return null
+        return res.json()
+      })
+      .then((data) => {
+        if (!active || !data?.presets) return
+        setPresets(Array.isArray(data.presets) ? data.presets : [])
+      })
+      .catch(() => {})
+    return () => { active = false }
   }, [])
 
   useEffect(() => {
@@ -532,7 +562,8 @@ export default function CartPage() {
     const colorMultiplier = getColorMultiplier(item.options.colors)
     const finishMultiplier = getFinishMultiplier(item.options.finish)
     const volumeMultiplier = getVolumeScaleMultiplier(item.options.scale, item.options.dimensionOverrides)
-    const rawUnit = base * volumeMultiplier * materialMultiplier * colorMultiplier * finishMultiplier
+    const optionMultiplier = item.options.priceMultiplier ?? 1
+    const rawUnit = base * volumeMultiplier * materialMultiplier * colorMultiplier * finishMultiplier * optionMultiplier
     const qty = Math.max(1, item.options.qty || 1)
     const batchDiscountPercent = resolveBatchDiscountPercent(qty, pricingAdjustments.batchDiscountTiers)
     const adjusted = applyPricingAdjustments({
@@ -553,6 +584,60 @@ export default function CartPage() {
   }, 0)
   const discountedSubtotal = subtotal * discountMultiplier
   const discountSavings = Math.max(0, subtotal - discountedSubtotal)
+  const effectiveSubtotal = totalDiscountPercent > 0 ? discountedSubtotal : subtotal
+  const minimumOrderSubtotal = typeof minimumOrder.subtotal === 'number' && Number.isFinite(minimumOrder.subtotal)
+    ? minimumOrder.subtotal
+    : null
+  const meetsMinimumOrder = !minimumOrderSubtotal || effectiveSubtotal >= minimumOrderSubtotal
+  const disableCheckout = hasMissingColors || !meetsMinimumOrder
+
+  const applyPreset = (preset: CustomerPreset, item: (typeof items)[number]) => {
+    const data = preset.data || {}
+    update(item.modelId, {
+      material: data.material ? normalizeMaterialName(data.material) : item.options.material,
+      colors: Array.isArray(data.colors) ? data.colors : item.options.colors,
+      finish: data.finish ?? item.options.finish ?? null,
+      infillPct: typeof data.infillPct === 'number' ? data.infillPct : item.options.infillPct ?? null,
+      scale: typeof data.scale === 'number' ? clampScale(data.scale) : item.options.scale,
+      priceMultiplier: typeof data.priceMultiplier === 'number' ? data.priceMultiplier : item.options.priceMultiplier ?? null,
+    }, item.partId)
+  }
+
+  const savePreset = async (itemKey: string, item: (typeof items)[number]) => {
+    const name = (presetNames[itemKey] || '').trim()
+    if (!name) {
+      setPresetError('Enter a preset name before saving.')
+      return
+    }
+    setPresetError(null)
+    try {
+      const res = await fetch('/api/presets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          data: {
+            material: item.options.material,
+            colors: normalizeColors(item.options.colors),
+            finish: item.options.finish ?? null,
+            infillPct: item.options.infillPct ?? null,
+            scale: item.options.scale,
+            priceMultiplier: item.options.priceMultiplier ?? null,
+          },
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Unable to save preset.')
+      const saved = data.preset as CustomerPreset
+      setPresets((prev) => {
+        const exists = prev.some((p) => p.id === saved.id)
+        return exists ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev]
+      })
+      setPresetNames((prev) => ({ ...prev, [itemKey]: '' }))
+    } catch (err: any) {
+      setPresetError(err?.message || 'Unable to save preset.')
+    }
+  }
 
   return (
     <div ref={containerRef} className="max-w-3xl mx-auto space-y-4">
@@ -893,6 +978,46 @@ export default function CartPage() {
                           placeholder="optional engraving"
                         />
                       </label>
+                      <div className="rounded-lg border border-white/10 bg-black/30 p-3 space-y-2">
+                        <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Saved presets</div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          {presets.length > 0 ? (
+                            <select
+                              className="input text-xs"
+                              defaultValue=""
+                              onChange={(e) => {
+                                const preset = presets.find((p) => p.id === e.target.value)
+                                if (preset) applyPreset(preset, item)
+                              }}
+                            >
+                              <option value="">Apply preset...</option>
+                              {presets.map((preset) => (
+                                <option key={preset.id} value={preset.id}>{preset.name}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div className="text-xs text-slate-500">
+                              No presets yet.
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <input
+                              className="input text-xs"
+                              placeholder="Preset name"
+                              value={presetNames[itemKey] || ''}
+                              onChange={(e) => setPresetNames((prev) => ({ ...prev, [itemKey]: e.target.value }))}
+                            />
+                            <button
+                              type="button"
+                              className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 text-xs"
+                              onClick={() => savePreset(itemKey, item)}
+                            >
+                              Save preset
+                            </button>
+                          </div>
+                        </div>
+                        {presetError && <div className="text-xs text-amber-300">{presetError}</div>}
+                      </div>
                     </div>
                     {hasDimensions ? (
                       <div className="space-y-1 text-xs">
@@ -1023,6 +1148,18 @@ export default function CartPage() {
                     Adds {Math.max(0, Math.round((pricingAdjustments.rushMultiplier - 1) * 100))}% to prioritize print time.
                   </div>
                 </div>
+                {pricingAdjustments.batchDiscountTiers.length > 0 && (
+                  <div className="mb-2 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-[11px] text-slate-400">
+                    <div className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-1">Bulk pricing tiers</div>
+                    <div className="flex flex-wrap gap-2">
+                      {pricingAdjustments.batchDiscountTiers.map((tier) => (
+                        <span key={`tier-${tier.minQty}-${tier.percent}`} className="rounded-full border border-white/10 px-2 py-0.5">
+                          {tier.minQty}+ {'\u2192'} {tier.percent}%
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="text-slate-400 text-sm">Estimated subtotal</div>
                 {totalDiscountPercent > 0 && (
                   <>
@@ -1041,7 +1178,7 @@ export default function CartPage() {
                   </div>
                 )}
               </div>
-              {hasMissingColors ? (
+              {disableCheckout ? (
                 <button type="button" className="btn whitespace-nowrap opacity-60 cursor-not-allowed" disabled>
                   Checkout
                 </button>
@@ -1052,10 +1189,18 @@ export default function CartPage() {
               )}
             </div>
           </div>
-          {hasMissingColors && (
-            <p className="text-xs text-amber-300 mt-3">
-              Choose at least one filament color for each item before checking out.
-            </p>
+          {disableCheckout && (
+            <div className="space-y-2 mt-3 text-xs text-amber-300">
+              {hasMissingColors && (
+                <p>Choose at least one filament color for each item before checking out.</p>
+              )}
+              {!meetsMinimumOrder && minimumOrderSubtotal && (
+                <p>
+                  Minimum order subtotal is {formatCurrency(minimumOrderSubtotal)}.
+                  {minimumOrder.notes ? ` ${minimumOrder.notes}` : ''}
+                </p>
+              )}
+            </div>
           )}
         </>
       )}

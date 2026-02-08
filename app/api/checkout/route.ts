@@ -51,15 +51,22 @@ const itemSchema = z.object({
   finish: z.string().max(40).optional(),
   infillPct: z.number().int().min(0).max(100).optional().nullable(),
   customText: z.string().max(140).optional().nullable(),
+  priceMultiplier: z.number().positive().max(5).optional().nullable(),
 })
 
 const payloadSchema = z.object({
   items: z.array(itemSchema).min(1),
   shipping: shippingSchema,
-  paymentMethod: z.enum(['card', 'cash']).default('card'),
+  paymentMethod: z.enum(['card', 'cash', 'invoice', 'po', 'quote']).default('card'),
   rush: z.boolean().optional(),
   commit: z.boolean().optional(),
   paymentIntentId: z.string().max(200).optional(),
+  paymentDetails: z.object({
+    purchaseOrderNumber: z.string().max(120).optional(),
+    billingEmail: z.string().email().max(160).optional(),
+    billingContact: z.string().max(120).optional(),
+    notes: z.string().max(300).optional(),
+  }).partial().optional(),
 })
 
 function sanitizeBaseUrl(raw?: string | null) {
@@ -108,6 +115,7 @@ export async function POST(req: NextRequest) {
     const isCash = paymentMethod === 'cash'
     const providedPaymentIntentId = (parsed.data.paymentIntentId || '').trim()
     const rush = Boolean(parsed.data.rush)
+    const paymentDetails = parsed.data.paymentDetails || undefined
 
     const items = parsed.data.items
     const shipping = parsed.data.shipping as ShippingSelection | undefined
@@ -277,7 +285,10 @@ export async function POST(req: NextRequest) {
       })
       const volumeMultiplier = scaleX * scaleY * scaleZ
       const colorMultiplier = getColorMultiplier(colors)
-      const rawUnitPrice = Number((basePrice * volumeMultiplier * colorMultiplier).toFixed(2))
+      const optionMultiplier = typeof entry.priceMultiplier === 'number' && Number.isFinite(entry.priceMultiplier)
+        ? Math.max(0.1, Math.min(5, entry.priceMultiplier))
+        : 1
+      const rawUnitPrice = Number((basePrice * volumeMultiplier * colorMultiplier * optionMultiplier).toFixed(2))
       const batchDiscountPercent = resolveBatchDiscountPercent(entry.qty || 1, pricingAdjustments.batchDiscountTiers)
       const adjusted = applyPricingAdjustments({
         unitPrice: rawUnitPrice,
@@ -326,6 +337,7 @@ export async function POST(req: NextRequest) {
           volumeMultiplier,
           colorMultiplier,
           discountMultiplier,
+          priceMultiplier: optionMultiplier,
           rawUnitPrice,
           unitPrice,
           batchDiscountPercent,
@@ -342,6 +354,12 @@ export async function POST(req: NextRequest) {
     }
     const currencyCode = getCurrency().toUpperCase() as Currency
     const currency = currencyCode.toLowerCase()
+    const minimumOrderSubtotal = cfg?.minimumOrderSubtotalUsd != null && Number.isFinite(Number(cfg.minimumOrderSubtotalUsd))
+      ? Number(cfg.minimumOrderSubtotalUsd)
+      : null
+    if (minimumOrderSubtotal && itemsTotal < minimumOrderSubtotal) {
+      return NextResponse.json({ error: `Minimum order subtotal is ${formatCurrency(minimumOrderSubtotal, currencyCode)}.` }, { status: 400 })
+    }
     const shippingPayload: ShippingSelection = shipping || { method: 'pickup' }
     const shippingRateId = (process.env.STRIPE_SHIPPING_RATE_ID || '').trim()
     let shippingRate: { id: string; label: string; amount: number; currency: Currency } | null = null
@@ -380,7 +398,7 @@ export async function POST(req: NextRequest) {
     const isFreeOrder = totalCents === 0
     const amount = totalCents
 
-    if (!isFreeOrder && paymentMethod !== 'cash' && !process.env.STRIPE_SECRET_KEY) {
+    if (!isFreeOrder && paymentMethod === 'card' && !process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
     }
 
@@ -430,10 +448,10 @@ export async function POST(req: NextRequest) {
         finalizedPaymentStatus = normalizePaymentStatusForQueue(paymentMethod, intent.status || null)
       }
     } else if (!commit) {
-      paymentIntentId = `cash_preview_${randomUUID()}`
+      paymentIntentId = `${paymentMethod}_preview_${randomUUID()}`
     } else {
-      paymentIntentId = paymentIntentId || `cash_${randomUUID()}`
-      finalizedPaymentStatus = 'pending'
+      paymentIntentId = paymentIntentId || `${paymentMethod}_${randomUUID()}`
+      finalizedPaymentStatus = paymentMethod === 'quote' ? 'quote' : 'pending'
     }
 
     if (commit) {
@@ -453,6 +471,7 @@ export async function POST(req: NextRequest) {
             rush,
             demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
             rushMultiplier: pricingAdjustments.rushMultiplier,
+            paymentDetails,
           },
           paymentMethod,
           paymentStatus: finalizedPaymentStatus || (paymentMethod === 'cash' ? 'pending' : null),
@@ -487,6 +506,7 @@ export async function POST(req: NextRequest) {
             rush,
             demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
             rushMultiplier: pricingAdjustments.rushMultiplier,
+            paymentDetails,
           },
         })
       } catch (err) {

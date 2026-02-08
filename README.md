@@ -1,57 +1,187 @@
-MakerWorks v2 - simple 3D print shop hub
+MakerWorks v2 - 3D Print Shop Hub
 
-MakerWorks v2 helps a print shop organize 3D models, give customers clear price estimates, and keep orders moving. It is meant to be run by a shop owner and used by customers who want to upload files and place print requests.
+MakerWorks v2 is a customer-facing storefront and internal operations hub for 3D print shops. It organizes models, estimates pricing, captures orders, and keeps production moving with analytics, inventory insight, and automation.
 
-What this app does (plain language)
-- Collects 3D print files (STL, OBJ, 3MF) in one place.
-- Shows a preview of the model and a shareable page for each item.
-- Estimates material use, print time, and price based on your settings.
-- Previews filament colors on 3MF models, including live updates in the cart when colors change.
-- Lets customers request prints and pay online (optional).
-- Gives you an admin area to review jobs, update pricing, and manage settings.
 
-How OrderWorks fits in
-OrderWorks is the production side. When a customer checks out, MakerWorks records the job and can send the details to OrderWorks so your team can schedule and produce the print. Status updates from OrderWorks can also be pushed back into MakerWorks so the job list stays current.
+**What This App Does**
+- Hosts a catalog of 3D models and configurable products.
+- Generates instant estimates using material, time, and shop settings.
+- Supports multi-color configuration and 3MF previews.
+- Lets customers submit orders, pay online, or request quotes and invoices.
+- Provides admin tools for pricing, jobs, approvals, and analytics.
+- Integrates with OrderWorks (production) and StockWorks (inventory).
 
-How StockWorks fits in
-StockWorks is the inventory side. It can be connected to the same database so your material usage and stock levels stay in sync with the jobs coming from MakerWorks. This helps you track what you have on hand without double entry.
 
-Who this is for
-- Print shops that want a simple customer-facing catalog and checkout
-- Makerspaces or schools that want a controlled way for members to request prints
-- Teams that want to keep orders, pricing, and inventory in one workflow
+**Who This Is For**
+- Print shops that need a customer portal + operations dashboard.
+- Makerspaces that need controlled, trackable print requests.
+- Teams that want pricing, inventory, and order flow in one place.
 
-Quick start (high level)
-- Install the app and point it at your Postgres database.
-- Set your shop name, pricing, and materials.
-- Optionally add Stripe keys to accept payments.
-- If you use OrderWorks or StockWorks, connect them to the same database.
 
-Migration recovery (if startup fails)
-If you see Prisma errors like P3009/P3018 about a failed migration, mark the failed migration as rolled back, then re-run deploy.
-1) Inspect failed migrations:
+**Table Of Contents**
+1. Quick Start
+2. User Manual: Customer
+3. User Manual: Admin
+4. Integrations
+5. Configuration
+6. Operations And Maintenance
+7. Troubleshooting
+
+
+**Quick Start (High Level)**
+1. Point the app to a Postgres database.
+2. Configure pricing, materials, and shop settings in Admin.
+3. Add models and product templates.
+4. Optionally set Stripe keys for card payments.
+5. Connect OrderWorks and StockWorks if used.
+
+
+**User Manual: Customer**
+
+**Navigation**
+- Discover: Browse public models.
+- Products: Shop configurable templates (size, material, color count).
+- Upload: Upload a model for instant estimate.
+- Cart: Configure options and review pricing.
+- Checkout: Pay by card, cash, invoice, PO, or request a quote.
+- Customer Portal: Upload models, view recent orders, manage presets.
+
+**Browse And Configure Models**
+1. Open a model detail page.
+2. Review pricing estimate, materials, and model intelligence.
+3. Select options in the configurator.
+4. Add to cart.
+
+**Shop Configurable Products**
+1. Open Products.
+2. Choose a product template.
+3. Select size, material, and color palette.
+4. Set quantity and add to cart.
+5. Finalize color choices in the cart if multiple colors are required.
+
+**Upload A Model For Instant Estimate**
+1. Go to Upload.
+2. Provide title, description, and optional size targets.
+3. Upload STL, OBJ, 3MF, or ZIP.
+4. After upload, use the instant quote panel to configure and add to cart.
+
+**Cart And Pricing**
+- Pricing updates live as you change options.
+- Rush production increases price based on the configured multiplier.
+- Bulk pricing tiers apply automatically based on quantity.
+- Minimum order subtotal can block checkout until met.
+
+**Checkout Options**
+- Card: Pay immediately with Stripe.
+- Cash: Pay at pickup.
+- Invoice: Submit billing contact details for invoicing.
+- PO: Provide a purchase order number.
+- Quote: Request approval before production.
+
+**Order Tracking**
+- Visit Orders or Customer Portal to see order status.
+- Order statuses reflect production stages: queued, printing, post-process, shipped, completed.
+- Approval requests appear on the order detail page.
+
+**Saved Presets**
+- Save common configuration sets in the cart.
+- Apply presets to new items to reuse material, colors, and scaling.
+- Manage presets in Customer Portal.
+
+
+**User Manual: Admin**
+
+**Admin Overview**
+- Dashboard: Quick status, analytics, and environment checks.
+- Products: Create and manage product templates.
+- Models: Manage uploads, visibility, and pricing.
+- Orders: Review, edit status, request approvals, and message customers.
+- Printers: Manage printer records and auto-queue.
+- Inventory: Review StockWorks material levels and warnings.
+
+**Product Builder**
+- Create product templates with size, material, and color options.
+- Set option multipliers and color count rules.
+- Attach a base model to define default pricing and sizing.
+
+**Pricing And Config**
+- Set per-material prices, labor, and machine costs.
+- Configure rush multiplier and demand surge multiplier.
+- Configure batch discount tiers and minimum order subtotal.
+
+**Orders And Approvals**
+- View order details, messages, and approval requests.
+- Request approvals for changes or quote requests.
+- Track status progression and fulfillment.
+
+**Analytics**
+- Profit per job and per printer hour.
+- Failure rates by model and material.
+- Revenue breakdowns by filament type.
+
+
+**Integrations**
+
+**OrderWorks**
+- MakerWorks records checkout data and sends it to OrderWorks for production scheduling.
+- OrderWorks statuses can sync back into MakerWorks to keep customer updates current.
+
+**StockWorks**
+- StockWorks connects to the same database for material usage and stock warnings.
+- Cart and checkout can surface low-stock warnings.
+
+
+**Configuration**
+
+**Environment Variables (Common)**
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `BASE_URL`
+- `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `DIRECT_UPLOAD_URL` (optional)
+
+**Optional Pricing Settings**
+- `COLOR_SURCHARGE_RATE`
+- `FINISH_SURCHARGES` or `FINISH_SURCHARGE_MAP`
+- `MAX_CART_COLORS`
+
+
+**Operations And Maintenance**
+
+**Database Migrations**
+- Use `npx prisma migrate deploy` in production.
+- Use `npx prisma migrate dev` for local development.
+
+**Migration Recovery (If Startup Fails)**
+1. Inspect failed migrations:
 ```
 docker exec -i postgres psql -U postgres -d makerworks -c "SELECT migration_name, started_at, finished_at, rolled_back_at FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL;"
 ```
-2) Roll back the failed entry (replace the name if different):
+2. Roll back the failed entry (replace the name if different):
 ```
 docker exec -i postgres psql -U postgres -d makerworks -c "UPDATE _prisma_migrations SET rolled_back_at = NOW(), logs = COALESCE(logs,'') || E'\nmanual rollback after failure' WHERE migration_name='20260128151129_add_default_colors' AND finished_at IS NULL AND rolled_back_at IS NULL;"
 ```
-3) Re-run migrations (or restart the app if it runs `prisma migrate deploy` on boot).
+3. Re-run migrations or restart the app.
 
-Security notes (recent)
-- Auth endpoints now enforce rate limiting and lockout windows. Configure via `AUTH_LOGIN_RATE_*`, `AUTH_REGISTER_RATE_*`, and `AUTH_RESEND_RATE_*` in `.env`.
-- Admin invites use a magic login link (no shared invite password).
+
+**Troubleshooting**
+- Prisma schema errors: run `npx prisma generate` and verify schema relations.
+- Stripe errors: ensure publishable and secret keys are set.
+- Upload failures: verify `DIRECT_UPLOAD_URL` and storage permissions.
+
+
+**Security Notes**
+- Auth endpoints enforce rate limiting. Configure via `AUTH_LOGIN_RATE_*`, `AUTH_REGISTER_RATE_*`, and `AUTH_RESEND_RATE_*`.
+- Admin invites use magic login links.
 - Email verification tokens are stored hashed at rest.
 
-For Elon
-![.for elon...](https://quickchart.io/chart?width=800&height=350&c=%7B%22type%22%3A%22bar%22%2C%22data%22%3A%7B%22labels%22%3A%5B%22.tsx%22%2C%22.ts%22%2C%22.js%22%2C%22.sql%22%2C%22.css%22%2C%22.prisma%22%2C%22.mjs%22%5D%2C%22datasets%22%3A%5B%7B%22label%22%3A%22LOC%22%2C%22data%22%3A%5B12394%2C11260%2C880%2C644%2C528%2C488%2C14%5D%2C%22backgroundColor%22%3A%5B%22%231f2937%22%2C%22%23334155%22%2C%22%2364748b%22%2C%22%230f766e%22%2C%22%230ea5e9%22%2C%22%238b5cf6%22%2C%22%2394a3b8%22%5D%7D%5D%7D%2C%22options%22%3A%7B%22plugins%22%3A%7B%22legend%22%3A%7B%22display%22%3Afalse%7D%2C%22title%22%3A%7B%22display%22%3Atrue%2C%22text%22%3A%22.for%20elon...%22%7D%7D%2C%22scales%22%3A%7B%22y%22%3A%7B%22beginAtZero%22%3Atrue%7D%7D%7D%7D)
 
-Screenshots
+**Screenshots**
 ![Home](public/screenshots/mwhome.png)
 ![Discover](public/screenshots/mwdiscover.png)
 ![Model detail](public/screenshots/mwmodeldetail.png)
 ![Admin](public/screenshots/mwadmin.png)
 
-Need help
-- Issues and questions: https://github.com/schartrand77/mkw2/issues
+
+**Need Help**
+- Issues and questions: `https://github.com/schartrand77/mkw2/issues`

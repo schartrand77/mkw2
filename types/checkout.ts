@@ -24,6 +24,7 @@ export type CheckoutItemInput = {
   customText?: string | null
   lockDimensions?: boolean | null
   targetDimensions?: Dimensions | null
+  priceMultiplier?: number | null
 }
 
 export type ShippingAddress = {
@@ -41,7 +42,7 @@ export type ShippingSelection = {
   address?: ShippingAddress | null
 }
 
-export type CheckoutPaymentMethod = 'card' | 'cash'
+export type CheckoutPaymentMethod = 'card' | 'cash' | 'invoice' | 'po' | 'quote'
 
 export type CheckoutLineItem = {
   modelId: string
@@ -70,6 +71,7 @@ export type CheckoutLineItem = {
     volumeMultiplier: number
     colorMultiplier: number
     discountMultiplier: number
+    priceMultiplier?: number
     rawUnitPrice: number
     unitPrice: number
     batchDiscountPercent?: number

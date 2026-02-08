@@ -240,6 +240,18 @@ export default async function AdminPage() {
         <ModelManager />
       </CollapsibleCard>
       <CollapsibleCard
+        title="Product builder"
+        subtitle="Create configurable storefront products"
+        bodyClassName="space-y-3 p-6"
+      >
+        <p className="text-sm text-slate-400">
+          Build templates with material, color, and size options, then reuse them across product listings.
+        </p>
+        <Link href="/admin/products" className="inline-flex text-xs text-brand-300 underline">
+          Open product builder
+        </Link>
+      </CollapsibleCard>
+      <CollapsibleCard
         title="Low stock alerts"
         subtitle="StockWorks reorder thresholds"
         bodyClassName="space-y-4 p-6"

@@ -40,6 +40,8 @@ export async function GET() {
       demandSurgeMultiplier: true,
       rushMultiplier: true,
       batchDiscountTiers: true,
+      minimumOrderSubtotalUsd: true,
+      minimumOrderNotes: true,
     },
   })
   const materialPrices: Record<string, number> = {}
@@ -69,6 +71,8 @@ export async function GET() {
     demandSurgeMultiplier: adjustments.demandSurgeMultiplier,
     rushMultiplier: adjustments.rushMultiplier,
     batchDiscountTiers: adjustments.batchDiscountTiers,
+    minimumOrderSubtotalUsd: cfg?.minimumOrderSubtotalUsd ?? null,
+    minimumOrderNotes: cfg?.minimumOrderNotes ?? null,
   })
   res.headers.set('Cache-Control', 'no-store, max-age=0')
   return res

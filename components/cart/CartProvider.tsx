@@ -24,12 +24,18 @@ export type CartOptions = {
   customText?: string | null
   dimensionOverrides?: ScaleOverrides | null
   lockDimensions?: boolean
+  priceMultiplier?: number | null
 }
 
 export type PricingAdjustments = {
   demandSurgeMultiplier: number
   rushMultiplier: number
   batchDiscountTiers: Array<{ minQty: number; percent: number }>
+}
+
+export type MinimumOrderRule = {
+  subtotal: number | null
+  notes: string | null
 }
 
 export type CartItem = {
@@ -49,6 +55,7 @@ type CartCtx = {
   count: number
   maxColors: number
   pricingAdjustments: PricingAdjustments
+  minimumOrder: MinimumOrderRule
   add: (item: Omit<CartItem, 'options'>, opts?: Partial<CartOptions>) => void
   remove: (modelId: string, partId?: string | null) => void
   inc: (modelId: string, partId?: string | null) => void
@@ -79,6 +86,9 @@ function sanitizeOptions(opts?: LegacyCartOptions | null): CartOptions {
   const lockDimensions = opts?.lockDimensions ?? !(opts?.dimensionOverrides && Object.keys(opts.dimensionOverrides).length > 0)
   const baseScale = clampScale(opts?.scale ?? 1)
   const overrides = lockDimensions ? null : sanitizeDimensionOverrides(opts?.dimensionOverrides)
+  const multiplier = typeof opts?.priceMultiplier === 'number'
+    ? Number(opts.priceMultiplier)
+    : null
   return {
     qty: Math.max(1, Math.floor(opts?.qty ?? 1)),
     scale: baseScale,
@@ -89,6 +99,7 @@ function sanitizeOptions(opts?: LegacyCartOptions | null): CartOptions {
     customText: opts?.customText ?? null,
     dimensionOverrides: overrides,
     lockDimensions,
+    priceMultiplier: multiplier != null && Number.isFinite(multiplier) ? Math.max(0.1, Math.min(5, multiplier)) : null,
   }
 }
 
@@ -105,6 +116,7 @@ function mergeOptions(base: CartOptions, patch?: Partial<CartOptions>): CartOpti
     customText: patch.customText !== undefined ? patch.customText : base.customText,
     dimensionOverrides: patch.dimensionOverrides !== undefined ? patch.dimensionOverrides : base.dimensionOverrides,
     lockDimensions: patch.lockDimensions !== undefined ? patch.lockDimensions : base.lockDimensions,
+    priceMultiplier: patch.priceMultiplier !== undefined ? patch.priceMultiplier : base.priceMultiplier,
   }
   return sanitizeOptions(merged)
 }
@@ -142,6 +154,10 @@ export default function CartProvider({ children }: { children: React.ReactNode }
     rushMultiplier: 1,
     batchDiscountTiers: [],
   })
+  const [minimumOrder, setMinimumOrder] = useState<MinimumOrderRule>({
+    subtotal: null,
+    notes: null,
+  })
 
   useEffect(() => {
     try {
@@ -173,6 +189,8 @@ export default function CartProvider({ children }: { children: React.ReactNode }
           demandSurgeMultiplier?: number
           rushMultiplier?: number
           batchDiscountTiers?: Array<{ minQty: number; percent: number }>
+          minimumOrderSubtotalUsd?: number | null
+          minimumOrderNotes?: string | null
         } | null
         if (!data || cancelled) return
         const parsed = Number(data.maxCartColors)
@@ -194,6 +212,12 @@ export default function CartProvider({ children }: { children: React.ReactNode }
           demandSurgeMultiplier: typeof data.demandSurgeMultiplier === 'number' ? data.demandSurgeMultiplier : 1,
           rushMultiplier: typeof data.rushMultiplier === 'number' ? data.rushMultiplier : 1,
           batchDiscountTiers: Array.isArray(data.batchDiscountTiers) ? data.batchDiscountTiers : [],
+        })
+        setMinimumOrder({
+          subtotal: typeof data.minimumOrderSubtotalUsd === 'number' && Number.isFinite(data.minimumOrderSubtotalUsd)
+            ? data.minimumOrderSubtotalUsd
+            : null,
+          notes: typeof data.minimumOrderNotes === 'string' ? data.minimumOrderNotes : null,
         })
       } catch {}
     }
@@ -243,13 +267,14 @@ export default function CartProvider({ children }: { children: React.ReactNode }
     count: items.reduce((a, b) => a + (b.options.qty || 0), 0),
     maxColors,
     pricingAdjustments,
+    minimumOrder,
     add,
     remove,
     inc,
     dec,
     update,
     clear,
-  }), [items, maxColors, pricingAdjustments, add, remove, inc, dec, update, clear])
+  }), [items, maxColors, pricingAdjustments, minimumOrder, add, remove, inc, dec, update, clear])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

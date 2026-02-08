@@ -34,6 +34,8 @@ const configSchema = z.object({
   machineUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   laborUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   minimumPriceUsd: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
+  minimumOrderSubtotalUsd: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
+  minimumOrderNotes: z.string().max(300).optional(),
   extraHourlyUsdAfterFirst: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   demandSurgeMultiplier: z.number().positive().max(5).optional(),
   rushMultiplier: z.number().positive().max(5).optional(),
@@ -101,6 +103,8 @@ type Config = {
   machineUsdPerHour?: number | null
   laborUsdPerHour?: number | null
   minimumPriceUsd?: number | null
+  minimumOrderSubtotalUsd?: number | null
+  minimumOrderNotes?: string | null
   extraHourlyUsdAfterFirst?: number | null
   demandSurgeMultiplier?: number | null
   rushMultiplier?: number | null
@@ -191,6 +195,8 @@ function buildPayload(cfg: Config): SchemaShape {
     machineUsdPerHour: cfg.machineUsdPerHour ?? undefined,
     laborUsdPerHour: cfg.laborUsdPerHour ?? undefined,
     minimumPriceUsd: cfg.minimumPriceUsd ?? undefined,
+    minimumOrderSubtotalUsd: cfg.minimumOrderSubtotalUsd ?? undefined,
+    minimumOrderNotes: cfg.minimumOrderNotes ?? undefined,
     extraHourlyUsdAfterFirst: cfg.extraHourlyUsdAfterFirst ?? undefined,
     demandSurgeMultiplier: cfg.demandSurgeMultiplier ?? undefined,
     rushMultiplier: cfg.rushMultiplier ?? undefined,
@@ -705,6 +711,38 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                       onBlur={() => markTouched('minimumPriceUsd')}
                     />
                     {fieldHasError('minimumPriceUsd') && <p className="text-xs text-rose-300 mt-1">{errors.minimumPriceUsd}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Minimum order subtotal ({currency})</label>
+                    <input
+                      className={`input ${fieldHasError('minimumOrderSubtotalUsd') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                      type="number"
+                      step="0.01"
+                      value={cfg.minimumOrderSubtotalUsd ?? ''}
+                      disabled={saving}
+                      onChange={(e) => {
+                        markTouched('minimumOrderSubtotalUsd')
+                        setCfg({ ...cfg, minimumOrderSubtotalUsd: e.target.value === '' ? null : Number(e.target.value) })
+                      }}
+                      onBlur={() => markTouched('minimumOrderSubtotalUsd')}
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Applied to cart subtotal before shipping.</p>
+                    {fieldHasError('minimumOrderSubtotalUsd') && <p className="text-xs text-rose-300 mt-1">{errors.minimumOrderSubtotalUsd}</p>}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm mb-1">Minimum order notes</label>
+                    <textarea
+                      className={`input min-h-[80px] ${fieldHasError('minimumOrderNotes') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                      value={cfg.minimumOrderNotes ?? ''}
+                      disabled={saving}
+                      onChange={(e) => {
+                        markTouched('minimumOrderNotes')
+                        setCfg({ ...cfg, minimumOrderNotes: e.target.value })
+                      }}
+                      onBlur={() => markTouched('minimumOrderNotes')}
+                      placeholder="Optional message shown when orders are under the minimum."
+                    />
+                    {fieldHasError('minimumOrderNotes') && <p className="text-xs text-rose-300 mt-1">{errors.minimumOrderNotes}</p>}
                   </div>
                 </div>
 

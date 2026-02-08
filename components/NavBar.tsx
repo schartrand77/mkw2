@@ -94,6 +94,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
       <nav className={navContainerCls}>
         <div className={scrollCls}>
           <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
+          <Link href="/products" className={linkCls('/products')}>Products</Link>
           <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
           <Link href="/login" className={linkCls('/login')}>Sign in</Link>
           <Link href="/register" className={linkCls('/register')}>Join</Link>
@@ -133,6 +134,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
     <nav className={navContainerCls}>
       <div className={scrollCls}>
         <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
+        <Link href="/products" className={linkCls('/products')}>Products</Link>
         <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
         <Link href="/upload" className={linkCls('/upload')}>Upload</Link>
         <Link href="/cart" className={linkCls('/cart')}>Cart{count > 0 ? ` (${count})` : ''}</Link>
@@ -160,6 +162,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
             <div role="menu" className="absolute right-0 mt-2 w-44 glass rounded-md border border-white/10 py-1 z-50">
               <Link href="/settings/profile" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Edit Profile</Link>
               <Link href="/me" role="menuitem" className="block px-3 py-2 hover:bg-white/10">My Page</Link>
+              <Link href="/customer/portal" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Customer Portal</Link>
               <Link href="/customer/orders" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Orders</Link>
               <Link href="/settings/account" role="menuitem" className="block px-3 py-2 hover:bg-white/10">Account</Link>
               <button

@@ -38,7 +38,11 @@ function normalizeShippingSelection(raw: unknown): ShippingSelection {
 }
 
 function normalizePaymentMethod(raw?: string | null): CheckoutPaymentMethod {
-  return raw === 'cash' ? 'cash' : 'card'
+  const normalized = (raw || '').toLowerCase()
+  if (normalized === 'cash' || normalized === 'invoice' || normalized === 'po' || normalized === 'quote') {
+    return normalized as CheckoutPaymentMethod
+  }
+  return 'card'
 }
 
 function coerceLineItems(raw: unknown): CheckoutLineItem[] {
@@ -53,11 +57,15 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
   }, 0)
   const subtotalCents = Math.max(0, Math.round((subtotal > 0 ? subtotal : payload.amountCents / 100) * 100))
   const shippingData = payload.shipping || { method: 'pickup' }
+  const isQuote = payload.paymentMethod === 'quote'
+  const isDeferred = payload.paymentMethod === 'cash' || payload.paymentMethod === 'invoice' || payload.paymentMethod === 'po'
   const status: OrderStatus = payload.amountCents <= 0
     ? 'queued'
-    : payload.paymentMethod === 'cash'
-      ? 'awaiting_payment'
-      : 'queued'
+    : isQuote
+      ? 'awaiting_review'
+      : isDeferred
+        ? 'awaiting_payment'
+        : 'queued'
   const itemsData: Prisma.PrintOrderItemCreateWithoutOrderInput[] = payload.lineItems.map((item) => ({
     modelId: item.modelId,
     modelTitle: item.title,
@@ -77,6 +85,7 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
       infillPct: item.infillPct,
       finish: item.finish,
       customText: item.customText,
+      priceMultiplier: item.pricingBreakdown?.priceMultiplier,
       storagePath: item.storagePath,
       storageUrl: item.storageUrl,
     },
@@ -115,6 +124,15 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
       items: {
         create: itemsData,
       },
+      ...(isQuote
+        ? {
+          approvalRequests: {
+            create: {
+              message: 'Please approve this quote to move your order into production.',
+            },
+          },
+        }
+        : {}),
     },
   })
 }
