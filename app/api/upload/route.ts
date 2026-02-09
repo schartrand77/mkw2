@@ -438,7 +438,7 @@ export async function POST(req: NextRequest) {
           if (converted) {
             await saveBuffer(previewRel, converted.buf)
             previewPath = `/${previewRel.replace(/\\/g, '/')}`
-            statsBuf = converted.buf
+            statsBuf = converted.statsBuf || converted.buf
           }
         } catch (err) {
           console.warn('Inline 3MF conversion failed, deferring to queue', err)

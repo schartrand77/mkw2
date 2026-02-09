@@ -379,7 +379,7 @@ function getZipEntrySize(entry: JSZip.JSZipObject): number | null {
   return Number.isFinite(size) ? Number(size) : null
 }
 
-export async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles: number } | null> {
+export async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, statsBuf?: Buffer, triangles: number } | null> {
   try {
     if (buffer.length > MAX_3MF_CONVERT_BYTES) {
       console.warn('3MF conversion skipped due to size limit', { bytes: buffer.length })
@@ -394,7 +394,7 @@ export async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, tr
         return null
       }
       const stlBuf = await embeddedStl.async('nodebuffer')
-      return { buf: Buffer.from(stlBuf), triangles: -1 }
+      return { buf: Buffer.from(stlBuf), statsBuf: Buffer.from(stlBuf), triangles: -1 }
     }
     const modelEntry = Object.values(zip.files).find(entry => !entry.dir && entry.name.toLowerCase().endsWith('.model'))
     if (!modelEntry) return null
@@ -480,6 +480,7 @@ export async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, tr
     }
 
     const triangles: Vec3[][] = []
+    const normalizedTriangles: Vec3[][] = []
     const cache = new Map<string, Vec3[][]>()
     const resolveObjectTriangles = (rootKey: string): Vec3[][] => {
       if (cache.has(rootKey)) return cache.get(rootKey)!
@@ -537,16 +538,31 @@ export async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, tr
       const localTris = resolveObjectTriangles(item.key)
       if (!localTris.length) continue
       const transformed = transformTriangles(localTris, item.transform)
+      const normalizedItemTransform = item.transform.slice() as Matrix4x4
+      normalizedItemTransform[3] = 0
+      normalizedItemTransform[7] = 0
+      normalizedItemTransform[11] = 0
+      const normalized = transformTriangles(localTris, normalizedItemTransform)
       for (const tri of transformed) {
         triangles.push(tri)
         if (triangles.length > MAX_3MF_TRIANGLES) {
           throw new Error('3MF conversion exceeded triangle cap.')
         }
       }
+      for (const tri of normalized) {
+        normalizedTriangles.push(tri)
+        if (normalizedTriangles.length > MAX_3MF_TRIANGLES) {
+          throw new Error('3MF conversion exceeded triangle cap.')
+        }
+      }
     }
 
     if (triangles.length === 0) return null
-    return { buf: buildBinaryStl(triangles), triangles: triangles.length }
+    return {
+      buf: buildBinaryStl(triangles),
+      statsBuf: normalizedTriangles.length > 0 ? buildBinaryStl(normalizedTriangles) : undefined,
+      triangles: triangles.length,
+    }
   } catch (err) {
     console.warn('3MF conversion failed', err)
     return null
@@ -600,7 +616,7 @@ export async function processPendingModelPreviews(limit = 3, options: PreviewQue
       }
       const previewRel = normalizeStoredPath(job.previewPath)
       await saveBuffer(previewRel, converted.buf)
-      let stats = computeStlStatsMm(converted.buf)
+      let stats = computeStlStatsMm(converted.statsBuf || converted.buf)
 
       const part = job.partId
         ? await prisma.modelPart.findUnique({ where: { id: job.partId }, select: { id: true, index: true } })

@@ -166,6 +166,17 @@ docker exec -i postgres psql -U postgres -d makerworks -c "UPDATE _prisma_migrat
 
 **Troubleshooting**
 - Prisma schema errors: run `npx prisma generate` and verify schema relations.
+- TypeScript shows many Prisma/route errors after schema or API route changes:
+  1. Run `npm run prisma:generate`
+  2. Clear `.next` (`cmd /c rmdir /s /q .next` on Windows)
+  3. Run `npx tsc --noEmit`
+- Docker equivalent (app container):
+  1. `docker compose exec app npm run prisma:generate`
+  2. `docker compose exec app sh -lc "rm -rf .next"`
+  3. `docker compose exec app npx tsc --noEmit`
+- `psql` checks (DB migration/state sanity):
+  1. `docker exec -i postgres psql -U postgres -d makerworks -c "SELECT migration_name, finished_at, rolled_back_at FROM _prisma_migrations ORDER BY started_at DESC LIMIT 20;"`
+  2. `docker exec -i postgres psql -U postgres -d makerworks -c "\dt"`
 - Stripe errors: ensure publishable and secret keys are set.
 - Upload failures: verify `DIRECT_UPLOAD_URL` and storage permissions.
 
