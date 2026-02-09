@@ -74,7 +74,11 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   const showingEnd = safeTotal > 0 ? Math.min(safeTotal, (page - 1) * pageSize + (models?.length || 0)) : 0
   const cards: CardInfo[] = models.map((m) => {
     const coverSrc = buildImageSrc(m.coverImagePath, m.updatedAt)
-    const priceLabel = formatPriceLabel(m.priceUsd, { from: Boolean(m.salePriceIsFrom), unit: m.salePriceUnit || undefined })
+    const hasCustomPrice = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd))
+    const priceLabel = formatPriceLabel(m.priceUsd, {
+      from: hasCustomPrice ? false : Boolean(m.salePriceIsFrom),
+      unit: m.salePriceUnit || undefined,
+    })
     const partsCount = typeof m.partsCount === 'number' ? m.partsCount : null
     const partsLabel = partsCount && partsCount > 0 ? `${partsCount} part${partsCount === 1 ? '' : 's'}` : null
     const sizeLabel = m.sizeXmm && m.sizeYmm && m.sizeZmm

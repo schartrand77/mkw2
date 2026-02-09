@@ -85,7 +85,11 @@ function FeaturedCard({
   priceClassName: string
 }) {
   const coverSrc = buildImageSrc(model.coverImagePath, model.updatedAt)
-  const priceLabel = formatPriceLabel(model.priceUsd, { from: model.salePriceIsFrom, unit: model.salePriceUnit })
+  const hasCustomPrice = model.salePriceUsd != null && Number.isFinite(Number(model.salePriceUsd))
+  const priceLabel = formatPriceLabel(model.priceUsd, {
+    from: hasCustomPrice ? false : model.salePriceIsFrom,
+    unit: model.salePriceUnit,
+  })
   return (
     <Link
       href={`/models/${model.id}`}

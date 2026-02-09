@@ -18,7 +18,9 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
       {hasModels ? (
         viewMode === DiscoverViewMode.Compact ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {cards.map(({ model: m, coverSrc, priceLabel, sizeLabel, partsLabel }) => (
+            {cards.map(({ model: m, coverSrc, priceLabel, sizeLabel, partsLabel }) => {
+              const hasCustomPrice = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd))
+              return (
               <Link
                 key={m.id}
                 href={`/models/${m.id}`}
@@ -49,7 +51,7 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                   <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{priceLabel || 'N/A'}</span>
-                      {priceLabel && m.saleActive && m.basePriceUsd && (
+                      {priceLabel && !hasCustomPrice && m.saleActive && m.basePriceUsd && (
                         <span className="text-[11px] text-slate-500 line-through">{formatCurrency(m.basePriceUsd)}</span>
                       )}
                     </div>
@@ -74,11 +76,14 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                   </div>
                 </div>
               </Link>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <section className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {cards.map(({ model: m, coverSrc, priceLabel, sizeLabel, partsLabel }) => (
+            {cards.map(({ model: m, coverSrc, priceLabel, sizeLabel, partsLabel }) => {
+              const hasCustomPrice = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd))
+              return (
               <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
                 {coverSrc ? (
                   <img
@@ -114,7 +119,7 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                   <div className="flex justify-between text-xs text-slate-300">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{priceLabel || 'N/A'}</span>
-                      {priceLabel && m.saleActive && m.basePriceUsd && (
+                      {priceLabel && !hasCustomPrice && m.saleActive && m.basePriceUsd && (
                         <span className="text-[11px] text-slate-500 line-through">{formatCurrency(m.basePriceUsd)}</span>
                       )}
                     </div>
@@ -126,7 +131,8 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                   </div>
                 </div>
               </Link>
-            ))}
+              )
+            })}
           </section>
         )
       ) : (

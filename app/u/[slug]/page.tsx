@@ -236,7 +236,8 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
           {models.length === 0 && <p className="text-slate-400">No models yet.</p>}
           {models.map((m) => {
-            const priceLabel = formatPriceLabel(m.priceUsd, { from: m.salePriceIsFrom, unit: m.salePriceUnit })
+            const hasCustomPrice = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd))
+            const priceLabel = formatPriceLabel(m.priceUsd, { from: hasCustomPrice ? false : m.salePriceIsFrom, unit: m.salePriceUnit })
             return (
               <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition">
                 {m.coverImagePath ? (
@@ -249,7 +250,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
                   {priceLabel ? (
                     <div className="text-sm text-slate-300">
                       <span className="font-medium">{priceLabel}</span>
-                      {m.saleActive && m.basePriceUsd && (
+                      {!hasCustomPrice && m.saleActive && m.basePriceUsd && (
                         <span className="text-xs text-slate-500 ml-2 line-through">{formatCurrency(m.basePriceUsd)}</span>
                       )}
                     </div>

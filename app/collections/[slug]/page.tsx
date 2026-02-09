@@ -17,7 +17,11 @@ export default async function CollectionDetailPage({ params }: CollectionDetailP
   const models = await getCollectionModels(collection, 36)
   const cards: CardInfo[] = models.map((model) => {
     const coverSrc = buildImageSrc(model.coverImagePath, model.updatedAt)
-    const priceLabel = formatPriceLabel(model.priceUsd, { from: Boolean(model.salePriceIsFrom), unit: model.salePriceUnit || undefined })
+    const hasCustomPrice = model.salePriceUsd != null && Number.isFinite(Number(model.salePriceUsd))
+    const priceLabel = formatPriceLabel(model.priceUsd, {
+      from: hasCustomPrice ? false : Boolean(model.salePriceIsFrom),
+      unit: model.salePriceUnit || undefined,
+    })
     const partsLabel = typeof model.partsCount === 'number' && model.partsCount > 0 ? `${model.partsCount} part${model.partsCount === 1 ? '' : 's'}` : null
     const sizeLabel = model.sizeXmm && model.sizeYmm && model.sizeZmm
       ? `${Math.round(model.sizeXmm)} x ${Math.round(model.sizeYmm)} x ${Math.round(model.sizeZmm)} mm`
