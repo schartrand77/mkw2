@@ -14,6 +14,7 @@ import PrinterAssignmentPanel from '@/components/admin/PrinterAssignmentPanel'
 import PackingChecklist from '@/components/admin/PackingChecklist'
 import ShippingTrackingForm from '@/components/admin/ShippingTrackingForm'
 import SlicerStatsForm from '@/components/admin/SlicerStatsForm'
+import OrderItemQuantityControl from '@/components/admin/OrderItemQuantityControl'
 
 export const dynamic = 'force-dynamic'
 
@@ -141,6 +142,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                     {Array.isArray(item.colors) && item.colors.length > 0 ? ` - Colors: ${(item.colors as string[]).join(', ')}` : ''}
                     {typeof item.infillPct === 'number' ? ` - Infill ${item.infillPct}%` : ''}
                   </p>
+                  <OrderItemQuantityControl orderId={order.id} itemId={item.id} quantity={item.quantity} />
                   {item.customNotes && <p className="text-xs text-slate-400 mt-1">Notes: {item.customNotes}</p>}
                 </div>
               ))}
