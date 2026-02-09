@@ -139,9 +139,61 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
 
 export type OrderListEntry = PrintOrder & { items: Pick<PrintOrderItem, 'id' | 'modelTitle' | 'quantity' | 'totalCents' | 'thumbnailPath'>[] }
 
+type OrderWorksLink = {
+  paymentIntentId: string | null
+  jobFormId: string | null
+}
+
+function extractOrderWorksLink(metadata: unknown): OrderWorksLink | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
+  const record = metadata as Record<string, unknown>
+  const source = typeof record.source === 'string' ? record.source.trim().toLowerCase() : null
+  const paymentIntentId = typeof record.paymentIntentId === 'string' && record.paymentIntentId.trim().length > 0
+    ? record.paymentIntentId.trim()
+    : null
+  const jobFormId = typeof record.jobFormId === 'string' && record.jobFormId.trim().length > 0
+    ? record.jobFormId.trim()
+    : null
+
+  if (source !== 'orderworks' && !jobFormId) return null
+  return { paymentIntentId, jobFormId }
+}
+
+async function filterVisibleOrdersForUser<T extends { id: string; metadata: unknown }>(orders: T[]): Promise<T[]> {
+  if (orders.length === 0) return orders
+
+  const linked = orders
+    .map((order) => ({ orderId: order.id, link: extractOrderWorksLink(order.metadata) }))
+    .filter((entry): entry is { orderId: string; link: OrderWorksLink } => Boolean(entry.link))
+
+  if (linked.length === 0) return orders
+
+  const paymentIntentIds = Array.from(new Set(linked.map((entry) => entry.link.paymentIntentId).filter((v): v is string => Boolean(v))))
+  const jobFormIds = Array.from(new Set(linked.map((entry) => entry.link.jobFormId).filter((v): v is string => Boolean(v))))
+  const jobWhere: Prisma.JobFormWhereInput[] = []
+  if (paymentIntentIds.length > 0) jobWhere.push({ paymentIntentId: { in: paymentIntentIds } })
+  if (jobFormIds.length > 0) jobWhere.push({ id: { in: jobFormIds } })
+  if (jobWhere.length === 0) return orders
+
+  const jobs = await prisma.jobForm.findMany({
+    where: { OR: jobWhere },
+    select: { id: true, paymentIntentId: true },
+  })
+  const jobIds = new Set(jobs.map((job) => job.id))
+  const paymentIds = new Set(jobs.map((job) => job.paymentIntentId))
+
+  return orders.filter((order) => {
+    const link = extractOrderWorksLink(order.metadata)
+    if (!link) return true
+    if (link.jobFormId && jobIds.has(link.jobFormId)) return true
+    if (link.paymentIntentId && paymentIds.has(link.paymentIntentId)) return true
+    return false
+  })
+}
+
 export async function listOrdersForUser(userId: string, limit = 20): Promise<OrderListEntry[]> {
   if (!userId) return []
-  return prisma.printOrder.findMany({
+  const orders = await prisma.printOrder.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
     take: limit,
@@ -157,6 +209,7 @@ export async function listOrdersForUser(userId: string, limit = 20): Promise<Ord
       },
     },
   })
+  return filterVisibleOrdersForUser(orders)
 }
 
 export type OrderDetail = PrintOrder & {
@@ -206,7 +259,7 @@ export async function createOrderFromJobForm(job: JobForm & { user?: { id: strin
 
 export async function getOrderForUser(orderId: string, userId: string): Promise<OrderDetail | null> {
   if (!userId) return null
-  return prisma.printOrder.findFirst({
+  const order = await prisma.printOrder.findFirst({
     where: { id: orderId, userId },
     include: {
       items: true,
@@ -228,6 +281,9 @@ export async function getOrderForUser(orderId: string, userId: string): Promise<
       reprints: { select: { id: true, orderNumber: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' } },
     },
   })
+  if (!order) return null
+  const visible = await filterVisibleOrdersForUser([order])
+  return visible.length > 0 ? order : null
 }
 
 export async function createReprintOrder(orderId: string, userId: string) {
