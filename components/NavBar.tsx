@@ -142,7 +142,6 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
         {isAdmin && (
           <>
             <Link href="/admin" className={linkCls('/admin')}>Admin</Link>
-            <Link href="/admin/production" className={linkCls('/admin/production')}>Production</Link>
           </>
         )}
       </div>

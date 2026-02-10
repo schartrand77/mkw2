@@ -193,6 +193,18 @@ export default async function AdminPage() {
             Open full job console
           </Link>
         </CollapsibleCard>
+        <CollapsibleCard
+          title="Production scheduling"
+          subtitle="Queue, assignments, and printer status"
+          bodyClassName="space-y-3 p-6"
+        >
+          <p className="text-sm text-slate-400">
+            Open the production dashboard to manage queue position, assignments, and schedule health.
+          </p>
+          <Link href="/admin/production" className="inline-flex text-xs text-brand-300 underline">
+            Open production dashboard
+          </Link>
+        </CollapsibleCard>
       </div>
       <div className="grid md:grid-cols-2 gap-6">
         <CollapsibleCard
