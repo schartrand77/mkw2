@@ -91,8 +91,8 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'))
   if (!authed) {
     return (
-      <nav className={navContainerCls}>
-        <div className={scrollCls}>
+      <nav className={`${navContainerCls} app-nav`}>
+        <div className={`${scrollCls} app-nav-links`}>
           <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
           <Link href="/products" className={linkCls('/products')}>Products</Link>
           <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
@@ -131,8 +131,8 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
   }, [])
 
   return (
-    <nav className={navContainerCls}>
-      <div className={scrollCls}>
+    <nav className={`${navContainerCls} app-nav`}>
+      <div className={`${scrollCls} app-nav-links`}>
         <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
         <Link href="/products" className={linkCls('/products')}>Products</Link>
         <Link href="/gear" className={linkCls('/gear')}>Shop</Link>

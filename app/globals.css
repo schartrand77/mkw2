@@ -39,6 +39,9 @@ body {
   backdrop-filter: blur(18px);
 }
 @media (display-mode: standalone) {
+  html, body {
+    min-height: 100dvh;
+  }
   .header-shell {
     position: sticky;
     top: 0;
@@ -49,6 +52,37 @@ body {
   }
   .header-shell * {
     pointer-events: auto;
+  }
+}
+
+/* Fold-friendly PWA spacing/tap targets (Galaxy Fold sized narrow viewports) */
+@media (display-mode: standalone) and (max-width: 420px) {
+  .app-header-row {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+    gap: 0.625rem;
+  }
+  .app-brand {
+    font-size: 1.05rem;
+    line-height: 1.15;
+  }
+  .app-main {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+    padding-top: 1rem;
+    padding-bottom: 1.25rem;
+  }
+  .app-nav-links > a {
+    font-size: 0.82rem;
+    padding: 0.38rem 0.6rem;
+  }
+  .app-nav {
+    gap: 0.5rem;
+  }
+  .app-footer {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 }
 .footer-shell {
