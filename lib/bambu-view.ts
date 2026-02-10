@@ -12,6 +12,8 @@ type BambuViewConfig = {
   baseUrl: string
   sessionCookie?: string
   authHeader?: string
+  apiKey?: string
+  apiKeyHeader?: string
 }
 
 function getConfig(): BambuViewConfig | null {
@@ -19,7 +21,15 @@ function getConfig(): BambuViewConfig | null {
   if (!baseUrl) return null
   const sessionCookie = (process.env.BAMBU_VIEW_SESSION_COOKIE || '').trim()
   const authHeader = (process.env.BAMBU_VIEW_AUTH_HEADER || '').trim()
-  return { baseUrl, sessionCookie: sessionCookie || undefined, authHeader: authHeader || undefined }
+  const apiKey = (process.env.BAMBU_VIEW_API_KEY || '').trim()
+  const apiKeyHeader = (process.env.BAMBU_VIEW_API_KEY_HEADER || '').trim() || 'X-API-Key'
+  return {
+    baseUrl,
+    sessionCookie: sessionCookie || undefined,
+    authHeader: authHeader || undefined,
+    apiKey: apiKey || undefined,
+    apiKeyHeader: apiKey ? apiKeyHeader : undefined,
+  }
 }
 
 export function bambuViewDisabledResponse() {
@@ -33,6 +43,7 @@ async function bambuFetch(path: string, init?: RequestInit) {
   const headers = new Headers(init?.headers)
   if (cfg.sessionCookie) headers.set('Cookie', cfg.sessionCookie)
   if (cfg.authHeader) headers.set('Authorization', cfg.authHeader)
+  if (cfg.apiKey && cfg.apiKeyHeader) headers.set(cfg.apiKeyHeader, cfg.apiKey)
   const res = await fetch(url, { ...init, headers, cache: 'no-store' })
   return res
 }

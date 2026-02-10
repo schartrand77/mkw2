@@ -25,6 +25,10 @@ const OPTIONAL_CHECKS: Array<{ key: string; label: string; required: boolean; al
   { key: 'STOCKWORKS_BASE_URL', label: 'StockWorks base URL', required: false },
   { key: 'STOCKWORKS_ADMIN_USERNAME', label: 'StockWorks admin user', required: false, alt: ['STOCKWORKS_USERNAME'] },
   { key: 'STOCKWORKS_ADMIN_PASSWORD', label: 'StockWorks admin password', required: false, alt: ['STOCKWORKS_PASSWORD'] },
+  { key: 'BAMBU_VIEW_BASE_URL', label: 'Bambu View base URL', required: false },
+  { key: 'BAMBU_VIEW_API_KEY', label: 'Bambu View API key', required: false },
+  { key: 'BAMBU_VIEW_SESSION_COOKIE', label: 'Bambu View session cookie', required: false },
+  { key: 'BAMBU_VIEW_AUTH_HEADER', label: 'Bambu View auth header', required: false },
   { key: 'VAPID_PUBLIC_KEY', label: 'Push notifications key', required: false, alt: ['NEXT_PUBLIC_VAPID_PUBLIC_KEY'] },
   { key: 'VAPID_PRIVATE_KEY', label: 'Push notifications secret', required: false },
 ]
