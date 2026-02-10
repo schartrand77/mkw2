@@ -5,7 +5,7 @@ import { recordOrderWorksJob } from '@/lib/orderworks'
 import { randomUUID } from 'crypto'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { requireAdmin } from '@/app/api/admin/_utils'
-import { ORDER_STATUSES } from '@/lib/order-status'
+import { ORDER_STATUSES, mapOrderStatusToFulfillment } from '@/lib/order-status'
 
 const orderStatusKeys = ORDER_STATUSES.map((entry) => entry.key) as [string, ...string[]]
 
@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
     const totalCents = discountPercent
       ? Math.max(0, Math.round(subtotalCents * (1 - discountPercent / 100)))
       : subtotalCents
+    const paymentIntentId = `admin_${randomUUID()}`
 
     const order = await prisma.printOrder.create({
       data: {
@@ -110,6 +111,7 @@ export async function POST(req: NextRequest) {
         currency: payload.currency?.toUpperCase() || 'USD',
         notes: payload.notes || undefined,
         metadata: {
+          paymentIntentId,
           adminCreatedAt: new Date().toISOString(),
           adminCreatedBy: adminId,
         },
@@ -118,7 +120,6 @@ export async function POST(req: NextRequest) {
       select: { id: true, orderNumber: true, status: true },
     })
 
-    const paymentIntentId = `admin_${randomUUID()}`
     const shippingPayload: ShippingSelection | undefined = payload.shippingMethod === 'ship'
       ? { method: 'ship', address: payload.shippingAddress }
       : { method: 'pickup' }
@@ -158,7 +159,7 @@ export async function POST(req: NextRequest) {
         },
         paymentMethod: payload.paymentMethod ?? 'cash',
         paymentStatus: 'pending',
-        fulfillmentStatus: 'pending',
+        fulfillmentStatus: mapOrderStatusToFulfillment(order.status),
       })
     } catch (err: any) {
       jobError = err?.message || 'Failed to queue OrderWorks job.'
