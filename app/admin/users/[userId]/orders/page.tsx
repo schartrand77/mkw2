@@ -7,6 +7,7 @@ import { listOrdersForUser } from '@/lib/orders'
 import OrderStatusBadge from '@/components/orders/OrderStatusBadge'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import UserOrderJobControls from '@/components/admin/UserOrderJobControls'
+import DeleteOrderButton from '@/components/admin/DeleteOrderButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,6 +113,7 @@ export default async function AdminUserOrdersPage({ params }: AdminOrdersProps) 
                     >
                       Open order
                     </Link>
+                    <DeleteOrderButton orderId={order.id} orderNumber={order.orderNumber} />
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-slate-300">
