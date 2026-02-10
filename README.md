@@ -1,198 +1,428 @@
-MakerWorks v2 - 3D Print Shop Hub
+# MakerWorks v2
 
-MakerWorks v2 is a customer-facing storefront and internal operations hub for 3D print shops. It organizes models, estimates pricing, captures orders, and keeps production moving with analytics, inventory insight, and automation.
+MakerWorks v2 is a full-stack 3D print shop platform that combines:
+- A customer storefront (discover, upload, configure, checkout, order tracking)
+- A shop operations hub (pricing, inventory, printer queueing, analytics, backups, and automation)
 
+This README is written for two audiences:
+1. People installing and running the app
+2. Customers using the app
 
-**What This App Does**
-- Hosts a catalog of 3D models and configurable products.
-- Generates instant estimates using material, time, and shop settings.
-- Supports multi-color configuration and 3MF previews.
-- Lets customers submit orders, pay online, or request quotes and invoices.
-- Provides admin tools for pricing, jobs, approvals, and analytics.
-- Integrates with OrderWorks (production) and StockWorks (inventory).
+## Table of Contents
+1. [What You Get](#what-you-get)
+2. [Feature Inventory: Installer / Operator](#feature-inventory-installer--operator)
+3. [Feature Inventory: Customer](#feature-inventory-customer)
+4. [Architecture and Integrations](#architecture-and-integrations)
+5. [Installation](#installation)
+6. [Configuration (Environment Variables)](#configuration-environment-variables)
+7. [First-Run Setup Checklist](#first-run-setup-checklist)
+8. [Daily Operations](#daily-operations)
+9. [Security and Access Control](#security-and-access-control)
+10. [Troubleshooting](#troubleshooting)
 
+## What You Get
+MakerWorks v2 includes:
+- Model hosting with STL/OBJ/3MF/ZIP upload support
+- Instant quoting and configurable product templates
+- Cart + checkout with card/cash/invoice/PO/quote flows
+- Customer portal with order timeline, approvals, messages, and revisions
+- Admin panels for pricing, models, products, orders, printers, inventory, and analytics
+- Optional integrations with Stripe, StockWorks, Bambu View, Discord, SMTP email, and Web Push
+- Backup/restore utilities for database and uploaded files
 
-**Who This Is For**
-- Print shops that need a customer portal + operations dashboard.
-- Makerspaces that need controlled, trackable print requests.
-- Teams that want pricing, inventory, and order flow in one place.
+## Feature Inventory: Installer / Operator
+This section lists the platform capabilities you can enable, configure, and operate.
 
+### Storefront and Catalog Management
+- Public home/discover/collections pages
+- Featured model management
+- Model CRUD (title, description, material, visibility, pricing)
+- Multi-image model galleries with cover image management
+- Model tags and filtering
+- Model likes, comments, and download tracking
+- Model revisions and multipart model support
+- Public creator profile pages (`/u/[slug]`)
+- Gear/referral page for affiliate links (`/gear`)
 
-**Table Of Contents**
-1. Quick Start
-2. User Manual: Customer
-3. User Manual: Admin
-4. Integrations
-5. Configuration
-6. Operations And Maintenance
-7. Troubleshooting
+### Upload and Model Intelligence Pipeline
+- Upload endpoint with size/type limits and optional direct-upload host
+- Accepted inputs: STL, OBJ, 3MF, ZIP bundles
+- 3MF extraction/preview processing queue
+- Image/preview generation queue for model assets
+- Automatic model measurements (dimensions, volume)
+- Printability score
+- Support likelihood detection
+- Failure risk scoring
+- Orientation suggestion
+- Support strategy suggestion
+- Assembly grouping for multipart models
 
+### Pricing and Commerce Engine
+- Formula-based pricing (material + time + machine + labor + electricity)
+- Material pricing per material type (PLA/PETG and additional material keys)
+- Rush multiplier
+- Demand surge multiplier
+- Color surcharge and max color limits
+- Finish surcharge map support
+- Batch discount tiers
+- Minimum unit price and minimum order subtotal rules
+- Extra hourly cost after first hour
+- Saved pricing profiles in admin
+- Effective price cache for model listing speed
 
-**Quick Start (High Level)**
-1. Point the app to a Postgres database.
-2. Configure pricing, materials, and shop settings in Admin.
-3. Add models and product templates.
-4. Optionally set Stripe keys for card payments.
-5. Connect OrderWorks and StockWorks if used.
+### Product Builder
+- Product templates with:
+  - Material options
+  - Color options
+  - Size options
+  - Active/inactive status
+- Optional base-model attachment for template defaults
+- Admin products list and product API endpoints
 
+### Cart and Checkout Operations
+- Cart live repricing as options/quantity change
+- Bulk quantity handling
+- Saved customer presets
+- Checkout methods:
+  - Card (Stripe)
+  - Cash
+  - Invoice
+  - Purchase order
+  - Quote request
+- Shipping/pickup method capture
+- Job form/payment intent linking
 
-**User Manual: Customer**
+### Order and Fulfillment Operations
+- Order creation from checkout
+- Auto job creation from paid orders
+- Order statuses and fulfillment tracking
+- OrderWorks job sync endpoints for external production pipelines
+- Admin order editing and line-item controls
+- Approval request workflow (admin requests, customer responds)
+- Customer/admin order messaging thread
+- Order revisions (customer upload + admin handling)
+- Reprint request workflow
+- Printer assignment per order
+- Printable ticket page with QR support
+- Packing checklist support
+- Shipping tracking data fields
 
-**Navigation**
-- Discover: Browse public models.
-- Products: Shop configurable templates (size, material, color count).
-- Upload: Upload a model for instant estimate.
-- Cart: Configure options and review pricing.
-- Checkout: Pay by card, cash, invoice, PO, or request a quote.
-- Customer Portal: Upload models, view recent orders, manage presets.
+### Printer and Production Automation
+- Printer records with status and maintenance metadata
+- Printer status dashboard
+- Auto-queue endpoint for assigning work
+- Bambu View integration endpoints (status, spools, job operations)
+- Slicer profile upload/association
+- Slicer stats capture per order
+- Print-time correction factor updates from history
+- Production dashboard page and API
 
-**Browse And Configure Models**
-1. Open a model detail page.
-2. Review pricing estimate, materials, and model intelligence.
-3. Select options in the configurator.
-4. Add to cart.
+### Inventory and Material Intelligence
+- StockWorks connectivity for filament inventory
+- Inventory list and movement logging endpoints
+- Material warnings and low-stock visibility
+- Filament color data endpoint
+- Spool consumption workflow support
+- Material optimization page
+- Batch optimization page
+- Demand forecasting page
 
-**Shop Configurable Products**
-1. Open Products.
-2. Choose a product template.
-3. Select size, material, and color palette.
-4. Set quantity and add to cart.
-5. Finalize color choices in the cart if multiple colors are required.
+### Analytics and Insight
+- Admin analytics dashboard and API
+- Profit per job visibility
+- Profit per printer hour visibility
+- Failure rates (model/material trends)
+- Revenue by material/filament
+- Fleet intelligence page (utilization + maintenance insights)
 
-**Upload A Model For Instant Estimate**
-1. Go to Upload.
-2. Provide title, description, and optional size targets.
-3. Upload STL, OBJ, 3MF, or ZIP.
-4. After upload, use the instant quote panel to configure and add to cart.
+### Reliability, Backups, and Admin Safety
+- Environment validation card + API (`/api/admin/env-check`)
+- Config change audit log and admin view
+- Backup creation utility (`npm run backup`)
+- Pending restore flow (`/api/admin/restore` + `scripts/restore.js`)
+- Automatic migration deploy on container start
+- Automatic admin bootstrap from env on start
 
-**Cart And Pricing**
-- Pricing updates live as you change options.
-- Rush production increases price based on the configured multiplier.
-- Bulk pricing tiers apply automatically based on quantity.
-- Minimum order subtotal can block checkout until met.
+### Communication and Notification Features
+- SMTP email support for receipts/account flows
+- Email verification request/resend/verify flows
+- Admin invite flow with token acceptance
+- Discord announcement endpoints
+- Web Push subscription/unsubscription endpoints
+- PWA manifest + service worker registration + install prompt
 
-**Checkout Options**
-- Card: Pay immediately with Stripe.
-- Cash: Pay at pickup.
-- Invoice: Submit billing contact details for invoicing.
-- PO: Provide a purchase order number.
-- Quote: Request approval before production.
+### Theming and Branding
+- Brand-name/version/lab/handle environment branding keys
+- Holiday theme toggles (`christmas`, `halloween`, `easter`)
+- Payment badge toggles in site config (Apple Pay / Google Pay display)
 
-**Order Tracking**
-- Visit Orders or Customer Portal to see order status.
-- Order statuses reflect production stages: queued, printing, post-process, shipped, completed.
-- Approval requests appear on the order detail page.
+## Feature Inventory: Customer
+This section lists what an end customer can do in the app.
 
-**Saved Presets**
-- Save common configuration sets in the cart.
-- Apply presets to new items to reuse material, colors, and scaling.
-- Manage presets in Customer Portal.
+### Account and Profile
+- Register account
+- Log in / log out
+- Verify email
+- Update account email/password
+- Edit profile details and shipping information
+- Public creator page with social/contact links (if configured)
 
+### Discover and Browse
+- Browse featured and latest models on home/discover
+- Filter and explore collections
+- Open model detail pages with:
+  - 3D viewer/preview
+  - Price estimate labels
+  - Material and configuration details
+  - Likes/comments
+  - Download option (when allowed)
 
-**User Manual: Admin**
+### Upload and Instant Quote
+- Upload STL/OBJ/3MF/ZIP files
+- Enter model metadata and optional sizing targets
+- Receive instant estimate and configuration options
+- Add uploaded model directly to cart
 
-**Admin Overview**
-- Dashboard: Quick status, analytics, and environment checks.
-- Products: Create and manage product templates.
-- Models: Manage uploads, visibility, and pricing.
-- Orders: Review, edit status, request approvals, and message customers.
-- Printers: Manage printer records and auto-queue.
-- Inventory: Review StockWorks material levels and warnings.
+### Product Shopping
+- Open product templates from `/products`
+- Configure size/material/colors based on template options
+- See live pricing updates
+- Add configured products to cart
 
-**Product Builder**
-- Create product templates with size, material, and color options.
-- Set option multipliers and color count rules.
-- Attach a base model to define default pricing and sizing.
+### Cart and Presets
+- Adjust quantity and options per item
+- View dynamic subtotal/total updates
+- Save common configurations as presets
+- Reapply presets on future items
 
-**Pricing And Config**
-- Set per-material prices, labor, and machine costs.
-- Configure rush multiplier and demand surge multiplier.
-- Configure batch discount tiers and minimum order subtotal.
+### Checkout and Payment
+- Choose checkout mode:
+  - Card
+  - Cash
+  - Invoice
+  - Purchase order
+  - Quote request
+- Enter shipping/pickup details
+- Place order and receive order reference
 
-**Orders And Approvals**
-- View order details, messages, and approval requests.
-- Request approvals for changes or quote requests.
-- Track status progression and fulfillment.
+### Order Tracking and Support Flows
+- View all customer orders (`/customer/orders`)
+- Open per-order detail page (`/customer/orders/[orderId]`)
+- See status progression (review, queued, printing, post-process, shipped/completed)
+- Respond to approval requests
+- Send/receive messages with the shop
+- Upload revision files for an order
+- Request reprints when needed
 
-**Analytics**
-- Profit per job and per printer hour.
-- Failure rates by model and material.
-- Revenue breakdowns by filament type.
+### Community and Personal Pages
+- Like models
+- Comment on models
+- View liked models page (`/likes`)
+- View personal dashboard page (`/me`)
 
+### PWA and Notifications (if enabled)
+- Install app to home screen
+- Receive push notifications
+- Benefit from service-worker caching behavior
 
-**Integrations**
+## Architecture and Integrations
+- Framework: Next.js App Router + React + TypeScript
+- Database: PostgreSQL + Prisma ORM
+- File storage: local filesystem (`STORAGE_DIR`) with optional CDN base URL
+- Payments: Stripe (optional)
+- Inventory: StockWorks (optional)
+- Production bridge: OrderWorks-style job endpoints (optional)
+- Printer telemetry/controls: Bambu View (optional)
+- Messaging: SMTP + Discord (optional)
+- PWA: manifest + service worker + Web Push (optional)
 
-**OrderWorks**
-- MakerWorks records checkout data and sends it to OrderWorks for production scheduling.
-- OrderWorks statuses can sync back into MakerWorks to keep customer updates current.
+## Installation
 
-**StockWorks**
-- StockWorks connects to the same database for material usage and stock warnings.
-- Cart and checkout can surface low-stock warnings.
+### Option A: Docker Compose (recommended)
+1. Copy env file:
+```bash
+cp .env.example .env
+```
+2. Edit `.env` values (at minimum: secrets, admin credentials, Stripe keys if using card payments).
+3. Start services:
+```bash
+docker compose up --build -d
+```
+4. Open:
+- App: `http://localhost:3000`
+- Postgres: `localhost:5432`
 
+Container startup runs:
+- `scripts/restore.js` (applies pending restore if present)
+- `prisma migrate deploy`
+- `scripts/bootstrap-admin.js` (ensures admin user from env)
+- `next start`
 
-**Configuration**
+### Option B: Local Node.js runtime
+Prereqs:
+- Node.js 20+
+- PostgreSQL 15+
 
-**Environment Variables (Common)**
+1. Install dependencies:
+```bash
+npm ci
+```
+2. Copy env and edit:
+```bash
+cp .env.example .env
+```
+3. Generate Prisma client and apply schema:
+```bash
+npm run prisma:generate
+npm run prisma:migrate
+```
+4. Bootstrap admin:
+```bash
+npm run bootstrap:admin
+```
+5. Run app:
+```bash
+npm run dev
+```
+
+## Configuration (Environment Variables)
+Start from `.env.example`. Most-used groups:
+
+### Required Core
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `BASE_URL`
-- `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+
+### Storage and Uploads
+- `STORAGE_DIR`
 - `DIRECT_UPLOAD_URL` (optional)
+- `UPLOAD_MAX_FILE_BYTES` (optional)
+- `UPLOAD_MAX_TOTAL_BYTES` (optional)
+- `FILES_BASE_URL` / `NEXT_PUBLIC_FILES_BASE_URL` (optional)
 
-**Optional Pricing Settings**
+### Pricing and Currency
+- `CURRENCY`, `NEXT_PUBLIC_CURRENCY`
+- `PLA_PRICE_PER_KG_USD`, `PETG_PRICE_PER_KG_USD`
 - `COLOR_SURCHARGE_RATE`
-- `FINISH_SURCHARGES` or `FINISH_SURCHARGE_MAP`
-- `MAX_CART_COLORS`
+- `NEXT_PUBLIC_MAX_CART_COLORS`
+- `SUPPORT_OVERHANG_ANGLE_DEG`
+- `SUPPORT_VOLUME_MULTIPLIER_MAX`
+- `COLOR_TIME_MULTIPLIER_PER_COLOR`
+- Optional finish and CAD overrides from `.env.example`
 
+### Payments
+- `STRIPE_SECRET_KEY`
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_SHIPPING_RATE_ID` (optional)
 
-**Operations And Maintenance**
+### Integrations
+- StockWorks: `STOCKWORKS_*`
+- Bambu View: `BAMBU_VIEW_*`
+- Discord: `DISCORD_*`
 
-**Database Migrations**
-- Use `npx prisma migrate deploy` in production.
-- Use `npx prisma migrate dev` for local development.
+### Email and Auth
+- `SMTP_*`
+- `RECEIPT_FROM_EMAIL`, `RECEIPT_REPLY_TO_EMAIL`
+- `INVITE_LOGIN_TOKEN_TTL_HOURS`
+- `AUTH_LOGIN_RATE_*`, `AUTH_REGISTER_RATE_*`, `AUTH_RESEND_RATE_*`
 
-**Migration Recovery (If Startup Fails)**
-1. Inspect failed migrations:
+### Push/PWA
+- `VAPID_PUBLIC_KEY`
+- `VAPID_PRIVATE_KEY`
+- `VAPID_SUBJECT`
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+
+### Branding/Theming
+- `NEXT_PUBLIC_BRAND_NAME`
+- `NEXT_PUBLIC_BRAND_VERSION`
+- `NEXT_PUBLIC_BRAND_LAB_NAME`
+- `NEXT_PUBLIC_BRAND_HANDLE`
+- `HOLIDAY_THEME`, `NEXT_PUBLIC_HOLIDAY_THEME`
+
+## First-Run Setup Checklist
+1. Confirm admin login works (`ADMIN_EMAIL` / `ADMIN_PASSWORD`).
+2. Open Admin and validate env status card.
+3. Configure site/pricing defaults in Admin site config.
+4. Add at least one model and one product template.
+5. Test a full customer flow:
+- upload or pick model
+- configure and add to cart
+- place checkout in your preferred payment mode
+6. Verify order appears in admin production/jobs views.
+7. If using integrations, test:
+- Stripe checkout completion
+- StockWorks inventory fetch
+- Bambu View printer status sync
+- email delivery
+- push subscription/notification
+
+## Daily Operations
+
+### Useful Commands
+```bash
+npm run dev
+npm run build
+npm run test
+npm run prisma:generate
+npm run prisma:deploy
+npm run backup
 ```
-docker exec -i postgres psql -U postgres -d makerworks -c "SELECT migration_name, started_at, finished_at, rolled_back_at FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL;"
+
+### Backup and Restore
+- Create backup:
+```bash
+npm run backup
 ```
-2. Roll back the failed entry (replace the name if different):
+- Backups include:
+  - PostgreSQL dump (`db.sql`)
+  - Uploaded storage files (excluding backup folders)
+- Restore is applied from pending restore manifest via startup script/API.
+
+### Migrations
+- Development:
+```bash
+npm run prisma:migrate
 ```
-docker exec -i postgres psql -U postgres -d makerworks -c "UPDATE _prisma_migrations SET rolled_back_at = NOW(), logs = COALESCE(logs,'') || E'\nmanual rollback after failure' WHERE migration_name='20260128151129_add_default_colors' AND finished_at IS NULL AND rolled_back_at IS NULL;"
+- Production:
+```bash
+npm run prisma:deploy
 ```
-3. Re-run migrations or restart the app.
 
+## Security and Access Control
+- Role model: `admin`, `staff`, `customer`
+- Admin-only API sections under `/api/admin/*`
+- Auth and registration rate limiting via `RateLimit` table and env controls
+- Email verification token flow
+- Invite acceptance flow for admin-created users
+- Config changes logged in audit table
 
-**Troubleshooting**
-- Prisma schema errors: run `npx prisma generate` and verify schema relations.
-- TypeScript shows many Prisma/route errors after schema or API route changes:
-  1. Run `npm run prisma:generate`
-  2. Clear `.next` (`cmd /c rmdir /s /q .next` on Windows)
-  3. Run `npx tsc --noEmit`
-- Docker equivalent (app container):
-  1. `docker compose exec app npm run prisma:generate`
-  2. `docker compose exec app sh -lc "rm -rf .next"`
-  3. `docker compose exec app npx tsc --noEmit`
-- `psql` checks (DB migration/state sanity):
-  1. `docker exec -i postgres psql -U postgres -d makerworks -c "SELECT migration_name, finished_at, rolled_back_at FROM _prisma_migrations ORDER BY started_at DESC LIMIT 20;"`
-  2. `docker exec -i postgres psql -U postgres -d makerworks -c "\dt"`
-- Stripe errors: ensure publishable and secret keys are set.
-- Upload failures: verify `DIRECT_UPLOAD_URL` and storage permissions.
+## Troubleshooting
+- Prisma/type errors after schema changes:
+```bash
+npm run prisma:generate
+# then clear .next and re-run type checks/build
+```
+- Stripe checkout not appearing:
+  - verify both publishable and secret keys
+  - verify `BASE_URL` callback/origin assumptions
+- Upload failures:
+  - verify `STORAGE_DIR` exists and is writable
+  - if using `DIRECT_UPLOAD_URL`, verify it is reachable
+- Integration gaps:
+  - check StockWorks/Bambu/Discord env variables and network reachability
+- Backup failure:
+  - ensure Docker `db` service is up OR local `pg_dump` is installed
 
-
-**Security Notes**
-- Auth endpoints enforce rate limiting. Configure via `AUTH_LOGIN_RATE_*`, `AUTH_REGISTER_RATE_*`, and `AUTH_RESEND_RATE_*`.
-- Admin invites use magic login links.
-- Email verification tokens are stored hashed at rest.
-
-
-**Screenshots**
+## Screenshots
 ![Home](public/screenshots/mwhome.png)
 ![Discover](public/screenshots/mwdiscover.png)
 ![Model detail](public/screenshots/mwmodeldetail.png)
 ![Admin](public/screenshots/mwadmin.png)
 
+## License
+MIT (`LICENSE`)
 
-**Need Help**
-- Issues and questions: `https://github.com/schartrand77/mkw2/issues`
+## Support
+Issues: `https://github.com/schartrand77/mkw2/issues`
