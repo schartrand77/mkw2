@@ -237,6 +237,7 @@ model FeaturedModel {
 model SiteConfig {
     id                       String   @id
     allowAnonymousUploads    Boolean? @default(true)
+    disableCustomerDiscounts Boolean? @default(false)
     directUploadUrl          String?
     favoriteShopLinkIds      Json?
     showApplePayBadge        Boolean? @default(false)

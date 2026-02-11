@@ -20,6 +20,7 @@ const schema = z.object({
   pcPricePerKgUsd: z.number().nonnegative().optional(),
   resinPricePerKgUsd: z.number().nonnegative().optional(),
   allowAnonymousUploads: z.boolean().optional(),
+  disableCustomerDiscounts: z.boolean().optional(),
   printSpeedCm3PerHour: z.number().nonnegative().optional(),
   energyUsdPerHour: z.number().nonnegative().optional(),
   machineUsdPerHour: z.number().nonnegative().optional(),

@@ -196,10 +196,16 @@ export async function POST(req: NextRequest) {
           discountPercent: true,
           friendsAndFamilyPercent: true,
           isFriendsAndFamily: true,
+          isAdmin: true,
+          role: true,
         },
       })
       : null
-    const discountSummary = summarizeDiscount(userForCheckout)
+    const isAdmin = Boolean(userForCheckout?.isAdmin || userForCheckout?.role === 'admin')
+    const discountSummary = summarizeDiscount(userForCheckout, {
+      disableCustomerDiscounts: cfg?.disableCustomerDiscounts,
+      isAdmin,
+    })
     const discountMultiplier = getDiscountMultiplier(discountSummary)
     const pricingAdjustments = getPricingAdjustmentConfig(cfg || undefined)
 

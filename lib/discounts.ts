@@ -11,6 +11,11 @@ export type DiscountSummary = {
   totalPercent: number
 }
 
+export type DiscountPolicy = {
+  disableCustomerDiscounts?: boolean | null
+  isAdmin?: boolean | null
+}
+
 const MAX_DISCOUNT_PERCENT = 100
 
 function clampPercent(value?: number | null) {
@@ -18,7 +23,16 @@ function clampPercent(value?: number | null) {
   return Math.min(MAX_DISCOUNT_PERCENT, Math.max(0, Math.round(value * 100) / 100))
 }
 
-export function summarizeDiscount(source?: DiscountSource | null): DiscountSummary {
+export function summarizeDiscount(source?: DiscountSource | null, policy?: DiscountPolicy | null): DiscountSummary {
+  const discountsDisabledForCustomer = Boolean(policy?.disableCustomerDiscounts) && !policy?.isAdmin
+  if (discountsDisabledForCustomer) {
+    return {
+      discountPercent: 0,
+      friendsAndFamilyPercent: 0,
+      isFriendsAndFamily: false,
+      totalPercent: 0,
+    }
+  }
   const discountPercent = clampPercent(source?.discountPercent)
   const ffActive = !!source?.isFriendsAndFamily
   const friendsAndFamilyPercent = ffActive ? clampPercent(source?.friendsAndFamilyPercent) : 0
