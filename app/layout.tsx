@@ -73,7 +73,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <CartProvider>
         <NotificationsProvider>
         <header className="sticky top-0 z-[1200] header-shell header-safe app-header relative isolate">
-          <div className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0 app-header-row">
+          <div className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-0 app-header-row">
             <Link href="/" aria-label={BRAND_FULL_NAME} className="text-xl font-semibold tracking-tight app-brand">
               <span>{BRAND_LOGO_PREFIX}</span>
               <span className="inline-block align-baseline text-brand-500 gear" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
