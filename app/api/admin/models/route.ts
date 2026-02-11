@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     salePriceUsd: (m as any).salePriceUsd ?? null,
     salePriceIsFrom: Boolean((m as any).salePriceIsFrom),
     salePriceUnit: (m as any).salePriceUnit ?? null,
+    disableCustomerDiscounts: Boolean((m as any).disableCustomerDiscounts),
     updatedAt: m.updatedAt,
     tags: m.modelTags.map(mt => mt.tag.name),
     affiliateTitle: (m as any).affiliateTitle,

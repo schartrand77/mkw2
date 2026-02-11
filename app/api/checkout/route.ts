@@ -9,7 +9,7 @@ import { z } from 'zod'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { getColorMultiplier, normalizeColors, normalizeMaterialName, resolveScaleFromDimensions, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
 import { recordOrderWorksJob } from '@/lib/orderworks'
-import { summarizeDiscount, getDiscountMultiplier } from '@/lib/discounts'
+import { summarizeDiscount } from '@/lib/discounts'
 import { recordCustomerOrder } from '@/lib/orders'
 import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
@@ -143,6 +143,7 @@ export async function POST(req: NextRequest) {
           title: true,
           priceUsd: true,
           salePriceUsd: true,
+          disableCustomerDiscounts: true,
           volumeMm3: true,
           material: true,
           sizeXmm: true,
@@ -202,11 +203,7 @@ export async function POST(req: NextRequest) {
       })
       : null
     const isAdmin = Boolean(userForCheckout?.isAdmin || userForCheckout?.role === 'admin')
-    const discountSummary = summarizeDiscount(userForCheckout, {
-      disableCustomerDiscounts: cfg?.disableCustomerDiscounts,
-      isAdmin,
-    })
-    const discountMultiplier = getDiscountMultiplier(discountSummary)
+    const discountSummary = summarizeDiscount(userForCheckout)
     const pricingAdjustments = getPricingAdjustmentConfig(cfg || undefined)
 
     const publicBaseUrl = resolvePublicBaseUrl(req)
@@ -304,7 +301,10 @@ export async function POST(req: NextRequest) {
         rushMultiplier: pricingAdjustments.rushMultiplier,
         batchDiscountPercent,
       })
-      const unitPrice = Number((adjusted.adjustedUnitPrice * discountMultiplier).toFixed(2))
+      const discountBlockedForModel = Boolean(model.disableCustomerDiscounts) && !isAdmin
+      const lineDiscountPercent = discountBlockedForModel ? 0 : discountSummary.totalPercent
+      const lineDiscountMultiplier = Math.max(0, 1 - lineDiscountPercent / 100)
+      const unitPrice = Number((adjusted.adjustedUnitPrice * lineDiscountMultiplier).toFixed(2))
       const qty = entry.qty || 1
       const undiscountedLineTotal = Number((adjusted.adjustedUnitPrice * qty).toFixed(2))
       const lineTotal = Number((unitPrice * qty).toFixed(2))
@@ -329,7 +329,7 @@ export async function POST(req: NextRequest) {
         unitPrice,
         lineTotal,
         undiscountedLineTotal,
-        discountPercent: discountSummary.totalPercent || undefined,
+        discountPercent: lineDiscountPercent || undefined,
         material: materialChoice,
         colors,
         finish: finishChoice || undefined,
@@ -342,7 +342,7 @@ export async function POST(req: NextRequest) {
           base: pricingDetails,
           volumeMultiplier,
           colorMultiplier,
-          discountMultiplier,
+          discountMultiplier: lineDiscountMultiplier,
           priceMultiplier: optionMultiplier,
           rawUnitPrice,
           unitPrice,

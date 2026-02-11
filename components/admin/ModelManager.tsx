@@ -12,6 +12,7 @@ type Model = {
   salePriceUsd?: number | null
   salePriceIsFrom?: boolean | null
   salePriceUnit?: string | null
+  disableCustomerDiscounts?: boolean | null
   tags: string[]
   affiliateTitle?: string | null
   affiliateUrl?: string | null
@@ -79,6 +80,7 @@ export default function ModelManager() {
             ...m,
             salePriceIsFrom: Boolean((m as any).salePriceIsFrom),
             salePriceUnit: (m as any).salePriceUnit ?? null,
+            disableCustomerDiscounts: Boolean((m as any).disableCustomerDiscounts),
             videoUrl: m.videoEmbedId ? `https://youtu.be/${m.videoEmbedId}` : ''
           }))
           setItems(normalized)
@@ -115,6 +117,7 @@ export default function ModelManager() {
           salePriceUsd: (m as any).salePriceUsd ?? null,
           salePriceIsFrom: Boolean(m.salePriceIsFrom),
           salePriceUnit: m.salePriceUnit || '',
+          disableCustomerDiscounts: Boolean(m.disableCustomerDiscounts),
         })
       })
       if (!res.ok) alert('Failed to save model: ' + (await res.text()))
@@ -291,6 +294,17 @@ export default function ModelManager() {
                   <option value="bx">bx</option>
                   <option value="complete">complete</option>
                 </select>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <input
+                  id={`model-discount-off-${activeModel.id}`}
+                  type="checkbox"
+                  checked={!!activeModel.disableCustomerDiscounts}
+                  onChange={(e) => updateModel(activeModel.id, { disableCustomerDiscounts: e.target.checked })}
+                />
+                <label htmlFor={`model-discount-off-${activeModel.id}`}>
+                  Disable customer discounts for this model
+                </label>
               </div>
             </div>
             <div className="md:col-span-3">

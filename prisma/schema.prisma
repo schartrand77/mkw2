@@ -63,6 +63,7 @@ model Model {
   effectivePriceUsd Float?
   effectivePriceUpdatedAt DateTime?
   salePriceUsd   Float?
+  disableCustomerDiscounts Boolean? @default(false)
   defaultColors  Json?
   salePriceIsFrom Boolean  @default(false)
   salePriceUnit   String?
@@ -237,7 +238,6 @@ model FeaturedModel {
 model SiteConfig {
     id                       String   @id
     allowAnonymousUploads    Boolean? @default(true)
-    disableCustomerDiscounts Boolean? @default(false)
     directUploadUrl          String?
     favoriteShopLinkIds      Json?
     showApplePayBadge        Boolean? @default(false)

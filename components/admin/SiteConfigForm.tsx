@@ -29,7 +29,6 @@ const materialPriceSchema = z.object({
 const configSchema = z.object({
   ...materialPriceSchema.shape,
   allowAnonymousUploads: z.boolean().optional(),
-  disableCustomerDiscounts: z.boolean().optional(),
   printSpeedCm3PerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   energyUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   machineUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
@@ -100,7 +99,6 @@ type Config = {
   pcPricePerKgUsd?: number | null
   resinPricePerKgUsd?: number | null
   allowAnonymousUploads?: boolean | null
-  disableCustomerDiscounts?: boolean | null
   printSpeedCm3PerHour?: number | null
   energyUsdPerHour?: number | null
   machineUsdPerHour?: number | null
@@ -195,7 +193,6 @@ function buildPayload(cfg: Config): SchemaShape {
   return {
     ...buildMaterialPricePayload(cfg),
     allowAnonymousUploads: typeof cfg.allowAnonymousUploads === 'boolean' ? cfg.allowAnonymousUploads : undefined,
-    disableCustomerDiscounts: typeof cfg.disableCustomerDiscounts === 'boolean' ? cfg.disableCustomerDiscounts : undefined,
     printSpeedCm3PerHour: cfg.printSpeedCm3PerHour ?? undefined,
     energyUsdPerHour: cfg.energyUsdPerHour ?? undefined,
     machineUsdPerHour: cfg.machineUsdPerHour ?? undefined,
@@ -827,20 +824,6 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
 
                 <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-3">
                   <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Pricing adjustments</div>
-                  <label className="flex items-start gap-2 rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={!!cfg.disableCustomerDiscounts}
-                      disabled={saving}
-                      onChange={(e) => {
-                        markTouched('disableCustomerDiscounts')
-                        setCfg({ ...cfg, disableCustomerDiscounts: e.target.checked })
-                      }}
-                    />
-                    <span>
-                      Disable all customer discounts (including Friends & Family). Admin accounts still receive discounts.
-                    </span>
-                  </label>
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm mb-1">Demand surge multiplier</label>

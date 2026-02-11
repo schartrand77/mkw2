@@ -10,25 +10,13 @@ export async function GET() {
   if (!userId) {
     return NextResponse.json(summarizeDiscount(null))
   }
-  const [user, config] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        discountPercent: true,
-        friendsAndFamilyPercent: true,
-        isFriendsAndFamily: true,
-        isAdmin: true,
-        role: true,
-      },
-    }),
-    prisma.siteConfig.findUnique({
-      where: { id: 'main' },
-      select: { disableCustomerDiscounts: true },
-    }),
-  ])
-  const isAdmin = Boolean(user?.isAdmin || user?.role === 'admin')
-  return NextResponse.json(summarizeDiscount(user, {
-    disableCustomerDiscounts: config?.disableCustomerDiscounts,
-    isAdmin,
-  }))
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      discountPercent: true,
+      friendsAndFamilyPercent: true,
+      isFriendsAndFamily: true,
+    },
+  })
+  return NextResponse.json(summarizeDiscount(user))
 }
