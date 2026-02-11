@@ -16,6 +16,7 @@ export default async function ProductsPage() {
           title: true,
           priceUsd: true,
           material: true,
+          flatRatePricing: true,
           coverImagePath: true,
           updatedAt: true,
         },

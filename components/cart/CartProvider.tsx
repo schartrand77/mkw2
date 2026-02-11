@@ -43,6 +43,7 @@ export type CartItem = {
   partId?: string | null
   partName?: string | null
   partIndex?: number | null
+  flatRatePricing?: boolean | null
   title: string
   priceUsd?: number | null
   thumbnail?: string | null
@@ -127,6 +128,7 @@ function sanitizeItem(item: any): CartItem {
     partId: item?.partId ? String(item.partId) : null,
     partName: item?.partName ? String(item.partName) : null,
     partIndex: typeof item?.partIndex === 'number' ? item.partIndex : null,
+    flatRatePricing: typeof item?.flatRatePricing === 'boolean' ? item.flatRatePricing : false,
     title: String(item?.title ?? ''),
     priceUsd: typeof item?.priceUsd === 'number' ? item.priceUsd : item?.priceUsd ?? null,
     thumbnail: item?.thumbnail ?? null,

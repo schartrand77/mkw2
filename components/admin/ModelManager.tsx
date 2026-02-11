@@ -13,6 +13,7 @@ type Model = {
   salePriceIsFrom?: boolean | null
   salePriceUnit?: string | null
   disableCustomerDiscounts?: boolean | null
+  flatRatePricing?: boolean | null
   tags: string[]
   affiliateTitle?: string | null
   affiliateUrl?: string | null
@@ -81,6 +82,7 @@ export default function ModelManager() {
             salePriceIsFrom: Boolean((m as any).salePriceIsFrom),
             salePriceUnit: (m as any).salePriceUnit ?? null,
             disableCustomerDiscounts: Boolean((m as any).disableCustomerDiscounts),
+            flatRatePricing: Boolean((m as any).flatRatePricing),
             videoUrl: m.videoEmbedId ? `https://youtu.be/${m.videoEmbedId}` : ''
           }))
           setItems(normalized)
@@ -118,6 +120,7 @@ export default function ModelManager() {
           salePriceIsFrom: Boolean(m.salePriceIsFrom),
           salePriceUnit: m.salePriceUnit || '',
           disableCustomerDiscounts: Boolean(m.disableCustomerDiscounts),
+          flatRatePricing: Boolean(m.flatRatePricing),
         })
       })
       if (!res.ok) alert('Failed to save model: ' + (await res.text()))
@@ -304,6 +307,17 @@ export default function ModelManager() {
                 />
                 <label htmlFor={`model-discount-off-${activeModel.id}`}>
                   Disable customer discounts for this model
+                </label>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <input
+                  id={`model-flat-rate-${activeModel.id}`}
+                  type="checkbox"
+                  checked={!!activeModel.flatRatePricing}
+                  onChange={(e) => updateModel(activeModel.id, { flatRatePricing: e.target.checked })}
+                />
+                <label htmlFor={`model-flat-rate-${activeModel.id}`}>
+                  Flat rate: no color-count or custom-text surcharge
                 </label>
               </div>
             </div>

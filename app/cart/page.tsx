@@ -610,7 +610,7 @@ export default function CartPage() {
   const itemUnitPrice = (item: (typeof items)[number]) => {
     const base = item.priceUsd || 0
     const materialMultiplier = getMaterialMultiplier(item.options.material)
-    const colorMultiplier = getColorMultiplier(item.options.colors)
+    const colorMultiplier = item.flatRatePricing ? 1 : getColorMultiplier(item.options.colors)
     const finishMultiplier = getFinishMultiplier(item.options.finish)
     const volumeMultiplier = getVolumeScaleMultiplier(item.options.scale, item.options.dimensionOverrides)
     const optionMultiplier = item.options.priceMultiplier ?? 1

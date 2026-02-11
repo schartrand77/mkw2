@@ -55,6 +55,7 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
       sizeYmm: true,
       sizeZmm: true,
       salePriceUsd: true,
+      flatRatePricing: true,
       supportRatio: true,
     },
   })
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
   const infillPct = parsed.data.infillPct ?? null
   const qty = parsed.data.qty ?? 1
   const rush = Boolean(parsed.data.rush)
+  const colorCountForPricing = model.flatRatePricing ? 1 : colors.length
 
   const { scaleX, scaleY, scaleZ, uniformScale } = resolveScaleFromDimensions({
     size: { x: model.sizeXmm ?? null, y: model.sizeYmm ?? null, z: model.sizeZmm ?? null },
@@ -133,11 +135,11 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
     infillPct,
     finish,
     supportRatio: supportRatio ?? null,
-    colorCount: colors.length,
+    colorCount: colorCountForPricing,
     cfg,
     applyMinimum: true,
   })
-  const colorMultiplier = getColorMultiplier(colors)
+  const colorMultiplier = model.flatRatePricing ? 1 : getColorMultiplier(colors)
   let basePrice = Number((pricing.price * colorMultiplier).toFixed(2))
 
   if (model.salePriceUsd != null && Number.isFinite(Number(model.salePriceUsd)) && Number(model.salePriceUsd) > 0) {

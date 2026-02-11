@@ -14,6 +14,7 @@ export async function GET() {
           title: true,
           priceUsd: true,
           material: true,
+          flatRatePricing: true,
           sizeXmm: true,
           sizeYmm: true,
           sizeZmm: true,

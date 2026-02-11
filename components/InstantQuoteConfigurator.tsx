@@ -54,6 +54,7 @@ type Props = {
   sizeZmm?: number | null
   thumbnail?: string | null
   defaultColors?: string[] | null
+  flatRatePricing?: boolean | null
   parts?: Array<{
     id: string
     name?: string | null
@@ -234,6 +235,7 @@ export default function InstantQuoteConfigurator({
   sizeZmm,
   thumbnail,
   defaultColors,
+  flatRatePricing,
   parts,
 }: Props) {
   const { add, maxColors } = useCart()
@@ -548,6 +550,7 @@ export default function InstantQuoteConfigurator({
             partId: part.id,
             partName: part.name || undefined,
             partIndex: typeof part.index === 'number' ? part.index : undefined,
+            flatRatePricing: Boolean(flatRatePricing),
             title,
             priceUsd: part.priceUsd ?? null,
             thumbnail: thumbnail ?? null,
@@ -561,6 +564,7 @@ export default function InstantQuoteConfigurator({
     add(
       {
         modelId,
+        flatRatePricing: Boolean(flatRatePricing),
         title,
         priceUsd: priceUsd ?? quote?.priceUsd ?? null,
         thumbnail: thumbnail ?? null,
@@ -568,7 +572,7 @@ export default function InstantQuoteConfigurator({
       },
       opts,
     )
-  }, [add, hasRequiredColor, modelId, title, priceUsd, quote?.priceUsd, thumbnail, sizeXmm, sizeYmm, sizeZmm, scale, materialChoice, normalizedColors, finish, infillPct, lockDimensions, dimensionOverrides, parts])
+  }, [add, hasRequiredColor, modelId, title, priceUsd, quote?.priceUsd, thumbnail, sizeXmm, sizeYmm, sizeZmm, scale, materialChoice, normalizedColors, finish, infillPct, lockDimensions, dimensionOverrides, flatRatePricing, parts])
 
   const uploadGcode = async (file: File) => {
     setGcodeLoading(true)

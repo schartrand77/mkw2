@@ -19,6 +19,7 @@ export default async function ProductDetailPage({ params }: Params) {
           description: true,
           priceUsd: true,
           material: true,
+          flatRatePricing: true,
           sizeXmm: true,
           sizeYmm: true,
           sizeZmm: true,

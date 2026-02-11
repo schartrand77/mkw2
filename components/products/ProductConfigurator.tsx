@@ -28,6 +28,7 @@ type BaseModel = {
   title: string
   priceUsd?: number | null
   material?: string | null
+  flatRatePricing?: boolean | null
   sizeXmm?: number | null
   sizeYmm?: number | null
   sizeZmm?: number | null
@@ -66,7 +67,7 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
     const basePrice = baseModel?.priceUsd ?? 0
     if (!basePrice) return null
     const volumeMultiplier = Math.pow(scale, 3)
-    const colorMultiplier = getColorMultiplier(Array.from({ length: colorCount }, () => 'X'))
+    const colorMultiplier = baseModel?.flatRatePricing ? 1 : getColorMultiplier(Array.from({ length: colorCount }, () => 'X'))
     const materialMultiplier = getMaterialMultiplier(resolvedMaterial)
     const multiplier = optionMultiplier || 1
     return Number((basePrice * volumeMultiplier * colorMultiplier * materialMultiplier * multiplier).toFixed(2))
@@ -81,6 +82,7 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
     add(
       {
         modelId: baseModel.id,
+        flatRatePricing: Boolean(baseModel.flatRatePricing),
         title: product.title,
         priceUsd: baseModel.priceUsd ?? null,
         thumbnail: coverUrl || null,

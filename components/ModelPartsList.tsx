@@ -24,11 +24,12 @@ type Part = {
 type Props = {
   modelId: string
   modelTitle: string
+  flatRatePricing?: boolean | null
   thumbnail?: string | null
   parts: Part[]
 }
 
-export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }: Props) {
+export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, thumbnail, parts }: Props) {
   const { add, items } = useCart()
   const router = useRouter()
   const hasPricedPart = parts.some((p) => typeof p.priceUsd === 'number' && Number(p.priceUsd) > 0)
@@ -109,6 +110,7 @@ export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }
                                   partId: part.id,
                                   partName: part.name || 'Part',
                                   partIndex: part.index,
+                                  flatRatePricing: Boolean(flatRatePricing),
                                   title: modelTitle,
                                   priceUsd: part.priceUsd ?? null,
                                   thumbnail,
@@ -182,6 +184,7 @@ export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }
                                 partId: part.id,
                                 partName: part.name || `Part ${i + 1}`,
                                 partIndex: part.index,
+                                flatRatePricing: Boolean(flatRatePricing),
                                 title: modelTitle,
                                 priceUsd: price,
                                 thumbnail,
@@ -214,6 +217,7 @@ export default function ModelPartsList({ modelId, modelTitle, thumbnail, parts }
                                 partId: part.id,
                                 partName: part.name || `Part ${i + 1}`,
                                 partIndex: part.index,
+                                flatRatePricing: Boolean(flatRatePricing),
                                 title: modelTitle,
                                 priceUsd: price,
                                 thumbnail,

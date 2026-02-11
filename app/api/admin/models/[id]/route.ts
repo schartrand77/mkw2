@@ -95,6 +95,10 @@ export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
     updates.disableCustomerDiscounts = Boolean(body.disableCustomerDiscounts)
   }
 
+  if (body.flatRatePricing !== undefined) {
+    updates.flatRatePricing = Boolean(body.flatRatePricing)
+  }
+
   if (body.salePriceUsd !== undefined) {
     const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
     const effectivePriceUsd = computeEffectivePriceUsd({

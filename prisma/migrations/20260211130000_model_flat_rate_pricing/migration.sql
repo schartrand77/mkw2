@@ -1,0 +1,2 @@
+ALTER TABLE "Model"
+ADD COLUMN IF NOT EXISTS "flatRatePricing" BOOLEAN DEFAULT false;

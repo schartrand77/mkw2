@@ -209,6 +209,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           sizeZmm={model.sizeZmm}
           thumbnail={coverHref}
           defaultColors={Array.isArray(model.defaultColors) ? model.defaultColors : null}
+          flatRatePricing={Boolean(model.flatRatePricing)}
           parts={hasParts ? model.parts.map((p: any, i: number) => ({
             id: p.id,
             name: p.name,
@@ -262,6 +263,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           <ModelPartsList
             modelId={model.id}
             modelTitle={model.title}
+            flatRatePricing={Boolean(model.flatRatePricing)}
             thumbnail={coverHref}
             parts={model.parts.map((p: any, i: number) => ({
               id: p.id,

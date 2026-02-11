@@ -10,6 +10,7 @@ type ModelPreview = {
   basePriceUsd?: number | null
   salePriceUsd?: number | null
   saleActive?: boolean | null
+  flatRatePricing?: boolean | null
   coverImagePath?: string | null
   updatedAt?: string | Date | null
   sizeXmm?: number
@@ -64,11 +65,13 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
       sizeYmm?: number | null
       sizeZmm?: number | null
     }> | null = parts
+    let flatRatePricing = Boolean(model.flatRatePricing)
     if (colors.length === 0 || !parts) {
       try {
         const res = await fetch(`/api/models/${model.id}`, { cache: 'no-store' })
         if (res.ok) {
           const data = await res.json()
+          flatRatePricing = Boolean(data?.model?.flatRatePricing ?? flatRatePricing)
           if (Array.isArray(data?.model?.defaultColors)) {
             colors = data.model.defaultColors
           }
@@ -98,6 +101,7 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
             partId: part.id,
             partName: part.name || undefined,
             partIndex: typeof part.index === 'number' ? part.index : undefined,
+            flatRatePricing,
             title: model.title,
             priceUsd: part.priceUsd ?? null,
             thumbnail,
@@ -111,6 +115,7 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
       add(
         {
           modelId: model.id,
+          flatRatePricing,
           title: model.title,
           priceUsd: resolvedPrice,
           thumbnail,
@@ -120,7 +125,7 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
       )
     }
     setAdding(false)
-  }, [add, adding, model.defaultColors, model.id, model.sizeXmm, model.sizeYmm, model.sizeZmm, model.title, resolvedPrice, thumbnail, parts])
+  }, [add, adding, model.defaultColors, model.flatRatePricing, model.id, model.sizeXmm, model.sizeYmm, model.sizeZmm, model.title, resolvedPrice, thumbnail, parts])
 
   const stopPropagation = (e: React.SyntheticEvent) => {
     e.preventDefault()
@@ -159,6 +164,7 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
                     partId: part.id,
                     partName: part.name || undefined,
                     partIndex: typeof part.index === 'number' ? part.index : undefined,
+                    flatRatePricing: Boolean(model.flatRatePricing),
                     title: model.title,
                     priceUsd: part.priceUsd ?? null,
                     thumbnail,

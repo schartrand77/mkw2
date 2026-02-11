@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
     salePriceIsFrom: Boolean((m as any).salePriceIsFrom),
     salePriceUnit: (m as any).salePriceUnit ?? null,
     disableCustomerDiscounts: Boolean((m as any).disableCustomerDiscounts),
+    flatRatePricing: Boolean((m as any).flatRatePricing),
     updatedAt: m.updatedAt,
     tags: m.modelTags.map(mt => mt.tag.name),
     affiliateTitle: (m as any).affiliateTitle,

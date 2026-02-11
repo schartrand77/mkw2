@@ -64,6 +64,7 @@ model Model {
   effectivePriceUpdatedAt DateTime?
   salePriceUsd   Float?
   disableCustomerDiscounts Boolean? @default(false)
+  flatRatePricing Boolean? @default(false)
   defaultColors  Json?
   salePriceIsFrom Boolean  @default(false)
   salePriceUnit   String?

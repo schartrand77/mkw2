@@ -17,6 +17,7 @@ export async function GET(_req: Request, { params }: Params) {
           description: true,
           priceUsd: true,
           material: true,
+          flatRatePricing: true,
           sizeXmm: true,
           sizeYmm: true,
           sizeZmm: true,

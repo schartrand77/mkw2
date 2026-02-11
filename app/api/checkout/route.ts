@@ -144,6 +144,7 @@ export async function POST(req: NextRequest) {
           priceUsd: true,
           salePriceUsd: true,
           disableCustomerDiscounts: true,
+          flatRatePricing: true,
           volumeMm3: true,
           material: true,
           sizeXmm: true,
@@ -214,6 +215,7 @@ export async function POST(req: NextRequest) {
       const cm3 = model.volumeMm3 ? model.volumeMm3 / 1000 : null
       const materialChoice: MaterialType = normalizeMaterialName(entry.material || model.material || 'PLA')
       const colors = normalizeColors(entry.colors)
+      const colorCountForPricing = model.flatRatePricing ? 1 : colors.length
       const finishChoice = entry.finish ? String(entry.finish) : null
       const part = entry.partId ? partMap.get(entry.partId) || null : null
       const isMultipart = (model._count?.parts || 0) > 1
@@ -230,7 +232,7 @@ export async function POST(req: NextRequest) {
               infillPct: entry.infillPct ?? null,
               finish: finishChoice,
               supportRatio: model.supportRatio ?? null,
-              colorCount: colors.length,
+              colorCount: colorCountForPricing,
               cfg,
               applyMinimum: true,
             })
@@ -247,7 +249,7 @@ export async function POST(req: NextRequest) {
               infillPct: entry.infillPct ?? null,
               finish: finishChoice,
               supportRatio: part.supportRatio ?? null,
-              colorCount: colors.length,
+              colorCount: colorCountForPricing,
               cfg,
             })
             return pricingDetails.price
@@ -264,7 +266,7 @@ export async function POST(req: NextRequest) {
             infillPct: entry.infillPct ?? null,
             finish: finishChoice,
             supportRatio: model.supportRatio ?? null,
-            colorCount: colors.length,
+            colorCount: colorCountForPricing,
             cfg,
           })
           return pricingDetails.price
@@ -287,7 +289,7 @@ export async function POST(req: NextRequest) {
         lockDimensions: entry.lockDimensions ?? null,
       })
       const volumeMultiplier = scaleX * scaleY * scaleZ
-      const colorMultiplier = getColorMultiplier(colors)
+      const colorMultiplier = model.flatRatePricing ? 1 : getColorMultiplier(colors)
       const optionMultiplier = typeof entry.priceMultiplier === 'number' && Number.isFinite(entry.priceMultiplier)
         ? Math.max(0.1, Math.min(5, entry.priceMultiplier))
         : 1
