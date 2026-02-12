@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db'
 import { estimatePricingDetails } from '@/lib/pricing'
 import { normalizeOrderStatus } from '@/lib/order-status'
 import { extractJobFormId, extractOrderId, extractPaymentIntentId, findLinkedJobsForOrder } from '@/lib/orderworks-link'
-import type { SiteConfig } from '@prisma/client'
+import type { Prisma, SiteConfig } from '@prisma/client'
 
 const QUEUE_STATUSES = new Set([
   'queued',
@@ -183,7 +183,9 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
     ),
   )
   const orderIds = orders.map((order) => order.id)
-  const jobWhere: any[] = [{ metadata: { path: ['orderId'], in: orderIds } }]
+  const jobWhere: Prisma.JobFormWhereInput[] = [
+    ...orderIds.map((orderId) => ({ metadata: { path: ['orderId'], equals: orderId } })),
+  ]
   if (paymentIntentIds.length > 0) jobWhere.push({ paymentIntentId: { in: paymentIntentIds } })
   if (jobFormIds.length > 0) jobWhere.push({ id: { in: jobFormIds } })
   const jobForms = await prisma.jobForm.findMany({
