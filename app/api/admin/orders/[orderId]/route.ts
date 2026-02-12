@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '@/app/api/admin/_utils'
+import { extractJobFormId, extractPaymentIntentId } from '@/lib/orderworks-link'
 
 type RouteParams = { params: Promise<{ orderId: string }> }
 
@@ -16,13 +17,20 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
     await prisma.$transaction(async (tx) => {
       const existing = await tx.printOrder.findUnique({
         where: { id: orderId },
-        select: { id: true },
+        select: { id: true, metadata: true },
       })
       if (!existing) {
         const err = new Error('Order not found') as Error & { code?: string }
         err.code = 'P2025'
         throw err
       }
+
+      const paymentIntentId = extractPaymentIntentId(existing.metadata)
+      const jobFormId = extractJobFormId(existing.metadata)
+      const whereOr: any[] = [{ metadata: { path: ['orderId'], equals: orderId } }]
+      if (paymentIntentId) whereOr.push({ paymentIntentId })
+      if (jobFormId) whereOr.push({ id: jobFormId })
+      await tx.jobForm.deleteMany({ where: { OR: whereOr } })
 
       // Avoid self-relation constraint issues before deleting the source order.
       await tx.printOrder.updateMany({
@@ -39,4 +47,3 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
     return NextResponse.json({ error }, { status })
   }
 }
-

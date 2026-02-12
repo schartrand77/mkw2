@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '@/app/api/admin/_utils'
+import { syncLinkedJobsFromOrder } from '@/lib/orderworks-sync'
 
 const payloadSchema = z.object({
   quantity: z.number().int().min(1).max(999),
@@ -68,10 +69,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       return { item: updatedItem, order: updatedOrder }
     })
 
+    await syncLinkedJobsFromOrder(orderId)
+
     return NextResponse.json({ ok: true, ...result })
   } catch (e: any) {
     const status = typeof e?.status === 'number' ? e.status : 400
     return NextResponse.json({ error: e?.message || 'Invalid request.' }, { status })
   }
 }
-

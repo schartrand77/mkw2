@@ -41,6 +41,29 @@ export async function findLinkedJobForOrder(orderId: string, metadata?: unknown)
   })
 }
 
+export async function findLinkedJobsForOrder(orderId: string, metadata?: unknown) {
+  const paymentIntentId = extractPaymentIntentId(metadata)
+  const jobFormId = extractJobFormId(metadata)
+  const whereOr: any[] = [{ metadata: { path: ['orderId'], equals: orderId } }]
+  if (paymentIntentId) whereOr.push({ paymentIntentId })
+  if (jobFormId) whereOr.push({ id: jobFormId })
+  return prisma.jobForm.findMany({
+    where: { OR: whereOr },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      paymentIntentId: true,
+      fulfillmentStatus: true,
+      totalCents: true,
+      currency: true,
+      lineItems: true,
+      shipping: true,
+      metadata: true,
+      customerEmail: true,
+    },
+  })
+}
+
 export async function findLinkedOrderForJob(params: { paymentIntentId: string; jobFormId?: string; metadata?: unknown }) {
   const metadataOrderId = extractOrderId(params.metadata)
   const whereOr: any[] = [{ metadata: { path: ['paymentIntentId'], equals: params.paymentIntentId } }]
