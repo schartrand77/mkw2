@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { estimatePricingDetails } from '@/lib/pricing'
 import { normalizeOrderStatus } from '@/lib/order-status'
+import { extractJobFormId, extractOrderId, extractPaymentIntentId, findLinkedJobsForOrder } from '@/lib/orderworks-link'
 import type { SiteConfig } from '@prisma/client'
 
 const QUEUE_STATUSES = new Set([
@@ -50,12 +51,6 @@ export type ProductionSnapshot = {
   capacityHoursPerDay: number
   queueHours: number
   orders: OrderQueueEntry[]
-}
-
-function extractPaymentIntentId(metadata: unknown): string | null {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
-  const raw = (metadata as { paymentIntentId?: unknown }).paymentIntentId
-  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null
 }
 
 function resolvePrinterCapacity(printers: PrinterSnapshot[]): number {
@@ -173,20 +168,63 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
   })
   const allItems = orders.flatMap((order) => order.items)
   const volumeMaps = await loadVolumeMaps(allItems)
-  const paymentIntentIds = orders
-    .map((order) => extractPaymentIntentId(order.metadata))
-    .filter((val): val is string => Boolean(val))
-  const jobForms = paymentIntentIds.length
-    ? await prisma.jobForm.findMany({
-        where: { paymentIntentId: { in: paymentIntentIds } },
-        select: { paymentIntentId: true, status: true, lastError: true },
-      })
-    : []
-  const jobFormMap = new Map(jobForms.map((job) => [job.paymentIntentId, job]))
+  const paymentIntentIds = Array.from(
+    new Set(
+      orders
+        .map((order) => extractPaymentIntentId(order.metadata))
+        .filter((val): val is string => Boolean(val)),
+    ),
+  )
+  const jobFormIds = Array.from(
+    new Set(
+      orders
+        .map((order) => extractJobFormId(order.metadata))
+        .filter((val): val is string => Boolean(val)),
+    ),
+  )
+  const orderIds = orders.map((order) => order.id)
+  const jobWhere: any[] = [{ metadata: { path: ['orderId'], in: orderIds } }]
+  if (paymentIntentIds.length > 0) jobWhere.push({ paymentIntentId: { in: paymentIntentIds } })
+  if (jobFormIds.length > 0) jobWhere.push({ id: { in: jobFormIds } })
+  const jobForms = await prisma.jobForm.findMany({
+    where: { OR: jobWhere },
+    select: { id: true, paymentIntentId: true, status: true, lastError: true, metadata: true, createdAt: true },
+  })
+
+  const jobsByOrderId = new Map<string, typeof jobForms>()
+  const jobsByPaymentIntentId = new Map<string, typeof jobForms>()
+  const jobsById = new Map(jobForms.map((job) => [job.id, job]))
+
+  for (const job of jobForms) {
+    if (job.paymentIntentId) {
+      const existing = jobsByPaymentIntentId.get(job.paymentIntentId) || []
+      existing.push(job)
+      jobsByPaymentIntentId.set(job.paymentIntentId, existing)
+    }
+    const linkedOrderId = extractOrderId(job.metadata)
+    if (linkedOrderId) {
+      const existing = jobsByOrderId.get(linkedOrderId) || []
+      existing.push(job)
+      jobsByOrderId.set(linkedOrderId, existing)
+    }
+  }
+
+  function getLatestJobForOrder(orderId: string, metadata: unknown) {
+    const linked = new Map<string, (typeof jobForms)[number]>()
+    for (const job of jobsByOrderId.get(orderId) || []) linked.set(job.id, job)
+    const paymentIntentId = extractPaymentIntentId(metadata)
+    if (paymentIntentId) {
+      for (const job of jobsByPaymentIntentId.get(paymentIntentId) || []) linked.set(job.id, job)
+    }
+    const jobFormId = extractJobFormId(metadata)
+    if (jobFormId && jobsById.has(jobFormId)) linked.set(jobFormId, jobsById.get(jobFormId)!)
+    return Array.from(linked.values()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
+  }
+
   const queueEntries = orders
     .map((order) => {
       const paymentIntentId = extractPaymentIntentId(order.metadata)
-      const jobForm = paymentIntentId ? jobFormMap.get(paymentIntentId) : undefined
+      const jobForm = getLatestJobForOrder(order.id, order.metadata)
       return {
         id: order.id,
         orderNumber: order.orderNumber,
@@ -254,10 +292,11 @@ export async function getOrderProductionDetail(order: {
   }[]
 }): Promise<OrderQueueEntry | null> {
   const paymentIntentId = extractPaymentIntentId(order.metadata)
-  const [cfg, jobForm] = await Promise.all([
+  const [cfg, linkedJobs] = await Promise.all([
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
-    paymentIntentId ? prisma.jobForm.findUnique({ where: { paymentIntentId } }) : Promise.resolve(null),
+    findLinkedJobsForOrder(order.id, order.metadata),
   ])
+  const jobForm = linkedJobs[0]
   const volumeMaps = await loadVolumeMaps(order.items)
   const totalHours = estimateOrderHours(order.items, volumeMaps, cfg)
 

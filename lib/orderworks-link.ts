@@ -53,6 +53,8 @@ export async function findLinkedJobsForOrder(orderId: string, metadata?: unknown
     select: {
       id: true,
       paymentIntentId: true,
+      status: true,
+      lastError: true,
       fulfillmentStatus: true,
       totalCents: true,
       currency: true,
