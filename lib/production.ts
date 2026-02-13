@@ -77,7 +77,16 @@ function normalizeStatus(status: string): number {
   return 4
 }
 
-function resolveOrderStatusFromFulfillment(orderStatus: string, fulfillmentStatus?: FulfillmentStatusKey | null) {
+function resolveOrderStatusFromFulfillment(
+  orderStatus: string,
+  fulfillmentStatus?: FulfillmentStatusKey | null,
+  fulfilledAt?: Date | null,
+  jobStatus?: string | null,
+) {
+  const normalizedJobStatus = (jobStatus || '').trim().toLowerCase()
+  if (fulfilledAt || normalizedJobStatus === 'completed' || normalizedJobStatus === 'fulfilled' || normalizedJobStatus === 'done') {
+    return 'completed'
+  }
   if (!fulfillmentStatus) return orderStatus
   const mapped = mapFulfillmentToOrderStatus(fulfillmentStatus)
   if (mapped === 'completed' || mapped === 'shipped') return mapped
@@ -226,7 +235,7 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
   if (jobFormIds.length > 0) jobWhere.push({ id: { in: jobFormIds } })
   const jobForms = await prisma.jobForm.findMany({
     where: { OR: jobWhere },
-    select: { id: true, paymentIntentId: true, status: true, lastError: true, fulfillmentStatus: true, metadata: true, createdAt: true },
+    select: { id: true, paymentIntentId: true, status: true, lastError: true, fulfillmentStatus: true, fulfilledAt: true, metadata: true, createdAt: true },
   })
 
   const jobsByOrderId = new Map<string, typeof jobForms>()
@@ -263,7 +272,12 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
     .map((order) => {
       const paymentIntentId = extractPaymentIntentId(order.metadata)
       const jobForm = getLatestJobForOrder(order.id, order.metadata)
-      const status = resolveOrderStatusFromFulfillment(order.status, jobForm?.fulfillmentStatus ?? null)
+      const status = resolveOrderStatusFromFulfillment(
+        order.status,
+        jobForm?.fulfillmentStatus ?? null,
+        jobForm?.fulfilledAt ?? null,
+        jobForm?.status ?? null,
+      )
       return {
         id: order.id,
         orderNumber: order.orderNumber,
@@ -340,7 +354,12 @@ export async function getOrderProductionDetail(order: {
   const jobForm = linkedJobs[0]
   const volumeMaps = await loadVolumeMaps(order.items)
   const totalHours = estimateOrderHours(order.items, volumeMaps, cfg)
-  const effectiveStatus = resolveOrderStatusFromFulfillment(order.status, jobForm?.fulfillmentStatus ?? null)
+  const effectiveStatus = resolveOrderStatusFromFulfillment(
+    order.status,
+    jobForm?.fulfillmentStatus ?? null,
+    jobForm?.fulfilledAt ?? null,
+    jobForm?.status ?? null,
+  )
 
   if (QUEUE_STATUSES.has(order.status)) {
     const snapshot = await getProductionSnapshot()
