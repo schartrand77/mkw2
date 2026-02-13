@@ -61,6 +61,7 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
   const [statusLoading, setStatusLoading] = useState(false)
   const [autoQueueing, setAutoQueueing] = useState(false)
   const [syncingBambu, setSyncingBambu] = useState(false)
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null)
 
   const formattedGeneratedAt = useMemo(() => formatDateTime(snapshot.generatedAt), [snapshot.generatedAt])
 
@@ -244,6 +245,34 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
       pushSessionNotification({ type: 'error', title: 'Send failed', message })
     } finally {
       setComposerSending(false)
+    }
+  }
+
+  const deleteOrderFromSchedule = async (order: OrderEntry) => {
+    if (deletingOrderId) return
+    const label = order.orderNumber ? `MW-${order.orderNumber.toString().padStart(5, '0')}` : 'this job'
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm(`Delete ${label} from production schedule? This cannot be undone.`)
+      if (!confirmed) return
+    }
+    setDeletingOrderId(order.id)
+    setError(null)
+    try {
+      const res = await fetch(`/api/admin/orders/${order.id}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Failed to delete job')
+      pushSessionNotification({
+        type: 'success',
+        title: 'Job deleted',
+        message: `${label} was removed from production schedule.`,
+      })
+      await refresh()
+    } catch (err: any) {
+      const message = err?.message || 'Failed to delete job'
+      setError(message)
+      pushSessionNotification({ type: 'error', title: 'Delete failed', message })
+    } finally {
+      setDeletingOrderId(null)
     }
   }
 
@@ -443,6 +472,14 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
                       onClick={() => openComposer(order.id, 'message')}
                     >
                       Message customer
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-md border border-rose-400/40 px-2 py-1 text-rose-200 hover:border-rose-300/60 disabled:opacity-50"
+                      onClick={() => deleteOrderFromSchedule(order)}
+                      disabled={deletingOrderId === order.id}
+                    >
+                      {deletingOrderId === order.id ? 'Deleting...' : 'Delete job'}
                     </button>
                   </div>
                   {composer?.orderId === order.id ? (
