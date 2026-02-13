@@ -185,7 +185,7 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Product Builder</h1>
-            <p className="text-xs text-slate-400">Create configurable product templates with pricing overrides.</p>
+            <p className="text-xs text-slate-400">Build what customers see on the Products page, including choices and price effects.</p>
           </div>
           <div className="flex gap-2">
             {form.id && (
@@ -206,79 +206,111 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
         {error && <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">{error}</div>}
         {message && <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">{message}</div>}
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <label className="text-sm space-y-1">
-            <span className="text-slate-400">Title</span>
-            <input
-              className="input"
-              value={form.title}
-              onChange={(e) => updateField({ title: e.target.value })}
-            />
-          </label>
-          <label className="text-sm space-y-1">
-            <span className="text-slate-400">Base model</span>
-            <select
-              className="input"
-              value={form.baseModelId || ''}
-              onChange={(e) => updateField({ baseModelId: e.target.value || null })}
-            >
-              <option value="">Select model...</option>
-              {models.map((model) => (
-                <option key={model.id} value={model.id}>{model.title}</option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm space-y-1 md:col-span-2">
-            <span className="text-slate-400">Description</span>
-            <textarea
-              className="input min-h-[120px]"
-              value={form.description || ''}
-              onChange={(e) => updateField({ description: e.target.value })}
-            />
-          </label>
-          <label className="text-sm flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={form.isActive}
-              onChange={(e) => updateField({ isActive: e.target.checked })}
-            />
-            <span>Active</span>
-          </label>
+        <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold">1. Basic Product Info</h2>
+            <p className="text-xs text-slate-400">These fields control the product card and detail content that customers see.</p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Product name (shown to customers)</span>
+              <input
+                className="input"
+                value={form.title}
+                placeholder="Example: Dragon Bust"
+                onChange={(e) => updateField({ title: e.target.value })}
+              />
+              <p className="text-xs text-slate-500">Keep this short and specific. This appears in listings and on the product page.</p>
+            </label>
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Base model (drives starting price + dimensions)</span>
+              <select
+                className="input"
+                value={form.baseModelId || ''}
+                onChange={(e) => updateField({ baseModelId: e.target.value || null })}
+              >
+                <option value="">Select a base model...</option>
+                {models.map((model) => (
+                  <option key={model.id} value={model.id}>{model.title}</option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500">Starting price comes from this model before option adjustments.</p>
+            </label>
+            <label className="text-sm space-y-1 md:col-span-2">
+              <span className="text-slate-400">Customer description</span>
+              <textarea
+                className="input min-h-[120px]"
+                value={form.description || ''}
+                placeholder="Short shopper-facing summary. Example: Detailed fantasy bust for desk display."
+                onChange={(e) => updateField({ description: e.target.value })}
+              />
+              <p className="text-xs text-slate-500">Explain what the customer gets and what can be customized.</p>
+            </label>
+            <label className="text-sm flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) => updateField({ isActive: e.target.checked })}
+              />
+              <span>Visible on customer Products page</span>
+            </label>
+          </div>
         </div>
 
-        <OptionEditor
-          title="Size options"
-          rows={form.sizeOptions || []}
-          onChange={(rows) => updateOptionList('sizeOptions', () => rows)}
-          hint="Scale uses volume multiplier; priceMultiplier stacks on top."
-          showScale
-          showPriceMultiplier
-        />
+        <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold">2. Customer Choices And Pricing</h2>
+            <p className="text-xs text-slate-400">Each option row becomes a dropdown item on the customer product configurator.</p>
+          </div>
 
-        <OptionEditor
-          title="Material options"
-          rows={form.materialOptions || []}
-          onChange={(rows) => updateOptionList('materialOptions', () => rows)}
-          hint="Use label + value to map to material keys."
-          showValue
-          showPriceMultiplier
-        />
+          <OptionEditor
+            title="Size choices"
+            rows={form.sizeOptions || []}
+            onChange={(rows) => updateOptionList('sizeOptions', () => rows)}
+            hint="Scale changes volume (scale^3), then Price factor applies."
+            showScale
+            showPriceMultiplier
+            labelPlaceholder="Example: Small / Medium / Large"
+            scaleLabel="Scale factor"
+            scalePlaceholder="1.00"
+            multiplierLabel="Price factor"
+            multiplierPlaceholder="1.00"
+          />
 
-        <OptionEditor
-          title="Color options"
-          rows={form.colorOptions || []}
-          onChange={(rows) => updateOptionList('colorOptions', () => rows)}
-          hint="Set colorCount or priceMultiplier for premium palettes."
-          showColorCount
-          showPriceMultiplier
-        />
+          <OptionEditor
+            title="Material choices"
+            rows={form.materialOptions || []}
+            onChange={(rows) => updateOptionList('materialOptions', () => rows)}
+            hint="Label is what customers see. Material key maps to pricing rules (e.g., PLA, PETG, ABS)."
+            showValue
+            showPriceMultiplier
+            labelPlaceholder="Example: Matte PETG"
+            valueLabel="Material key"
+            valuePlaceholder="Example: PETG"
+            multiplierLabel="Price factor"
+            multiplierPlaceholder="1.00"
+          />
+
+          <OptionEditor
+            title="Color palette choices"
+            rows={form.colorOptions || []}
+            onChange={(rows) => updateOptionList('colorOptions', () => rows)}
+            hint="Colors in palette controls how many colors the customer can pick in cart."
+            showColorCount
+            showPriceMultiplier
+            labelPlaceholder="Example: Two-tone"
+            colorCountLabel="Colors in palette"
+            multiplierLabel="Price factor"
+            multiplierPlaceholder="1.00"
+          />
+        </div>
 
         <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm space-y-2">
-          <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Live preview</div>
+          <div className="text-xs uppercase tracking-[0.3em] text-slate-400">3. Live Pricing Preview</div>
           {selectedModel ? (
             <>
               <div className="text-slate-300">
-                Base model: <span className="font-semibold">{selectedModel.title}</span> {basePrice != null ? `· ${formatCurrency(basePrice)}` : ''}
+                Base model: <span className="font-semibold">{selectedModel.title}</span> {basePrice != null ? `- ${formatCurrency(basePrice)}` : ''}
               </div>
               <div className="grid sm:grid-cols-3 gap-3 text-xs text-slate-400">
                 {(form.sizeOptions || []).length > 0 ? (
@@ -315,6 +347,14 @@ function OptionEditor({
   showScale = false,
   showColorCount = false,
   showPriceMultiplier = false,
+  labelPlaceholder = 'Example: Standard',
+  valueLabel = 'Internal value',
+  valuePlaceholder = 'Example: PLA',
+  scaleLabel = 'Scale',
+  scalePlaceholder = '1.00',
+  colorCountLabel = 'Color count',
+  multiplierLabel = 'Price multiplier',
+  multiplierPlaceholder = '1.00',
 }: {
   title: string
   rows: OptionRow[]
@@ -324,6 +364,14 @@ function OptionEditor({
   showScale?: boolean
   showColorCount?: boolean
   showPriceMultiplier?: boolean
+  labelPlaceholder?: string
+  valueLabel?: string
+  valuePlaceholder?: string
+  scaleLabel?: string
+  scalePlaceholder?: string
+  colorCountLabel?: string
+  multiplierLabel?: string
+  multiplierPlaceholder?: string
 }) {
   const addRow = () => onChange([...rows, { label: '' }])
   const updateRow = (idx: number, patch: Partial<OptionRow>) => {
@@ -331,84 +379,100 @@ function OptionEditor({
     onChange(next)
   }
   const removeRow = (idx: number) => onChange(rows.filter((_, i) => i !== idx))
+  const countLabel = rows.length === 1 ? '1 option' : `${rows.length} options`
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-3">
+    <div className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm font-semibold">{title}</div>
           {hint && <div className="text-xs text-slate-500">{hint}</div>}
         </div>
-        <button type="button" className="text-xs px-2 py-1 rounded border border-white/10 hover:border-white/20" onClick={addRow}>
-          Add
-        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-slate-500">{countLabel}</span>
+          <button type="button" className="text-xs px-2 py-1 rounded border border-white/10 hover:border-white/20" onClick={addRow}>
+            Add option
+          </button>
+        </div>
       </div>
-      {rows.length === 0 && <p className="text-xs text-slate-500">No options added.</p>}
+      {rows.length === 0 && <p className="text-xs text-slate-500">No options added yet.</p>}
       <div className="space-y-2">
         {rows.map((row, idx) => (
-          <div key={`${title}-${idx}`} className="grid md:grid-cols-5 gap-2 items-end">
-            <label className="text-xs text-slate-400 md:col-span-2">
-              Label
-              <input
-                className="input mt-1"
-                value={row.label}
-                onChange={(e) => updateRow(idx, { label: e.target.value })}
-              />
-            </label>
-            {showValue && (
-              <label className="text-xs text-slate-400">
-                Value
+          <div key={`${title}-${idx}`} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-slate-500">Option {idx + 1}</div>
+              <button
+                type="button"
+                className="text-xs text-rose-300 hover:text-rose-200"
+                onClick={() => removeRow(idx)}
+              >
+                Remove
+              </button>
+            </div>
+            <div className="grid md:grid-cols-5 gap-2 items-start">
+              <label className="text-xs text-slate-400 md:col-span-2">
+                Customer label
                 <input
                   className="input mt-1"
-                  value={row.value || ''}
-                  onChange={(e) => updateRow(idx, { value: e.target.value })}
+                  value={row.label}
+                  placeholder={labelPlaceholder}
+                  onChange={(e) => updateRow(idx, { label: e.target.value })}
                 />
               </label>
-            )}
-            {showScale && (
-              <label className="text-xs text-slate-400">
-                Scale
-                <input
-                  className="input mt-1"
-                  type="number"
-                  step="0.05"
-                  value={row.scale ?? 1}
-                  onChange={(e) => updateRow(idx, { scale: Number(e.target.value) })}
-                />
-              </label>
-            )}
-            {showColorCount && (
-              <label className="text-xs text-slate-400">
-                Color count
-                <input
-                  className="input mt-1"
-                  type="number"
-                  min={1}
-                  max={16}
-                  value={row.colorCount ?? 1}
-                  onChange={(e) => updateRow(idx, { colorCount: Number(e.target.value) })}
-                />
-              </label>
-            )}
-            {showPriceMultiplier && (
-              <label className="text-xs text-slate-400">
-                Price multiplier
-                <input
-                  className="input mt-1"
-                  type="number"
-                  step="0.05"
-                  value={row.priceMultiplier ?? 1}
-                  onChange={(e) => updateRow(idx, { priceMultiplier: Number(e.target.value) })}
-                />
-              </label>
-            )}
-            <button
-              type="button"
-              className="text-xs text-rose-300 hover:text-rose-200"
-              onClick={() => removeRow(idx)}
-            >
-              Remove
-            </button>
+              {showValue && (
+                <label className="text-xs text-slate-400">
+                  {valueLabel}
+                  <input
+                    className="input mt-1"
+                    value={row.value || ''}
+                    placeholder={valuePlaceholder}
+                    onChange={(e) => updateRow(idx, { value: e.target.value })}
+                  />
+                </label>
+              )}
+              {showScale && (
+                <label className="text-xs text-slate-400">
+                  {scaleLabel}
+                  <input
+                    className="input mt-1"
+                    type="number"
+                    step="0.05"
+                    value={row.scale ?? 1}
+                    placeholder={scalePlaceholder}
+                    onChange={(e) => updateRow(idx, { scale: Number(e.target.value) })}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">1.00 = original size</p>
+                </label>
+              )}
+              {showColorCount && (
+                <label className="text-xs text-slate-400">
+                  {colorCountLabel}
+                  <input
+                    className="input mt-1"
+                    type="number"
+                    min={1}
+                    max={16}
+                    value={row.colorCount ?? 1}
+                    onChange={(e) => updateRow(idx, { colorCount: Number(e.target.value) })}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">1 = single color pick</p>
+                </label>
+              )}
+              {showPriceMultiplier && (
+                <label className="text-xs text-slate-400">
+                  {multiplierLabel}
+                  <input
+                    className="input mt-1"
+                    type="number"
+                    step="0.05"
+                    value={row.priceMultiplier ?? 1}
+                    placeholder={multiplierPlaceholder}
+                    onChange={(e) => updateRow(idx, { priceMultiplier: Number(e.target.value) })}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">1.15 = +15% | 0.90 = -10%</p>
+                </label>
+              )}
+            </div>
           </div>
         ))}
       </div>
