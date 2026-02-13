@@ -38,6 +38,12 @@ type Snapshot = {
   printers: Printer[]
   capacityHoursPerDay: number
   queueHours: number
+  orderWorks: {
+    totalJobs: number
+    sentJobs: number
+    pendingJobs: number
+    unpaidJobs: number
+  }
   orders: OrderEntry[]
 }
 
@@ -280,8 +286,8 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
         </div>
         <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2">
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">OrderWorks</p>
-          <p className="text-2xl font-semibold">{snapshot.orders.filter((o) => o.orderWorksStatus === 'sent').length} sent</p>
-          <p className="text-xs text-slate-400">{snapshot.orders.filter((o) => o.orderWorksStatus !== 'sent').length} pending</p>
+          <p className="text-2xl font-semibold">{snapshot.orderWorks.sentJobs} sent</p>
+          <p className="text-xs text-slate-400">{snapshot.orderWorks.pendingJobs} pending • {snapshot.orderWorks.unpaidJobs} unpaid</p>
         </div>
       </div>
 

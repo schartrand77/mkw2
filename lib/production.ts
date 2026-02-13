@@ -45,11 +45,19 @@ type OrderQueueEntry = {
   estimatedCompletionAt: Date | null
 }
 
+type OrderWorksSummary = {
+  totalJobs: number
+  sentJobs: number
+  pendingJobs: number
+  unpaidJobs: number
+}
+
 export type ProductionSnapshot = {
   generatedAt: Date
   printers: PrinterSnapshot[]
   capacityHoursPerDay: number
   queueHours: number
+  orderWorks: OrderWorksSummary
   orders: OrderQueueEntry[]
 }
 
@@ -124,9 +132,15 @@ function estimateOrderHours(
 
 export async function getProductionSnapshot(options: { includeCustomer?: boolean } = {}): Promise<ProductionSnapshot> {
   const includeCustomer = options.includeCustomer ?? false
-  const [cfg, printers] = await Promise.all([
+  const [cfg, printers, orderWorksJobs] = await Promise.all([
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
     prisma.printer.findMany({ orderBy: { name: 'asc' } }),
+    prisma.jobForm.findMany({
+      select: {
+        status: true,
+        paymentStatus: true,
+      },
+    }),
   ])
   const printerSnapshots: PrinterSnapshot[] = printers.map((printer) => ({
     id: printer.id,
@@ -139,6 +153,19 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
     externalId: printer.externalId,
   }))
   const capacityHoursPerDay = resolvePrinterCapacity(printerSnapshots)
+  const paidStatuses = new Set(['paid', 'succeeded', 'free', 'processing', 'requires_capture'])
+  const orderWorks = orderWorksJobs.reduce(
+    (acc, job) => {
+      const status = (job.status || '').toLowerCase()
+      if (status === 'sent') acc.sentJobs += 1
+      else acc.pendingJobs += 1
+      const paymentStatus = (job.paymentStatus || '').trim().toLowerCase()
+      if (!paymentStatus || !paidStatuses.has(paymentStatus)) acc.unpaidJobs += 1
+      acc.totalJobs += 1
+      return acc
+    },
+    { totalJobs: 0, sentJobs: 0, pendingJobs: 0, unpaidJobs: 0 } satisfies OrderWorksSummary,
+  )
   const orders = await prisma.printOrder.findMany({
     where: { status: { in: Array.from(QUEUE_STATUSES) } },
     orderBy: [{ status: 'asc' }, { createdAt: 'asc' }],
@@ -270,6 +297,7 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
     printers: printerSnapshots,
     capacityHoursPerDay,
     queueHours: runningHours,
+    orderWorks,
     orders: queueWithEstimates,
   }
 }
