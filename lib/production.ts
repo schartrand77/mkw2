@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db'
 import { estimatePricingDetails } from '@/lib/pricing'
-import { normalizeOrderStatus } from '@/lib/order-status'
+import { mapFulfillmentToOrderStatus, normalizeOrderStatus, type FulfillmentStatusKey } from '@/lib/order-status'
 import { extractJobFormId, extractOrderId, extractPaymentIntentId, findLinkedJobsForOrder } from '@/lib/orderworks-link'
 import type { Prisma, SiteConfig } from '@prisma/client'
 
@@ -14,6 +14,7 @@ const QUEUE_STATUSES = new Set([
   'in_production',
   'ready',
 ])
+const ACTIVE_FLOW_STATUSES = new Set(['queued', 'printing', 'post_process', 'failed'])
 
 type PrinterSnapshot = {
   id: string
@@ -74,6 +75,14 @@ function normalizeStatus(status: string): number {
   if (normalized === 'failed') return 2
   if (normalized === 'post_process') return 3
   return 4
+}
+
+function resolveOrderStatusFromFulfillment(orderStatus: string, fulfillmentStatus?: FulfillmentStatusKey | null) {
+  if (!fulfillmentStatus) return orderStatus
+  const mapped = mapFulfillmentToOrderStatus(fulfillmentStatus)
+  if (mapped === 'completed' || mapped === 'shipped') return mapped
+  if (mapped === 'post_process') return 'post_process'
+  return orderStatus
 }
 
 async function loadVolumeMaps(orderItems: { modelId?: string | null; partId?: string | null }[]) {
@@ -217,7 +226,7 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
   if (jobFormIds.length > 0) jobWhere.push({ id: { in: jobFormIds } })
   const jobForms = await prisma.jobForm.findMany({
     where: { OR: jobWhere },
-    select: { id: true, paymentIntentId: true, status: true, lastError: true, metadata: true, createdAt: true },
+    select: { id: true, paymentIntentId: true, status: true, lastError: true, fulfillmentStatus: true, metadata: true, createdAt: true },
   })
 
   const jobsByOrderId = new Map<string, typeof jobForms>()
@@ -254,10 +263,11 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
     .map((order) => {
       const paymentIntentId = extractPaymentIntentId(order.metadata)
       const jobForm = getLatestJobForOrder(order.id, order.metadata)
+      const status = resolveOrderStatusFromFulfillment(order.status, jobForm?.fulfillmentStatus ?? null)
       return {
         id: order.id,
         orderNumber: order.orderNumber,
-        status: order.status,
+        status,
         createdAt: order.createdAt,
         customerName: includeCustomer ? (order as any).customerName : undefined,
         customerEmail: includeCustomer ? (order as any).customerEmail : undefined,
@@ -273,6 +283,7 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
         estimatedCompletionAt: null,
       } satisfies OrderQueueEntry
     })
+    .filter((entry) => ACTIVE_FLOW_STATUSES.has(normalizeOrderStatus(entry.status)))
     .sort((a, b) => {
       const statusSort = normalizeStatus(a.status) - normalizeStatus(b.status)
       if (statusSort !== 0) return statusSort
@@ -329,6 +340,7 @@ export async function getOrderProductionDetail(order: {
   const jobForm = linkedJobs[0]
   const volumeMaps = await loadVolumeMaps(order.items)
   const totalHours = estimateOrderHours(order.items, volumeMaps, cfg)
+  const effectiveStatus = resolveOrderStatusFromFulfillment(order.status, jobForm?.fulfillmentStatus ?? null)
 
   if (QUEUE_STATUSES.has(order.status)) {
     const snapshot = await getProductionSnapshot()
@@ -339,7 +351,7 @@ export async function getOrderProductionDetail(order: {
   return {
     id: order.id,
     orderNumber: null,
-    status: order.status,
+    status: effectiveStatus,
     createdAt: order.createdAt ?? new Date(),
     paymentIntentId,
     orderWorksStatus: jobForm?.status ?? null,
