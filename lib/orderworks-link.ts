@@ -54,6 +54,7 @@ export async function findLinkedJobsForOrder(orderId: string, metadata?: unknown
       id: true,
       paymentIntentId: true,
       status: true,
+      paymentStatus: true,
       lastError: true,
       fulfillmentStatus: true,
       fulfilledAt: true,

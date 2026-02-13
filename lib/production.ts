@@ -77,15 +77,29 @@ function normalizeStatus(status: string): number {
   return 4
 }
 
+function isPaidPaymentStatus(paymentStatus?: string | null) {
+  const normalized = (paymentStatus || '').trim().toLowerCase()
+  if (!normalized) return false
+  return normalized === 'paid'
+    || normalized === 'succeeded'
+    || normalized === 'free'
+    || normalized === 'processing'
+    || normalized === 'requires_capture'
+}
+
 function resolveOrderStatusFromFulfillment(
   orderStatus: string,
   fulfillmentStatus?: FulfillmentStatusKey | null,
   fulfilledAt?: Date | null,
   jobStatus?: string | null,
+  paymentStatus?: string | null,
 ) {
   const normalizedJobStatus = (jobStatus || '').trim().toLowerCase()
   if (fulfilledAt || normalizedJobStatus === 'completed' || normalizedJobStatus === 'fulfilled' || normalizedJobStatus === 'done') {
     return 'completed'
+  }
+  if (paymentStatus !== undefined && paymentStatus !== null && !isPaidPaymentStatus(paymentStatus)) {
+    return 'awaiting_payment'
   }
   if (!fulfillmentStatus) return orderStatus
   const mapped = mapFulfillmentToOrderStatus(fulfillmentStatus)
@@ -235,7 +249,7 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
   if (jobFormIds.length > 0) jobWhere.push({ id: { in: jobFormIds } })
   const jobForms = await prisma.jobForm.findMany({
     where: { OR: jobWhere },
-    select: { id: true, paymentIntentId: true, status: true, lastError: true, fulfillmentStatus: true, fulfilledAt: true, metadata: true, createdAt: true },
+    select: { id: true, paymentIntentId: true, status: true, paymentStatus: true, lastError: true, fulfillmentStatus: true, fulfilledAt: true, metadata: true, createdAt: true },
   })
 
   const jobsByOrderId = new Map<string, typeof jobForms>()
@@ -277,6 +291,7 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
         jobForm?.fulfillmentStatus ?? null,
         jobForm?.fulfilledAt ?? null,
         jobForm?.status ?? null,
+        jobForm?.paymentStatus ?? null,
       )
       return {
         id: order.id,
@@ -359,6 +374,7 @@ export async function getOrderProductionDetail(order: {
     jobForm?.fulfillmentStatus ?? null,
     jobForm?.fulfilledAt ?? null,
     jobForm?.status ?? null,
+    jobForm?.paymentStatus ?? null,
   )
 
   if (QUEUE_STATUSES.has(order.status)) {
