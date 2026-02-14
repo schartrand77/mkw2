@@ -8,6 +8,12 @@ import { serializeJob, type JobWithUser } from '@/app/api/admin/orderworks/jobs/
 import { sendAdminPushNotification } from '@/lib/push'
 import { syncOrderStatusFromFulfillment } from '@/lib/orderworks-sync'
 import { createOrderFromJobForm } from '@/lib/orders'
+import {
+  isPaidPaymentStatus,
+  isPaymentPromise,
+  normalizePaymentMethod,
+  normalizePaymentStatus,
+} from '@/lib/orderworks-status'
 
 const webhookPayloadSchema = z.object({
   paymentIntentId: z.string().min(4).max(200),
@@ -90,23 +96,6 @@ function normalizeFulfilledAt(value: unknown): Date | null | undefined {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-function normalizeString(input: string | null | undefined): string | null | undefined {
-  if (input === undefined) return undefined
-  if (input === null) return null
-  const trimmed = input.trim()
-  return trimmed.length === 0 ? null : trimmed
-}
-
-function isPaidOrder(paymentMethod?: string | null, paymentStatus?: string | null) {
-  const status = (paymentStatus || '').toLowerCase()
-  if (!status) return false
-  if (status === 'paid' || status === 'succeeded' || status === 'free' || status === 'processing' || status === 'requires_capture') {
-    return true
-  }
-  if (paymentMethod === 'cash' && status === 'paid') return true
-  return false
-}
-
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
@@ -130,8 +119,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 422 })
   }
   const data = parsed.data
-  const paymentMethod = normalizeString(data.paymentMethod ?? data.payment?.method)
-  const paymentStatus = normalizeString(data.paymentStatus ?? data.payment?.status)
+  const paymentMethod = normalizePaymentMethod(data.paymentMethod ?? data.payment?.method)
+  const paymentStatus = normalizePaymentStatus(data.paymentStatus ?? data.payment?.status)
   const fulfillmentStatus = data.fulfillmentStatus
   const fulfilledAt = normalizeFulfilledAt(data.fulfilledAt)
 
@@ -195,7 +184,7 @@ export async function POST(req: NextRequest) {
     if (job && job.fulfillmentStatus) {
       await syncOrderStatusFromFulfillment(job.paymentIntentId, job.fulfillmentStatus)
     }
-    if (job && isPaidOrder(job.paymentMethod, job.paymentStatus)) {
+    if (job && isPaidPaymentStatus(job.paymentStatus)) {
       await createOrderFromJobForm(job)
     }
     if (job) {
@@ -203,13 +192,11 @@ export async function POST(req: NextRequest) {
       const paymentMethodChanged = paymentMethod !== undefined && job.paymentMethod !== previousPaymentMethod
       if (created || paymentStatusChanged || paymentMethodChanged) {
         const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
-        const method = (job.paymentMethod || '').toLowerCase()
-        const status = (job.paymentStatus || '').toLowerCase()
-        const isPromise = method === 'cash' || status === 'pending'
+        const isPromise = isPaymentPromise(job.paymentMethod, job.paymentStatus)
         const label = isPromise ? 'Payment promise received' : (created ? 'Payment received' : 'Payment updated')
         await sendAdminPushNotification({
           title: label,
-          body: `Intent ${job.paymentIntentId} · ${job.paymentMethod || 'unknown'} ${job.paymentStatus ? `(${job.paymentStatus})` : ''}`.trim(),
+          body: `Intent ${job.paymentIntentId} - ${job.paymentMethod || 'unknown'} ${job.paymentStatus ? `(${job.paymentStatus})` : ''}`.trim(),
           url: `${baseUrl}/admin/jobs`,
           tag: `payment:${job.paymentIntentId}`,
           data: { paymentIntentId: job.paymentIntentId, paymentMethod: job.paymentMethod, paymentStatus: job.paymentStatus || undefined },

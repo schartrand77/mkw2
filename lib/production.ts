@@ -3,6 +3,7 @@ import { estimatePricingDetails } from '@/lib/pricing'
 import { mapFulfillmentToOrderStatus, normalizeOrderStatus, type FulfillmentStatusKey } from '@/lib/order-status'
 import { extractJobFormId, extractOrderId, extractPaymentIntentId, findLinkedJobsForOrder } from '@/lib/orderworks-link'
 import type { Prisma, SiteConfig } from '@prisma/client'
+import { isPaidPaymentStatus } from '@/lib/orderworks-status'
 
 const QUEUE_STATUSES = new Set([
   'queued',
@@ -75,16 +76,6 @@ function normalizeStatus(status: string): number {
   if (normalized === 'failed') return 2
   if (normalized === 'post_process') return 3
   return 4
-}
-
-function isPaidPaymentStatus(paymentStatus?: string | null) {
-  const normalized = (paymentStatus || '').trim().toLowerCase()
-  if (!normalized) return false
-  return normalized === 'paid'
-    || normalized === 'succeeded'
-    || normalized === 'free'
-    || normalized === 'processing'
-    || normalized === 'requires_capture'
 }
 
 function resolveOrderStatusFromFulfillment(
@@ -185,14 +176,12 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
     externalId: printer.externalId,
   }))
   const capacityHoursPerDay = resolvePrinterCapacity(printerSnapshots)
-  const paidStatuses = new Set(['paid', 'succeeded', 'free', 'processing', 'requires_capture'])
   const orderWorks = orderWorksJobs.reduce(
     (acc, job) => {
       const status = (job.status || '').toLowerCase()
       if (status === 'sent') acc.sentJobs += 1
       else acc.pendingJobs += 1
-      const paymentStatus = (job.paymentStatus || '').trim().toLowerCase()
-      if (!paymentStatus || !paidStatuses.has(paymentStatus)) acc.unpaidJobs += 1
+      if (!isPaidPaymentStatus(job.paymentStatus)) acc.unpaidJobs += 1
       acc.totalJobs += 1
       return acc
     },

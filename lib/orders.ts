@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db'
 import type { CheckoutLineItem, ShippingSelection, CheckoutPaymentMethod } from '@/types/checkout'
 import { saveBuffer } from '@/lib/storage'
 import type { OrderStatus } from '@/lib/order-status'
+import { normalizePaymentMethod as normalizeOrderWorksPaymentMethod } from '@/lib/orderworks-status'
 
 type PersistOrderPayload = {
   paymentIntentId: string
@@ -38,9 +39,9 @@ function normalizeShippingSelection(raw: unknown): ShippingSelection {
 }
 
 function normalizePaymentMethod(raw?: string | null): CheckoutPaymentMethod {
-  const normalized = (raw || '').toLowerCase()
+  const normalized = normalizeOrderWorksPaymentMethod(raw)
   if (normalized === 'cash' || normalized === 'invoice' || normalized === 'po' || normalized === 'quote') {
-    return normalized as CheckoutPaymentMethod
+    return normalized
   }
   return 'card'
 }

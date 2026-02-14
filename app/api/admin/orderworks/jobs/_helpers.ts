@@ -1,4 +1,5 @@
 import type { JobForm, User } from '@prisma/client'
+import { normalizePaymentMethod, normalizePaymentStatus } from '@/lib/orderworks-status'
 
 export type JobWithUser = JobForm & {
   user: Pick<User, 'id' | 'name' | 'email'> | null
@@ -19,8 +20,8 @@ export function serializeJob(job: JobWithUser) {
     lineItems: job.lineItems,
     shipping: job.shipping,
     metadata: job.metadata,
-    paymentMethod: job.paymentMethod || null,
-    paymentStatus: job.paymentStatus || null,
+    paymentMethod: normalizePaymentMethod(job.paymentMethod) ?? null,
+    paymentStatus: normalizePaymentStatus(job.paymentStatus) ?? null,
     fulfillmentStatus: job.fulfillmentStatus,
     fulfilledAt: job.fulfilledAt ? job.fulfilledAt.toISOString() : null,
     createdAt: job.createdAt.toISOString(),

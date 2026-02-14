@@ -14,6 +14,7 @@ import { recordCustomerOrder } from '@/lib/orders'
 import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
 import { applyPricingAdjustments, getPricingAdjustmentConfig, resolveBatchDiscountPercent } from '@/lib/estimate-adjustments'
+import { isPaymentPromise, normalizePaymentStatus } from '@/lib/orderworks-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -98,8 +99,10 @@ function normalizeStoragePath(pathValue?: string | null) {
 
 function normalizePaymentStatusForQueue(paymentMethod: string, status: string | null) {
   if (!status) return status
-  if (paymentMethod === 'card' && status === 'succeeded') return 'paid'
-  return status
+  const normalized = normalizePaymentStatus(status)
+  if (!normalized) return null
+  if (paymentMethod === 'card' && normalized === 'paid') return 'paid'
+  return normalized
 }
 
 export async function POST(req: NextRequest) {
@@ -549,11 +552,11 @@ export async function POST(req: NextRequest) {
       }
       try {
         const totalLabel = formatCurrency(amount / 100, currencyCode as Currency)
-        const isPromise = paymentMethod === 'cash' || finalizedPaymentStatus === 'pending'
+        const isPromise = isPaymentPromise(paymentMethod, finalizedPaymentStatus)
         const baseUrl = publicBaseUrl || (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
         await sendAdminPushNotification({
           title: isPromise ? 'Payment promise received' : 'Payment received',
-          body: `${totalLabel} · ${shippingPayload.method === 'pickup' ? 'pickup' : 'ship'}`,
+          body: `${totalLabel} - ${shippingPayload.method === 'pickup' ? 'pickup' : 'ship'}`,
           url: `${baseUrl}/admin/jobs`,
           tag: `payment:${paymentIntentId}`,
           data: { paymentIntentId, paymentMethod, paymentStatus: finalizedPaymentStatus || undefined },

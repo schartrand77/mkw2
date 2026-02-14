@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { requireAdmin } from '@/app/api/admin/_utils'
 import { ORDER_STATUSES, mapOrderStatusToFulfillment } from '@/lib/order-status'
+import { normalizePaymentMethod, normalizePaymentStatus } from '@/lib/orderworks-status'
 
 const orderStatusKeys = ORDER_STATUSES.map((entry) => entry.key) as [string, ...string[]]
 
@@ -41,7 +42,7 @@ const payloadSchema = z.object({
   customerName: z.string().optional(),
   customerEmail: z.string().email().optional(),
   status: z.enum(orderStatusKeys).optional(),
-  paymentMethod: z.enum(['card', 'cash']).optional(),
+  paymentMethod: z.enum(['card', 'cash', 'invoice', 'po', 'quote']).optional(),
   shippingMethod: z.enum(['pickup', 'ship']).optional(),
   shippingAddress: addressSchema.optional(),
   discountPercent: z.number().min(0).max(100).optional(),
@@ -157,8 +158,8 @@ export async function POST(req: NextRequest) {
           adminCreatedAt: new Date().toISOString(),
           adminCreatedBy: adminId,
         },
-        paymentMethod: payload.paymentMethod ?? 'cash',
-        paymentStatus: 'pending',
+        paymentMethod: normalizePaymentMethod(payload.paymentMethod ?? 'cash') ?? 'cash',
+        paymentStatus: normalizePaymentStatus(payload.paymentMethod === 'quote' ? 'quote' : 'pending') ?? 'pending',
         fulfillmentStatus: mapOrderStatusToFulfillment(order.status),
       })
     } catch (err: any) {

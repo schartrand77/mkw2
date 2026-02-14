@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { buildAbsoluteUrl } from '@/lib/slicer'
 import type { FulfillmentStatus, Prisma } from '@prisma/client'
+import { normalizePaymentMethod, normalizePaymentStatus } from '@/lib/orderworks-status'
 
 type JobStatus = 'pending' | 'sent'
 
@@ -318,6 +319,8 @@ export async function recordOrderWorksJob({
   fulfilledAt,
 }: JobFormInput) {
   const safeCurrency = currency.toUpperCase()
+  const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod)
+  const normalizedPaymentStatus = normalizePaymentStatus(paymentStatus)
   const lineItemsPayload = JSON.parse(JSON.stringify(lineItems)) as Prisma.InputJsonValue
   const job = await prisma.jobForm.upsert({
     where: { paymentIntentId },
@@ -331,8 +334,8 @@ export async function recordOrderWorksJob({
       shipping: shipping ?? undefined,
       metadata: metadata ?? undefined,
       status: 'pending',
-      paymentMethod: paymentMethod ?? undefined,
-      paymentStatus: paymentStatus ?? undefined,
+      paymentMethod: normalizedPaymentMethod ?? undefined,
+      paymentStatus: normalizedPaymentStatus ?? undefined,
       fulfillmentStatus: fulfillmentStatus ?? undefined,
       fulfilledAt: fulfilledAt ?? undefined,
     },
@@ -345,8 +348,8 @@ export async function recordOrderWorksJob({
       shipping: shipping ?? undefined,
       metadata: metadata ?? undefined,
       status: 'pending' as JobStatus,
-      paymentMethod: paymentMethod ?? undefined,
-      paymentStatus: paymentStatus ?? undefined,
+      paymentMethod: normalizedPaymentMethod ?? undefined,
+      paymentStatus: normalizedPaymentStatus ?? undefined,
       fulfillmentStatus: fulfillmentStatus ?? undefined,
       fulfilledAt: fulfilledAt ?? undefined,
     },

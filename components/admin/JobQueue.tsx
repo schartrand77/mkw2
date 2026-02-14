@@ -1,15 +1,23 @@
 "use client"
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  FULFILLMENT_STATUS_OPTIONS,
+  formatPaymentMethod,
+  formatPaymentStatus,
+  ORDERWORKS_JOB_STATUS_OPTIONS,
+  PAYMENT_METHOD_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
+  type OrderWorksJobStatus,
+} from '@/lib/orderworks-status'
 
-type JobStatus = 'pending' | 'sent'
 type FulfillmentStatus = 'pending' | 'ready' | 'picked_up' | 'shipped'
 type JobRecord = {
   id: string
   paymentIntentId: string
   userId?: string | null
   customerEmail?: string | null
-  status: JobStatus
+  status: OrderWorksJobStatus
   totalCents: number
   currency: string
   lineItems: any
@@ -37,13 +45,7 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
 })
-const FULFILLMENT_OPTIONS: { value: FulfillmentStatus; label: string }[] = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'ready', label: 'Ready for pickup' },
-  { value: 'picked_up', label: 'Picked up' },
-  { value: 'shipped', label: 'Shipped' },
-]
-const FULFILLMENT_LABELS = FULFILLMENT_OPTIONS.reduce<Record<string, string>>((acc, option) => {
+const FULFILLMENT_LABELS = FULFILLMENT_STATUS_OPTIONS.reduce<Record<string, string>>((acc, option) => {
   acc[option.value] = option.label
   return acc
 }, {})
@@ -96,7 +98,7 @@ type StatusFormProps = {
 }
 
 function JobStatusControls({ job, onUpdated }: StatusFormProps) {
-  const [jobStatus, setJobStatus] = useState<JobStatus>(job.status)
+  const [jobStatus, setJobStatus] = useState<OrderWorksJobStatus>(job.status)
   const [fulfillmentStatus, setFulfillmentStatus] = useState<FulfillmentStatus>(job.fulfillmentStatus || 'pending')
   const [paymentStatus, setPaymentStatus] = useState(job.paymentStatus || '')
   const [paymentMethod, setPaymentMethod] = useState(job.paymentMethod || '')
@@ -110,6 +112,8 @@ function JobStatusControls({ job, onUpdated }: StatusFormProps) {
     setPaymentStatus(job.paymentStatus || '')
     setPaymentMethod(job.paymentMethod || '')
   }, [job.status, job.fulfillmentStatus, job.paymentStatus, job.paymentMethod])
+  const paymentMethodKnown = paymentMethod ? PAYMENT_METHOD_OPTIONS.some((entry) => entry.value === paymentMethod) : true
+  const paymentStatusKnown = paymentStatus ? PAYMENT_STATUS_OPTIONS.some((entry) => entry.value === paymentStatus) : true
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -145,9 +149,10 @@ function JobStatusControls({ job, onUpdated }: StatusFormProps) {
       <div className="grid sm:grid-cols-2 gap-2">
         <label className="text-xs text-slate-400 flex flex-col gap-1">
           Job status
-          <select className="input" value={jobStatus} onChange={(e) => setJobStatus(e.target.value as JobStatus)} disabled={saving}>
-            <option value="pending">Pending</option>
-            <option value="sent">Sent</option>
+          <select className="input" value={jobStatus} onChange={(e) => setJobStatus(e.target.value as OrderWorksJobStatus)} disabled={saving}>
+            {ORDERWORKS_JOB_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </label>
         <label className="text-xs text-slate-400 flex flex-col gap-1">
@@ -158,7 +163,7 @@ function JobStatusControls({ job, onUpdated }: StatusFormProps) {
             onChange={(e) => setFulfillmentStatus(e.target.value as FulfillmentStatus)}
             disabled={saving}
           >
-            {FULFILLMENT_OPTIONS.map((option) => (
+            {FULFILLMENT_STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -169,25 +174,37 @@ function JobStatusControls({ job, onUpdated }: StatusFormProps) {
       <div className="grid sm:grid-cols-2 gap-2">
         <label className="text-xs text-slate-400 flex flex-col gap-1">
           Payment method
-          <input
+          <select
             className="input"
-            type="text"
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value)}
-            placeholder="card / cash / other"
             disabled={saving}
-          />
+          >
+            <option value="">Not set</option>
+            {!paymentMethodKnown && paymentMethod && (
+              <option value={paymentMethod}>Custom ({paymentMethod})</option>
+            )}
+            {PAYMENT_METHOD_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
         </label>
         <label className="text-xs text-slate-400 flex flex-col gap-1">
           Payment status
-          <input
+          <select
             className="input"
-            type="text"
             value={paymentStatus}
             onChange={(e) => setPaymentStatus(e.target.value)}
-            placeholder="succeeded / pending"
             disabled={saving}
-          />
+          >
+            <option value="">Not set</option>
+            {!paymentStatusKnown && paymentStatus && (
+              <option value={paymentStatus}>Custom ({paymentStatus})</option>
+            )}
+            {PAYMENT_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
         </label>
       </div>
       {error && <div className="text-xs text-rose-300">{error}</div>}
@@ -359,8 +376,8 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount }: Prop
                       : 'anonymous'}
                   </div>
                   <div>Customer email: {job.customerEmail || 'N/A'}</div>
-                  <div>Payment method: {job.paymentMethod || 'N/A'}</div>
-                  <div>Payment status: {job.paymentStatus || 'N/A'}</div>
+                  <div>Payment method: {formatPaymentMethod(job.paymentMethod)}</div>
+                  <div>Payment status: {formatPaymentStatus(job.paymentStatus)}</div>
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
                   <button
@@ -386,8 +403,8 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount }: Prop
                   <div className="grid lg:grid-cols-2 gap-3">
                     <div className="rounded-lg border border-white/5 p-3 bg-black/10 space-y-1">
                       <p className="text-sm font-semibold">Payment & fulfillment</p>
-                      <p>Method: {job.paymentMethod || 'N/A'}</p>
-                      <p>Status: {job.paymentStatus || 'N/A'}</p>
+                      <p>Method: {formatPaymentMethod(job.paymentMethod)}</p>
+                      <p>Status: {formatPaymentStatus(job.paymentStatus)}</p>
                       <p>Fulfillment: {formatFulfillment(job.fulfillmentStatus)}</p>
                       <p>Fulfilled at: {job.fulfilledAt ? formatDate(job.fulfilledAt) : 'N/A'}</p>
                     </div>

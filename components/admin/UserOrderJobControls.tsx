@@ -2,25 +2,24 @@
 
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import {
+  FULFILLMENT_STATUS_OPTIONS,
+  ORDERWORKS_JOB_STATUS_OPTIONS,
+  PAYMENT_METHOD_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
+  type OrderWorksJobStatus,
+} from '@/lib/orderworks-status'
 
-type JobStatus = 'pending' | 'sent'
 type FulfillmentStatus = 'pending' | 'ready' | 'picked_up' | 'shipped'
 
 type Props = {
   jobId: string
   paymentIntentId: string
-  initialStatus: JobStatus
+  initialStatus: OrderWorksJobStatus
   initialFulfillmentStatus: FulfillmentStatus
   initialPaymentMethod: string
   initialPaymentStatus: string
 }
-
-const FULFILLMENT_OPTIONS: Array<{ value: FulfillmentStatus; label: string }> = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'ready', label: 'Ready for pickup' },
-  { value: 'picked_up', label: 'Picked up' },
-  { value: 'shipped', label: 'Shipped' },
-]
 
 export default function UserOrderJobControls({
   jobId,
@@ -32,13 +31,15 @@ export default function UserOrderJobControls({
 }: Props) {
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
-  const [status, setStatus] = useState<JobStatus>(initialStatus)
+  const [status, setStatus] = useState<OrderWorksJobStatus>(initialStatus)
   const [fulfillmentStatus, setFulfillmentStatus] = useState<FulfillmentStatus>(initialFulfillmentStatus)
   const [paymentMethod, setPaymentMethod] = useState(initialPaymentMethod)
   const [paymentStatus, setPaymentStatus] = useState(initialPaymentStatus)
   const [busy, setBusy] = useState<'save' | 'delete' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const paymentMethodKnown = paymentMethod ? PAYMENT_METHOD_OPTIONS.some((entry) => entry.value === paymentMethod) : true
+  const paymentStatusKnown = paymentStatus ? PAYMENT_STATUS_OPTIONS.some((entry) => entry.value === paymentStatus) : true
 
   const handleSave = async (event: FormEvent) => {
     event.preventDefault()
@@ -108,11 +109,14 @@ export default function UserOrderJobControls({
               <select
                 className="input"
                 value={status}
-                onChange={(e) => setStatus(e.target.value as JobStatus)}
+                onChange={(e) => setStatus(e.target.value as OrderWorksJobStatus)}
                 disabled={!!busy}
               >
-                <option value="pending">Pending</option>
-                <option value="sent">Sent</option>
+                {ORDERWORKS_JOB_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="text-xs text-slate-400 flex flex-col gap-1">
@@ -123,7 +127,7 @@ export default function UserOrderJobControls({
                 onChange={(e) => setFulfillmentStatus(e.target.value as FulfillmentStatus)}
                 disabled={!!busy}
               >
-                {FULFILLMENT_OPTIONS.map((option) => (
+                {FULFILLMENT_STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -134,25 +138,37 @@ export default function UserOrderJobControls({
           <div className="grid sm:grid-cols-2 gap-2">
             <label className="text-xs text-slate-400 flex flex-col gap-1">
               Payment method
-              <input
+              <select
                 className="input"
-                type="text"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                placeholder="card / cash / invoice / po / quote"
                 disabled={!!busy}
-              />
+              >
+                <option value="">Not set</option>
+                {!paymentMethodKnown && paymentMethod && (
+                  <option value={paymentMethod}>Custom ({paymentMethod})</option>
+                )}
+                {PAYMENT_METHOD_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </label>
             <label className="text-xs text-slate-400 flex flex-col gap-1">
               Payment status
-              <input
+              <select
                 className="input"
-                type="text"
                 value={paymentStatus}
                 onChange={(e) => setPaymentStatus(e.target.value)}
-                placeholder="succeeded / pending / paid"
                 disabled={!!busy}
-              />
+              >
+                <option value="">Not set</option>
+                {!paymentStatusKnown && paymentStatus && (
+                  <option value={paymentStatus}>Custom ({paymentStatus})</option>
+                )}
+                {PAYMENT_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </label>
           </div>
           {error && <p className="text-xs text-rose-300">{error}</p>}
@@ -179,4 +195,3 @@ export default function UserOrderJobControls({
     </div>
   )
 }
-

@@ -8,6 +8,7 @@ import OrderStatusBadge from '@/components/orders/OrderStatusBadge'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import UserOrderJobControls from '@/components/admin/UserOrderJobControls'
 import DeleteOrderButton from '@/components/admin/DeleteOrderButton'
+import { normalizePaymentMethod, normalizePaymentStatus } from '@/lib/orderworks-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -131,8 +132,8 @@ export default async function AdminUserOrdersPage({ params }: AdminOrdersProps) 
                       paymentIntentId={linkedJob.paymentIntentId}
                       initialStatus={linkedJob.status === 'sent' ? 'sent' : 'pending'}
                       initialFulfillmentStatus={linkedJob.fulfillmentStatus}
-                      initialPaymentMethod={linkedJob.paymentMethod || ''}
-                      initialPaymentStatus={linkedJob.paymentStatus || ''}
+                      initialPaymentMethod={normalizePaymentMethod(linkedJob.paymentMethod) || ''}
+                      initialPaymentStatus={normalizePaymentStatus(linkedJob.paymentStatus) || ''}
                     />
                   ) : (
                     <p className="text-xs text-slate-500">No linked OrderWorks job found for this order.</p>

@@ -4,6 +4,8 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { MATERIAL_OPTIONS, FINISH_OPTIONS } from '@/lib/cartPricing'
 import { ORDER_STATUS_FLOW, type OrderStatus } from '@/lib/order-status'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
+import { PAYMENT_METHOD_OPTIONS } from '@/lib/orderworks-status'
+import type { CheckoutPaymentMethod } from '@/types/checkout'
 
 type LineItemDraft = {
   id: string
@@ -22,11 +24,6 @@ type Props = {
   userEmail?: string | null
   userName?: string | null
 }
-
-const PAYMENT_METHODS = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'card', label: 'Card' },
-] as const
 
 const SHIPPING_METHODS = [
   { value: 'pickup', label: 'Pickup' },
@@ -63,7 +60,7 @@ export default function UserOrderCreator({ userId, userEmail, userName }: Props)
   const [customerName, setCustomerName] = useState(userName || '')
   const [customerEmail, setCustomerEmail] = useState(userEmail || '')
   const [status, setStatus] = useState<OrderStatus>(ORDER_STATUS_FLOW[0]?.key ?? 'queued')
-  const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]['value']>('cash')
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('cash')
   const [shippingMethod, setShippingMethod] = useState<(typeof SHIPPING_METHODS)[number]['value']>('pickup')
   const [shippingName, setShippingName] = useState('')
   const [shippingLine1, setShippingLine1] = useState('')
@@ -274,7 +271,7 @@ export default function UserOrderCreator({ userId, userEmail, userName }: Props)
                 onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}
                 disabled={pending}
               >
-                {PAYMENT_METHODS.map((method) => (
+                {PAYMENT_METHOD_OPTIONS.map((method) => (
                   <option key={method.value} value={method.value}>
                     {method.label}
                   </option>
