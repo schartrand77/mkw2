@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import AdminSidebar from '@/components/admin/AdminSidebar'
+import AdminShell from '@/components/admin/AdminShell'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies()
@@ -16,10 +16,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const role = user?.role || null
   if (!(user?.isAdmin || role === 'admin' || role === 'staff')) redirect('/')
 
-  return (
-    <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
-      <AdminSidebar />
-      <section className="min-w-0">{children}</section>
-    </div>
-  )
+  return <AdminShell>{children}</AdminShell>
 }
