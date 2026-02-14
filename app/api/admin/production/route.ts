@@ -8,6 +8,10 @@ export async function GET() {
   return NextResponse.json({
     ...snapshot,
     generatedAt: snapshot.generatedAt.toISOString(),
+    printers: snapshot.printers.map((printer) => ({
+      ...printer,
+      lastSeenAt: printer.lastSeenAt ? printer.lastSeenAt.toISOString() : null,
+    })),
     orders: snapshot.orders.map((order) => ({
       ...order,
       createdAt: order.createdAt.toISOString(),

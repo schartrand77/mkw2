@@ -1,10 +1,17 @@
 "use client"
 
 import { useState } from 'react'
+import PrinterIdentity from '@/components/admin/PrinterIdentity'
 
 type PrinterEntry = {
   id: string
   name: string
+  provider?: string | null
+  externalId?: string | null
+  metadata?: unknown
+  status?: string | null
+  active?: boolean
+  lastSeenAt?: string | null
   lastMaintenanceAt?: string | null
   maintenanceIntervalHours?: number | null
   maintenanceNotes?: string | null
@@ -54,7 +61,15 @@ export default function FleetMaintenancePanel({ printers }: { printers: PrinterE
       <div className="space-y-3">
         {rows.map((row) => (
           <div key={row.id} className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-3">
-            <div className="font-semibold">{row.name}</div>
+            <PrinterIdentity
+              name={row.name}
+              provider={row.provider}
+              externalId={row.externalId}
+              metadata={row.metadata}
+              status={row.status}
+              active={row.active}
+              lastSeenAt={row.lastSeenAt}
+            />
             <div className="grid sm:grid-cols-3 gap-2 text-xs">
               <label className="space-y-1">
                 <span className="text-slate-400">Last maintenance</span>

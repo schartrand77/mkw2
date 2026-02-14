@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import OrderStatusBadge from '@/components/orders/OrderStatusBadge'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
+import PrinterIdentity from '@/components/admin/PrinterIdentity'
 
 type Printer = {
   id: string
@@ -13,6 +14,8 @@ type Printer = {
   notes?: string | null
   provider?: string | null
   externalId?: string | null
+  metadata?: unknown
+  lastSeenAt?: string | null
 }
 
 type OrderEntry = {
@@ -331,12 +334,17 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
               {snapshot.printers.map((printer) => (
                 <div key={printer.id} className="rounded-xl border border-white/10 bg-black/30 p-3 space-y-2">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium">{printer.name}</p>
-                      {printer.notes ? <p className="text-xs text-slate-400">{printer.notes}</p> : null}
-                      <p className="text-xs text-slate-500">
-                        {printer.provider ? `${printer.provider}${printer.externalId ? ` (${printer.externalId})` : ''}` : 'local'}
-                      </p>
+                    <div className="min-w-0">
+                      <PrinterIdentity
+                        name={printer.name}
+                        provider={printer.provider}
+                        externalId={printer.externalId}
+                        metadata={printer.metadata}
+                        status={printer.status}
+                        active={printer.active}
+                        lastSeenAt={printer.lastSeenAt}
+                        subtitle={printer.notes || undefined}
+                      />
                       {statusSnapshot.enabled ? (
                         <p className="text-xs text-slate-400">
                           Status: {formatBambuStatus(statusSnapshot.statuses[printer.id])}

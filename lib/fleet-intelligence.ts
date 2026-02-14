@@ -29,6 +29,10 @@ export type FleetPrinterRow = {
   status: string
   active: boolean
   dailyCapacityHours: number
+  provider?: string | null
+  externalId?: string | null
+  metadata?: unknown
+  lastSeenAt?: Date | null
   lastMaintenanceAt?: Date | null
   maintenanceIntervalHours?: number | null
   maintenanceNotes?: string | null
@@ -196,6 +200,10 @@ export async function buildFleetIntelligence(days = 14): Promise<FleetPrinterRow
       status: printer.status,
       active: printer.active,
       dailyCapacityHours: printer.dailyCapacityHours,
+      provider: printer.provider,
+      externalId: printer.externalId,
+      metadata: printer.metadata,
+      lastSeenAt: printer.lastSeenAt ?? null,
       lastMaintenanceAt: printer.lastMaintenanceAt ?? null,
       maintenanceIntervalHours: printer.maintenanceIntervalHours ?? null,
       maintenanceNotes: printer.maintenanceNotes ?? null,

@@ -26,6 +26,8 @@ type PrinterSnapshot = {
   notes?: string | null
   provider?: string | null
   externalId?: string | null
+  metadata?: unknown
+  lastSeenAt?: Date | null
 }
 
 type OrderQueueEntry = {
@@ -174,6 +176,8 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
     notes: printer.notes,
     provider: printer.provider,
     externalId: printer.externalId,
+    metadata: printer.metadata,
+    lastSeenAt: printer.lastSeenAt,
   }))
   const capacityHoursPerDay = resolvePrinterCapacity(printerSnapshots)
   const orderWorks = orderWorksJobs.reduce(

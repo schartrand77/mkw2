@@ -16,5 +16,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const role = user?.role || null
   if (!(user?.isAdmin || role === 'admin' || role === 'staff')) redirect('/')
 
-  return <AdminShell>{children}</AdminShell>
+  return (
+    <div className="relative left-1/2 w-screen -translate-x-1/2 px-4 sm:px-6 lg:px-8">
+      <AdminShell>{children}</AdminShell>
+    </div>
+  )
 }

@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { buildFleetIntelligence } from '@/lib/fleet-intelligence'
 import FleetMaintenancePanel from '@/components/admin/FleetMaintenancePanel'
+import PrinterIdentity from '@/components/admin/PrinterIdentity'
 
 function formatPct(value: number | null) {
   if (value == null || Number.isNaN(value)) return '—'
@@ -62,7 +63,17 @@ export default async function FleetIntelligencePage() {
             <tbody>
               {fleet.map((printer) => (
                 <tr key={printer.id} className="border-t border-white/10">
-                  <td className="py-2 pr-4 text-sm">{printer.name}</td>
+                  <td className="py-2 pr-4 text-sm">
+                    <PrinterIdentity
+                      name={printer.name}
+                      provider={printer.provider}
+                      externalId={printer.externalId}
+                      metadata={printer.metadata}
+                      status={printer.status}
+                      active={printer.active}
+                      lastSeenAt={printer.lastSeenAt}
+                    />
+                  </td>
                   {printer.utilization.map((cell) => (
                     <td key={`${printer.id}-${cell.date}`} className="py-2 text-center">
                       <div className={`h-6 w-6 rounded-md mx-auto ${utilizationTone(cell.utilization)}`} title={`${cell.hours.toFixed(1)}h / ${cell.capacity.toFixed(1)}h`} />
@@ -81,10 +92,15 @@ export default async function FleetIntelligencePage() {
           {fleet.map((printer) => (
             <div key={printer.id} className="rounded-xl border border-white/10 bg-black/30 p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-semibold">{printer.name}</div>
-                  <div className="text-xs text-slate-400">Status: {printer.status}</div>
-                </div>
+                <PrinterIdentity
+                  name={printer.name}
+                  provider={printer.provider}
+                  externalId={printer.externalId}
+                  metadata={printer.metadata}
+                  status={printer.status}
+                  active={printer.active}
+                  lastSeenAt={printer.lastSeenAt}
+                />
                 <div className="text-xs text-slate-400">Success {formatPct(printer.successRate)}</div>
               </div>
               <div className="grid grid-cols-3 gap-2 text-xs text-slate-300 mt-3">
@@ -110,6 +126,12 @@ export default async function FleetIntelligencePage() {
         printers={fleet.map((printer) => ({
           id: printer.id,
           name: printer.name,
+          provider: printer.provider,
+          externalId: printer.externalId,
+          metadata: printer.metadata,
+          status: printer.status,
+          active: printer.active,
+          lastSeenAt: printer.lastSeenAt ? printer.lastSeenAt.toISOString() : null,
           lastMaintenanceAt: printer.lastMaintenanceAt ? printer.lastMaintenanceAt.toISOString() : null,
           maintenanceIntervalHours: printer.maintenanceIntervalHours ?? null,
           maintenanceNotes: printer.maintenanceNotes ?? null,
