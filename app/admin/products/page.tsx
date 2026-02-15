@@ -31,6 +31,8 @@ export default async function AdminProductsPage() {
         id: true,
         title: true,
         priceUsd: true,
+        effectivePriceUsd: true,
+        salePriceUsd: true,
         material: true,
         volumeMm3: true,
         sizeXmm: true,

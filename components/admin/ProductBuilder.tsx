@@ -7,6 +7,8 @@ type ModelSummary = {
   id: string
   title: string
   priceUsd: number | null
+  effectivePriceUsd: number | null
+  salePriceUsd: number | null
   material: string | null
   volumeMm3: number | null
   sizeXmm: number | null
@@ -66,7 +68,9 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
     [models, form.baseModelId],
   )
 
-  const basePrice = selectedModel?.priceUsd ?? null
+  const basePrice = selectedModel
+    ? (selectedModel.salePriceUsd ?? selectedModel.effectivePriceUsd ?? selectedModel.priceUsd ?? null)
+    : null
 
   const selectProduct = (id: string) => {
     const target = products.find((p) => p.id === id)
