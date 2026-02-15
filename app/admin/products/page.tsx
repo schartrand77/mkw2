@@ -26,7 +26,6 @@ export default async function AdminProductsPage() {
       include: { baseModel: { select: { id: true, title: true } } },
     }),
     prisma.model.findMany({
-      where: { visibility: 'public' },
       orderBy: { updatedAt: 'desc' },
       select: {
         id: true,

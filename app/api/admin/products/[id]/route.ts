@@ -43,12 +43,12 @@ export async function PATCH(req: Request, { params }: RouteContext) {
     const json = await req.json()
     const parsed = schema.parse(json)
     if (parsed.baseModelId) {
-      const baseModel = await prisma.model.findFirst({
-        where: { id: parsed.baseModelId, visibility: 'public' },
+      const baseModel = await prisma.model.findUnique({
+        where: { id: parsed.baseModelId },
         select: { id: true },
       })
       if (!baseModel) {
-        return NextResponse.json({ error: 'Base model must be public.' }, { status: 400 })
+        return NextResponse.json({ error: 'Base model not found.' }, { status: 400 })
       }
     }
     const updated = await prisma.productTemplate.update({

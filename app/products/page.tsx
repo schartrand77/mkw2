@@ -7,13 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function ProductsPage() {
   const products = await prisma.productTemplate.findMany({
-    where: {
-      isActive: true,
-      OR: [
-        { baseModelId: null },
-        { baseModel: { is: { visibility: 'public' } } },
-      ],
-    },
+    where: { isActive: true },
     orderBy: { updatedAt: 'desc' },
     include: {
       baseModel: {
@@ -23,7 +17,6 @@ export default async function ProductsPage() {
           priceUsd: true,
           material: true,
           flatRatePricing: true,
-          visibility: true,
           coverImagePath: true,
           updatedAt: true,
         },
