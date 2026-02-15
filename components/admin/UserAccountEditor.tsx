@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 type AdminUserProfile = {
   slug?: string | null
@@ -37,6 +38,7 @@ type Props = {
 }
 
 export default function UserAccountEditor({ userId }: Props) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -126,6 +128,7 @@ export default function UserAccountEditor({ userId }: Props) {
       setPassword('')
       setAvatarFile(null)
       setMessage('User updated.')
+      router.refresh()
     } catch (err: any) {
       setError(err.message || 'Failed to save user')
     } finally {

@@ -58,8 +58,7 @@ MakerWorks v2 is a self-hosted 3D model hub with STL previews, price estimation,
 
   <Config Name="MAKERWORKS_INBOUND_SECRET" Target="MAKERWORKS_INBOUND_SECRET" Default="" Mode="" Description="Shared secret MakerWorks expects for inbound job updates to /api/makerworks/jobs (send via Authorization Bearer token or MakerWorks signature header)" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
 
-  <Config Name="HOLIDAY_THEME" Target="HOLIDAY_THEME" Default="" Mode="" Description="Optional seasonal theme: christmas, halloween, or easter" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
-  <Config Name="NEXT_PUBLIC_HOLIDAY_THEME" Target="NEXT_PUBLIC_HOLIDAY_THEME" Default="" Mode="" Description="Expose seasonal theme to the client UI" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="HOLIDAY_THEME" Target="HOLIDAY_THEME" Default="" Mode="" Description="Optional seasonal theme: christmas, halloween, easter, valentines, or maythefourth" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
 
   <Config Name="NEXT_PUBLIC_AMAZON_TAG" Target="NEXT_PUBLIC_AMAZON_TAG" Default="makerworks02-20" Mode="" Description="Amazon associates tag for the /gear affiliate links" Type="Variable" Display="advanced" Required="false" Mask="false">makerworks02-20</Config>
   <Config Name="NEXT_PUBLIC_AMAZON_DOMAIN" Target="NEXT_PUBLIC_AMAZON_DOMAIN" Default="amazon.ca" Mode="" Description="Amazon domain for affiliate links (e.g., amazon.com, amazon.ca)" Type="Variable" Display="advanced" Required="false" Mask="false">amazon.ca</Config>

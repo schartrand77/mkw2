@@ -153,7 +153,7 @@ This section lists the platform capabilities you can enable, configure, and oper
 
 ### Theming and Branding
 - Brand-name/version/lab/handle environment branding keys
-- Holiday theme toggles (`christmas`, `halloween`, `easter`)
+- Holiday theme toggles (`christmas`, `halloween`, `easter`, `valentines`, `maythefourth`)
 - Payment badge toggles in site config (Apple Pay / Google Pay display)
 
 ## Feature Inventory: Customer
@@ -339,7 +339,7 @@ Start from `.env.example`. Most-used groups:
 - `NEXT_PUBLIC_BRAND_VERSION`
 - `NEXT_PUBLIC_BRAND_LAB_NAME`
 - `NEXT_PUBLIC_BRAND_HANDLE`
-- `HOLIDAY_THEME`, `NEXT_PUBLIC_HOLIDAY_THEME`
+- `HOLIDAY_THEME`
 
 ## First-Run Setup Checklist
 1. Confirm admin login works (`ADMIN_EMAIL` / `ADMIN_PASSWORD`).

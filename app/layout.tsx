@@ -39,8 +39,12 @@ function GearGlyph() {
 }
 
 function resolveHolidayTheme(): HolidayTheme | null {
-  const raw = (process.env.NEXT_PUBLIC_HOLIDAY_THEME || process.env.HOLIDAY_THEME || '').toLowerCase()
-  if (raw === 'christmas' || raw === 'halloween' || raw === 'easter' || raw === 'valentines') {
+  const rawInput = process.env.HOLIDAY_THEME || ''
+  const raw = rawInput.trim().replace(/^['"]|['"]$/g, '').toLowerCase()
+  if (raw === 'may the fourth' || raw === 'may-the-fourth' || raw === 'may_the_fourth') {
+    return 'maythefourth'
+  }
+  if (raw === 'christmas' || raw === 'halloween' || raw === 'easter' || raw === 'valentines' || raw === 'maythefourth') {
     return raw
   }
   return null

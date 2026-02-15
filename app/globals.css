@@ -466,12 +466,25 @@ html.theme-light body.holiday-valentines {
     #fff5f7;
   color: #1f0a12;
 }
+html.theme-light body.holiday-maythefourth {
+  background:
+    radial-gradient(900px 500px at 88% -12%, rgba(59, 130, 246, 0.24), transparent),
+    radial-gradient(700px 400px at 8% 8%, rgba(15, 23, 42, 0.22), transparent),
+    #e5edf7;
+  color: #111827;
+}
 body.holiday-valentines {
   background:
     radial-gradient(900px 520px at 82% -15%, rgba(244, 63, 94, 0.25), transparent),
     radial-gradient(700px 420px at 12% -10%, rgba(190, 24, 93, 0.2), transparent),
     repeating-linear-gradient(90deg, rgba(251, 113, 133, 0.1), rgba(251, 113, 133, 0.1) 1px, transparent 1px, transparent 18px),
     linear-gradient(145deg, #120309 0%, #1a0610 45%, #280b19 100%);
+}
+body.holiday-maythefourth {
+  background:
+    radial-gradient(1200px 700px at 50% -30%, rgba(59, 130, 246, 0.16), transparent),
+    radial-gradient(700px 420px at 0% 0%, rgba(148, 163, 184, 0.08), transparent),
+    linear-gradient(160deg, #01040a 0%, #060b15 48%, #0d1421 100%);
 }
 html.theme-light body.holiday-easter .glass {
   background: rgba(255, 255, 255, 0.85);
@@ -566,34 +579,46 @@ html.theme-light body.holiday-valentines .btn {
   100% { transform: translate3d(0, 110vh, 0) rotate(3deg); }
 }
 
-.holiday-easter-petal {
-  top: auto;
-  bottom: -12vh;
-  border-radius: 9999px;
-  background: linear-gradient(160deg, rgba(251, 191, 36, 0.85), rgba(216, 180, 254, 0.85));
+.holiday-easter-egg {
+  border-radius: 50% 50% 46% 46% / 58% 58% 42% 42%;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.55), transparent 42%),
+    linear-gradient(165deg,
+      hsl(var(--egg-hue, 24) 90% 72%),
+      hsl(calc(var(--egg-hue, 24) + 28) 85% 67%)
+    );
   box-shadow:
-    0 0 12px rgba(14, 165, 233, 0.3),
-    inset 0 0 6px rgba(255, 255, 255, 0.4);
+    0 10px 24px rgba(0, 0, 0, 0.2),
+    inset 0 -12px 16px rgba(255, 255, 255, 0.2);
   animation-iteration-count: infinite;
 }
-.holiday-easter-petal[data-variant="0"] { animation-name: holiday-easter-rise-left; }
-.holiday-easter-petal[data-variant="1"] { animation-name: holiday-easter-rise-right; }
-.holiday-easter-petal[data-variant="2"] { animation-name: holiday-easter-rise-center; }
-@keyframes holiday-easter-rise-left {
-  0% { transform: translate3d(-1vw, 10vh, 0) scale(0.8); opacity: 0; }
-  20% { opacity: 0.65; }
-  100% { transform: translate3d(-4vw, -120vh, 0) scale(1); opacity: 0; }
+.holiday-easter-egg[data-tone="0"] { --egg-hue: 18; }
+.holiday-easter-egg[data-tone="1"] { --egg-hue: 45; }
+.holiday-easter-egg[data-tone="2"] { --egg-hue: 95; }
+.holiday-easter-egg[data-tone="3"] { --egg-hue: 165; }
+.holiday-easter-egg[data-tone="4"] { --egg-hue: 225; }
+.holiday-easter-egg[data-tone="5"] { --egg-hue: 312; }
+.holiday-easter-egg[data-variant="0"] { animation-name: holiday-easter-fall-left; }
+.holiday-easter-egg[data-variant="1"] { animation-name: holiday-easter-fall-right; }
+.holiday-easter-egg[data-variant="2"] { animation-name: holiday-easter-fall-center; }
+@keyframes holiday-easter-fall-left {
+  0% { transform: translate3d(3vw, -14vh, 0) rotate(-10deg); opacity: 0; }
+  15% { opacity: 0.92; }
+  60% { transform: translate3d(-2vw, 52vh, 0) rotate(8deg); opacity: 0.92; }
+  100% { transform: translate3d(-5vw, 118vh, 0) rotate(-4deg); opacity: 0; }
 }
-@keyframes holiday-easter-rise-right {
-  0% { transform: translate3d(1vw, 10vh, 0) scale(0.85); opacity: 0; }
-  30% { opacity: 0.7; }
-  100% { transform: translate3d(4vw, -120vh, 0) scale(1.05); opacity: 0; }
+@keyframes holiday-easter-fall-right {
+  0% { transform: translate3d(-3vw, -14vh, 0) rotate(10deg); opacity: 0; }
+  15% { opacity: 0.92; }
+  62% { transform: translate3d(2vw, 56vh, 0) rotate(-8deg); opacity: 0.92; }
+  100% { transform: translate3d(5vw, 118vh, 0) rotate(5deg); opacity: 0; }
 }
-@keyframes holiday-easter-rise-center {
-  0% { transform: translate3d(0, 12vh, 0) scale(0.9); opacity: 0; }
-  25% { opacity: 0.65; }
-  75% { opacity: 0.65; }
-  100% { transform: translate3d(0, -120vh, 0) scale(1.05); opacity: 0; }
+@keyframes holiday-easter-fall-center {
+  0% { transform: translate3d(0, -14vh, 0) rotate(-6deg); opacity: 0; }
+  15% { opacity: 0.92; }
+  65% { transform: translate3d(1vw, 60vh, 0) rotate(7deg); opacity: 0.94; }
+  100% { transform: translate3d(2vw, 118vh, 0) rotate(2deg); opacity: 0; }
 }
 
 .holiday-valentines-candy {
@@ -636,6 +661,197 @@ html.theme-light body.holiday-valentines .btn {
   20% { opacity: 0.7; }
   70% { transform: translate3d(0.5vw, 70vh, 0) rotate(6deg) scale(1.05); opacity: 0.85; }
   100% { transform: translate3d(1vw, 120vh, 0) rotate(2deg) scale(0.98); opacity: 0; }
+}
+
+.holiday-mtf-scene {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  overflow: hidden;
+}
+.holiday-mtf-ship {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-name: holiday-mtf-fly;
+  animation-duration: 10s;
+  animation-fill-mode: both;
+  transform:
+    translate3d(var(--from-x, -30vw), var(--from-y, 10vh), 0)
+    rotate(var(--ship-angle, 0deg))
+    scale(var(--ship-scale, 1));
+}
+.holiday-mtf-xwing {
+  width: 176px;
+  height: 88px;
+  filter: drop-shadow(0 0 9px rgba(226, 232, 240, 0.28));
+}
+.holiday-mtf-xwing > span {
+  position: absolute;
+  inset: 0;
+}
+.holiday-mtf-xwing-core {
+  background:
+    linear-gradient(90deg, transparent 0 9%, #bfc7cf 10% 89%, transparent 90%),
+    linear-gradient(90deg, transparent 0 56%, #9b1010 56% 72%, transparent 72%);
+  clip-path: polygon(
+    10% 48%,
+    14% 40%,
+    55% 40%,
+    70% 41%,
+    90% 44%,
+    97% 48%,
+    90% 52%,
+    70% 55%,
+    55% 56%,
+    14% 56%,
+    10% 50%
+  );
+}
+.holiday-mtf-xwing-core::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 35%;
+  width: 21%;
+  height: 12%;
+  background: linear-gradient(180deg, #7dd3fc, #1f2937);
+  clip-path: polygon(0 100%, 16% 0, 100% 0, 94% 100%);
+}
+.holiday-mtf-xwing-core::after {
+  content: '';
+  position: absolute;
+  left: 7%;
+  top: 43%;
+  width: 11%;
+  height: 13%;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #6b7280, #1f2937);
+}
+.holiday-mtf-xwing-wings {
+  background:
+    linear-gradient(168deg, transparent 0 26%, #5b646e 27% 72%, transparent 73%) top left / 36% 38% no-repeat,
+    linear-gradient(12deg, transparent 0 28%, #4b5563 29% 72%, transparent 73%) bottom left / 36% 38% no-repeat,
+    linear-gradient(90deg, transparent 0 18%, #a7afb8 18% 28%, transparent 28%) top left / 36% 38% no-repeat,
+    linear-gradient(90deg, transparent 0 18%, #9aa3ad 18% 28%, transparent 28%) bottom left / 36% 38% no-repeat;
+}
+.holiday-mtf-xwing-engines {
+  background:
+    linear-gradient(90deg, #6b7280, #111827) left 5% top 26% / 21% 13% no-repeat,
+    linear-gradient(90deg, #6b7280, #111827) left 5% bottom 26% / 21% 13% no-repeat,
+    linear-gradient(90deg, #f59e0b, #fcd34d, #f59e0b) left 24% top 29.5% / 4% 6% no-repeat,
+    linear-gradient(90deg, #f59e0b, #fcd34d, #f59e0b) left 24% bottom 29.5% / 4% 6% no-repeat;
+}
+.holiday-mtf-xwing-lasers {
+  background:
+    linear-gradient(90deg, #6b7280, #cbd5e1) left 24% top 22.2% / 27% 2.8% no-repeat,
+    linear-gradient(90deg, #6b7280, #cbd5e1) left 24% bottom 22.2% / 27% 2.8% no-repeat;
+}
+.holiday-mtf-tie {
+  width: 92px;
+  height: 64px;
+}
+.holiday-mtf-tie::before,
+.holiday-mtf-tie::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  width: 30px;
+  height: 56px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #1f2937 0 4px,
+      #374151 4px 8px
+    );
+  border: 2px solid #9ca3af;
+}
+.holiday-mtf-tie::before { left: 0; }
+.holiday-mtf-tie::after { right: 0; }
+.holiday-mtf-tie {
+  background:
+    radial-gradient(circle at 50% 50%, #111827 0 26%, #9ca3af 27% 36%, transparent 37%);
+}
+@keyframes holiday-mtf-fly {
+  0% {
+    transform:
+      translate3d(var(--from-x, -30vw), var(--from-y, 10vh), 0)
+      rotate(var(--ship-angle, 0deg))
+      scale(var(--ship-scale, 1));
+    opacity: 0;
+  }
+  8% { opacity: 0.96; }
+  92% { opacity: 0.96; }
+  100% {
+    transform:
+      translate3d(var(--to-x, 130vw), var(--to-y, 80vh), 0)
+      rotate(var(--ship-angle, 0deg))
+      scale(var(--ship-scale, 1));
+    opacity: 0;
+  }
+}
+
+.holiday-mtf-laser {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.holiday-mtf-xwing .holiday-mtf-laser::before,
+.holiday-mtf-xwing .holiday-mtf-laser::after {
+  content: '';
+  position: absolute;
+  right: -34px;
+  width: 56px;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(248, 113, 113, 0), rgba(239, 68, 68, 0.95) 38%, rgba(248, 113, 113, 0));
+  transform-origin: left center;
+  animation: holiday-mtf-laser-red 0.16s steps(2, end) infinite;
+}
+.holiday-mtf-xwing .holiday-mtf-laser::before {
+  top: 14px;
+  box-shadow: 0 12px 0 0 rgba(239, 68, 68, 0.92);
+}
+.holiday-mtf-xwing .holiday-mtf-laser::after {
+  bottom: 14px;
+  box-shadow: 0 -12px 0 0 rgba(239, 68, 68, 0.92);
+  animation-delay: 0.08s;
+}
+.holiday-mtf-tie .holiday-mtf-laser::before {
+  content: '';
+  position: absolute;
+  right: -28px;
+  top: 27px;
+  width: 44px;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(74, 222, 128, 0), rgba(34, 197, 94, 0.95) 38%, rgba(74, 222, 128, 0));
+  box-shadow: 0 10px 0 0 rgba(34, 197, 94, 0.92);
+  transform-origin: left center;
+  animation: holiday-mtf-laser-green 0.14s steps(2, end) infinite;
+}
+@keyframes holiday-mtf-laser-red {
+  0%, 42%, 100% { opacity: 0; transform: scaleX(0.16); }
+  10%, 30% { opacity: 1; transform: scaleX(1); }
+}
+@keyframes holiday-mtf-laser-green {
+  0%, 42%, 100% { opacity: 0; transform: scaleX(0.16); }
+  10%, 30% { opacity: 1; transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .holiday-mtf-ship {
+    animation-duration: 24s;
+  }
+  .holiday-mtf-laser::before,
+  .holiday-mtf-laser::after {
+    animation-duration: 1.6s !important;
+  }
 }
 
 
