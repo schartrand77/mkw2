@@ -10,7 +10,14 @@ type Params = { params: Promise<{ id: string }> }
 export default async function ProductDetailPage({ params }: Params) {
   const { id } = await params
   const product = await prisma.productTemplate.findFirst({
-    where: { id, isActive: true },
+    where: {
+      id,
+      isActive: true,
+      OR: [
+        { baseModelId: null },
+        { baseModel: { is: { visibility: 'public' } } },
+      ],
+    },
     include: {
       baseModel: {
         select: {
@@ -23,6 +30,7 @@ export default async function ProductDetailPage({ params }: Params) {
           sizeXmm: true,
           sizeYmm: true,
           sizeZmm: true,
+          visibility: true,
           coverImagePath: true,
           updatedAt: true,
         },

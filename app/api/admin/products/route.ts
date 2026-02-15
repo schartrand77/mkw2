@@ -38,6 +38,15 @@ export async function POST(req: Request) {
   try {
     const json = await req.json()
     const parsed = schema.parse(json)
+    if (parsed.baseModelId) {
+      const baseModel = await prisma.model.findFirst({
+        where: { id: parsed.baseModelId, visibility: 'public' },
+        select: { id: true },
+      })
+      if (!baseModel) {
+        return NextResponse.json({ error: 'Base model must be public.' }, { status: 400 })
+      }
+    }
     const created = await prisma.productTemplate.create({
       data: {
         title: parsed.title,

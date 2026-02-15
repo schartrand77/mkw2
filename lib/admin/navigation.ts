@@ -6,12 +6,14 @@ export type AdminNavItem = {
 
 export type AdminNavSection = {
   title: string
+  icon: 'core' | 'operations' | 'intelligence'
   items: AdminNavItem[]
 }
 
 export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
   {
     title: 'Core',
+    icon: 'core',
     items: [
       { href: '/admin', label: 'Overview' },
       { href: '/admin/site-config', label: 'Site config' },
@@ -23,6 +25,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
   },
   {
     title: 'Operations',
+    icon: 'operations',
     items: [
       { href: '/admin/production', label: 'Production' },
       { href: '/admin/jobs', label: 'Job queue' },
@@ -33,6 +36,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
   },
   {
     title: 'Intelligence',
+    icon: 'intelligence',
     items: [
       { href: '/admin/material-optimization', label: 'Material optimization' },
       { href: '/admin/fleet-intelligence', label: 'Fleet intelligence' },
