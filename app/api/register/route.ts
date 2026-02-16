@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     const { email, name, password, confirmPassword } = schema.parse(json)
     const normalizedEmail = email.trim().toLowerCase()
     const ip = getRequestIp(req)
+    const userAgent = (req.headers.get('user-agent') || '').trim().slice(0, 512)
     const rateKey = `register:${normalizedEmail}:${ip}`
     const registerConfig = getAuthRateLimitConfig('register')
     const registerLimit = await consumeRateLimit(rateKey, registerConfig)
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest) {
         email: normalizedEmail,
         name: name?.trim() || null,
         passwordHash,
+        registrationSource: 'self_signup',
+        registrationIp: ip || null,
+        registrationUserAgent: userAgent || null,
         isAdmin: false,
         emailVerified: false,
         isSuspended: false,

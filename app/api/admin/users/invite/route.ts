@@ -6,6 +6,7 @@ import { sendInviteEmail } from '@/lib/inviteEmail'
 import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
 import { resolveBaseUrl } from '@/lib/base-url'
+import { getRequestIp } from '@/lib/rate-limit'
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -17,10 +18,15 @@ export async function POST(req: NextRequest) {
   try {
     const { email, name } = inviteSchema.parse(await req.json())
     const invitePassword = (process.env.ADMIN_INVITE_PASSWORD || '').trim() || null
+    const ip = getRequestIp(req)
+    const userAgent = (req.headers.get('user-agent') || '').trim().slice(0, 512)
     const { user, profile } = await createInviteAccount({
       email,
       name,
       password: invitePassword || undefined,
+      registrationSource: 'admin_invite',
+      registrationIp: ip || null,
+      registrationUserAgent: userAgent || null,
     })
     const requestOrigin = req.nextUrl.origin.replace(/\/+$/, '')
     const resolvedBaseUrl = await resolveBaseUrl()

@@ -7,6 +7,9 @@ type InviteInput = {
   email: string
   name?: string | null
   password?: string
+  registrationSource?: string | null
+  registrationIp?: string | null
+  registrationUserAgent?: string | null
 }
 
 export async function createInviteAccount(input: InviteInput) {
@@ -24,6 +27,9 @@ export async function createInviteAccount(input: InviteInput) {
       email: normalizedEmail,
       name: input.name?.trim() || null,
       passwordHash,
+      registrationSource: (input.registrationSource || 'admin_invite').trim().slice(0, 60),
+      registrationIp: input.registrationIp?.trim() || null,
+      registrationUserAgent: input.registrationUserAgent?.trim().slice(0, 512) || null,
       isAdmin: false,
       emailVerified: true,
       isSuspended: false,

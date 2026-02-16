@@ -33,9 +33,13 @@ function resolveBadgeDetails(achievement?: { key?: string | null; name?: string 
 }
 
 type AdminUser = Awaited<ReturnType<typeof fetchAdminUsersWithBadges>>[number]
+type AdminUserWithStats = AdminUser & {
+  orderCount?: number
+  totalSpentCents?: number
+}
 
 type Props = {
-  users: AdminUser[]
+  users: AdminUserWithStats[]
   className?: string
 }
 
@@ -87,6 +91,8 @@ export default function UsersAndBadgesPanel({ users, className = '' }: Props) {
                 <div className="text-right">
                   <div className="text-xs text-slate-400">Joined {new Date(u.createdAt).toLocaleDateString()}</div>
                   <div className="mt-1 text-xs text-slate-500">{u.badges.length} badge{u.badges.length === 1 ? '' : 's'}</div>
+                  <div className="mt-1 text-xs text-slate-500">{u.orderCount ?? u._count?.orders ?? 0} order{(u.orderCount ?? u._count?.orders ?? 0) === 1 ? '' : 's'}</div>
+                  <div className="mt-1 text-xs text-slate-500">{u.lastLoginAt ? `Last login ${new Date(u.lastLoginAt).toLocaleDateString()}` : 'No login yet'}</div>
                   <div className="mt-1 text-xs text-brand-300">{isExpanded ? 'Hide details' : 'Show details'}</div>
                 </div>
               </div>
@@ -155,6 +161,14 @@ export default function UsersAndBadgesPanel({ users, className = '' }: Props) {
                       </span>
                     )
                   })}
+                </div>
+                <div className="mt-4">
+                  <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-slate-300 space-y-1">
+                    <div>Registration source: {u.registrationSource || 'unknown'}</div>
+                    <div>Total spent: ${(((u.totalSpentCents ?? 0) / 100).toFixed(2))}</div>
+                    {u.registrationIp ? <div>Signup IP: {u.registrationIp}</div> : null}
+                    {u.lastLoginIp ? <div>Last login IP: {u.lastLoginIp}</div> : null}
+                  </div>
                 </div>
                 <div className="mt-4">
                   <a

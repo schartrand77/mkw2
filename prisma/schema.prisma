@@ -12,6 +12,12 @@ model User {
   email        String   @unique
   name         String?
   passwordHash String
+  registrationSource String @default("self_signup")
+  registrationIp String?
+  registrationUserAgent String?
+  lastLoginAt DateTime?
+  lastLoginIp String?
+  lastLoginUserAgent String?
   emailVerified Boolean  @default(false)
   isSuspended  Boolean  @default(false)
   isAdmin      Boolean  @default(false)
@@ -37,6 +43,8 @@ model User {
   configChanges ConfigChangeLog[]
   presets CustomerPreset[]
   failurePhotos FailurePhoto[]
+
+  @@index([lastLoginAt])
 }
 
 model Model {

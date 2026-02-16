@@ -10,6 +10,12 @@ export async function fetchAdminUsersWithBadges() {
       name: true,
       emailVerified: true,
       createdAt: true,
+      registrationSource: true,
+      registrationIp: true,
+      registrationUserAgent: true,
+      lastLoginAt: true,
+      lastLoginIp: true,
+      lastLoginUserAgent: true,
       profile: { select: { slug: true, avatarImagePath: true } },
       badges: { include: { achievement: true } },
       discountPercent: true,
@@ -18,6 +24,7 @@ export async function fetchAdminUsersWithBadges() {
       isSuspended: true,
       isAdmin: true,
       role: true,
+      _count: { select: { orders: true } },
     },
   })
 }
