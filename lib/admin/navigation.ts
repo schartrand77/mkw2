@@ -17,6 +17,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     items: [
       { href: '/admin', label: 'Overview' },
       { href: '/admin/site-config', label: 'Site config' },
+      { href: '/admin/notifications', label: 'Notifications' },
       { href: '/admin/featured', label: 'Featured models' },
       { href: '/admin/backup-tools', label: 'Backups & restore' },
       { href: '/admin/models', label: 'Model library', matchPrefixes: ['/admin/models/'] },
