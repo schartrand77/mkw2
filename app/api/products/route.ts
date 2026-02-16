@@ -13,6 +13,8 @@ export async function GET() {
           id: true,
           title: true,
           priceUsd: true,
+          effectivePriceUsd: true,
+          salePriceUsd: true,
           material: true,
           flatRatePricing: true,
           sizeXmm: true,

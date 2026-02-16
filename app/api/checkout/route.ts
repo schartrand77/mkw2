@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { estimatePricingDetails, type PricingDetails } from '@/lib/pricing'
+import { estimatePricingDetails, resolveModelPricing, type PricingDetails } from '@/lib/pricing'
 import { formatCurrency, getCurrency, type Currency } from '@/lib/currency'
 import { getStripe } from '@/lib/stripe'
 import { getUserIdFromCookie } from '@/lib/auth'
@@ -147,6 +147,7 @@ export async function POST(req: NextRequest) {
           id: true,
           title: true,
           priceUsd: true,
+          effectivePriceUsd: true,
           salePriceUsd: true,
           disableCustomerDiscounts: true,
           flatRatePricing: true,
@@ -263,6 +264,12 @@ export async function POST(req: NextRequest) {
         }
         if (model.salePriceUsd != null && Number.isFinite(Number(model.salePriceUsd)) && Number(model.salePriceUsd) > 0) {
           return Number(model.salePriceUsd)
+        }
+        if (entry.productTemplateId) {
+          const resolved = resolveModelPricing(model, cfg).priceUsd
+          if (resolved != null && Number.isFinite(Number(resolved)) && Number(resolved) > 0) {
+            return Number(resolved)
+          }
         }
         if (cm3 != null) {
           pricingDetails = estimatePricingDetails({

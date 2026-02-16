@@ -28,6 +28,8 @@ type BaseModel = {
   id: string
   title: string
   priceUsd?: number | null
+  effectivePriceUsd?: number | null
+  salePriceUsd?: number | null
   material?: string | null
   flatRatePricing?: boolean | null
   sizeXmm?: number | null
@@ -53,16 +55,19 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
   const finish = (product.lockedFinish || 'standard').trim().toLowerCase()
   const priceMultiplier = Math.max(0.1, Math.min(5, Number(product.lockedPriceMultiplier ?? 1)))
   const lockedColor = (product.lockedColor || '').trim() || 'Standard'
+  const resolvedBasePrice = baseModel
+    ? (baseModel.salePriceUsd ?? baseModel.effectivePriceUsd ?? baseModel.priceUsd ?? null)
+    : null
 
   const estimatedPrice = useMemo(() => {
-    const basePrice = baseModel?.priceUsd ?? 0
+    const basePrice = resolvedBasePrice ?? 0
     if (!basePrice) return null
     const volumeMultiplier = Math.pow(scale, 3)
     const colorMultiplier = baseModel?.flatRatePricing ? 1 : getColorMultiplier(Array.from({ length: colorCount }, () => 'X'))
     const materialMultiplier = getMaterialMultiplier(resolvedMaterial)
     const finishMultiplier = getFinishMultiplier(finish)
     return Number((basePrice * volumeMultiplier * colorMultiplier * materialMultiplier * finishMultiplier * priceMultiplier).toFixed(2))
-  }, [baseModel?.flatRatePricing, baseModel?.priceUsd, colorCount, finish, priceMultiplier, resolvedMaterial, scale])
+  }, [baseModel?.flatRatePricing, colorCount, finish, priceMultiplier, resolvedBasePrice, resolvedMaterial, scale])
 
   const addToCart = () => {
     if (!baseModel?.id) return
@@ -72,7 +77,7 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
         modelId: baseModel.id,
         flatRatePricing: Boolean(baseModel.flatRatePricing),
         title: product.title,
-        priceUsd: baseModel.priceUsd ?? null,
+        priceUsd: resolvedBasePrice ?? null,
         thumbnail: coverUrl || null,
         size: {
           x: baseModel.sizeXmm ?? undefined,

@@ -24,6 +24,8 @@ export default async function ProductDetailPage({ params }: Params) {
           title: true,
           description: true,
           priceUsd: true,
+          effectivePriceUsd: true,
+          salePriceUsd: true,
           material: true,
           flatRatePricing: true,
           sizeXmm: true,

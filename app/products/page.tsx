@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { buildImageSrc } from '@/lib/storage'
 import { formatCurrency } from '@/lib/currency'
 import { getUserIdFromCookie } from '@/lib/auth'
+import { resolveModelPricing } from '@/lib/pricing'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +23,8 @@ export default async function ProductsPage() {
           id: true,
           title: true,
           priceUsd: true,
+          effectivePriceUsd: true,
+          salePriceUsd: true,
           material: true,
           flatRatePricing: true,
           coverImagePath: true,
@@ -46,6 +49,7 @@ export default async function ProductsPage() {
           {products.map((product) => {
             const model = product.baseModel
             const cover = buildImageSrc(model?.coverImagePath || null, model?.updatedAt || null)
+            const resolvedPrice = model ? resolveModelPricing(model).priceUsd : null
             return (
               <Link
                 key={product.id}
@@ -71,9 +75,9 @@ export default async function ProductsPage() {
                   <div className="text-xs text-slate-400">
                     {product.lockedMaterial ? `Material: ${product.lockedMaterial}` : (model?.material ? `Base material: ${model.material}` : 'Configured product')}
                   </div>
-                  {model?.priceUsd != null && (
+                  {resolvedPrice != null && (
                     <div className="text-sm text-slate-200">
-                      From {formatCurrency(model.priceUsd)}
+                      From {formatCurrency(resolvedPrice)}
                     </div>
                   )}
                 </div>
