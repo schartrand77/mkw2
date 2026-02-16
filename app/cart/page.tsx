@@ -940,10 +940,18 @@ export default function CartPage() {
                         </select>
                       </label>
                       <div className="flex flex-col gap-1 text-xs text-slate-400 w-full">
-                        <span>AMS slots (tap a bay to edit)</span>
+                        <span>{isLockedProduct ? 'AMS slots (locked)' : 'AMS slots (tap a bay to edit)'}</span>
                         <div className="space-y-1">
-                          {Array.from({ length: Math.max(1, Math.ceil(Math.max(1, maxColors) / 4)) }).map((_, unitIdx) => {
-                            const safeSlots = Math.max(1, maxColors)
+                          {Array.from({
+                            length: Math.max(1, Math.ceil((
+                              isLockedProduct
+                                ? Math.max(1, normalizeColors(item.options.colors).length)
+                                : Math.max(1, maxColors)
+                            ) / 4)),
+                          }).map((_, unitIdx) => {
+                            const safeSlots = isLockedProduct
+                              ? Math.max(1, normalizeColors(item.options.colors).length)
+                              : Math.max(1, maxColors)
                             const baseIndex = unitIdx * 4
                             const slotsInUnit = Math.min(4, Math.max(0, safeSlots - baseIndex))
                             return (

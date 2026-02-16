@@ -159,6 +159,13 @@ function buildOverrideKey(overrides?: Array<string | null | undefined> | null) {
   return overrides.map((value) => (value == null ? '' : String(value))).join('|')
 }
 
+function parseOverrideColors(overrides?: Array<string | null | undefined> | null) {
+  if (!overrides || overrides.length === 0) return []
+  return overrides
+    .map((value) => parseColorToHexInt(value ?? null))
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+}
+
 async function tryBuildBambuColorPlan(
   buffer: ArrayBuffer,
   overrides?: Array<string | null | undefined> | null,
@@ -247,6 +254,20 @@ async function tryBuildBambuColorPlan(
   if (objectExtruders.size === 0 && partIndexExtruders.size === 0) return null
 
   if (overrides && overrides.length > 0) {
+    const parsedOverrides = parseOverrideColors(overrides)
+    if (parsedOverrides.length === 0) {
+      // No parseable overrides, keep original palette.
+    } else {
+      const singleOverride = parsedOverrides.length === 1 ? parsedOverrides[0] : null
+      if (singleOverride != null) {
+        const targets = usedExtruders.size > 0
+          ? Array.from(usedExtruders).filter(Boolean)
+          : Array.from(extruderColors.keys())
+        for (const extruderId of targets) {
+          extruderColors.set(extruderId, singleOverride)
+        }
+      }
+    }
     const extruderOrder = Array.from(usedExtruders)
       .filter(Boolean)
       .sort((a, b) => Number(a) - Number(b))
@@ -506,9 +527,18 @@ async function parse3mfSimple(THREE: ThreeLib, buffer: ArrayBuffer, overrides?: 
       }
     }
   }
-  if ((!filamentPalette || filamentPalette.every((v) => v == null)) && overrides && overrides.length > 0) {
-    const parsed = overrides.map((value) => parseColorToHexInt(value ?? null))
-    if (parsed.some((v) => v != null)) filamentPalette = parsed
+  if (overrides && overrides.length > 0) {
+    const parsed = parseOverrideColors(overrides)
+    if (parsed.length === 1) {
+      const only = parsed[0]
+      if (filamentPalette && filamentPalette.length > 0) {
+        filamentPalette = filamentPalette.map(() => only)
+      } else {
+        filamentPalette = [only]
+      }
+    } else if ((!filamentPalette || filamentPalette.every((v) => v == null)) && parsed.length > 0) {
+      filamentPalette = parsed
+    }
   }
 
   for (const name of Object.keys(zip)) {
@@ -1028,6 +1058,7 @@ export default function ModelViewer({
     let cancelled = false
     const overrideKey = buildOverrideKey(colorOverrides)
     const overridePalette = (colorOverrides || []).map((value) => parseColorToHexInt(value ?? null))
+    const singleOverride = parseOverrideColors(colorOverrides)[0] ?? null
     const applyPaintOverrides = (target: InstanceType<ThreeLib['Object3D']>) => {
       target.traverse((child: any) => {
         if (!(child instanceof THREE.Mesh)) return
@@ -1040,7 +1071,9 @@ export default function ModelViewer({
         const colors = new Float32Array(positionAttr.count * 3)
         for (let i = 0; i < triColors.length; i++) {
           const cidx = triColors[i]
-          const colorHex = cidx != null ? (overridePalette[cidx] ?? (cidx > 0 ? overridePalette[cidx - 1] : null)) : null
+          const colorHex = cidx != null
+            ? (overridePalette[cidx] ?? (cidx > 0 ? overridePalette[cidx - 1] : null) ?? singleOverride)
+            : singleOverride
           const color = colorHex != null ? new THREE.Color(colorHex) : new THREE.Color(0xd0d0d0)
           const base = i * 9
           for (let j = 0; j < 3; j++) {
