@@ -22,6 +22,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       { href: '/admin/backup-tools', label: 'Backups & restore' },
       { href: '/admin/models', label: 'Model library', matchPrefixes: ['/admin/models/'] },
       { href: '/admin/products', label: 'Product builder' },
+      { href: '/admin/catalog', label: 'Catalog manager' },
     ],
   },
   {

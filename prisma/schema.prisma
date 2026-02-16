@@ -265,6 +265,8 @@ model SiteConfig {
   fillFactor               Float?
   printerProfileKey        String?
   printerProfileOverrides  Json?
+  productsModelsLabel      String?
+  productsMerchLabel       String?
   demandSurgeMultiplier    Float?
   rushMultiplier           Float?
   batchDiscountTiers       Json?
@@ -296,6 +298,25 @@ model ProductTemplate {
 
   @@index([isActive])
   @@index([createdAt])
+}
+
+model MerchItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String   @default("Merch")
+  priceUsd    Float?
+  imageUrl    String?
+  externalUrl String?
+  ctaLabel    String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([category])
+  @@index([sortOrder])
 }
 
 model CustomerPreset {
