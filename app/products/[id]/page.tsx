@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { prisma } from '@/lib/db'
 import { buildImageSrc } from '@/lib/storage'
 import ProductConfigurator from '@/components/products/ProductConfigurator'
+import { getUserIdFromCookie } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,8 +10,13 @@ type Params = { params: Promise<{ id: string }> }
 
 export default async function ProductDetailPage({ params }: Params) {
   const { id } = await params
+  const viewerId = await getUserIdFromCookie()
+  const viewer = viewerId
+    ? await prisma.user.findUnique({ where: { id: viewerId }, select: { isAdmin: true, role: true } })
+    : null
+  const isAdminViewer = Boolean(viewer?.isAdmin || viewer?.role === 'admin' || viewer?.role === 'staff')
   const product = await prisma.productTemplate.findFirst({
-    where: { id, isActive: true },
+    where: isAdminViewer ? { id } : { id, isActive: true },
     include: {
       baseModel: {
         select: {
@@ -43,6 +49,9 @@ export default async function ProductDetailPage({ params }: Params) {
         <div className="space-y-4">
           <div className="glass rounded-2xl border border-white/10 p-6">
             <h1 className="text-3xl font-semibold">{product.title}</h1>
+            {!product.isActive && isAdminViewer && (
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mt-2">Hidden from customers (admin preview)</p>
+            )}
             <p className="text-sm text-slate-300 mt-3 whitespace-pre-wrap">
               {product.description || product.baseModel?.description || 'No description provided.'}
             </p>
@@ -64,9 +73,12 @@ export default async function ProductDetailPage({ params }: Params) {
             title: product.title,
             description: product.description,
             baseModelId: product.baseModelId,
-            materialOptions: product.materialOptions as any,
-            colorOptions: product.colorOptions as any,
-            sizeOptions: product.sizeOptions as any,
+            lockedMaterial: product.lockedMaterial,
+            lockedColor: product.lockedColor,
+            lockedColorCount: product.lockedColorCount,
+            lockedScale: product.lockedScale,
+            lockedFinish: product.lockedFinish,
+            lockedPriceMultiplier: product.lockedPriceMultiplier,
           }}
           baseModel={product.baseModel}
           coverUrl={cover}

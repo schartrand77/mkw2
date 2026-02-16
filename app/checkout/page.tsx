@@ -126,6 +126,7 @@ export default function CheckoutPage() {
       return {
         modelId: item.modelId,
         partId: item.partId || undefined,
+        productTemplateId: item.options.productTemplateId || undefined,
         qty: Math.max(1, item.options.qty || 1),
         scale: uniformScale,
         scaleX: axisScales.x,

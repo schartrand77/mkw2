@@ -20,6 +20,8 @@ export type CartOptions = {
   material: MaterialType
   colors: string[]
   finish?: string | null
+  lockedConfig?: boolean
+  productTemplateId?: string | null
   infillPct?: number | null // 0-100
   customText?: string | null
   dimensionOverrides?: ScaleOverrides | null
@@ -84,6 +86,7 @@ function sanitizeDimensionOverrides(overrides?: ScaleOverrides | null): ScaleOve
 
 function sanitizeOptions(opts?: LegacyCartOptions | null): CartOptions {
   const colorsSource = Array.isArray(opts?.colors) ? opts?.colors : (opts?.color ? [opts.color] : [])
+  const lockedConfig = Boolean(opts?.lockedConfig)
   const lockDimensions = opts?.lockDimensions ?? !(opts?.dimensionOverrides && Object.keys(opts.dimensionOverrides).length > 0)
   const baseScale = clampScale(opts?.scale ?? 1)
   const overrides = lockDimensions ? null : sanitizeDimensionOverrides(opts?.dimensionOverrides)
@@ -96,8 +99,10 @@ function sanitizeOptions(opts?: LegacyCartOptions | null): CartOptions {
     material: normalizeMaterialName(opts?.material),
     colors: normalizeColors(colorsSource),
     finish: typeof opts?.finish === 'string' ? opts.finish : null,
+    lockedConfig,
+    productTemplateId: typeof opts?.productTemplateId === 'string' ? opts.productTemplateId : null,
     infillPct: typeof opts?.infillPct === 'number' ? Math.max(0, Math.min(100, opts.infillPct)) : null,
-    customText: opts?.customText ?? null,
+    customText: lockedConfig ? null : (opts?.customText ?? null),
     dimensionOverrides: overrides,
     lockDimensions,
     priceMultiplier: multiplier != null && Number.isFinite(multiplier) ? Math.max(0.1, Math.min(5, multiplier)) : null,
@@ -113,6 +118,8 @@ function mergeOptions(base: CartOptions, patch?: Partial<CartOptions>): CartOpti
     material: patch.material ?? base.material,
     colors: patch.colors !== undefined ? patch.colors : base.colors,
     finish: patch.finish !== undefined ? patch.finish : base.finish,
+    lockedConfig: patch.lockedConfig !== undefined ? patch.lockedConfig : base.lockedConfig,
+    productTemplateId: patch.productTemplateId !== undefined ? patch.productTemplateId : base.productTemplateId,
     infillPct: patch.infillPct !== undefined ? patch.infillPct : base.infillPct,
     customText: patch.customText !== undefined ? patch.customText : base.customText,
     dimensionOverrides: patch.dimensionOverrides !== undefined ? patch.dimensionOverrides : base.dimensionOverrides,

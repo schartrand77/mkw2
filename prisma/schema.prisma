@@ -277,6 +277,14 @@ model ProductTemplate {
   title        String
   description  String?
   baseModelId  String?
+  lockedMaterial String? @default("PLA")
+  lockedColor   String?
+  lockedColorCount Int   @default(1)
+  lockedScale   Float    @default(1)
+  lockedFinish  String?  @default("standard")
+  lockedPriceMultiplier Float @default(1)
+  stockworksMaterialId Int?
+  stockworksInventoryItemId Int?
   materialOptions Json?
   colorOptions Json?
   sizeOptions  Json?

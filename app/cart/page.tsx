@@ -399,6 +399,7 @@ export default function CartPage() {
   const activeSlotItem = activeColorSlot
     ? items.find((item) => item.modelId === activeColorSlot.modelId && (item.partId ?? null) === activeColorSlot.partId)
     : null
+  const activeSlotLocked = Boolean(activeSlotItem?.options.lockedConfig)
   const selectedPreviewItem = activeSlotItem
     || (selectedPreviewKey
       ? items.find((item) => item.modelId === selectedPreviewKey.modelId && (item.partId ?? null) === selectedPreviewKey.partId)
@@ -778,6 +779,7 @@ export default function CartPage() {
           <div className="glass rounded-xl border border-white/10 divide-y divide-white/10">
             {items.map((item) => {
               const itemKey = `${item.modelId}-${item.partId || 'whole'}`
+              const isLockedProduct = Boolean(item.options.lockedConfig)
               const qty = Math.max(1, item.options.qty || 1)
               const unit = itemUnitPrice(item)
               const baseTotal = unit * qty
@@ -794,6 +796,7 @@ export default function CartPage() {
               const hasDimensions = DIMENSION_AXES.some(axis => typeof item.size?.[axis] === 'number' && !Number.isNaN(item.size?.[axis] ?? NaN))
               const uniformScale = clampScale(Math.cbrt(getVolumeScaleMultiplier(item.options.scale, item.options.dimensionOverrides)))
               const handleScaleChange = (value: number) => {
+                if (isLockedProduct) return
                 const nextScale = clampScale(value)
                 if (!locked) {
                   const overrides = DIMENSION_AXES.reduce((acc, axis) => {
@@ -812,6 +815,7 @@ export default function CartPage() {
                 })
               }
               const handleDimensionChange = (axis: (typeof DIMENSION_AXES)[number], input: number) => {
+                if (isLockedProduct) return
                 const baseValue = item.size?.[axis]
                 if (typeof baseValue !== 'number' || !Number.isFinite(baseValue) || baseValue <= 0) return
                 if (!Number.isFinite(input) || input <= 0) return
@@ -825,6 +829,7 @@ export default function CartPage() {
                 update(item.modelId, { dimensionOverrides: overrides }, item.partId)
               }
               const toggleLock = () => {
+                if (isLockedProduct) return
                 if (locked) {
                   const overrides = DIMENSION_AXES.reduce((acc, axis) => {
                     acc[axis] = getAxisScale(axis)
@@ -842,6 +847,7 @@ export default function CartPage() {
                 })
               }
               const resetDimensions = () => {
+                if (isLockedProduct) return
                 update(item.modelId, { scale: 1, dimensionOverrides: null, lockDimensions: true }, item.partId)
                 setDimensionInputs((prev) => {
                   if (!prev[itemKey]) return prev
@@ -898,6 +904,7 @@ export default function CartPage() {
                           min="0.1"
                           max="5"
                           value={uniformScale.toFixed(2)}
+                          disabled={isLockedProduct}
                           onChange={(e) => handleScaleChange(Number(e.target.value))}
                         />
                       </label>
@@ -910,6 +917,7 @@ export default function CartPage() {
                           min="0"
                           max="100"
                           value={item.options.infillPct ?? 20}
+                          disabled={isLockedProduct}
                           onChange={(e) => update(item.modelId, { infillPct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }, item.partId)}
                         />
                       </label>
@@ -918,6 +926,7 @@ export default function CartPage() {
                         <select
                           className="w-32 input"
                           value={normalizeMaterialName(item.options.material)}
+                          disabled={isLockedProduct}
                           onChange={(e) => update(item.modelId, { material: e.target.value as MaterialType }, item.partId)}
                         >
                           {(() => {
@@ -959,6 +968,7 @@ export default function CartPage() {
                                         || COLOR_PICKER_FALLBACK
                                     const isActive = activeColorSlot?.id === slotId
                                     const updateColor = (nextValue: string) => {
+                                      if (isLockedProduct) return
                                       const next = [...(item.options.colors || [])]
                                       next[idx] = nextValue
                                       update(item.modelId, { colors: next }, item.partId)
@@ -971,7 +981,9 @@ export default function CartPage() {
                                           data-color-slot={slotId}
                                           className={`relative rounded-md border border-white/20 h-8 w-8 flex items-center justify-center transition-all ${isActive ? 'ring-2 ring-amber-400' : ''}`}
                                           style={{ background: hexValue }}
+                                          disabled={isLockedProduct}
                                           onClick={(event) => {
+                                            if (isLockedProduct) return
                                             if (isActive) {
                                               setActiveColorSlot(null)
                                               return
@@ -999,6 +1011,7 @@ export default function CartPage() {
                                           <button
                                             type="button"
                                             className="px-2 py-0.5 text-[7px] uppercase rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                                            disabled={isLockedProduct}
                                             onClick={(e) => {
                                               e.stopPropagation()
                                               updateColor('')
@@ -1020,23 +1033,28 @@ export default function CartPage() {
                           })}
                         </div>
                       </div>
-                      <label className="flex items-center gap-2">
-                        <span>Text</span>
-                        <input
-                          className="w-40 input"
-                          value={item.options.customText || ''}
-                          onChange={(e) => update(item.modelId, { customText: e.target.value || null }, item.partId)}
-                          placeholder="optional engraving"
-                        />
-                      </label>
+                      {!isLockedProduct && (
+                        <label className="flex items-center gap-2">
+                          <span>Engraving</span>
+                          <input
+                            className="w-40 input"
+                            value={item.options.customText || ''}
+                            onChange={(e) => update(item.modelId, { customText: e.target.value || null }, item.partId)}
+                            placeholder="optional engraving"
+                          />
+                        </label>
+                      )}
                       <div className="rounded-lg border border-white/10 bg-black/30 p-3 space-y-2">
                         <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Saved presets</div>
+                        {isLockedProduct && <div className="text-[11px] text-slate-500">Preset edits are disabled for locked product configurations.</div>}
                         <div className="flex flex-wrap items-center gap-2 text-xs">
                           {presets.length > 0 ? (
                             <select
                               className="input text-xs"
                               defaultValue=""
+                              disabled={isLockedProduct}
                               onChange={(e) => {
+                                if (isLockedProduct) return
                                 const preset = presets.find((p) => p.id === e.target.value)
                                 if (preset) applyPreset(preset, item)
                               }}
@@ -1056,11 +1074,13 @@ export default function CartPage() {
                               className="input text-xs"
                               placeholder="Preset name"
                               value={presetNames[itemKey] || ''}
+                              disabled={isLockedProduct}
                               onChange={(e) => setPresetNames((prev) => ({ ...prev, [itemKey]: e.target.value }))}
                             />
                             <button
                               type="button"
                               className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 text-xs"
+                              disabled={isLockedProduct}
                               onClick={() => savePreset(itemKey, item)}
                             >
                               Save preset
@@ -1070,7 +1090,7 @@ export default function CartPage() {
                         {presetError && <div className="text-xs text-amber-300">{presetError}</div>}
                       </div>
                     </div>
-                    {hasDimensions ? (
+                    {hasDimensions && !isLockedProduct ? (
                       <div className="space-y-1 text-xs">
                         {(() => {
                           const baseText = DIMENSION_AXES.map((axis) => {
@@ -1158,7 +1178,11 @@ export default function CartPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="text-xs text-slate-500">Size metadata missing — add model dimensions to enable dimension controls.</div>
+                      <div className="text-xs text-slate-500">
+                        {isLockedProduct
+                          ? 'Dimensions are locked for this configured product.'
+                          : 'Size metadata missing — add model dimensions to enable dimension controls.'}
+                      </div>
                     )}
                     <div className="text-xs text-emerald-300 space-y-1">
                       <div>
@@ -1330,6 +1354,7 @@ export default function CartPage() {
                                 style={{ background: swatchOption.hex }}
                                 aria-label={`Select ${swatchOption.name}`}
                                 onClick={() => {
+                                  if (activeSlotLocked) return
                                   const next = [...(activeSlotItem.options.colors || [])]
                                   const nextValue = swatchOption.name && swatchOption.hex
                                     ? `${swatchOption.name} ${swatchOption.hex}`
@@ -1392,7 +1417,9 @@ export default function CartPage() {
                 className="w-full input text-sm"
                 value={activeSlotValue}
                 placeholder="Name or hex"
+                disabled={activeSlotLocked}
                 onChange={(e) => {
+                  if (activeSlotLocked) return
                   const next = [...(activeSlotItem.options.colors || [])]
                   next[activeColorSlot.index] = e.target.value
                   update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
@@ -1404,8 +1431,10 @@ export default function CartPage() {
                   type="color"
                   className="mt-1 h-10 w-full rounded-md border border-white/20 bg-transparent cursor-pointer"
                   value={activeSlotHexValue}
+                  disabled={activeSlotLocked}
                   aria-label={`Pick colour ${activeColorSlot.index + 1}`}
                   onChange={(e) => {
+                    if (activeSlotLocked) return
                     const next = [...(activeSlotItem.options.colors || [])]
                     next[activeColorSlot.index] = e.target.value
                     update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)

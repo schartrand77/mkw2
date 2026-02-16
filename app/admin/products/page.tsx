@@ -33,6 +33,7 @@ export default async function AdminProductsPage() {
         priceUsd: true,
         effectivePriceUsd: true,
         salePriceUsd: true,
+        flatRatePricing: true,
         material: true,
         volumeMm3: true,
         sizeXmm: true,

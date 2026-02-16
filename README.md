@@ -72,9 +72,9 @@ This section lists the platform capabilities you can enable, configure, and oper
 
 ### Product Builder
 - Product templates with:
-  - Material options
-  - Color options
-  - Size options
+  - Locked material/color/size/finish configuration
+  - StockWorks-informed color selection
+  - Best-effort sync to StockWorks `models` inventory category
   - Active/inactive status
 - Optional base-model attachment for template defaults
 - Admin products list and product API endpoints
@@ -185,12 +185,13 @@ This section lists what an end customer can do in the app.
 
 ### Product Shopping
 - Open product templates from `/products`
-- Configure size/material/colors based on template options
+- Review locked production configuration
+- Add optional engraving text
 - See live pricing updates
 - Add configured products to cart
 
 ### Cart and Presets
-- Adjust quantity and options per item
+- Adjust quantity and engraving per locked product item
 - View dynamic subtotal/total updates
 - Save common configurations as presets
 - Reapply presets on future items

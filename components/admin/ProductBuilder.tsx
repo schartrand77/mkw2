@@ -1,7 +1,16 @@
-"use client"
+﻿"use client"
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { formatCurrency } from '@/lib/currency'
+import {
+  FINISH_OPTIONS,
+  MATERIAL_OPTIONS,
+  clampScale,
+  getColorMultiplier,
+  getFinishMultiplier,
+  getMaterialMultiplier,
+  normalizeMaterialName,
+} from '@/lib/cartPricing'
 
 type ModelSummary = {
   id: string
@@ -9,6 +18,7 @@ type ModelSummary = {
   priceUsd: number | null
   effectivePriceUsd: number | null
   salePriceUsd: number | null
+  flatRatePricing?: boolean | null
   material: string | null
   volumeMm3: number | null
   sizeXmm: number | null
@@ -24,11 +34,28 @@ type OptionRow = {
   priceMultiplier?: number
 }
 
+type StockworksColor = {
+  name: string
+  hex?: string | null
+}
+
+type StockworksPalette = {
+  enabled: boolean
+  materials: Record<string, { inStock: StockworksColor[] | string[]; orderable: StockworksColor[] | string[] }>
+  materialTypes?: string[]
+}
+
 type ProductTemplate = {
   id: string
   title: string
   description: string | null
   baseModelId: string | null
+  lockedMaterial: string | null
+  lockedColor: string | null
+  lockedColorCount: number | null
+  lockedScale: number | null
+  lockedFinish: string | null
+  lockedPriceMultiplier: number | null
   materialOptions: OptionRow[] | null
   colorOptions: OptionRow[] | null
   sizeOptions: OptionRow[] | null
@@ -46,11 +73,24 @@ const emptyProduct = (): ProductTemplate => ({
   title: '',
   description: '',
   baseModelId: null,
+  lockedMaterial: 'PLA',
+  lockedColor: null,
+  lockedColorCount: 1,
+  lockedScale: 1,
+  lockedFinish: 'standard',
+  lockedPriceMultiplier: 1,
   materialOptions: [],
   colorOptions: [],
   sizeOptions: [],
   isActive: true,
 })
+
+const normalizeColorName = (entry: StockworksColor | string) => {
+  if (typeof entry === 'string') return entry.trim()
+  const name = (entry?.name || '').trim()
+  const hex = (entry?.hex || '').trim()
+  return name || hex
+}
 
 export default function ProductBuilder({ initialProducts, models }: Props) {
   const [products, setProducts] = useState<ProductTemplate[]>(initialProducts)
@@ -62,6 +102,19 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/stockworks/filament-colors', { cache: 'no-store' })
+      .then(async (res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.enabled) return
+        setStockworksPalette(data)
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [])
 
   const selectedModel = useMemo(
     () => models.find((m) => m.id === form.baseModelId) || null,
@@ -71,6 +124,41 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
   const basePrice = selectedModel
     ? (selectedModel.salePriceUsd ?? selectedModel.effectivePriceUsd ?? selectedModel.priceUsd ?? null)
     : null
+
+  const materialOptions = useMemo(() => {
+    const defaults = MATERIAL_OPTIONS.map((value) => value.toUpperCase())
+    const fromStockworks = stockworksPalette?.materialTypes?.length
+      ? stockworksPalette.materialTypes.map((value) => value.toUpperCase())
+      : (stockworksPalette?.materials ? Object.keys(stockworksPalette.materials).map((value) => value.toUpperCase()) : [])
+    const output: string[] = []
+    const seen = new Set<string>()
+    for (const entry of [...defaults, ...fromStockworks]) {
+      const normalized = normalizeMaterialName(entry)
+      if (!normalized || seen.has(normalized)) continue
+      seen.add(normalized)
+      output.push(normalized)
+    }
+    return output.length ? output : defaults
+  }, [stockworksPalette])
+
+  const colorOptions = useMemo(() => {
+    const activeMaterial = normalizeMaterialName(form.lockedMaterial)
+    const palette = stockworksPalette?.materials?.[activeMaterial]
+    const combined = [
+      ...(Array.isArray(palette?.inStock) ? palette.inStock : []),
+      ...(Array.isArray(palette?.orderable) ? palette.orderable : []),
+    ]
+    const seen = new Set<string>()
+    const output: string[] = []
+    for (const entry of combined) {
+      const name = normalizeColorName(entry as StockworksColor | string)
+      const key = name.toLowerCase()
+      if (!name || seen.has(key)) continue
+      seen.add(key)
+      output.push(name)
+    }
+    return output
+  }, [form.lockedMaterial, stockworksPalette])
 
   const selectProduct = (id: string) => {
     const target = products.find((p) => p.id === id)
@@ -83,13 +171,6 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
 
   const updateField = (patch: Partial<ProductTemplate>) => setForm((prev) => ({ ...prev, ...patch }))
 
-  const updateOptionList = (key: 'materialOptions' | 'colorOptions' | 'sizeOptions', updater: (rows: OptionRow[]) => OptionRow[]) => {
-    setForm((prev) => {
-      const current = (prev[key] || []) as OptionRow[]
-      return { ...prev, [key]: updater([...current]) }
-    })
-  }
-
   const saveProduct = async () => {
     if (!form.title.trim()) {
       setError('Title is required.')
@@ -99,13 +180,26 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
     setError(null)
     setMessage(null)
     try {
+      const lockedMaterial = normalizeMaterialName(form.lockedMaterial || selectedModel?.material || 'PLA')
+      const lockedColor = (form.lockedColor || '').trim() || null
+      const lockedColorCount = Math.max(1, Math.round(form.lockedColorCount ?? 1))
+      const lockedScale = clampScale(form.lockedScale ?? 1)
+      const lockedFinish = (form.lockedFinish || 'standard').trim().toLowerCase()
+      const lockedPriceMultiplier = Math.max(0.1, Math.min(5, Number(form.lockedPriceMultiplier ?? 1)))
+
       const payload = {
         title: form.title.trim(),
         description: form.description?.trim() || null,
         baseModelId: form.baseModelId || null,
-        materialOptions: (form.materialOptions || []).filter((row) => row.label.trim()),
-        colorOptions: (form.colorOptions || []).filter((row) => row.label.trim()),
-        sizeOptions: (form.sizeOptions || []).filter((row) => row.label.trim()),
+        lockedMaterial,
+        lockedColor,
+        lockedColorCount,
+        lockedScale,
+        lockedFinish,
+        lockedPriceMultiplier,
+        materialOptions: [{ label: lockedMaterial, value: lockedMaterial, priceMultiplier: 1 }],
+        colorOptions: [{ label: lockedColor || 'Standard', value: lockedColor || undefined, colorCount: lockedColorCount, priceMultiplier: 1 }],
+        sizeOptions: [{ label: 'Configured size', scale: lockedScale, priceMultiplier: lockedPriceMultiplier }],
         isActive: form.isActive,
       }
       const res = await fetch(form.id ? `/api/admin/products/${form.id}` : '/api/admin/products', {
@@ -122,7 +216,9 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
       })
       setActiveId(saved.id)
       setForm(saved)
-      setMessage('Saved product template.')
+      setMessage(data?.stockworksWarning
+        ? `Saved product. StockWorks sync warning: ${data.stockworksWarning}`
+        : 'Saved product and synced StockWorks models inventory.')
     } catch (err: any) {
       setError(err?.message || 'Save failed.')
     } finally {
@@ -156,18 +252,33 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
     }
   }
 
+  const lockedMaterial = normalizeMaterialName(form.lockedMaterial || selectedModel?.material || 'PLA')
+  const lockedColorCount = Math.max(1, Math.round(form.lockedColorCount ?? 1))
+  const lockedScale = clampScale(form.lockedScale ?? 1)
+  const lockedFinish = (form.lockedFinish || 'standard').trim().toLowerCase()
+  const lockedMultiplier = Math.max(0.1, Math.min(5, Number(form.lockedPriceMultiplier ?? 1)))
+
+  const estimatedPrice = useMemo(() => {
+    if (basePrice == null || !Number.isFinite(basePrice) || basePrice <= 0) return null
+    const volumeMultiplier = Math.pow(lockedScale, 3)
+    const colorMultiplier = selectedModel?.flatRatePricing ? 1 : getColorMultiplier(Array.from({ length: lockedColorCount }, () => 'X'))
+    const materialMultiplier = getMaterialMultiplier(lockedMaterial)
+    const finishMultiplier = getFinishMultiplier(lockedFinish)
+    return Number((basePrice * volumeMultiplier * colorMultiplier * materialMultiplier * finishMultiplier * lockedMultiplier).toFixed(2))
+  }, [basePrice, lockedScale, lockedColorCount, selectedModel, lockedMaterial, lockedFinish, lockedMultiplier])
+
   return (
     <div className="grid lg:grid-cols-[280px_1fr] gap-6">
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Templates</h2>
+          <h2 className="text-lg font-semibold">Products</h2>
           <button className="text-xs px-2 py-1 rounded border border-white/10 hover:border-white/20" onClick={newTemplate}>
             New
           </button>
         </div>
         <div className="space-y-2">
           {products.length === 0 && (
-            <p className="text-xs text-slate-500">No templates yet.</p>
+            <p className="text-xs text-slate-500">No products yet.</p>
           )}
           {products.map((product) => (
             <button
@@ -189,7 +300,7 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Product Builder</h1>
-            <p className="text-xs text-slate-400">Build what customers see on the Products page, including choices and price effects.</p>
+            <p className="text-xs text-slate-400">Set a locked production configuration. Customers can only edit engraving text and quantity.</p>
           </div>
           <div className="flex gap-2">
             {form.id && (
@@ -202,7 +313,7 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
               </button>
             )}
             <button className="btn text-sm" onClick={saveProduct} disabled={saving}>
-              {saving ? 'Saving...' : 'Save template'}
+              {saving ? 'Saving...' : 'Save product'}
             </button>
           </div>
         </div>
@@ -212,22 +323,21 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
 
         <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-4">
           <div>
-            <h2 className="text-sm font-semibold">1. Basic Product Info</h2>
-            <p className="text-xs text-slate-400">These fields control the product card and detail content that customers see.</p>
+            <h2 className="text-sm font-semibold">1. Product Basics</h2>
+            <p className="text-xs text-slate-400">Customer-facing product card + detail content.</p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <label className="text-sm space-y-1">
-              <span className="text-slate-400">Product name (shown to customers)</span>
+              <span className="text-slate-400">Product name</span>
               <input
                 className="input"
                 value={form.title}
                 placeholder="Example: Dragon Bust"
                 onChange={(e) => updateField({ title: e.target.value })}
               />
-              <p className="text-xs text-slate-500">Keep this short and specific. This appears in listings and on the product page.</p>
             </label>
             <label className="text-sm space-y-1">
-              <span className="text-slate-400">Base model (drives starting price + dimensions)</span>
+              <span className="text-slate-400">Base model</span>
               <select
                 className="input"
                 value={form.baseModelId || ''}
@@ -238,17 +348,15 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
                   <option key={model.id} value={model.id}>{model.title}</option>
                 ))}
               </select>
-              <p className="text-xs text-slate-500">Starting price comes from this model before option adjustments.</p>
             </label>
             <label className="text-sm space-y-1 md:col-span-2">
               <span className="text-slate-400">Customer description</span>
               <textarea
                 className="input min-h-[120px]"
                 value={form.description || ''}
-                placeholder="Short shopper-facing summary. Example: Detailed fantasy bust for desk display."
+                placeholder="Short shopper-facing summary."
                 onChange={(e) => updateField({ description: e.target.value })}
               />
-              <p className="text-xs text-slate-500">Explain what the customer gets and what can be customized.</p>
             </label>
             <label className="text-sm flex items-center gap-2">
               <input
@@ -256,81 +364,115 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
                 checked={form.isActive}
                 onChange={(e) => updateField({ isActive: e.target.checked })}
               />
-              <span>Visible on customer Products page</span>
+              <span>Visible on Products page</span>
             </label>
           </div>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-4">
           <div>
-            <h2 className="text-sm font-semibold">2. Customer Choices And Pricing</h2>
-            <p className="text-xs text-slate-400">Each option row becomes a dropdown item on the customer product configurator.</p>
+            <h2 className="text-sm font-semibold">2. Locked Product Configuration</h2>
+            <p className="text-xs text-slate-400">This is the exact config used at checkout. StockWorks sync writes this product into the `models` category.</p>
           </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Material</span>
+              <select
+                className="input"
+                value={lockedMaterial}
+                onChange={(e) => {
+                  const nextMaterial = normalizeMaterialName(e.target.value)
+                  const nextPalette = stockworksPalette?.materials?.[nextMaterial]
+                  const firstColor = Array.isArray(nextPalette?.inStock) && nextPalette.inStock.length > 0
+                    ? normalizeColorName(nextPalette.inStock[0] as StockworksColor | string)
+                    : null
+                  updateField({ lockedMaterial: nextMaterial, lockedColor: form.lockedColor || firstColor || null })
+                }}
+              >
+                {materialOptions.map((material) => (
+                  <option key={material} value={material}>{material}</option>
+                ))}
+              </select>
+            </label>
 
-          <OptionEditor
-            title="Size choices"
-            rows={form.sizeOptions || []}
-            onChange={(rows) => updateOptionList('sizeOptions', () => rows)}
-            hint="Scale changes volume (scale^3), then Price factor applies."
-            showScale
-            showPriceMultiplier
-            labelPlaceholder="Example: Small / Medium / Large"
-            scaleLabel="Scale factor"
-            scalePlaceholder="1.00"
-            multiplierLabel="Price factor"
-            multiplierPlaceholder="1.00"
-          />
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Color from StockWorks</span>
+              <select
+                className="input"
+                value={form.lockedColor || ''}
+                onChange={(e) => updateField({ lockedColor: e.target.value || null })}
+              >
+                <option value="">No color selected...</option>
+                {colorOptions.map((color) => (
+                  <option key={color} value={color}>{color}</option>
+                ))}
+              </select>
+            </label>
 
-          <OptionEditor
-            title="Material choices"
-            rows={form.materialOptions || []}
-            onChange={(rows) => updateOptionList('materialOptions', () => rows)}
-            hint="Label is what customers see. Material key maps to pricing rules (e.g., PLA, PETG, ABS)."
-            showValue
-            showPriceMultiplier
-            labelPlaceholder="Example: Matte PETG"
-            valueLabel="Material key"
-            valuePlaceholder="Example: PETG"
-            multiplierLabel="Price factor"
-            multiplierPlaceholder="1.00"
-          />
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Color slot count</span>
+              <input
+                className="input"
+                type="number"
+                min={1}
+                max={16}
+                value={lockedColorCount}
+                onChange={(e) => updateField({ lockedColorCount: Math.max(1, Math.round(Number(e.target.value) || 1)) })}
+              />
+            </label>
 
-          <OptionEditor
-            title="Color palette choices"
-            rows={form.colorOptions || []}
-            onChange={(rows) => updateOptionList('colorOptions', () => rows)}
-            hint="Colors in palette controls how many colors the customer can pick in cart."
-            showColorCount
-            showPriceMultiplier
-            labelPlaceholder="Example: Two-tone"
-            colorCountLabel="Colors in palette"
-            multiplierLabel="Price factor"
-            multiplierPlaceholder="1.00"
-          />
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Finish</span>
+              <select
+                className="input"
+                value={lockedFinish}
+                onChange={(e) => updateField({ lockedFinish: e.target.value })}
+              >
+                {FINISH_OPTIONS.map((finish) => (
+                  <option key={finish} value={finish}>{finish}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Scale factor</span>
+              <input
+                className="input"
+                type="number"
+                min={0.1}
+                max={5}
+                step={0.05}
+                value={lockedScale}
+                onChange={(e) => updateField({ lockedScale: clampScale(Number(e.target.value) || 1) })}
+              />
+            </label>
+
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Price multiplier</span>
+              <input
+                className="input"
+                type="number"
+                min={0.1}
+                max={5}
+                step={0.05}
+                value={lockedMultiplier}
+                onChange={(e) => updateField({ lockedPriceMultiplier: Math.max(0.1, Math.min(5, Number(e.target.value) || 1)) })}
+              />
+            </label>
+          </div>
+          <p className="text-xs text-slate-500">If StockWorks is not connected, material/color selectors still work with saved values.</p>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm space-y-2">
-          <div className="text-xs uppercase tracking-[0.3em] text-slate-400">3. Live Pricing Preview</div>
+          <div className="text-xs uppercase tracking-[0.3em] text-slate-400">3. Locked Price Preview</div>
           {selectedModel ? (
             <>
               <div className="text-slate-300">
                 Base model: <span className="font-semibold">{selectedModel.title}</span> {basePrice != null ? `- ${formatCurrency(basePrice)}` : ''}
               </div>
-              <div className="grid sm:grid-cols-3 gap-3 text-xs text-slate-400">
-                {(form.sizeOptions || []).length > 0 ? (
-                  (form.sizeOptions || []).map((opt, idx) => (
-                    <div key={`preview-${idx}`} className="rounded-lg border border-white/10 bg-black/30 p-2">
-                      <div className="text-slate-200">{opt.label || 'Size option'}</div>
-                      <div>Scale: {opt.scale ?? 1}</div>
-                      <div>Multiplier: {opt.priceMultiplier ?? 1}</div>
-                      <div className="text-slate-100">
-                        {basePrice != null ? formatCurrency(calculateSizePrice(basePrice, opt)) : 'N/A'}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-slate-500">Add size options to preview pricing.</div>
-                )}
+              <div className="text-xs text-slate-400">Material {lockedMaterial} • Color slots {lockedColorCount} • Finish {lockedFinish} • Scale {lockedScale.toFixed(2)} • Multiplier {lockedMultiplier.toFixed(2)}</div>
+              <div className="text-slate-100">
+                {estimatedPrice != null ? `Estimated from ${formatCurrency(estimatedPrice)}` : 'N/A'}
               </div>
             </>
           ) : (
@@ -342,151 +484,3 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
   )
 }
 
-function OptionEditor({
-  title,
-  rows,
-  onChange,
-  hint,
-  showValue = false,
-  showScale = false,
-  showColorCount = false,
-  showPriceMultiplier = false,
-  labelPlaceholder = 'Example: Standard',
-  valueLabel = 'Internal value',
-  valuePlaceholder = 'Example: PLA',
-  scaleLabel = 'Scale',
-  scalePlaceholder = '1.00',
-  colorCountLabel = 'Color count',
-  multiplierLabel = 'Price multiplier',
-  multiplierPlaceholder = '1.00',
-}: {
-  title: string
-  rows: OptionRow[]
-  onChange: (rows: OptionRow[]) => void
-  hint?: string
-  showValue?: boolean
-  showScale?: boolean
-  showColorCount?: boolean
-  showPriceMultiplier?: boolean
-  labelPlaceholder?: string
-  valueLabel?: string
-  valuePlaceholder?: string
-  scaleLabel?: string
-  scalePlaceholder?: string
-  colorCountLabel?: string
-  multiplierLabel?: string
-  multiplierPlaceholder?: string
-}) {
-  const addRow = () => onChange([...rows, { label: '' }])
-  const updateRow = (idx: number, patch: Partial<OptionRow>) => {
-    const next = rows.map((row, i) => (i === idx ? { ...row, ...patch } : row))
-    onChange(next)
-  }
-  const removeRow = (idx: number) => onChange(rows.filter((_, i) => i !== idx))
-  const countLabel = rows.length === 1 ? '1 option' : `${rows.length} options`
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-sm font-semibold">{title}</div>
-          {hint && <div className="text-xs text-slate-500">{hint}</div>}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-500">{countLabel}</span>
-          <button type="button" className="text-xs px-2 py-1 rounded border border-white/10 hover:border-white/20" onClick={addRow}>
-            Add option
-          </button>
-        </div>
-      </div>
-      {rows.length === 0 && <p className="text-xs text-slate-500">No options added yet.</p>}
-      <div className="space-y-2">
-        {rows.map((row, idx) => (
-          <div key={`${title}-${idx}`} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-slate-500">Option {idx + 1}</div>
-              <button
-                type="button"
-                className="text-xs text-rose-300 hover:text-rose-200"
-                onClick={() => removeRow(idx)}
-              >
-                Remove
-              </button>
-            </div>
-            <div className="grid md:grid-cols-5 gap-2 items-start">
-              <label className="text-xs text-slate-400 md:col-span-2">
-                Customer label
-                <input
-                  className="input mt-1"
-                  value={row.label}
-                  placeholder={labelPlaceholder}
-                  onChange={(e) => updateRow(idx, { label: e.target.value })}
-                />
-              </label>
-              {showValue && (
-                <label className="text-xs text-slate-400">
-                  {valueLabel}
-                  <input
-                    className="input mt-1"
-                    value={row.value || ''}
-                    placeholder={valuePlaceholder}
-                    onChange={(e) => updateRow(idx, { value: e.target.value })}
-                  />
-                </label>
-              )}
-              {showScale && (
-                <label className="text-xs text-slate-400">
-                  {scaleLabel}
-                  <input
-                    className="input mt-1"
-                    type="number"
-                    step="0.05"
-                    value={row.scale ?? 1}
-                    placeholder={scalePlaceholder}
-                    onChange={(e) => updateRow(idx, { scale: Number(e.target.value) })}
-                  />
-                  <p className="mt-1 text-[11px] text-slate-500">1.00 = original size</p>
-                </label>
-              )}
-              {showColorCount && (
-                <label className="text-xs text-slate-400">
-                  {colorCountLabel}
-                  <input
-                    className="input mt-1"
-                    type="number"
-                    min={1}
-                    max={16}
-                    value={row.colorCount ?? 1}
-                    onChange={(e) => updateRow(idx, { colorCount: Number(e.target.value) })}
-                  />
-                  <p className="mt-1 text-[11px] text-slate-500">1 = single color pick</p>
-                </label>
-              )}
-              {showPriceMultiplier && (
-                <label className="text-xs text-slate-400">
-                  {multiplierLabel}
-                  <input
-                    className="input mt-1"
-                    type="number"
-                    step="0.05"
-                    value={row.priceMultiplier ?? 1}
-                    placeholder={multiplierPlaceholder}
-                    onChange={(e) => updateRow(idx, { priceMultiplier: Number(e.target.value) })}
-                  />
-                  <p className="mt-1 text-[11px] text-slate-500">1.15 = +15% | 0.90 = -10%</p>
-                </label>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function calculateSizePrice(basePrice: number, option: OptionRow) {
-  const scale = option.scale ?? 1
-  const multiplier = option.priceMultiplier ?? 1
-  const volumeMultiplier = Math.pow(scale, 3)
-  return Number((basePrice * volumeMultiplier * multiplier).toFixed(2))
-}

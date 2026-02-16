@@ -1,26 +1,27 @@
-"use client"
+﻿"use client"
 
 import { useMemo, useState } from 'react'
 import { useCart } from '@/components/cart/CartProvider'
 import { formatCurrency } from '@/lib/currency'
-import { clampScale, getColorMultiplier, getMaterialMultiplier, normalizeMaterialName } from '@/lib/cartPricing'
-
-type OptionRow = {
-  label: string
-  value?: string | null
-  scale?: number | null
-  colorCount?: number | null
-  priceMultiplier?: number | null
-}
+import {
+  clampScale,
+  getColorMultiplier,
+  getFinishMultiplier,
+  getMaterialMultiplier,
+  normalizeMaterialName,
+} from '@/lib/cartPricing'
 
 type ProductTemplate = {
   id: string
   title: string
   description?: string | null
   baseModelId?: string | null
-  materialOptions?: OptionRow[] | null
-  colorOptions?: OptionRow[] | null
-  sizeOptions?: OptionRow[] | null
+  lockedMaterial?: string | null
+  lockedColor?: string | null
+  lockedColorCount?: number | null
+  lockedScale?: number | null
+  lockedFinish?: string | null
+  lockedPriceMultiplier?: number | null
 }
 
 type BaseModel = {
@@ -44,24 +45,14 @@ type Props = {
 
 export default function ProductConfigurator({ product, baseModel, coverUrl }: Props) {
   const { add, pricingAdjustments } = useCart()
-  const materialOptions = (product.materialOptions || []).filter((opt) => opt.label)
-  const colorOptions = (product.colorOptions || []).filter((opt) => opt.label)
-  const sizeOptions = (product.sizeOptions || []).filter((opt) => opt.label)
-  const [materialIndex, setMaterialIndex] = useState(0)
-  const [colorIndex, setColorIndex] = useState(0)
-  const [sizeIndex, setSizeIndex] = useState(0)
   const [qty, setQty] = useState(1)
 
-  const selectedMaterial = materialOptions[materialIndex] || null
-  const selectedColor = colorOptions[colorIndex] || null
-  const selectedSize = sizeOptions[sizeIndex] || null
-
-  const resolvedMaterial = normalizeMaterialName(selectedMaterial?.value || selectedMaterial?.label || baseModel?.material || 'PLA')
-  const colorCount = Math.max(1, Math.round(selectedColor?.colorCount ?? 1))
-  const scale = clampScale(selectedSize?.scale ?? 1)
-  const optionMultiplier = (selectedMaterial?.priceMultiplier ?? 1)
-    * (selectedColor?.priceMultiplier ?? 1)
-    * (selectedSize?.priceMultiplier ?? 1)
+  const resolvedMaterial = normalizeMaterialName(product.lockedMaterial || baseModel?.material || 'PLA')
+  const colorCount = Math.max(1, Math.round(product.lockedColorCount ?? 1))
+  const scale = clampScale(product.lockedScale ?? 1)
+  const finish = (product.lockedFinish || 'standard').trim().toLowerCase()
+  const priceMultiplier = Math.max(0.1, Math.min(5, Number(product.lockedPriceMultiplier ?? 1)))
+  const lockedColor = (product.lockedColor || '').trim() || 'Standard'
 
   const estimatedPrice = useMemo(() => {
     const basePrice = baseModel?.priceUsd ?? 0
@@ -69,16 +60,13 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
     const volumeMultiplier = Math.pow(scale, 3)
     const colorMultiplier = baseModel?.flatRatePricing ? 1 : getColorMultiplier(Array.from({ length: colorCount }, () => 'X'))
     const materialMultiplier = getMaterialMultiplier(resolvedMaterial)
-    const multiplier = optionMultiplier || 1
-    return Number((basePrice * volumeMultiplier * colorMultiplier * materialMultiplier * multiplier).toFixed(2))
-  }, [baseModel?.priceUsd, scale, colorCount, resolvedMaterial, optionMultiplier])
+    const finishMultiplier = getFinishMultiplier(finish)
+    return Number((basePrice * volumeMultiplier * colorMultiplier * materialMultiplier * finishMultiplier * priceMultiplier).toFixed(2))
+  }, [baseModel?.flatRatePricing, baseModel?.priceUsd, colorCount, finish, priceMultiplier, resolvedMaterial, scale])
 
   const addToCart = () => {
     if (!baseModel?.id) return
-    const colors = Array.from({ length: colorCount }, (_, idx) => {
-      if (idx > 0) return ''
-      return (selectedColor?.value || selectedColor?.label || '').trim()
-    })
+    const colors = Array.from({ length: colorCount }, () => lockedColor)
     add(
       {
         modelId: baseModel.id,
@@ -97,7 +85,11 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
         scale,
         material: resolvedMaterial,
         colors,
-        priceMultiplier: optionMultiplier || 1,
+        finish,
+        customText: null,
+        priceMultiplier,
+        lockedConfig: true,
+        productTemplateId: product.id,
       },
     )
   }
@@ -121,7 +113,7 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
           </div>
         )}
         <div>
-          <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Configure</div>
+          <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Configured Product</div>
           <div className="text-lg font-semibold">{product.title}</div>
           {estimatedPrice != null && (
             <div className="text-sm text-slate-300">Estimated from {formatCurrency(estimatedPrice)}</div>
@@ -129,55 +121,15 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
         </div>
       </div>
 
+      <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-slate-300 space-y-1">
+        <div>Material: {resolvedMaterial}</div>
+        <div>Color: {lockedColor || 'Configured at production'}</div>
+        <div>Color slots: {colorCount}</div>
+        <div>Finish: {finish}</div>
+        <div>Scale: {scale.toFixed(2)}x</div>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-sm space-y-1">
-          <span className="text-slate-400">Material</span>
-          <select
-            className="input"
-            value={materialIndex}
-            onChange={(e) => setMaterialIndex(Number(e.target.value))}
-          >
-            {materialOptions.length === 0 && <option value={0}>{resolvedMaterial}</option>}
-            {materialOptions.map((opt, idx) => (
-              <option key={`${opt.label}-${idx}`} value={idx}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm space-y-1">
-          <span className="text-slate-400">Color palette</span>
-          <select
-            className="input"
-            value={colorIndex}
-            onChange={(e) => setColorIndex(Number(e.target.value))}
-          >
-            {colorOptions.length === 0 && <option value={0}>Standard</option>}
-            {colorOptions.map((opt, idx) => (
-              <option key={`${opt.label}-${idx}`} value={idx}>
-                {opt.label}{opt.colorCount ? ` (${opt.colorCount} colors)` : ''}
-              </option>
-            ))}
-          </select>
-          {colorCount > 1 && (
-            <p className="text-xs text-slate-500">Pick {colorCount} colors in the cart.</p>
-          )}
-        </label>
-        <label className="text-sm space-y-1">
-          <span className="text-slate-400">Size</span>
-          <select
-            className="input"
-            value={sizeIndex}
-            onChange={(e) => setSizeIndex(Number(e.target.value))}
-          >
-            {sizeOptions.length === 0 && <option value={0}>Standard</option>}
-            {sizeOptions.map((opt, idx) => (
-              <option key={`${opt.label}-${idx}`} value={idx}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="text-sm space-y-1">
           <span className="text-slate-400">Quantity</span>
           <input

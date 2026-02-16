@@ -93,7 +93,7 @@ Status: Complete (2026-02-08)
 
 Product Builder
 - [x] Configurable products
-- [x] Material/color/size options
+- [x] Locked product configuration from StockWorks-backed choices
 - [x] Live price preview
 - [x] Saved product templates
 

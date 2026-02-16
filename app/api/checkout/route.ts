@@ -11,6 +11,7 @@ import { getColorMultiplier, normalizeColors, normalizeMaterialName, resolveScal
 import { recordOrderWorksJob } from '@/lib/orderworks'
 import { summarizeDiscount } from '@/lib/discounts'
 import { recordCustomerOrder } from '@/lib/orders'
+import { consumeProductTemplateInventoryOnCheckout } from '@/lib/stockworks-product-consumption'
 import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
 import { applyPricingAdjustments, getPricingAdjustmentConfig, resolveBatchDiscountPercent } from '@/lib/estimate-adjustments'
@@ -40,6 +41,7 @@ const dimensionSchema = z.object({
 const itemSchema = z.object({
   modelId: z.string().min(1),
   partId: z.string().min(1).optional(),
+  productTemplateId: z.string().cuid().optional(),
   qty: z.number().int().positive().max(50),
   scale: z.number().positive().max(5).default(1),
   scaleX: z.number().positive().max(5).optional(),
@@ -324,6 +326,7 @@ export async function POST(req: NextRequest) {
       return {
         modelId: model.id,
         partId: part?.id || undefined,
+        productTemplateId: entry.productTemplateId || undefined,
         partName: part?.name || undefined,
         title: model.title,
         qty,
@@ -466,6 +469,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (commit) {
+      try {
+        await consumeProductTemplateInventoryOnCheckout(paymentIntentId!, items)
+      } catch (stockErr: any) {
+        console.error('Failed to consume StockWorks product inventory', stockErr)
+        return NextResponse.json(
+          { error: 'Failed to update product inventory in StockWorks. Please retry checkout.' },
+          { status: 502 },
+        )
+      }
       try {
         await recordOrderWorksJob({
           paymentIntentId: paymentIntentId!,

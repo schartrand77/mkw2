@@ -81,6 +81,7 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
     unitPriceCents: Math.max(0, Math.round(item.unitPrice * 100)),
     totalCents: Math.max(0, Math.round(item.lineTotal * 100)),
     configuration: {
+      productTemplateId: item.productTemplateId,
       scale: item.scale,
       colors: item.colors,
       infillPct: item.infillPct,

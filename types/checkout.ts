@@ -12,6 +12,7 @@ export type Dimensions = {
 export type CheckoutItemInput = {
   modelId: string
   partId?: string | null
+  productTemplateId?: string | null
   qty: number
   scale: number
   scaleX?: number | null
@@ -47,6 +48,7 @@ export type CheckoutPaymentMethod = 'card' | 'cash' | 'invoice' | 'po' | 'quote'
 export type CheckoutLineItem = {
   modelId: string
   partId?: string | null
+  productTemplateId?: string | null
   partName?: string | null
   title: string
   qty: number
