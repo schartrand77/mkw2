@@ -63,7 +63,36 @@ export async function PATCH(req: Request, { params }: RouteContext) {
         return NextResponse.json({ error: 'Base model not found.' }, { status: 400 })
       }
     }
-    const updated = await prisma.productTemplate.update({
+    const existing = await prisma.productTemplate.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        lockedMaterial: true,
+        lockedColor: true,
+        stockworksMaterialId: true,
+        stockworksInventoryItemId: true,
+      },
+    })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    const nextTitle = parsed.title?.trim() || existing.title
+    const nextLockedMaterial = parsed.lockedMaterial === null
+      ? null
+      : (parsed.lockedMaterial || existing.lockedMaterial)
+    const nextLockedColor = parsed.lockedColor === null
+      ? null
+      : (parsed.lockedColor || existing.lockedColor)
+
+    const synced = await syncProductTemplateToStockworks({
+      title: nextTitle,
+      material: nextLockedMaterial,
+      color: nextLockedColor,
+      stockworksMaterialId: existing.stockworksMaterialId,
+      stockworksInventoryItemId: existing.stockworksInventoryItemId,
+    })
+
+    const product = await prisma.productTemplate.update({
       where: { id },
       data: {
         title: parsed.title ?? undefined,
@@ -79,35 +108,18 @@ export async function PATCH(req: Request, { params }: RouteContext) {
         colorOptions: parsed.colorOptions ?? undefined,
         sizeOptions: parsed.sizeOptions ?? undefined,
         isActive: parsed.isActive ?? undefined,
+        stockworksMaterialId: synced.materialId ?? null,
+        stockworksInventoryItemId: synced.inventoryItemId ?? null,
       },
     })
-    let product = updated
-    let stockworksWarning: string | null = null
-    try {
-      const synced = await syncProductTemplateToStockworks({
-        title: updated.title,
-        material: updated.lockedMaterial,
-        color: updated.lockedColor,
-        stockworksMaterialId: updated.stockworksMaterialId,
-        stockworksInventoryItemId: updated.stockworksInventoryItemId,
-      })
-      product = await prisma.productTemplate.update({
-        where: { id: updated.id },
-        data: {
-          stockworksMaterialId: synced.materialId ?? null,
-          stockworksInventoryItemId: synced.inventoryItemId ?? null,
-        },
-      })
-    } catch (err: any) {
-      stockworksWarning = err?.message || 'StockWorks sync failed'
-    }
     const hydrated = await prisma.productTemplate.findUnique({
       where: { id: product.id },
       include: { baseModel: { select: { id: true, title: true } } },
     })
-    return NextResponse.json({ product: hydrated || product, stockworksWarning })
+    return NextResponse.json({ product: hydrated || product })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
+    const status = typeof e?.status === 'number' ? 502 : 400
+    return NextResponse.json({ error: e.message || 'Failed to save product with StockWorks sync' }, { status })
   }
 }
 

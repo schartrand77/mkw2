@@ -216,9 +216,7 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
       })
       setActiveId(saved.id)
       setForm(saved)
-      setMessage(data?.stockworksWarning
-        ? `Saved product. StockWorks sync warning: ${data.stockworksWarning}`
-        : 'Saved product and synced StockWorks models inventory.')
+      setMessage('Saved product and synced StockWorks models inventory.')
     } catch (err: any) {
       setError(err?.message || 'Save failed.')
     } finally {

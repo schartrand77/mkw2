@@ -72,29 +72,34 @@ export async function POST(req: Request) {
         isActive: parsed.isActive ?? true,
       },
     })
-    let product = created
-    let stockworksWarning: string | null = null
+
     try {
       const synced = await syncProductTemplateToStockworks({
         title: created.title,
         material: created.lockedMaterial,
         color: created.lockedColor,
       })
-      product = await prisma.productTemplate.update({
+
+      const product = await prisma.productTemplate.update({
         where: { id: created.id },
         data: {
           stockworksMaterialId: synced.materialId ?? null,
           stockworksInventoryItemId: synced.inventoryItemId ?? null,
         },
       })
+
+      const hydrated = await prisma.productTemplate.findUnique({
+        where: { id: product.id },
+        include: { baseModel: { select: { id: true, title: true } } },
+      })
+      return NextResponse.json({ product: hydrated || product, adminId })
     } catch (err: any) {
-      stockworksWarning = err?.message || 'StockWorks sync failed'
+      await prisma.productTemplate.delete({ where: { id: created.id } }).catch(() => {})
+      return NextResponse.json(
+        { error: err?.message || 'Failed to sync product to StockWorks inventory models.' },
+        { status: 502 },
+      )
     }
-    const hydrated = await prisma.productTemplate.findUnique({
-      where: { id: product.id },
-      include: { baseModel: { select: { id: true, title: true } } },
-    })
-    return NextResponse.json({ product: hydrated || product, adminId, stockworksWarning })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
   }

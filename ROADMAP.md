@@ -1,6 +1,6 @@
 # MakerWorks Feature Roadmap (By Phase)
 
-Last updated: 2026-02-08
+Last updated: 2026-02-16
 
 ## Phase 1 - Operational Core (Stability + Daily Use)
 
@@ -94,6 +94,7 @@ Status: Complete (2026-02-08)
 Product Builder
 - [x] Configurable products
 - [x] Locked product configuration from StockWorks-backed choices
+- [x] Products created in Product Builder are added as inventory models in StockWorks
 - [x] Live price preview
 - [x] Saved product templates
 

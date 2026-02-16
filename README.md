@@ -74,7 +74,7 @@ This section lists the platform capabilities you can enable, configure, and oper
 - Product templates with:
   - Locked material/color/size/finish configuration
   - StockWorks-informed color selection
-  - Best-effort sync to StockWorks `models` inventory category
+  - Required sync to StockWorks `models` inventory category on create/update
   - Active/inactive status
 - Optional base-model attachment for template defaults
 - Admin products list and product API endpoints
