@@ -460,6 +460,7 @@ model ModelComment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   type      String   @default("comment")
+  isHomeCurated Boolean @default(false)
   imagePath String?
   imageStatus String @default("ready")
   imageSourcePath String?
@@ -472,6 +473,7 @@ model ModelComment {
 
   @@index([modelId])
   @@index([userId])
+  @@index([isHomeCurated, createdAt])
 }
 
 model ModelDownload {

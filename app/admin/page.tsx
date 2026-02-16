@@ -68,6 +68,7 @@ export default async function AdminPage() {
           <div className="mt-3 space-y-2 text-sm text-slate-300">
             <Link href="/admin/site-config" className="block underline text-brand-300">Site config and env checks</Link>
             <Link href="/admin/notifications" className="block underline text-brand-300">Notifications</Link>
+            <Link href="/admin/home-comments" className="block underline text-brand-300">Home comments</Link>
             <Link href="/admin/production" className="block underline text-brand-300">Production dashboard</Link>
             <Link href="/admin/users" className="block underline text-brand-300">User manager</Link>
             <Link href="/admin/models" className="block underline text-brand-300">Model library</Link>
