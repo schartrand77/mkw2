@@ -291,6 +291,28 @@ html.theme-light .text-slate-500,
 html.theme-light .text-slate-600 {
   color: #475569 !important;
 }
+html.theme-light .admin-sidebar {
+  border-color: rgba(15, 23, 42, 0.14);
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.94), rgba(236, 239, 246, 0.92));
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+}
+html.theme-light .admin-sidebar-kicker {
+  color: #334155 !important;
+}
+html.theme-light .admin-sidebar-section-title {
+  color: #475569 !important;
+}
+html.theme-light .admin-sidebar-link {
+  color: #0f172a !important;
+}
+html.theme-light .admin-sidebar-link:hover {
+  background: rgba(15, 23, 42, 0.08) !important;
+  color: #020617 !important;
+}
+html.theme-light .admin-sidebar-link-active {
+  background: rgba(15, 23, 42, 0.14) !important;
+  color: #020617 !important;
+}
 
 .page-title {
   position: relative;
