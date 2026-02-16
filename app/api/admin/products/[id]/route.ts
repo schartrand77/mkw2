@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../../_utils'
-import { syncProductTemplateToStockworks } from '@/lib/stockworks-products'
+import {
+  syncProductTemplateToStockworks,
+  syncStockworksModelsToProductTemplates,
+  unlinkProductTemplateFromStockworks,
+} from '@/lib/stockworks-products'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -34,6 +38,7 @@ type RouteContext = { params: Promise<{ id: string }> }
 
 export async function GET(_req: Request, { params }: RouteContext) {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  try { await syncStockworksModelsToProductTemplates() } catch {}
   const { id } = await params
   const product = await prisma.productTemplate.findUnique({
     where: { id },
@@ -110,8 +115,20 @@ export async function DELETE(_req: Request, { params }: RouteContext) {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const { id } = await params
   try {
+    const existing = await prisma.productTemplate.findUnique({
+      where: { id },
+      select: { stockworksMaterialId: true, stockworksInventoryItemId: true },
+    })
     await prisma.productTemplate.delete({ where: { id } })
-    return NextResponse.json({ ok: true })
+    let stockworksWarning: string | null = null
+    if (existing) {
+      try {
+        await unlinkProductTemplateFromStockworks(existing)
+      } catch (err: any) {
+        stockworksWarning = err?.message || 'StockWorks unlink failed'
+      }
+    }
+    return NextResponse.json({ ok: true, stockworksWarning })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Failed to delete' }, { status: 400 })
   }

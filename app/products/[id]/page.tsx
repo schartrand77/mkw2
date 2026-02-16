@@ -3,12 +3,14 @@ import { prisma } from '@/lib/db'
 import { buildImageSrc } from '@/lib/storage'
 import ProductConfigurator from '@/components/products/ProductConfigurator'
 import { getUserIdFromCookie } from '@/lib/auth'
+import { syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
 
 export default async function ProductDetailPage({ params }: Params) {
+  try { await syncStockworksModelsToProductTemplates() } catch {}
   const { id } = await params
   const viewerId = await getUserIdFromCookie()
   const viewer = viewerId

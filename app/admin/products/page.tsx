@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import ProductBuilder from '@/components/admin/ProductBuilder'
+import { syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
 
 async function requireAdminServer() {
   const cookieStore = await cookies()
@@ -19,6 +20,7 @@ async function requireAdminServer() {
 export default async function AdminProductsPage() {
   const adminId = await requireAdminServer()
   if (!adminId) redirect('/login')
+  try { await syncStockworksModelsToProductTemplates() } catch {}
 
   const [products, models] = await Promise.all([
     prisma.productTemplate.findMany({

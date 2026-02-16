@@ -238,6 +238,7 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
     if (!confirm('Delete this product template?')) return
     setSaving(true)
     setError(null)
+    setMessage(null)
     try {
       const res = await fetch(`/api/admin/products/${form.id}`, { method: 'DELETE' })
       const data = await res.json().catch(() => ({}))
@@ -245,6 +246,9 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
       setProducts((prev) => prev.filter((p) => p.id !== form.id))
       setForm(emptyProduct())
       setActiveId('')
+      setMessage(data?.stockworksWarning
+        ? `Deleted product. StockWorks unlink warning: ${data.stockworksWarning}`
+        : 'Deleted product and unlinked StockWorks models inventory.')
     } catch (err: any) {
       setError(err?.message || 'Delete failed.')
     } finally {

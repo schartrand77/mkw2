@@ -4,6 +4,7 @@ import { buildImageSrc } from '@/lib/storage'
 import { formatCurrency } from '@/lib/currency'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { resolveModelPricing } from '@/lib/pricing'
+import { syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +15,7 @@ const fallbackMerchIdeas = [
 ]
 
 export default async function ProductsPage() {
+  try { await syncStockworksModelsToProductTemplates() } catch {}
   const viewerId = await getUserIdFromCookie()
   const viewer = viewerId
     ? await prisma.user.findUnique({ where: { id: viewerId }, select: { isAdmin: true, role: true } })

@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
 
 export async function GET(_req: Request, { params }: Params) {
+  try { await syncStockworksModelsToProductTemplates() } catch {}
   const { id } = await params
   const product = await prisma.productTemplate.findFirst({
     where: { id, isActive: true },

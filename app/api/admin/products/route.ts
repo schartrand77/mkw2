@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../_utils'
-import { syncProductTemplateToStockworks } from '@/lib/stockworks-products'
+import { syncProductTemplateToStockworks, syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -32,6 +32,7 @@ const schema = z.object({
 
 export async function GET() {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  try { await syncStockworksModelsToProductTemplates() } catch {}
   const products = await prisma.productTemplate.findMany({
     orderBy: { updatedAt: 'desc' },
     include: { baseModel: { select: { id: true, title: true } } },
