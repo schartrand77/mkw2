@@ -23,6 +23,15 @@ const schema = z.object({
   title: z.string().min(1).max(120).optional(),
   description: z.string().max(2000).optional().nullable(),
   baseModelId: z.string().cuid().optional().nullable(),
+  stockworksCategory: z.string().max(80).optional().nullable(),
+  stockworksSku: z.string().max(120).optional().nullable(),
+  stockworksDesigner: z.string().max(120).optional().nullable(),
+  stockworksMarketplace: z.string().max(120).optional().nullable(),
+  stockworksFileLocation: z.string().max(500).optional().nullable(),
+  stockworksVersion: z.string().max(80).optional().nullable(),
+  stockworksUnitPriceUsd: z.number().min(0).max(100000).optional().nullable(),
+  stockworksStatus: z.string().max(40).optional().nullable(),
+  stockworksNotes: z.string().max(4000).optional().nullable(),
   lockedMaterial: z.string().min(1).max(40).optional().nullable(),
   lockedColor: z.string().max(80).optional().nullable(),
   lockedColorCount: z.number().int().min(1).max(16).optional().nullable(),
@@ -69,6 +78,15 @@ export async function PATCH(req: Request, { params }: RouteContext) {
       select: {
         id: true,
         title: true,
+        stockworksCategory: true,
+        stockworksSku: true,
+        stockworksDesigner: true,
+        stockworksMarketplace: true,
+        stockworksFileLocation: true,
+        stockworksVersion: true,
+        stockworksUnitPriceUsd: true,
+        stockworksStatus: true,
+        stockworksNotes: true,
         lockedMaterial: true,
         lockedColor: true,
         lockedColorCount: true,
@@ -82,6 +100,33 @@ export async function PATCH(req: Request, { params }: RouteContext) {
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const nextTitle = parsed.title?.trim() || existing.title
+    const nextStockworksCategory = parsed.stockworksCategory === null
+      ? null
+      : (parsed.stockworksCategory?.trim() || existing.stockworksCategory || 'models')
+    const nextStockworksSku = parsed.stockworksSku === null
+      ? null
+      : (parsed.stockworksSku?.trim() || existing.stockworksSku)
+    const nextStockworksDesigner = parsed.stockworksDesigner === null
+      ? null
+      : (parsed.stockworksDesigner?.trim() || existing.stockworksDesigner)
+    const nextStockworksMarketplace = parsed.stockworksMarketplace === null
+      ? null
+      : (parsed.stockworksMarketplace?.trim() || existing.stockworksMarketplace)
+    const nextStockworksFileLocation = parsed.stockworksFileLocation === null
+      ? null
+      : (parsed.stockworksFileLocation?.trim() || existing.stockworksFileLocation)
+    const nextStockworksVersion = parsed.stockworksVersion === null
+      ? null
+      : (parsed.stockworksVersion?.trim() || existing.stockworksVersion)
+    const nextStockworksUnitPriceUsd = parsed.stockworksUnitPriceUsd === null
+      ? null
+      : (parsed.stockworksUnitPriceUsd ?? existing.stockworksUnitPriceUsd)
+    const nextStockworksStatus = parsed.stockworksStatus === null
+      ? null
+      : (parsed.stockworksStatus?.trim() || existing.stockworksStatus || 'Active')
+    const nextStockworksNotes = parsed.stockworksNotes === null
+      ? null
+      : (parsed.stockworksNotes?.trim() || existing.stockworksNotes)
     const nextLockedMaterial = parsed.lockedMaterial === null
       ? null
       : (parsed.lockedMaterial || existing.lockedMaterial)
@@ -111,6 +156,15 @@ export async function PATCH(req: Request, { params }: RouteContext) {
         title: nextTitle,
         material: nextLockedMaterial,
         color: nextLockedColor,
+        category: nextStockworksCategory,
+        sku: nextStockworksSku,
+        designer: nextStockworksDesigner,
+        marketplace: nextStockworksMarketplace,
+        fileLocation: nextStockworksFileLocation,
+        version: nextStockworksVersion,
+        unitPriceUsd: nextStockworksUnitPriceUsd,
+        status: nextStockworksStatus,
+        notes: nextStockworksNotes,
         stockworksMaterialId: existing.stockworksMaterialId,
         stockworksInventoryItemId: existing.stockworksInventoryItemId,
       })
@@ -126,6 +180,15 @@ export async function PATCH(req: Request, { params }: RouteContext) {
         title: parsed.title ?? undefined,
         description: parsed.description === null ? null : parsed.description || undefined,
         baseModelId: parsed.baseModelId === null ? null : parsed.baseModelId || undefined,
+        stockworksCategory: parsed.stockworksCategory === null ? null : parsed.stockworksCategory?.trim() || undefined,
+        stockworksSku: parsed.stockworksSku === null ? null : parsed.stockworksSku?.trim() || undefined,
+        stockworksDesigner: parsed.stockworksDesigner === null ? null : parsed.stockworksDesigner?.trim() || undefined,
+        stockworksMarketplace: parsed.stockworksMarketplace === null ? null : parsed.stockworksMarketplace?.trim() || undefined,
+        stockworksFileLocation: parsed.stockworksFileLocation === null ? null : parsed.stockworksFileLocation?.trim() || undefined,
+        stockworksVersion: parsed.stockworksVersion === null ? null : parsed.stockworksVersion?.trim() || undefined,
+        stockworksUnitPriceUsd: parsed.stockworksUnitPriceUsd === null ? null : parsed.stockworksUnitPriceUsd,
+        stockworksStatus: parsed.stockworksStatus === null ? null : parsed.stockworksStatus?.trim() || undefined,
+        stockworksNotes: parsed.stockworksNotes === null ? null : parsed.stockworksNotes?.trim() || undefined,
         lockedMaterial: locked.material,
         lockedColor: locked.color,
         lockedColorCount: locked.colorCount,

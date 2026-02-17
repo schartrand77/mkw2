@@ -287,6 +287,15 @@ model ProductTemplate {
   title        String
   description  String?
   baseModelId  String?
+  stockworksCategory String? @default("models")
+  stockworksSku String?
+  stockworksDesigner String?
+  stockworksMarketplace String?
+  stockworksFileLocation String?
+  stockworksVersion String?
+  stockworksUnitPriceUsd Float?
+  stockworksStatus String? @default("Active")
+  stockworksNotes String?
   lockedMaterial String? @default("PLA")
   lockedColor   String?
   lockedColorCount Int   @default(1)

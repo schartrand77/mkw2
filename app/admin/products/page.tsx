@@ -32,6 +32,7 @@ export default async function AdminProductsPage() {
       select: {
         id: true,
         title: true,
+        filePath: true,
         priceUsd: true,
         effectivePriceUsd: true,
         salePriceUsd: true,

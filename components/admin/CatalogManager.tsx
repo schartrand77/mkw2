@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { formatCurrency } from '@/lib/currency'
+import { buildImageSrc } from '@/lib/public-path'
 
 type CatalogLabels = {
   productsModelsLabel?: string | null
@@ -19,6 +20,7 @@ type MerchItem = {
   ctaLabel?: string | null
   isActive: boolean
   sortOrder: number
+  updatedAt?: string | null
 }
 
 type Props = {
@@ -38,6 +40,7 @@ const emptyDraft = (): MerchDraft => ({
   ctaLabel: '',
   isActive: true,
   sortOrder: 0,
+  updatedAt: null,
 })
 
 export default function CatalogManager({ initialLabels, initialMerch }: Props) {
@@ -49,6 +52,8 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   const categoryPreview = useMemo(() => {
     const map = new Map<string, number>()
@@ -99,7 +104,9 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
       ctaLabel: item.ctaLabel || '',
       isActive: item.isActive,
       sortOrder: item.sortOrder ?? 0,
+      updatedAt: item.updatedAt || null,
     })
+    setImageFile(null)
     setMessage(null)
     setError(null)
   }
@@ -107,6 +114,26 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
   const resetEditor = () => {
     setEditingId(null)
     setDraft(emptyDraft())
+    setImageFile(null)
+  }
+
+  const uploadDraftImage = async () => {
+    if (!imageFile) return draft.imageUrl?.trim() || null
+    setUploadingImage(true)
+    try {
+      const form = new FormData()
+      form.set('image', imageFile)
+      const res = await fetch('/api/admin/merch/image', { method: 'POST', body: form })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Failed to upload image.')
+      const nextImageUrl = String(data?.imageUrl || '').trim()
+      if (!nextImageUrl) throw new Error('Image upload did not return a path.')
+      setDraft((prev) => ({ ...prev, imageUrl: nextImageUrl }))
+      setImageFile(null)
+      return nextImageUrl
+    } finally {
+      setUploadingImage(false)
+    }
   }
 
   const saveItem = async () => {
@@ -118,12 +145,13 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
     setError(null)
     setMessage(null)
     try {
+      const hostedImageUrl = await uploadDraftImage()
       const payload = {
         title: draft.title.trim(),
         description: draft.description?.trim() || null,
         category: draft.category?.trim() || 'Merch',
         priceUsd: draft.priceUsd != null && Number.isFinite(Number(draft.priceUsd)) ? Number(draft.priceUsd) : null,
-        imageUrl: draft.imageUrl?.trim() || null,
+        imageUrl: hostedImageUrl,
         externalUrl: draft.externalUrl?.trim() || null,
         ctaLabel: draft.ctaLabel?.trim() || null,
         isActive: Boolean(draft.isActive),
@@ -249,8 +277,14 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
             />
           </label>
           <label className="text-sm space-y-1">
-            <span className="text-slate-400">Image URL</span>
-            <input className="input" type="url" value={draft.imageUrl || ''} onChange={(e) => setDraft((prev) => ({ ...prev, imageUrl: e.target.value }))} />
+            <span className="text-slate-400">Image upload</span>
+            <input
+              className="input"
+              type="file"
+              accept="image/*"
+              onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+            />
+            <div className="text-xs text-slate-500">Self-hosted in app storage.</div>
           </label>
           <label className="text-sm space-y-1">
             <span className="text-slate-400">External URL</span>
@@ -264,9 +298,30 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
             <input type="checkbox" checked={draft.isActive} onChange={(e) => setDraft((prev) => ({ ...prev, isActive: e.target.checked }))} />
             <span>Visible on products page</span>
           </label>
+          <div className="md:col-span-2 text-xs text-slate-400">
+            Image path: {draft.imageUrl?.trim() || 'No image uploaded'}
+          </div>
+          {(imageFile || draft.imageUrl) && (
+            <div className="md:col-span-2 flex gap-2">
+              {imageFile && (
+                <span className="rounded border border-white/10 px-2 py-1 text-xs text-slate-300">
+                  Pending upload: {imageFile.name}
+                </span>
+              )}
+              {draft.imageUrl && (
+                <button
+                  type="button"
+                  className="text-xs px-2 py-1 rounded border border-white/10 hover:border-white/30"
+                  onClick={() => setDraft((prev) => ({ ...prev, imageUrl: '' }))}
+                >
+                  Remove image
+                </button>
+              )}
+            </div>
+          )}
         </div>
-        <button className="btn text-sm" onClick={saveItem} disabled={savingItem}>
-          {savingItem ? 'Saving...' : (editingId ? 'Update merch item' : 'Add merch item')}
+        <button className="btn text-sm" onClick={saveItem} disabled={savingItem || uploadingImage}>
+          {savingItem || uploadingImage ? 'Saving...' : (editingId ? 'Update merch item' : 'Add merch item')}
         </button>
       </div>
 
@@ -289,10 +344,17 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
               <div key={item.id} className="rounded-lg border border-white/10 bg-black/30 p-3 flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="font-semibold">{item.title}</div>
-                  <div className="text-xs text-slate-400">{item.category} {item.isActive ? '' : '• hidden'}</div>
+                  <div className="text-xs text-slate-400">{item.category} {item.isActive ? '' : '- hidden'}</div>
+                  {item.imageUrl && (
+                    <img
+                      src={buildImageSrc(item.imageUrl, item.updatedAt || null) || item.imageUrl}
+                      alt={item.title}
+                      className="h-16 w-24 rounded border border-white/10 object-cover"
+                    />
+                  )}
                   {item.description && <div className="text-sm text-slate-300">{item.description}</div>}
                   <div className="text-xs text-slate-400">
-                    {item.priceUsd != null ? formatCurrency(item.priceUsd) : 'No price'} • Sort {item.sortOrder}
+                    {item.priceUsd != null ? formatCurrency(item.priceUsd) : 'No price'} - Sort {item.sortOrder}
                   </div>
                 </div>
                 <div className="flex gap-2">

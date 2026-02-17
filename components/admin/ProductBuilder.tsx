@@ -16,6 +16,7 @@ import { buildLockedTemplateOptions } from '@/lib/product-template-config'
 type ModelSummary = {
   id: string
   title: string
+  filePath?: string | null
   priceUsd: number | null
   effectivePriceUsd: number | null
   salePriceUsd: number | null
@@ -51,6 +52,15 @@ type ProductTemplate = {
   title: string
   description: string | null
   baseModelId: string | null
+  stockworksCategory: string | null
+  stockworksSku: string | null
+  stockworksDesigner: string | null
+  stockworksMarketplace: string | null
+  stockworksFileLocation: string | null
+  stockworksVersion: string | null
+  stockworksUnitPriceUsd: number | null
+  stockworksStatus: string | null
+  stockworksNotes: string | null
   lockedMaterial: string | null
   lockedColor: string | null
   lockedColorCount: number | null
@@ -74,6 +84,15 @@ const emptyProduct = (): ProductTemplate => ({
   title: '',
   description: '',
   baseModelId: null,
+  stockworksCategory: '',
+  stockworksSku: '',
+  stockworksDesigner: '',
+  stockworksMarketplace: '',
+  stockworksFileLocation: '',
+  stockworksVersion: '',
+  stockworksUnitPriceUsd: null,
+  stockworksStatus: 'Active',
+  stockworksNotes: '',
   lockedMaterial: 'PLA',
   lockedColor: null,
   lockedColorCount: 1,
@@ -200,6 +219,17 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
         title: form.title.trim(),
         description: form.description?.trim() || null,
         baseModelId: form.baseModelId || null,
+        stockworksCategory: form.stockworksCategory?.trim() || null,
+        stockworksSku: form.stockworksSku?.trim() || null,
+        stockworksDesigner: form.stockworksDesigner?.trim() || null,
+        stockworksMarketplace: form.stockworksMarketplace?.trim() || null,
+        stockworksFileLocation: form.stockworksFileLocation?.trim() || null,
+        stockworksVersion: form.stockworksVersion?.trim() || null,
+        stockworksUnitPriceUsd: form.stockworksUnitPriceUsd == null || !Number.isFinite(Number(form.stockworksUnitPriceUsd))
+          ? null
+          : Number(form.stockworksUnitPriceUsd),
+        stockworksStatus: form.stockworksStatus?.trim() || null,
+        stockworksNotes: form.stockworksNotes?.trim() || null,
         lockedMaterial: lockedTemplate.material,
         lockedColor: lockedTemplate.color,
         lockedColorCount: lockedTemplate.colorCount,
@@ -356,7 +386,14 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
               <select
                 className="input"
                 value={form.baseModelId || ''}
-                onChange={(e) => updateField({ baseModelId: e.target.value || null })}
+                onChange={(e) => {
+                  const nextBaseModelId = e.target.value || null
+                  const nextModel = models.find((model) => model.id === nextBaseModelId) || null
+                  updateField({
+                    baseModelId: nextBaseModelId,
+                    stockworksFileLocation: nextModel?.filePath || '',
+                  })
+                }}
               >
                 <option value="">Select a base model...</option>
                 {models.map((model) => (
@@ -478,8 +515,115 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
           <p className="text-xs text-slate-500">If StockWorks is not connected, material/color selectors still work with saved values.</p>
         </div>
 
+        <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold">3. StockWorks Model Fields</h2>
+            <p className="text-xs text-slate-400">Business-facing metadata mirrors StockWorks model intake fields.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Model name</span>
+              <input
+                className="input"
+                value={form.title}
+                placeholder="Shelf Buddy Desk Organizer"
+                onChange={(e) => updateField({ title: e.target.value })}
+              />
+            </label>
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Category</span>
+              <input
+                className="input"
+                value={form.stockworksCategory || ''}
+                placeholder="Fidgets, props, organization..."
+                onChange={(e) => updateField({ stockworksCategory: e.target.value })}
+              />
+            </label>
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">SKU / listing ID</span>
+              <input
+                className="input"
+                value={form.stockworksSku || ''}
+                placeholder="MODEL-1021"
+                onChange={(e) => updateField({ stockworksSku: e.target.value })}
+              />
+            </label>
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Designer</span>
+              <input
+                className="input"
+                value={form.stockworksDesigner || ''}
+                placeholder="Studio or designer name"
+                onChange={(e) => updateField({ stockworksDesigner: e.target.value })}
+              />
+            </label>
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Marketplace / platform</span>
+              <input
+                className="input"
+                value={form.stockworksMarketplace || ''}
+                placeholder="Etsy, Cults3D, Shopify..."
+                onChange={(e) => updateField({ stockworksMarketplace: e.target.value })}
+              />
+            </label>
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">File location</span>
+              <input
+                className="input"
+                value={form.stockworksFileLocation || ''}
+                placeholder="Folder path or URL"
+                onChange={(e) => updateField({ stockworksFileLocation: e.target.value })}
+              />
+            </label>
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Version</span>
+              <input
+                className="input"
+                value={form.stockworksVersion || ''}
+                placeholder="v1.2"
+                onChange={(e) => updateField({ stockworksVersion: e.target.value })}
+              />
+            </label>
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Unit price (USD)</span>
+              <input
+                className="input"
+                type="number"
+                min={0}
+                step={0.01}
+                value={form.stockworksUnitPriceUsd ?? ''}
+                onChange={(e) => updateField({
+                  stockworksUnitPriceUsd: e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0),
+                })}
+              />
+            </label>
+            <label className="text-sm space-y-1">
+              <span className="text-slate-400">Status</span>
+              <select
+                className="input"
+                value={form.stockworksStatus || 'Active'}
+                onChange={(e) => updateField({ stockworksStatus: e.target.value })}
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="Draft">Draft</option>
+                <option value="Archived">Archived</option>
+              </select>
+            </label>
+            <label className="text-sm space-y-1 md:col-span-3">
+              <span className="text-slate-400">Notes</span>
+              <textarea
+                className="input min-h-[120px]"
+                value={form.stockworksNotes || ''}
+                placeholder="Print notes, licensing, or variants..."
+                onChange={(e) => updateField({ stockworksNotes: e.target.value })}
+              />
+            </label>
+          </div>
+        </div>
+
         <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm space-y-2">
-          <div className="text-xs uppercase tracking-[0.3em] text-slate-400">3. Locked Price Preview</div>
+          <div className="text-xs uppercase tracking-[0.3em] text-slate-400">4. Locked Price Preview</div>
           {selectedModel ? (
             <>
               <div className="text-slate-300">

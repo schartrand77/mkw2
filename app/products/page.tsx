@@ -164,8 +164,12 @@ export default async function ProductsPage() {
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {entries.map((item) => (
                     <article key={item.id} className="rounded-xl border border-white/10 bg-black/30 overflow-hidden">
-                      {item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.title} className="w-full h-40 object-cover bg-slate-900/70" />
+                      {buildImageSrc(item.imageUrl || null, item.updatedAt || null) ? (
+                        <img
+                          src={buildImageSrc(item.imageUrl || null, item.updatedAt || null) || ''}
+                          alt={item.title}
+                          className="w-full h-40 object-cover bg-slate-900/70"
+                        />
                       ) : (
                         <div className="h-40 flex items-center justify-center text-xs text-slate-500 bg-slate-900/70">No image</div>
                       )}

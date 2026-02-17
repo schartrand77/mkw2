@@ -8,6 +8,16 @@ type StockworksMaterial = {
   category?: string | null
   filament_type?: string | null
   color?: string | null
+  sku?: string | null
+  listing_id?: string | null
+  designer?: string | null
+  marketplace?: string | null
+  file_location?: string | null
+  version?: string | null
+  unit_price?: number | null
+  status?: string | null
+  notes?: string | null
+  model_category?: string | null
 }
 
 type StockworksInventoryItem = {
@@ -20,6 +30,15 @@ type ProductSyncInput = {
   title: string
   material?: string | null
   color?: string | null
+  category?: string | null
+  sku?: string | null
+  designer?: string | null
+  marketplace?: string | null
+  fileLocation?: string | null
+  version?: string | null
+  unitPriceUsd?: number | null
+  status?: string | null
+  notes?: string | null
   stockworksMaterialId?: number | null
   stockworksInventoryItemId?: number | null
 }
@@ -36,6 +55,8 @@ const MODELS_LOCATION = 'models'
 const normalize = (value?: string | null) => (value || '').trim().toLowerCase()
 const normalizeTitle = (value?: string | null) => (value || '').trim()
 const normalizeMaterialType = (value?: string | null) => (value || 'PLA').trim().toUpperCase() || 'PLA'
+const normalizeCategory = (value?: string | null) => normalizeTitle(value) || 'Uncategorized'
+const normalizeStatus = (value?: string | null) => normalizeTitle(value) || 'Active'
 
 function normalizeStockworksError(path: string, response: Response, body: any) {
   return Object.assign(new Error((body as any)?.detail || (body as any)?.error || `StockWorks ${path} failed`), {
@@ -92,6 +113,17 @@ export async function syncProductTemplateToStockworks(input: ProductSyncInput) {
   const requestedTitle = normalizeTitle(input.title)
   const requestedMaterial = normalizeMaterialType(input.material)
   const requestedColor = (input.color || '').trim() || null
+  const requestedCategory = normalizeCategory(input.category)
+  const requestedStatus = normalizeStatus(input.status)
+  const requestedUnitPrice = typeof input.unitPriceUsd === 'number' && Number.isFinite(input.unitPriceUsd)
+    ? Math.max(0, Number(input.unitPriceUsd.toFixed(2)))
+    : null
+  const requestedSku = normalizeTitle(input.sku) || null
+  const requestedDesigner = normalizeTitle(input.designer) || null
+  const requestedMarketplace = normalizeTitle(input.marketplace) || null
+  const requestedFileLocation = normalizeTitle(input.fileLocation) || null
+  const requestedVersion = normalizeTitle(input.version) || null
+  const requestedNotes = normalizeTitle(input.notes) || null
 
   const existingMaterial = materials.find((entry) => {
     if (!entry || typeof entry.id !== 'number') return false
@@ -99,14 +131,38 @@ export async function syncProductTemplateToStockworks(input: ProductSyncInput) {
     return normalize(entry.category) === MODELS_CATEGORY && normalize(entry.name) === normalize(requestedTitle)
   }) || null
 
+  const extendedMaterialPayload = {
+    name: requestedTitle,
+    filament_type: requestedMaterial,
+    category: MODELS_CATEGORY,
+    model_category: requestedCategory,
+    color: requestedColor,
+    sku: requestedSku,
+    listing_id: requestedSku,
+    designer: requestedDesigner,
+    marketplace: requestedMarketplace,
+    file_location: requestedFileLocation,
+    version: requestedVersion,
+    unit_price: requestedUnitPrice,
+    status: requestedStatus,
+    notes: requestedNotes,
+  }
+  const legacyMaterialPayload = {
+    name: requestedTitle,
+    filament_type: requestedMaterial,
+    category: MODELS_CATEGORY,
+    color: requestedColor,
+  }
+
   let materialId = existingMaterial?.id || null
   if (!materialId) {
-    const created = await postStockworks('/materials', {
-      name: requestedTitle,
-      filament_type: requestedMaterial,
-      category: MODELS_CATEGORY,
-      color: requestedColor,
-    }) as { id?: number }
+    let created: { id?: number } | null = null
+    try {
+      created = await postStockworks('/materials', extendedMaterialPayload) as { id?: number }
+    } catch (err: any) {
+      if (err?.status !== 400 && err?.status !== 422) throw err
+      created = await postStockworks('/materials', legacyMaterialPayload) as { id?: number }
+    }
     if (!created?.id || !Number.isFinite(created.id)) {
       throw new Error('StockWorks did not return a material id for the product template.')
     }
@@ -117,13 +173,22 @@ export async function syncProductTemplateToStockworks(input: ProductSyncInput) {
       || normalize(existingMaterial.filament_type) !== normalize(requestedMaterial)
       || normalize(existingMaterial.category) !== MODELS_CATEGORY
       || normalize(existingMaterial.color) !== normalize(requestedColor)
+      || normalize(existingMaterial.model_category) !== normalize(requestedCategory)
+      || normalize(existingMaterial.sku || existingMaterial.listing_id) !== normalize(requestedSku)
+      || normalize(existingMaterial.designer) !== normalize(requestedDesigner)
+      || normalize(existingMaterial.marketplace) !== normalize(requestedMarketplace)
+      || normalize(existingMaterial.file_location) !== normalize(requestedFileLocation)
+      || normalize(existingMaterial.version) !== normalize(requestedVersion)
+      || (typeof existingMaterial.unit_price === 'number' ? Number(existingMaterial.unit_price.toFixed(2)) : null) !== requestedUnitPrice
+      || normalize(existingMaterial.status) !== normalize(requestedStatus)
+      || normalize(existingMaterial.notes) !== normalize(requestedNotes)
     if (shouldUpdateMaterial) {
-      await patchStockworks(`/materials/${materialId}`, {
-        name: requestedTitle,
-        filament_type: requestedMaterial,
-        category: MODELS_CATEGORY,
-        color: requestedColor,
-      })
+      try {
+        await patchStockworks(`/materials/${materialId}`, extendedMaterialPayload)
+      } catch (err: any) {
+        if (err?.status !== 400 && err?.status !== 422) throw err
+        await patchStockworks(`/materials/${materialId}`, legacyMaterialPayload)
+      }
     }
   }
 
@@ -240,6 +305,15 @@ export async function syncStockworksModelsToProductTemplates(): Promise<Stockwor
       await prisma.productTemplate.create({
         data: {
           title,
+          stockworksCategory: normalizeTitle(material.model_category || material.category) || 'Uncategorized',
+          stockworksSku: normalizeTitle(material.sku || material.listing_id) || null,
+          stockworksDesigner: normalizeTitle(material.designer) || null,
+          stockworksMarketplace: normalizeTitle(material.marketplace) || null,
+          stockworksFileLocation: normalizeTitle(material.file_location) || null,
+          stockworksVersion: normalizeTitle(material.version) || null,
+          stockworksUnitPriceUsd: typeof material.unit_price === 'number' && Number.isFinite(material.unit_price) ? material.unit_price : null,
+          stockworksStatus: normalizeTitle(material.status) || 'Active',
+          stockworksNotes: normalizeTitle(material.notes) || null,
           lockedMaterial: locked.material,
           lockedColor: locked.color,
           lockedColorCount: locked.colorCount,
@@ -264,6 +338,15 @@ export async function syncStockworksModelsToProductTemplates(): Promise<Stockwor
     if (existing.stockworksInventoryItemId !== inventoryItemId) patch.stockworksInventoryItemId = inventoryItemId
     if (!normalizeTitle(existing.lockedMaterial)) patch.lockedMaterial = normalizeMaterialType(material.filament_type)
     if (!normalizeTitle(existing.lockedColor)) patch.lockedColor = normalizeTitle(material.color) || null
+    patch.stockworksCategory = normalizeTitle(material.model_category || material.category) || 'Uncategorized'
+    patch.stockworksSku = normalizeTitle(material.sku || material.listing_id) || null
+    patch.stockworksDesigner = normalizeTitle(material.designer) || null
+    patch.stockworksMarketplace = normalizeTitle(material.marketplace) || null
+    patch.stockworksFileLocation = normalizeTitle(material.file_location) || null
+    patch.stockworksVersion = normalizeTitle(material.version) || null
+    patch.stockworksUnitPriceUsd = typeof material.unit_price === 'number' && Number.isFinite(material.unit_price) ? material.unit_price : null
+    patch.stockworksStatus = normalizeTitle(material.status) || 'Active'
+    patch.stockworksNotes = normalizeTitle(material.notes) || null
     patch.lockedColorCount = locked.colorCount
     patch.lockedScale = locked.scale
     patch.lockedFinish = locked.finish
