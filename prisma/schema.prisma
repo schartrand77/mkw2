@@ -322,6 +322,7 @@ model MerchItem {
   title       String
   description String?
   category    String   @default("Merch")
+  availability String  @default("in_stock")
   priceUsd    Float?
   imageUrl    String?
   externalUrl String?
@@ -330,10 +331,27 @@ model MerchItem {
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  notifyRequests MerchNotifyRequest[]
 
   @@index([isActive])
   @@index([category])
   @@index([sortOrder])
+}
+
+model MerchNotifyRequest {
+  id          String    @id @default(cuid())
+  merchItemId String
+  email       String
+  name        String?
+  notifiedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  merchItem MerchItem @relation(fields: [merchItemId], references: [id], onDelete: Cascade)
+
+  @@unique([merchItemId, email])
+  @@index([merchItemId, notifiedAt])
+  @@index([createdAt])
 }
 
 model CustomerPreset {

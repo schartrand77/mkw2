@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { storageRoot } from '@/lib/storage'
 import path from 'path'
 import { unlink } from 'fs/promises'
+import { notifyMerchBackInStock } from '@/lib/merch-notify'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,7 @@ const schema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
   description: z.string().trim().max(2000).optional().nullable(),
   category: z.string().trim().min(1).max(60).optional().nullable(),
+  availability: z.enum(['in_stock', 'back_ordered']).optional(),
   priceUsd: z.number().nonnegative().optional().nullable(),
   imageUrl: z.string().trim().max(500).optional().nullable(),
   externalUrl: z.string().trim().url().max(500).optional().nullable(),
@@ -65,16 +67,18 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     const parsed = schema.parse(await req.json())
     const existing = await prisma.merchItem.findUnique({
       where: { id },
-      select: { imageUrl: true },
+      select: { imageUrl: true, availability: true },
     })
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const nextImage = parsed.imageUrl === undefined ? undefined : normalizeSelfHostedImagePath(parsed.imageUrl)
+    const nextAvailability = parsed.availability ?? existing.availability
     const item = await prisma.merchItem.update({
       where: { id },
       data: {
         title: parsed.title ?? undefined,
         description: parsed.description === undefined ? undefined : (parsed.description || null),
         category: parsed.category === undefined ? undefined : (parsed.category || 'Merch'),
+        availability: parsed.availability ?? undefined,
         priceUsd: parsed.priceUsd ?? undefined,
         imageUrl: nextImage,
         externalUrl: parsed.externalUrl === undefined ? undefined : (parsed.externalUrl || null),
@@ -89,7 +93,16 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         try { await unlink(oldFile) } catch {}
       }
     }
-    return NextResponse.json({ item })
+    let notifyResult: { pending: number; sent: number; failed: number } | null = null
+    let notifyWarning: string | null = null
+    if (existing.availability === 'back_ordered' && nextAvailability === 'in_stock') {
+      try {
+        notifyResult = await notifyMerchBackInStock(id)
+      } catch (err: any) {
+        notifyWarning = err?.message || 'Failed to process back-in-stock notifications.'
+      }
+    }
+    return NextResponse.json({ item, notifyResult, notifyWarning })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
   }

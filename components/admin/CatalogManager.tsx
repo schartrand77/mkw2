@@ -14,6 +14,7 @@ type MerchItem = {
   title: string
   description?: string | null
   category: string
+  availability: 'in_stock' | 'back_ordered'
   priceUsd?: number | null
   imageUrl?: string | null
   externalUrl?: string | null
@@ -34,6 +35,7 @@ const emptyDraft = (): MerchDraft => ({
   title: '',
   description: '',
   category: 'Merch',
+  availability: 'in_stock',
   priceUsd: null,
   imageUrl: '',
   externalUrl: '',
@@ -98,6 +100,7 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
       title: item.title,
       description: item.description || '',
       category: item.category || 'Merch',
+      availability: item.availability || 'in_stock',
       priceUsd: item.priceUsd ?? null,
       imageUrl: item.imageUrl || '',
       externalUrl: item.externalUrl || '',
@@ -150,6 +153,7 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
         title: draft.title.trim(),
         description: draft.description?.trim() || null,
         category: draft.category?.trim() || 'Merch',
+        availability: draft.availability || 'in_stock',
         priceUsd: draft.priceUsd != null && Number.isFinite(Number(draft.priceUsd)) ? Number(draft.priceUsd) : null,
         imageUrl: hostedImageUrl,
         externalUrl: draft.externalUrl?.trim() || null,
@@ -173,7 +177,17 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
         return [...next].sort((a, b) => (a.sortOrder - b.sortOrder) || a.title.localeCompare(b.title))
       })
       resetEditor()
-      setMessage(editingId ? 'Updated merch item.' : 'Added merch item.')
+      const notifyResult = data?.notifyResult as { pending: number; sent: number; failed: number } | undefined
+      const notifyWarning = typeof data?.notifyWarning === 'string' ? data.notifyWarning : null
+      if (notifyResult && (notifyResult.sent > 0 || notifyResult.failed > 0 || notifyResult.pending > 0)) {
+        const parts = ['Updated merch item.']
+        parts.push(`Availability emails: ${notifyResult.sent} sent`)
+        if (notifyResult.failed > 0) parts.push(`${notifyResult.failed} failed`)
+        if (notifyWarning) parts.push(notifyWarning)
+        setMessage(parts.join(' '))
+      } else {
+        setMessage(editingId ? 'Updated merch item.' : 'Added merch item.')
+      }
     } catch (err: any) {
       setError(err?.message || 'Failed to save merch item.')
     } finally {
@@ -263,6 +277,13 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
             <input className="input" type="number" min={0} step={0.01} value={draft.priceUsd ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, priceUsd: e.target.value === '' ? null : Number(e.target.value) }))} />
           </label>
           <label className="text-sm space-y-1">
+            <span className="text-slate-400">Availability</span>
+            <select className="input" value={draft.availability} onChange={(e) => setDraft((prev) => ({ ...prev, availability: e.target.value as 'in_stock' | 'back_ordered' }))}>
+              <option value="in_stock">In stock</option>
+              <option value="back_ordered">Back ordered</option>
+            </select>
+          </label>
+          <label className="text-sm space-y-1">
             <span className="text-slate-400">Sort order</span>
             <input
               className="input"
@@ -345,6 +366,7 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
                 <div className="space-y-1">
                   <div className="font-semibold">{item.title}</div>
                   <div className="text-xs text-slate-400">{item.category} {item.isActive ? '' : '- hidden'}</div>
+                  <div className="text-xs text-slate-400">Status: {item.availability === 'back_ordered' ? 'Back ordered' : 'In stock'}</div>
                   {item.imageUrl && (
                     <img
                       src={buildImageSrc(item.imageUrl, item.updatedAt || null) || item.imageUrl}

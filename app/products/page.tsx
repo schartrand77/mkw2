@@ -5,6 +5,7 @@ import { formatCurrency } from '@/lib/currency'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { resolveModelPricing } from '@/lib/pricing'
 import { syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
+import MerchNotifyForm from '@/components/products/MerchNotifyForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -174,12 +175,21 @@ export default async function ProductsPage() {
                         <div className="h-40 flex items-center justify-center text-xs text-slate-500 bg-slate-900/70">No image</div>
                       )}
                       <div className="p-4 space-y-2">
-                        <div className="text-lg font-semibold">{item.title}</div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="text-lg font-semibold">{item.title}</div>
+                          {item.availability === 'back_ordered' && (
+                            <span className="rounded-full border border-amber-300/40 bg-amber-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-amber-200">
+                              Back Ordered
+                            </span>
+                          )}
+                        </div>
                         {item.description && <div className="text-sm text-slate-400">{item.description}</div>}
                         <div className="text-sm text-slate-200">
                           {item.priceUsd != null ? formatCurrency(item.priceUsd) : 'Price on request'}
                         </div>
-                        {item.externalUrl ? (
+                        {item.availability === 'back_ordered' ? (
+                          <MerchNotifyForm merchItemId={item.id} title={item.title} />
+                        ) : item.externalUrl ? (
                           <a
                             href={item.externalUrl}
                             target="_blank"
