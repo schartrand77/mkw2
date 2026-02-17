@@ -4,6 +4,19 @@ import { isHeicLikeSource } from './images'
 type BufferInfo = { filename?: string | null; mimeType?: string | null }
 
 export type PreparedImageBuffer = { buffer: Buffer; orientation?: number }
+const DEFAULT_HEIC_MAX_SOURCE_BYTES = 40 * 1024 * 1024
+
+function readPositiveIntEnv(name: string, fallback: number) {
+  const raw = process.env[name]
+  if (!raw) return fallback
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : fallback
+}
+
+function toErrorMessage(err: unknown) {
+  if (err instanceof Error && typeof err.message === 'string') return err.message
+  return String(err || '')
+}
 
 async function readOrientation(buffer: Buffer): Promise<number | undefined> {
   try {
@@ -23,6 +36,10 @@ export async function ensureProcessableImageBuffer(buffer: Buffer, info?: Buffer
   const isHeic = Boolean(info && isHeicLikeSource(info.filename, info.mimeType))
   const orientation = isHeic ? await readOrientation(buffer) : undefined
   if (!isHeic) return { buffer, orientation }
+  const maxSourceBytes = readPositiveIntEnv('HEIC_MAX_SOURCE_BYTES', DEFAULT_HEIC_MAX_SOURCE_BYTES)
+  if (buffer.length > maxSourceBytes) {
+    throw new Error(`HEIC source file too large (${buffer.length} bytes). Limit is ${maxSourceBytes} bytes.`)
+  }
 
   try {
     const mod = await import('heic-convert')
@@ -31,8 +48,11 @@ export async function ensureProcessableImageBuffer(buffer: Buffer, info?: Buffer
     const out = Buffer.isBuffer(converted) ? converted : Buffer.from(converted)
     return { buffer: out, orientation }
   } catch (err) {
-    console.error('HEIC conversion failed, using raw buffer:', err)
-    return { buffer, orientation }
+    const msg = toErrorMessage(err).toLowerCase()
+    if (msg.includes('security limit exceeded') || msg.includes('memory allocation error')) {
+      throw new Error('HEIC image is too large to decode safely. Please export it at a lower resolution and upload again.')
+    }
+    throw new Error(`HEIC conversion failed: ${toErrorMessage(err)}`)
   }
 }
 

@@ -83,14 +83,23 @@ export async function PATCH(req: Request, { params }: RouteContext) {
     const nextLockedColor = parsed.lockedColor === null
       ? null
       : (parsed.lockedColor || existing.lockedColor)
+    let stockworksMaterialIdPatch: number | null | undefined = undefined
+    let stockworksInventoryItemIdPatch: number | null | undefined = undefined
+    let stockworksWarning: string | null = null
 
-    const synced = await syncProductTemplateToStockworks({
-      title: nextTitle,
-      material: nextLockedMaterial,
-      color: nextLockedColor,
-      stockworksMaterialId: existing.stockworksMaterialId,
-      stockworksInventoryItemId: existing.stockworksInventoryItemId,
-    })
+    try {
+      const synced = await syncProductTemplateToStockworks({
+        title: nextTitle,
+        material: nextLockedMaterial,
+        color: nextLockedColor,
+        stockworksMaterialId: existing.stockworksMaterialId,
+        stockworksInventoryItemId: existing.stockworksInventoryItemId,
+      })
+      stockworksMaterialIdPatch = synced.materialId ?? null
+      stockworksInventoryItemIdPatch = synced.inventoryItemId ?? null
+    } catch (err: any) {
+      stockworksWarning = err?.message || 'Failed to sync product with StockWorks inventory models.'
+    }
 
     const product = await prisma.productTemplate.update({
       where: { id },
@@ -108,18 +117,17 @@ export async function PATCH(req: Request, { params }: RouteContext) {
         colorOptions: parsed.colorOptions ?? undefined,
         sizeOptions: parsed.sizeOptions ?? undefined,
         isActive: parsed.isActive ?? undefined,
-        stockworksMaterialId: synced.materialId ?? null,
-        stockworksInventoryItemId: synced.inventoryItemId ?? null,
+        stockworksMaterialId: stockworksMaterialIdPatch,
+        stockworksInventoryItemId: stockworksInventoryItemIdPatch,
       },
     })
     const hydrated = await prisma.productTemplate.findUnique({
       where: { id: product.id },
       include: { baseModel: { select: { id: true, title: true } } },
     })
-    return NextResponse.json({ product: hydrated || product })
+    return NextResponse.json({ product: hydrated || product, stockworksWarning })
   } catch (e: any) {
-    const status = typeof e?.status === 'number' ? 502 : 400
-    return NextResponse.json({ error: e.message || 'Failed to save product with StockWorks sync' }, { status })
+    return NextResponse.json({ error: e.message || 'Failed to save product' }, { status: 400 })
   }
 }
 

@@ -22,6 +22,21 @@ export default function PWAInstallPrompt() {
   const dismissedRef = useRef(false)
   const brandName = useMemo(() => resolveBrandName(), [])
 
+  const persistDismissed = () => {
+    setDismissed(true)
+    dismissedRef.current = true
+    try { localStorage.setItem(STORAGE_KEY, '1') } catch {}
+  }
+
+  const promptInstall = async (installEvent: BeforeInstallPromptEvent) => {
+    await installEvent.prompt()
+    const choice = await installEvent.userChoice
+    setEvent(null)
+    if (choice.outcome === 'accepted' || choice.outcome === 'dismissed') {
+      persistDismissed()
+    }
+  }
+
   useEffect(() => {
     try {
       const stored = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null
@@ -37,10 +52,12 @@ export default function PWAInstallPrompt() {
     if (window.matchMedia('(display-mode: standalone)').matches) return
 
     const onBeforeInstall = (e: Event) => {
-      e.preventDefault()
       if (dismissedRef.current) return
-      setEvent(e as BeforeInstallPromptEvent)
+      e.preventDefault()
+      const installEvent = e as BeforeInstallPromptEvent
+      setEvent(installEvent)
       setDismissed(false)
+      void promptInstall(installEvent).catch(() => {})
     }
 
     window.addEventListener('beforeinstallprompt', onBeforeInstall)
@@ -50,14 +67,7 @@ export default function PWAInstallPrompt() {
   const handleInstall = async () => {
     if (!event) return
     try {
-      await event.prompt()
-      const choice = await event.userChoice
-      if (choice.outcome === 'accepted') {
-        setEvent(null)
-        setDismissed(true)
-        dismissedRef.current = true
-        try { localStorage.setItem(STORAGE_KEY, '1') } catch {}
-      }
+      await promptInstall(event)
     } catch {
       setEvent(null)
     }
@@ -65,9 +75,7 @@ export default function PWAInstallPrompt() {
 
   const handleDismiss = () => {
     setEvent(null)
-    setDismissed(true)
-    dismissedRef.current = true
-    try { localStorage.setItem(STORAGE_KEY, '1') } catch {}
+    persistDismissed()
   }
 
   if (!event || dismissed) return null
