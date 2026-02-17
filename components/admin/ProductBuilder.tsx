@@ -11,6 +11,7 @@ import {
   getMaterialMultiplier,
   normalizeMaterialName,
 } from '@/lib/cartPricing'
+import { buildLockedTemplateOptions } from '@/lib/product-template-config'
 
 type ModelSummary = {
   id: string
@@ -186,20 +187,28 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
       const lockedScale = clampScale(form.lockedScale ?? 1)
       const lockedFinish = (form.lockedFinish || 'standard').trim().toLowerCase()
       const lockedPriceMultiplier = Math.max(0.1, Math.min(5, Number(form.lockedPriceMultiplier ?? 1)))
+      const lockedTemplate = buildLockedTemplateOptions({
+        material: lockedMaterial,
+        color: lockedColor,
+        colorCount: lockedColorCount,
+        scale: lockedScale,
+        finish: lockedFinish,
+        priceMultiplier: lockedPriceMultiplier,
+      })
 
       const payload = {
         title: form.title.trim(),
         description: form.description?.trim() || null,
         baseModelId: form.baseModelId || null,
-        lockedMaterial,
-        lockedColor,
-        lockedColorCount,
-        lockedScale,
-        lockedFinish,
-        lockedPriceMultiplier,
-        materialOptions: [{ label: lockedMaterial, value: lockedMaterial, priceMultiplier: 1 }],
-        colorOptions: [{ label: lockedColor || 'Standard', value: lockedColor || undefined, colorCount: lockedColorCount, priceMultiplier: 1 }],
-        sizeOptions: [{ label: 'Configured size', scale: lockedScale, priceMultiplier: lockedPriceMultiplier }],
+        lockedMaterial: lockedTemplate.material,
+        lockedColor: lockedTemplate.color,
+        lockedColorCount: lockedTemplate.colorCount,
+        lockedScale: lockedTemplate.scale,
+        lockedFinish: lockedTemplate.finish,
+        lockedPriceMultiplier: lockedTemplate.priceMultiplier,
+        materialOptions: lockedTemplate.materialOptions,
+        colorOptions: lockedTemplate.colorOptions,
+        sizeOptions: lockedTemplate.sizeOptions,
         isActive: form.isActive,
       }
       const res = await fetch(form.id ? `/api/admin/products/${form.id}` : '/api/admin/products', {

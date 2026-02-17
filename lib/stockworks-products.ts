@@ -1,5 +1,6 @@
 import { stockworksFetch, stockworksJson } from '@/lib/stockworks-client'
 import { prisma } from '@/lib/db'
+import { buildLockedTemplateOptions } from '@/lib/product-template-config'
 
 type StockworksMaterial = {
   id: number
@@ -227,12 +228,27 @@ export async function syncStockworksModelsToProductTemplates(): Promise<Stockwor
     if (!title) continue
     const inventoryItemId = inventoryByMaterial.get(materialId) ?? null
     const existing = byMaterialId.get(materialId) || byTitle.get(normalize(title)) || null
+    const locked = buildLockedTemplateOptions({
+      material: normalizeMaterialType(material.filament_type),
+      color: normalizeTitle(material.color) || null,
+      colorCount: 1,
+      scale: 1,
+      finish: 'standard',
+      priceMultiplier: 1,
+    })
     if (!existing) {
       await prisma.productTemplate.create({
         data: {
           title,
-          lockedMaterial: normalizeMaterialType(material.filament_type),
-          lockedColor: normalizeTitle(material.color) || null,
+          lockedMaterial: locked.material,
+          lockedColor: locked.color,
+          lockedColorCount: locked.colorCount,
+          lockedScale: locked.scale,
+          lockedFinish: locked.finish,
+          lockedPriceMultiplier: locked.priceMultiplier,
+          materialOptions: locked.materialOptions,
+          colorOptions: locked.colorOptions,
+          sizeOptions: locked.sizeOptions,
           stockworksMaterialId: materialId,
           stockworksInventoryItemId: inventoryItemId,
           isActive: false,
@@ -248,6 +264,13 @@ export async function syncStockworksModelsToProductTemplates(): Promise<Stockwor
     if (existing.stockworksInventoryItemId !== inventoryItemId) patch.stockworksInventoryItemId = inventoryItemId
     if (!normalizeTitle(existing.lockedMaterial)) patch.lockedMaterial = normalizeMaterialType(material.filament_type)
     if (!normalizeTitle(existing.lockedColor)) patch.lockedColor = normalizeTitle(material.color) || null
+    patch.lockedColorCount = locked.colorCount
+    patch.lockedScale = locked.scale
+    patch.lockedFinish = locked.finish
+    patch.lockedPriceMultiplier = locked.priceMultiplier
+    patch.materialOptions = locked.materialOptions
+    patch.colorOptions = locked.colorOptions
+    patch.sizeOptions = locked.sizeOptions
     if (Object.keys(patch).length > 0) {
       await prisma.productTemplate.update({
         where: { id: existing.id },

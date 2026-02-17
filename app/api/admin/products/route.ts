@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../_utils'
 import { syncProductTemplateToStockworks, syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
+import { buildLockedTemplateOptions } from '@/lib/product-template-config'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -56,21 +57,32 @@ export async function POST(req: Request) {
       }
     }
     const created = await prisma.productTemplate.create({
-      data: {
-        title: parsed.title,
-        description: parsed.description || undefined,
-        baseModelId: parsed.baseModelId || undefined,
-        lockedMaterial: parsed.lockedMaterial || undefined,
-        lockedColor: parsed.lockedColor || null,
-        lockedColorCount: parsed.lockedColorCount ?? 1,
-        lockedScale: parsed.lockedScale ?? 1,
-        lockedFinish: parsed.lockedFinish || 'standard',
-        lockedPriceMultiplier: parsed.lockedPriceMultiplier ?? 1,
-        materialOptions: parsed.materialOptions || undefined,
-        colorOptions: parsed.colorOptions || undefined,
-        sizeOptions: parsed.sizeOptions || undefined,
-        isActive: parsed.isActive ?? true,
-      },
+      // Keep incoming product creation aligned with StockWorks intake defaults/options.
+      data: (() => {
+        const locked = buildLockedTemplateOptions({
+          material: parsed.lockedMaterial,
+          color: parsed.lockedColor,
+          colorCount: parsed.lockedColorCount,
+          scale: parsed.lockedScale,
+          finish: parsed.lockedFinish,
+          priceMultiplier: parsed.lockedPriceMultiplier,
+        })
+        return {
+          title: parsed.title,
+          description: parsed.description || undefined,
+          baseModelId: parsed.baseModelId || undefined,
+          lockedMaterial: locked.material,
+          lockedColor: locked.color,
+          lockedColorCount: locked.colorCount,
+          lockedScale: locked.scale,
+          lockedFinish: locked.finish,
+          lockedPriceMultiplier: locked.priceMultiplier,
+          materialOptions: parsed.materialOptions || locked.materialOptions,
+          colorOptions: parsed.colorOptions || locked.colorOptions,
+          sizeOptions: parsed.sizeOptions || locked.sizeOptions,
+          isActive: parsed.isActive ?? true,
+        }
+      })(),
     })
 
     let stockworksWarning: string | null = null

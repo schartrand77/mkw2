@@ -6,6 +6,7 @@ import {
   syncStockworksModelsToProductTemplates,
   unlinkProductTemplateFromStockworks,
 } from '@/lib/stockworks-products'
+import { buildLockedTemplateOptions } from '@/lib/product-template-config'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -70,6 +71,10 @@ export async function PATCH(req: Request, { params }: RouteContext) {
         title: true,
         lockedMaterial: true,
         lockedColor: true,
+        lockedColorCount: true,
+        lockedScale: true,
+        lockedFinish: true,
+        lockedPriceMultiplier: true,
         stockworksMaterialId: true,
         stockworksInventoryItemId: true,
       },
@@ -83,6 +88,20 @@ export async function PATCH(req: Request, { params }: RouteContext) {
     const nextLockedColor = parsed.lockedColor === null
       ? null
       : (parsed.lockedColor || existing.lockedColor)
+    const nextLockedColorCount = parsed.lockedColorCount ?? existing.lockedColorCount
+    const nextLockedScale = parsed.lockedScale ?? existing.lockedScale
+    const nextLockedFinish = parsed.lockedFinish === null
+      ? null
+      : (parsed.lockedFinish || existing.lockedFinish)
+    const nextLockedPriceMultiplier = parsed.lockedPriceMultiplier ?? existing.lockedPriceMultiplier
+    const locked = buildLockedTemplateOptions({
+      material: nextLockedMaterial,
+      color: nextLockedColor,
+      colorCount: nextLockedColorCount,
+      scale: nextLockedScale,
+      finish: nextLockedFinish,
+      priceMultiplier: nextLockedPriceMultiplier,
+    })
     let stockworksMaterialIdPatch: number | null | undefined = undefined
     let stockworksInventoryItemIdPatch: number | null | undefined = undefined
     let stockworksWarning: string | null = null
@@ -107,15 +126,15 @@ export async function PATCH(req: Request, { params }: RouteContext) {
         title: parsed.title ?? undefined,
         description: parsed.description === null ? null : parsed.description || undefined,
         baseModelId: parsed.baseModelId === null ? null : parsed.baseModelId || undefined,
-        lockedMaterial: parsed.lockedMaterial === null ? null : parsed.lockedMaterial || undefined,
-        lockedColor: parsed.lockedColor === null ? null : parsed.lockedColor || undefined,
-        lockedColorCount: parsed.lockedColorCount ?? undefined,
-        lockedScale: parsed.lockedScale ?? undefined,
-        lockedFinish: parsed.lockedFinish === null ? null : parsed.lockedFinish || undefined,
-        lockedPriceMultiplier: parsed.lockedPriceMultiplier ?? undefined,
-        materialOptions: parsed.materialOptions ?? undefined,
-        colorOptions: parsed.colorOptions ?? undefined,
-        sizeOptions: parsed.sizeOptions ?? undefined,
+        lockedMaterial: locked.material,
+        lockedColor: locked.color,
+        lockedColorCount: locked.colorCount,
+        lockedScale: locked.scale,
+        lockedFinish: locked.finish,
+        lockedPriceMultiplier: locked.priceMultiplier,
+        materialOptions: parsed.materialOptions ?? locked.materialOptions,
+        colorOptions: parsed.colorOptions ?? locked.colorOptions,
+        sizeOptions: parsed.sizeOptions ?? locked.sizeOptions,
         isActive: parsed.isActive ?? undefined,
         stockworksMaterialId: stockworksMaterialIdPatch,
         stockworksInventoryItemId: stockworksInventoryItemIdPatch,
