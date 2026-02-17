@@ -2,6 +2,26 @@ import { NextResponse } from 'next/server'
 
 type StockworksSession = { cookie: string }
 
+const STOCKWORKS_TIMEOUT_MS = readPositiveInt(process.env.STOCKWORKS_TIMEOUT_MS, 12000)
+
+function readPositiveInt(raw: string | undefined, fallback: number) {
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+
+async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = STOCKWORKS_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: init?.signal ?? controller.signal,
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 function resolveConfig() {
   const baseUrl = (process.env.STOCKWORKS_BASE_URL || '').replace(/\/+$/, '')
   const username = process.env.STOCKWORKS_ADMIN_USERNAME || process.env.STOCKWORKS_USERNAME || ''
@@ -11,7 +31,7 @@ function resolveConfig() {
 
 async function login(baseUrl: string, username: string, password: string): Promise<StockworksSession> {
   const payload = new URLSearchParams({ username, password })
-  const response = await fetch(`${baseUrl}/login`, {
+  const response = await fetchWithTimeout(`${baseUrl}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: payload.toString(),
@@ -37,7 +57,7 @@ export async function stockworksFetch(path: string, init?: RequestInit) {
   const url = `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`
   const headers = new Headers(init?.headers)
   headers.set('Cookie', cookie)
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     ...init,
     headers,
     cache: 'no-store',
