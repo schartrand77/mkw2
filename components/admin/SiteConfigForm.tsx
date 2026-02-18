@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
 import { getPrinterProfiles } from '@/lib/printerProfiles'
 import { MATERIAL_DENSITY_DEFAULTS, estimatePricingDetails } from '@/lib/pricing'
-import { amazonShopItems } from '@/lib/amazon'
 import { FINISH_OPTIONS } from '@/lib/cartPricing'
 import { formatCurrency } from '@/lib/currency'
 
@@ -46,7 +45,6 @@ const configSchema = z.object({
   })).optional(),
   fillFactor: z.number().positive({ message: 'Select an infill percentage.' }).max(2, { message: 'Fill factor is out of range.' }).optional(),
   directUploadUrl: z.union([z.string().url({ message: 'Enter a valid https:// URL.' }), z.null()], { invalid_type_error: 'Enter a valid URL.' }).optional(),
-  favoriteShopLinkIds: z.array(z.string().min(1)).optional(),
   showApplePayBadge: z.boolean().optional(),
   showGooglePayBadge: z.boolean().optional(),
   printerProfileKey: z.string().optional(),
@@ -67,12 +65,6 @@ type MaterialOption = keyof typeof MATERIAL_DENSITY_DEFAULTS
 const MATERIAL_OPTIONS = Object.keys(MATERIAL_DENSITY_DEFAULTS) as MaterialOption[]
 const PRINTER_PROFILES = getPrinterProfiles()
 const DEFAULT_PROFILE_KEY = PRINTER_PROFILES[0]?.key || 'BAMBU_X1C'
-const SHOP_ITEMS = amazonShopItems.map((item) => ({
-  id: item.id,
-  title: item.title,
-  category: item.category,
-}))
-const SHOP_ITEM_IDS = new Set(SHOP_ITEMS.map((item) => item.id))
 const MATERIAL_PRICE_FIELDS = [
   { key: 'plaPricePerKgUsd', label: 'PLA' },
   { key: 'petgPricePerKgUsd', label: 'PETG' },
@@ -113,7 +105,6 @@ type Config = {
   batchDiscountTiers?: Array<{ minQty: number; percent: number }> | null
   fillFactor?: number | null
   directUploadUrl?: string | null
-  favoriteShopLinkIds?: string[] | null
   showApplePayBadge?: boolean | null
   showGooglePayBadge?: boolean | null
   printerProfileKey?: string | null
@@ -183,12 +174,6 @@ function buildMaterialPricePayload(cfg: Config): Record<MaterialPriceField, numb
   return result
 }
 
-function normalizeShopFavorites(raw?: string[] | null): string[] | undefined {
-  if (!raw) return undefined
-  const unique = Array.from(new Set(raw.filter((id) => SHOP_ITEM_IDS.has(id))))
-  return unique.length ? unique : undefined
-}
-
 function buildPayload(cfg: Config): SchemaShape {
   return {
     ...buildMaterialPricePayload(cfg),
@@ -207,7 +192,6 @@ function buildPayload(cfg: Config): SchemaShape {
     batchDiscountTiers: normalizeBatchDiscountTiers(cfg.batchDiscountTiers),
     fillFactor: cfg.fillFactor ?? undefined,
     directUploadUrl: cfg.directUploadUrl === null ? null : cfg.directUploadUrl || undefined,
-    favoriteShopLinkIds: normalizeShopFavorites(cfg.favoriteShopLinkIds),
     showApplePayBadge: typeof cfg.showApplePayBadge === 'boolean' ? cfg.showApplePayBadge : undefined,
     showGooglePayBadge: typeof cfg.showGooglePayBadge === 'boolean' ? cfg.showGooglePayBadge : undefined,
     printerProfileKey: cfg.printerProfileKey || undefined,
@@ -295,7 +279,6 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
   const currency = (process.env.NEXT_PUBLIC_CURRENCY || 'USD') as 'USD' | 'CAD'
   const [cfg, setCfg] = useState<Config>(() => ({
     ...initial,
-    favoriteShopLinkIds: normalizeShopFavorites(initial.favoriteShopLinkIds) || [],
     printerProfileOverrides: normalizeOverrides(initial.printerProfileOverrides),
   }))
   const [saving, setSaving] = useState(false)
@@ -552,16 +535,6 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
       return { ...prev, batchDiscountTiers: tiers.length ? tiers : undefined }
     })
     markTouched('batchDiscountTiers')
-  }
-
-  const toggleShopFavorite = (id: string) => {
-    setCfg((prev) => {
-      const current = prev.favoriteShopLinkIds || []
-      const next = current.includes(id)
-        ? current.filter((entry) => entry !== id)
-        : [...current, id]
-      return { ...prev, favoriteShopLinkIds: next }
-    })
   }
 
   const resetProfileTuning = () => {
@@ -1172,40 +1145,6 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                   />
                   <p className="text-xs text-slate-400 mt-1">When provided, the Upload page will POST to this host&apos;s `/api/upload`, bypassing Cloudflare/Tunnel limits.</p>
                   {fieldHasError('directUploadUrl') && <p className="text-xs text-rose-300 mt-1">{errors.directUploadUrl}</p>}
-                </div>
-              </div>
-            ),
-          },
-          {
-            key: 'shop',
-            label: 'Shop',
-            content: (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-semibold mb-1">Favorite shop shortcuts</label>
-                  <p className="text-xs text-slate-400">
-                    Pick the spotlight links to glow with the rainbow favorite styling on the Shop page.
-                  </p>
-                </div>
-                <div className="grid sm:grid-cols-2 gap-2">
-                  {SHOP_ITEMS.map((item) => {
-                    const isSelected = cfg.favoriteShopLinkIds?.includes(item.id) ?? false
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => toggleShopFavorite(item.id)}
-                        className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
-                          isSelected
-                            ? 'border-white/40 bg-white/10'
-                            : 'border-white/10 bg-white/5 hover:border-white/25'
-                        }`}
-                      >
-                        <div className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">{item.category}</div>
-                        <div className="text-sm text-white">{item.title}</div>
-                      </button>
-                    )
-                  })}
                 </div>
               </div>
             ),

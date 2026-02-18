@@ -94,8 +94,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
       <nav className={`${navContainerCls} app-nav`}>
         <div className={`${scrollCls} app-nav-links`}>
           <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
-          <Link href="/products" className={linkCls('/products')}>Products</Link>
-          <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
+          <Link href="/products" className={linkCls('/products')}>Store</Link>
           <Link href="/login" className={linkCls('/login')}>Sign in</Link>
           <Link href="/register" className={linkCls('/register')}>Join</Link>
         </div>
@@ -134,8 +133,7 @@ export default function NavBar({ authed, isAdmin, avatarUrl }: Props) {
     <nav className={`${navContainerCls} app-nav`}>
       <div className={`${scrollCls} app-nav-links`}>
         <Link href="/discover" className={linkCls('/discover')}>Discover</Link>
-        <Link href="/products" className={linkCls('/products')}>Products</Link>
-        <Link href="/gear" className={linkCls('/gear')}>Shop</Link>
+        <Link href="/products" className={linkCls('/products')}>Store</Link>
         <Link href="/upload" className={linkCls('/upload')}>Upload</Link>
         <Link href="/cart" className={linkCls('/cart')}>Cart{count > 0 ? ` (${count})` : ''}</Link>
         <Link href="/checkout" className={linkCls('/checkout')}>Checkout</Link>

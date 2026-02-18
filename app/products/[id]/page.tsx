@@ -2,22 +2,31 @@ import Link from 'next/link'
 import { prisma } from '@/lib/db'
 import { buildImageSrc } from '@/lib/storage'
 import ProductConfigurator from '@/components/products/ProductConfigurator'
+import MerchConfigurator from '@/components/products/MerchConfigurator'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
+import { formatCurrency } from '@/lib/currency'
 
 export const dynamic = 'force-dynamic'
 
-type Params = { params: Promise<{ id: string }> }
+type Params = {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ kind?: string }>
+}
 
-export default async function ProductDetailPage({ params }: Params) {
+export default async function ProductDetailPage({ params, searchParams }: Params) {
   try { await syncStockworksModelsToProductTemplates() } catch {}
   const { id } = await params
+  const { kind } = await searchParams
   const viewerId = await getUserIdFromCookie()
   const viewer = viewerId
     ? await prisma.user.findUnique({ where: { id: viewerId }, select: { isAdmin: true, role: true } })
     : null
   const isAdminViewer = Boolean(viewer?.isAdmin || viewer?.role === 'admin' || viewer?.role === 'staff')
-  const product = await prisma.productTemplate.findFirst({
+
+  const shouldPrioritizeMerch = String(kind || '').toLowerCase() === 'merch'
+
+  const productPromise = prisma.productTemplate.findFirst({
     where: isAdminViewer ? { id } : { id, isActive: true },
     include: {
       baseModel: {
@@ -39,8 +48,74 @@ export default async function ProductDetailPage({ params }: Params) {
       },
     },
   })
-  if (!product) return <div className="max-w-2xl mx-auto text-sm text-slate-300">Product not found.</div>
-  const cover = buildImageSrc(product.baseModel?.coverImagePath || null, product.baseModel?.updatedAt || null)
+  const merchPromise = prisma.merchItem.findFirst({
+    where: isAdminViewer ? { id } : { id, isActive: true },
+  })
+
+  const [product, merch] = await Promise.all([
+    shouldPrioritizeMerch ? Promise.resolve(null) : productPromise,
+    merchPromise,
+  ])
+  const resolvedProduct = product || (!merch ? await productPromise : null)
+
+  if (merch && (shouldPrioritizeMerch || !resolvedProduct)) {
+    const merchCover = buildImageSrc(merch.imageUrl || null, merch.updatedAt || null)
+    return (
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div>
+          <Link href="/products#merch" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white">
+            <span aria-hidden="true">&larr;</span>
+            Back to merch
+          </Link>
+        </div>
+        <div className="grid lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="glass rounded-2xl border border-white/10 p-6">
+              <h1 className="text-3xl font-semibold">{merch.title}</h1>
+              {!merch.isActive && isAdminViewer && (
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mt-2">Hidden from customers (admin preview)</p>
+              )}
+              <p className="text-sm text-slate-300 mt-3 whitespace-pre-wrap">
+                {merch.description || 'No description provided.'}
+              </p>
+              <div className="mt-4 text-sm text-slate-200">
+                {merch.priceUsd != null ? formatCurrency(merch.priceUsd) : 'Price on request'}
+              </div>
+            </div>
+            <div className="glass rounded-2xl border border-white/10 p-6 text-sm text-slate-300 space-y-2">
+              <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Merch details</div>
+              <div>Category: {merch.category || 'Merch'}</div>
+              <div>Availability: {merch.availability === 'back_ordered' ? 'Back ordered' : 'In stock'}</div>
+              <div>Store options: Colors and apparel sizes available on this page.</div>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="glass rounded-2xl border border-white/10 overflow-hidden">
+              {merchCover ? (
+                <img src={merchCover} alt={merch.title} className="w-full aspect-[4/3] object-cover bg-slate-900/70" />
+              ) : (
+                <div className="aspect-[4/3] flex items-center justify-center text-xs text-slate-500 bg-slate-900/70">No image</div>
+              )}
+            </div>
+            <MerchConfigurator
+              item={{
+                id: merch.id,
+                title: merch.title,
+                category: merch.category,
+                availability: merch.availability,
+                externalUrl: merch.externalUrl,
+                ctaLabel: merch.ctaLabel,
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!resolvedProduct) return <div className="max-w-2xl mx-auto text-sm text-slate-300">Product not found.</div>
+
+  const cover = buildImageSrc(resolvedProduct.baseModel?.coverImagePath || null, resolvedProduct.baseModel?.updatedAt || null)
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
@@ -52,39 +127,39 @@ export default async function ProductDetailPage({ params }: Params) {
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="space-y-4">
           <div className="glass rounded-2xl border border-white/10 p-6">
-            <h1 className="text-3xl font-semibold">{product.title}</h1>
-            {!product.isActive && isAdminViewer && (
+            <h1 className="text-3xl font-semibold">{resolvedProduct.title}</h1>
+            {!resolvedProduct.isActive && isAdminViewer && (
               <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mt-2">Hidden from customers (admin preview)</p>
             )}
             <p className="text-sm text-slate-300 mt-3 whitespace-pre-wrap">
-              {product.description || product.baseModel?.description || 'No description provided.'}
+              {resolvedProduct.description || resolvedProduct.baseModel?.description || 'No description provided.'}
             </p>
           </div>
-          {product.baseModel && (
+          {resolvedProduct.baseModel && (
             <div className="glass rounded-2xl border border-white/10 p-6 text-sm text-slate-300 space-y-2">
               <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Base model</div>
-              <div className="font-semibold">{product.baseModel.title}</div>
-              <div>Default material: {product.baseModel.material || 'PLA'}</div>
+              <div className="font-semibold">{resolvedProduct.baseModel.title}</div>
+              <div>Default material: {resolvedProduct.baseModel.material || 'PLA'}</div>
               <div>
-                Size: {product.baseModel.sizeXmm ? `${Math.round(product.baseModel.sizeXmm)} x ${Math.round(product.baseModel.sizeYmm || 0)} x ${Math.round(product.baseModel.sizeZmm || 0)} mm` : 'Customizable'}
+                Size: {resolvedProduct.baseModel.sizeXmm ? `${Math.round(resolvedProduct.baseModel.sizeXmm)} x ${Math.round(resolvedProduct.baseModel.sizeYmm || 0)} x ${Math.round(resolvedProduct.baseModel.sizeZmm || 0)} mm` : 'Customizable'}
               </div>
             </div>
           )}
         </div>
         <ProductConfigurator
           product={{
-            id: product.id,
-            title: product.title,
-            description: product.description,
-            baseModelId: product.baseModelId,
-            lockedMaterial: product.lockedMaterial,
-            lockedColor: product.lockedColor,
-            lockedColorCount: product.lockedColorCount,
-            lockedScale: product.lockedScale,
-            lockedFinish: product.lockedFinish,
-            lockedPriceMultiplier: product.lockedPriceMultiplier,
+            id: resolvedProduct.id,
+            title: resolvedProduct.title,
+            description: resolvedProduct.description,
+            baseModelId: resolvedProduct.baseModelId,
+            lockedMaterial: resolvedProduct.lockedMaterial,
+            lockedColor: resolvedProduct.lockedColor,
+            lockedColorCount: resolvedProduct.lockedColorCount,
+            lockedScale: resolvedProduct.lockedScale,
+            lockedFinish: resolvedProduct.lockedFinish,
+            lockedPriceMultiplier: resolvedProduct.lockedPriceMultiplier,
           }}
-          baseModel={product.baseModel}
+          baseModel={resolvedProduct.baseModel}
           coverUrl={cover}
         />
       </div>

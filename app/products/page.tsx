@@ -5,7 +5,6 @@ import { formatCurrency } from '@/lib/currency'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { resolveModelPricing } from '@/lib/pricing'
 import { syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
-import MerchNotifyForm from '@/components/products/MerchNotifyForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,7 +71,7 @@ export default async function ProductsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="space-y-1">
-        <h1 className="text-3xl font-semibold">Products</h1>
+        <h1 className="text-3xl font-semibold">Store</h1>
         <p className="text-sm text-slate-400">Browse by category: configured print models and business-specific merch.</p>
       </div>
       <div className="rounded-xl border border-white/10 bg-black/20 p-4">
@@ -164,7 +163,7 @@ export default async function ProductsPage() {
                 <h3 className="text-sm uppercase tracking-[0.2em] text-slate-400">{category}</h3>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {entries.map((item) => (
-                    <article key={item.id} className="rounded-xl border border-white/10 bg-black/30 overflow-hidden">
+                    <Link key={item.id} href={`/products/${item.id}?kind=merch`} className="rounded-xl border border-white/10 bg-black/30 overflow-hidden transition-colors hover:border-white/30">
                       {buildImageSrc(item.imageUrl || null, item.updatedAt || null) ? (
                         <img
                           src={buildImageSrc(item.imageUrl || null, item.updatedAt || null) || ''}
@@ -187,22 +186,9 @@ export default async function ProductsPage() {
                         <div className="text-sm text-slate-200">
                           {item.priceUsd != null ? formatCurrency(item.priceUsd) : 'Price on request'}
                         </div>
-                        {item.availability === 'back_ordered' ? (
-                          <MerchNotifyForm merchItemId={item.id} title={item.title} />
-                        ) : item.externalUrl ? (
-                          <a
-                            href={item.externalUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex rounded-md border border-white/20 px-3 py-1.5 text-xs hover:border-white/40"
-                          >
-                            {item.ctaLabel || 'View'}
-                          </a>
-                        ) : (
-                          <div className="text-xs text-slate-500">Contact us to order</div>
-                        )}
+                        <div className="text-xs text-slate-400 underline underline-offset-4">View details</div>
                       </div>
-                    </article>
+                    </Link>
                   ))}
                 </div>
               </div>

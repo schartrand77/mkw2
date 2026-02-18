@@ -4,7 +4,6 @@ import { prisma } from '@/lib/db'
 import { requireAdmin } from '../_utils'
 import { z } from 'zod'
 import { resolvePrinterProfile } from '@/lib/printerProfiles'
-import { amazonShopItems } from '@/lib/amazon'
 import { refreshEffectivePrices } from '@/lib/pricing-cache'
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +36,6 @@ const schema = z.object({
   })).optional(),
   fillFactor: z.number().positive().max(2).optional(),
   directUploadUrl: z.union([z.string().url(), z.null()]).optional(),
-  favoriteShopLinkIds: z.array(z.string().min(1)).optional(),
   showApplePayBadge: z.boolean().optional(),
   showGooglePayBadge: z.boolean().optional(),
   printerProfileKey: z.string().min(2).optional(),
@@ -50,7 +48,6 @@ const schema = z.object({
 })
 
 const CONFIG_ID = 'main'
-const SHOP_ITEM_IDS = new Set(amazonShopItems.map((item) => item.id))
 const PRICING_KEYS = new Set([
   'plaPricePerKgUsd',
   'petgPricePerKgUsd',
@@ -108,14 +105,10 @@ export async function PATCH(req: NextRequest) {
     const overrides = parsed.printerProfileOverrides
       ? JSON.parse(JSON.stringify(parsed.printerProfileOverrides))
       : undefined
-    const favoriteShopLinkIds = parsed.favoriteShopLinkIds
-      ? Array.from(new Set(parsed.favoriteShopLinkIds.filter((id) => SHOP_ITEM_IDS.has(id))))
-      : undefined
     const payload = {
       ...parsed,
       printerProfileKey,
       printerProfileOverrides: overrides,
-      favoriteShopLinkIds,
     }
     const parsedKeys = Object.keys(parsed)
     const changeSet: Record<string, { from: unknown; to: unknown }> = {}
@@ -155,7 +148,7 @@ export async function PATCH(req: NextRequest) {
       await refreshEffectivePrices(prisma, cfg)
     }
     revalidatePath('/admin')
-    revalidatePath('/gear')
+    revalidatePath('/products')
     return NextResponse.json({ config: cfg })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
