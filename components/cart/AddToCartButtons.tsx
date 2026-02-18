@@ -2,6 +2,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useCart } from './CartProvider'
 import { buildImageSrc } from '@/lib/public-path'
+import { normalizeColors } from '@/lib/cartPricing'
+import { buildAllowedColorTokenSet, isColorAllowed, normalizeModelColorSlotCount } from '@/lib/color-constraints'
 
 type ModelPreview = {
   id: string
@@ -17,6 +19,8 @@ type ModelPreview = {
   sizeYmm?: number
   sizeZmm?: number
   defaultColors?: string[] | null
+  colorSlotCount?: number | null
+  allowedColors?: string[] | null
 }
 
 export default function AddToCartButtons({ model }: { model: ModelPreview }) {
@@ -52,10 +56,19 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
     return null
   }, [model.salePriceUsd, model.saleActive, model.priceUsd, model.basePriceUsd])
 
+  const applyColorRules = useCallback((colors: string[], slotCount?: number | null, allowedColors?: string[] | null) => {
+    const limit = normalizeModelColorSlotCount(slotCount)
+    const normalized = normalizeColors(colors, limit ?? undefined)
+    const allowed = buildAllowedColorTokenSet(allowedColors)
+    return allowed ? normalized.filter((value) => isColorAllowed(value, allowed)) : normalized
+  }, [])
+
   const addOne = useCallback(async () => {
     if (adding) return
     setAdding(true)
     let colors = Array.isArray(model.defaultColors) ? model.defaultColors : []
+    let colorSlotCount = normalizeModelColorSlotCount(model.colorSlotCount)
+    let allowedColors = Array.isArray(model.allowedColors) ? model.allowedColors : null
     let fetchedParts: Array<{
       id: string
       name?: string | null
@@ -72,6 +85,8 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
         if (res.ok) {
           const data = await res.json()
           flatRatePricing = Boolean(data?.model?.flatRatePricing ?? flatRatePricing)
+          colorSlotCount = normalizeModelColorSlotCount(data?.model?.colorSlotCount ?? colorSlotCount)
+          allowedColors = Array.isArray(data?.model?.allowedColors) ? data.model.allowedColors : allowedColors
           if (Array.isArray(data?.model?.defaultColors)) {
             colors = data.model.defaultColors
           }
@@ -92,6 +107,7 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
     if (!fetchedParts && Array.isArray(model.defaultColors)) {
       fetchedParts = null
     }
+    const constrainedColors = applyColorRules(colors, colorSlotCount, allowedColors)
     if (fetchedParts && fetchedParts.length > 1) {
       setParts(fetchedParts)
       for (const part of fetchedParts) {
@@ -106,8 +122,10 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
             priceUsd: part.priceUsd ?? null,
             thumbnail,
             size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
+            colorSlotCount,
+            allowedColors,
           },
-          { material: 'PLA', colors, finish: 'standard' },
+          { material: 'PLA', colors: constrainedColors, finish: 'standard' },
         )
       }
     } else {
@@ -120,12 +138,14 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
           priceUsd: resolvedPrice,
           thumbnail,
           size: { x: model.sizeXmm, y: model.sizeYmm, z: model.sizeZmm },
+          colorSlotCount,
+          allowedColors,
         },
-        { material: 'PLA', colors, finish: 'standard' },
+        { material: 'PLA', colors: constrainedColors, finish: 'standard' },
       )
     }
     setAdding(false)
-  }, [add, adding, model.defaultColors, model.flatRatePricing, model.id, model.sizeXmm, model.sizeYmm, model.sizeZmm, model.title, resolvedPrice, thumbnail, parts])
+  }, [add, adding, model.allowedColors, model.colorSlotCount, model.defaultColors, model.flatRatePricing, model.id, model.sizeXmm, model.sizeYmm, model.sizeZmm, model.title, resolvedPrice, thumbnail, parts, applyColorRules])
 
   const stopPropagation = (e: React.SyntheticEvent) => {
     e.preventDefault()
@@ -169,8 +189,10 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
                     priceUsd: part.priceUsd ?? null,
                     thumbnail,
                     size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
+                    colorSlotCount: normalizeModelColorSlotCount(model.colorSlotCount),
+                    allowedColors: Array.isArray(model.allowedColors) ? model.allowedColors : null,
                   },
-                  { material: 'PLA', colors: Array.isArray(model.defaultColors) ? model.defaultColors : [], finish: 'standard' },
+                  { material: 'PLA', colors: applyColorRules(Array.isArray(model.defaultColors) ? model.defaultColors : [], model.colorSlotCount, model.allowedColors), finish: 'standard' },
                 )
               }
               return

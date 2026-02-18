@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -19,6 +19,7 @@ import {
   resolveAxisScale,
   type MaterialType,
 } from '@/lib/cartPricing'
+import { buildAllowedColorTokenSet, isColorAllowed, normalizeModelColorSlotCount } from '@/lib/color-constraints'
 import type { DiscountSummary } from '@/lib/discounts'
 import { getDiscountMultiplier } from '@/lib/discounts'
 import { applyPricingAdjustments, resolveBatchDiscountPercent } from '@/lib/estimate-adjustments'
@@ -399,6 +400,10 @@ export default function CartPage() {
   const activeSlotItem = activeColorSlot
     ? items.find((item) => item.modelId === activeColorSlot.modelId && (item.partId ?? null) === activeColorSlot.partId)
     : null
+  const activeSlotAllowedTokens = useMemo(
+    () => buildAllowedColorTokenSet(Array.isArray(activeSlotItem?.allowedColors) ? activeSlotItem.allowedColors : null),
+    [activeSlotItem],
+  )
   const activeSlotLocked = Boolean(activeSlotItem?.options.lockedConfig)
   const selectedPreviewItem = activeSlotItem
     || (selectedPreviewKey
@@ -499,7 +504,10 @@ export default function CartPage() {
   }, [stockworksPalette])
   const paletteOptions = useMemo<SwatchOption[]>(() => {
     if (!stockworksEntry || (stockworksEntry.inStock.length === 0 && stockworksEntry.orderable.length === 0)) {
-      return COLOR_PALETTE.map((swatch) => ({ ...swatch, brand: '' }))
+      const basePalette = COLOR_PALETTE.map((swatch) => ({ ...swatch, brand: '' }))
+      return activeSlotAllowedTokens
+        ? basePalette.filter((swatch) => isColorAllowed(`${swatch.name} ${swatch.hex}`, activeSlotAllowedTokens))
+        : basePalette
     }
     const inStockSet = new Set(stockworksEntry.inStock.map((color) => normalizeColorKey(color as StockworksColor | string)))
     const ordered = [...stockworksEntry.inStock, ...stockworksEntry.orderable]
@@ -524,8 +532,10 @@ export default function CartPage() {
         category: colorMeta.category || '',
       })
     }
-    return output
-  }, [stockworksEntry, paletteLookup])
+    return activeSlotAllowedTokens
+      ? output.filter((swatch) => isColorAllowed(`${swatch.name} ${swatch.hex}`, activeSlotAllowedTokens))
+      : output
+  }, [stockworksEntry, paletteLookup, activeSlotAllowedTokens])
   const paletteValueToHex = useMemo(() => {
     const map = new Map<string, string>()
     for (const swatch of paletteOptions) {
@@ -642,6 +652,15 @@ export default function CartPage() {
     : null
   const meetsMinimumOrder = !minimumOrderSubtotal || effectiveSubtotal >= minimumOrderSubtotal
   const disableCheckout = hasMissingColors || !meetsMinimumOrder
+
+  const applyColorRulesForItem = useCallback((item: (typeof items)[number], colors: string[]) => {
+    const locked = Boolean(item.options.lockedConfig)
+    const lockedSlots = Math.max(1, normalizeColors(item.options.colors).length)
+    const modelSlots = normalizeModelColorSlotCount(item.colorSlotCount)
+    const slotLimit = locked ? lockedSlots : (modelSlots ?? Math.max(1, maxColors))
+    const allowedTokens = buildAllowedColorTokenSet(Array.isArray(item.allowedColors) ? item.allowedColors : null)
+    return normalizeColors(colors, slotLimit).filter((value) => isColorAllowed(value, allowedTokens))
+  }, [maxColors])
 
   const applyPreset = (preset: CustomerPreset, item: (typeof items)[number]) => {
     const data = preset.data || {}
@@ -780,6 +799,11 @@ export default function CartPage() {
             {items.map((item) => {
               const itemKey = `${item.modelId}-${item.partId || 'whole'}`
               const isLockedProduct = Boolean(item.options.lockedConfig)
+              const modelSlotCount = normalizeModelColorSlotCount(item.colorSlotCount)
+              const slotLimit = isLockedProduct
+                ? Math.max(1, normalizeColors(item.options.colors).length)
+                : (modelSlotCount ?? Math.max(1, maxColors))
+              const itemAllowedTokens = buildAllowedColorTokenSet(Array.isArray(item.allowedColors) ? item.allowedColors : null)
               const qty = Math.max(1, item.options.qty || 1)
               const unit = itemUnitPrice(item)
               const baseTotal = unit * qty
@@ -943,15 +967,9 @@ export default function CartPage() {
                         <span>{isLockedProduct ? 'AMS slots (locked)' : 'AMS slots (tap a bay to edit)'}</span>
                         <div className="space-y-1">
                           {Array.from({
-                            length: Math.max(1, Math.ceil((
-                              isLockedProduct
-                                ? Math.max(1, normalizeColors(item.options.colors).length)
-                                : Math.max(1, maxColors)
-                            ) / 4)),
+                            length: Math.max(1, Math.ceil(slotLimit / 4)),
                           }).map((_, unitIdx) => {
-                            const safeSlots = isLockedProduct
-                              ? Math.max(1, normalizeColors(item.options.colors).length)
-                              : Math.max(1, maxColors)
+                            const safeSlots = slotLimit
                             const baseIndex = unitIdx * 4
                             const slotsInUnit = Math.min(4, Math.max(0, safeSlots - baseIndex))
                             return (
@@ -977,9 +995,10 @@ export default function CartPage() {
                                     const isActive = activeColorSlot?.id === slotId
                                     const updateColor = (nextValue: string) => {
                                       if (isLockedProduct) return
+                                      if (nextValue && !isColorAllowed(nextValue, itemAllowedTokens)) return
                                       const next = [...(item.options.colors || [])]
                                       next[idx] = nextValue
-                                      update(item.modelId, { colors: next }, item.partId)
+                                      update(item.modelId, { colors: applyColorRulesForItem(item, next) }, item.partId)
                                     }
                                     return (
                                       <div key={slotId} className="flex flex-col items-center gap-0.5">
@@ -1363,12 +1382,13 @@ export default function CartPage() {
                                 aria-label={`Select ${swatchOption.name}`}
                                 onClick={() => {
                                   if (activeSlotLocked) return
+                                  if (!isColorAllowed(`${swatchOption.name} ${swatchOption.hex}`, activeSlotAllowedTokens)) return
                                   const next = [...(activeSlotItem.options.colors || [])]
                                   const nextValue = swatchOption.name && swatchOption.hex
                                     ? `${swatchOption.name} ${swatchOption.hex}`
                                     : swatchOption.name || swatchOption.hex
                                   next[activeColorSlot.index] = nextValue
-                                  update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
+                                  update(activeColorSlot.modelId, { colors: applyColorRulesForItem(activeSlotItem, next) }, activeColorSlot.partId)
                                 }}
                               >
                                 <span className="sr-only">{swatchOption.name}</span>
@@ -1428,9 +1448,10 @@ export default function CartPage() {
                 disabled={activeSlotLocked}
                 onChange={(e) => {
                   if (activeSlotLocked) return
+                  if (e.target.value && !isColorAllowed(e.target.value, activeSlotAllowedTokens)) return
                   const next = [...(activeSlotItem.options.colors || [])]
                   next[activeColorSlot.index] = e.target.value
-                  update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
+                  update(activeColorSlot.modelId, { colors: applyColorRulesForItem(activeSlotItem, next) }, activeColorSlot.partId)
                 }}
               />
               <label className="text-[10px] uppercase tracking-wide text-slate-400">
@@ -1443,9 +1464,10 @@ export default function CartPage() {
                   aria-label={`Pick colour ${activeColorSlot.index + 1}`}
                   onChange={(e) => {
                     if (activeSlotLocked) return
+                    if (!isColorAllowed(e.target.value, activeSlotAllowedTokens)) return
                     const next = [...(activeSlotItem.options.colors || [])]
                     next[activeColorSlot.index] = e.target.value
-                    update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
+                    update(activeColorSlot.modelId, { colors: applyColorRulesForItem(activeSlotItem, next) }, activeColorSlot.partId)
                   }}
                 />
               </label>

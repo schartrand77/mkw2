@@ -8,6 +8,7 @@ import { getUserIdFromCookie } from '@/lib/auth'
 import { z } from 'zod'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { getColorMultiplier, normalizeColors, normalizeMaterialName, resolveScaleFromDimensions, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
+import { buildAllowedColorTokenSet, isColorAllowed, normalizeModelColorSlotCount } from '@/lib/color-constraints'
 import { recordOrderWorksJob } from '@/lib/orderworks'
 import { summarizeDiscount } from '@/lib/discounts'
 import { recordCustomerOrder } from '@/lib/orders'
@@ -157,6 +158,8 @@ export async function POST(req: NextRequest) {
           sizeYmm: true,
           sizeZmm: true,
           supportRatio: true,
+          colorSlotCount: true,
+          allowedColors: true,
           filePath: true,
           viewerFilePath: true,
           _count: { select: { parts: true } },
@@ -220,7 +223,22 @@ export async function POST(req: NextRequest) {
       const model = modelMap.get(entry.modelId)!
       const cm3 = model.volumeMm3 ? model.volumeMm3 / 1000 : null
       const materialChoice: MaterialType = normalizeMaterialName(entry.material || model.material || 'PLA')
-      const colors = normalizeColors(entry.colors)
+      const colorSlotCount = normalizeModelColorSlotCount(model.colorSlotCount)
+      const allowedColors = Array.isArray(model.allowedColors)
+        ? model.allowedColors.map((value) => String(value || '')).filter((value) => value.trim().length > 0)
+        : null
+      const allowedTokens = buildAllowedColorTokenSet(allowedColors)
+      const rawColors = Array.isArray(entry.colors)
+        ? entry.colors.map((value) => String(value || '').trim()).filter(Boolean)
+        : []
+      const slotLimit = colorSlotCount ?? MAX_CART_COLORS
+      if (rawColors.length > slotLimit) {
+        throw new Error('Too many colors selected for model')
+      }
+      if (allowedTokens && rawColors.some((color) => !isColorAllowed(color, allowedTokens))) {
+        throw new Error('One or more selected colors are not allowed for this model')
+      }
+      const colors = normalizeColors(rawColors, slotLimit)
       const colorCountForPricing = model.flatRatePricing ? 1 : colors.length
       const finishChoice = entry.finish ? String(entry.finish) : null
       const part = entry.partId ? partMap.get(entry.partId) || null : null
@@ -599,6 +617,12 @@ export async function POST(req: NextRequest) {
       discount: discountSummary,
     })
   } catch (err: any) {
+    if (typeof err?.message === 'string' && (
+      err.message === 'Too many colors selected for model'
+      || err.message === 'One or more selected colors are not allowed for this model'
+    )) {
+      return NextResponse.json({ error: err.message }, { status: 400 })
+    }
     console.error('Stripe checkout error:', err)
     return NextResponse.json({ error: err.message || 'Checkout failed' }, { status: 500 })
   }

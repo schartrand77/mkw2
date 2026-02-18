@@ -74,6 +74,8 @@ model Model {
   disableCustomerDiscounts Boolean? @default(false)
   flatRatePricing Boolean? @default(false)
   defaultColors  Json?
+  colorSlotCount Int?
+  allowedColors  Json?
   salePriceIsFrom Boolean  @default(false)
   salePriceUnit   String?
   visibility     String   @default("public")

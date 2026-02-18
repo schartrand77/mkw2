@@ -13,6 +13,12 @@ import {
   type ScaleOverrides,
   MAX_CART_COLORS,
 } from '@/lib/cartPricing'
+import {
+  buildAllowedColorTokenSet,
+  isColorAllowed,
+  normalizeModelColorSlotCount,
+  sanitizeAllowedColors,
+} from '@/lib/color-constraints'
 
 export type CartOptions = {
   qty: number
@@ -50,6 +56,8 @@ export type CartItem = {
   priceUsd?: number | null
   thumbnail?: string | null
   size?: { x?: number; y?: number; z?: number }
+  colorSlotCount?: number | null
+  allowedColors?: string[] | null
   options: CartOptions
 }
 
@@ -130,6 +138,12 @@ function mergeOptions(base: CartOptions, patch?: Partial<CartOptions>): CartOpti
 }
 
 function sanitizeItem(item: any): CartItem {
+  const colorSlotCount = normalizeModelColorSlotCount(item?.colorSlotCount)
+  const allowedColors = sanitizeAllowedColors(item?.allowedColors)
+  const allowedTokens = buildAllowedColorTokenSet(allowedColors)
+  const rawOptions = sanitizeOptions(item?.options)
+  const constrainedColors = normalizeColors(rawOptions.colors, colorSlotCount ?? undefined)
+    .filter((color) => isColorAllowed(color, allowedTokens))
   return {
     modelId: String(item?.modelId ?? ''),
     partId: item?.partId ? String(item.partId) : null,
@@ -140,7 +154,12 @@ function sanitizeItem(item: any): CartItem {
     priceUsd: typeof item?.priceUsd === 'number' ? item.priceUsd : item?.priceUsd ?? null,
     thumbnail: item?.thumbnail ?? null,
     size: item?.size,
-    options: sanitizeOptions(item?.options),
+    colorSlotCount,
+    allowedColors,
+    options: {
+      ...rawOptions,
+      colors: constrainedColors,
+    },
   }
 }
 
@@ -245,7 +264,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
           ...opts,
           qty: existing.options.qty + (opts?.qty || 1),
         })
-        next[idx] = { ...existing, options: merged }
+        next[idx] = sanitizeItem({ ...existing, options: merged })
         return next
       }
       const newItem: CartItem = {
@@ -258,7 +277,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
           qty: opts?.qty || 1,
         }),
       }
-      return [...prev, newItem]
+      return [...prev, sanitizeItem(newItem)]
     })
   }, [])
 
@@ -267,7 +286,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   const dec = useCallback((modelId: string, partId?: string | null) => setItems(prev => prev.map(i => matches(i, modelId, partId) ? { ...i, options: { ...i.options, qty: Math.max(0, i.options.qty - 1) } } : i).filter(i => i.options.qty > 0)), [])
   const update = useCallback((modelId: string, opts: Partial<CartOptions>, partId?: string | null) => setItems(prev => prev.map(i => {
     if (!matches(i, modelId, partId)) return i
-    return { ...i, options: mergeOptions(i.options, opts) }
+    return sanitizeItem({ ...i, options: mergeOptions(i.options, opts) })
   })), [])
   const clear = useCallback(() => setItems([]), [])
 

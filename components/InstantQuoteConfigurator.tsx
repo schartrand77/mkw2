@@ -13,6 +13,7 @@ import {
   type ScaleOverrides,
 } from '@/lib/cartPricing'
 import { formatCurrency } from '@/lib/currency'
+import { buildAllowedColorTokenSet, isColorAllowed, normalizeModelColorSlotCount, sanitizeAllowedColors } from '@/lib/color-constraints'
 
 type QuoteResponse = {
   quote: {
@@ -54,6 +55,8 @@ type Props = {
   sizeZmm?: number | null
   thumbnail?: string | null
   defaultColors?: string[] | null
+  colorSlotCount?: number | null
+  allowedColors?: string[] | null
   flatRatePricing?: boolean | null
   parts?: Array<{
     id: string
@@ -235,6 +238,8 @@ export default function InstantQuoteConfigurator({
   sizeZmm,
   thumbnail,
   defaultColors,
+  colorSlotCount,
+  allowedColors,
   flatRatePricing,
   parts,
 }: Props) {
@@ -258,13 +263,28 @@ export default function InstantQuoteConfigurator({
   const [activeColorSlot, setActiveColorSlot] = useState<number | null>(null)
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
   const paletteRef = useRef<HTMLDivElement | null>(null)
-  const normalizedColors = useMemo(() => normalizeColors(colors, maxColors), [colors, maxColors])
+  const configuredSlotCount = useMemo(() => normalizeModelColorSlotCount(colorSlotCount), [colorSlotCount])
+  const slotLimit = useMemo(() => configuredSlotCount ?? maxColors, [configuredSlotCount, maxColors])
+  const allowedColorList = useMemo(() => sanitizeAllowedColors(allowedColors), [allowedColors])
+  const allowedColorTokens = useMemo(() => buildAllowedColorTokenSet(allowedColorList), [allowedColorList])
+  const normalizedColors = useMemo(
+    () => normalizeColors(colors, slotLimit).filter((value) => isColorAllowed(value, allowedColorTokens)),
+    [colors, slotLimit, allowedColorTokens],
+  )
   const hasRequiredColor = normalizedColors.length > 0
 
   useEffect(() => {
     if (!Array.isArray(defaultColors) || defaultColors.length === 0) return
     setColors((prev) => (prev.length > 0 ? prev : defaultColors))
   }, [defaultColors])
+
+  useEffect(() => {
+    setColors((prev) => {
+      const next = normalizeColors(prev, slotLimit).filter((value) => isColorAllowed(value, allowedColorTokens))
+      if (next.length === prev.length && next.every((value, idx) => value === prev[idx])) return prev
+      return next
+    })
+  }, [slotLimit, allowedColorTokens])
 
   const hasDimensions = useMemo(
     () => [sizeXmm, sizeYmm, sizeZmm].some((value) => typeof value === 'number' && Number.isFinite(value) && value > 0),
@@ -304,7 +324,10 @@ export default function InstantQuoteConfigurator({
   const stockworksEntry = stockworksPalette?.materials?.[activeMaterialKey]
   const paletteOptions = useMemo<SwatchOption[]>(() => {
     if (!stockworksEntry || (stockworksEntry.inStock.length === 0 && stockworksEntry.orderable.length === 0)) {
-      return COLOR_PALETTE.map((swatch) => ({ ...swatch, brand: '' }))
+      const basePalette = COLOR_PALETTE.map((swatch) => ({ ...swatch, brand: '' }))
+      return allowedColorTokens
+        ? basePalette.filter((swatch) => isColorAllowed(`${swatch.name} ${swatch.hex}`, allowedColorTokens))
+        : basePalette
     }
     const inStockSet = new Set(stockworksEntry.inStock.map((color) => normalizeColorKey(color as StockworksColor | string)))
     const ordered = [...stockworksEntry.inStock, ...stockworksEntry.orderable]
@@ -329,8 +352,10 @@ export default function InstantQuoteConfigurator({
         category: colorMeta.category || '',
       })
     }
-    return output
-  }, [stockworksEntry, paletteLookup])
+    return allowedColorTokens
+      ? output.filter((swatch) => isColorAllowed(`${swatch.name} ${swatch.hex}`, allowedColorTokens))
+      : output
+  }, [stockworksEntry, paletteLookup, allowedColorTokens])
   const paletteValueToHex = useMemo(() => {
     const map = new Map<string, string>()
     for (const swatch of paletteOptions) {
@@ -555,6 +580,8 @@ export default function InstantQuoteConfigurator({
             priceUsd: part.priceUsd ?? null,
             thumbnail: thumbnail ?? null,
             size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
+            colorSlotCount: configuredSlotCount,
+            allowedColors: allowedColorList,
           },
           opts,
         )
@@ -569,10 +596,12 @@ export default function InstantQuoteConfigurator({
         priceUsd: priceUsd ?? quote?.priceUsd ?? null,
         thumbnail: thumbnail ?? null,
         size: { x: sizeXmm ?? undefined, y: sizeYmm ?? undefined, z: sizeZmm ?? undefined },
+        colorSlotCount: configuredSlotCount,
+        allowedColors: allowedColorList,
       },
       opts,
     )
-  }, [add, hasRequiredColor, modelId, title, priceUsd, quote?.priceUsd, thumbnail, sizeXmm, sizeYmm, sizeZmm, scale, materialChoice, normalizedColors, finish, infillPct, lockDimensions, dimensionOverrides, flatRatePricing, parts])
+  }, [add, hasRequiredColor, modelId, title, priceUsd, quote?.priceUsd, thumbnail, sizeXmm, sizeYmm, sizeZmm, scale, materialChoice, normalizedColors, finish, infillPct, lockDimensions, dimensionOverrides, flatRatePricing, parts, configuredSlotCount, allowedColorList])
 
   const uploadGcode = async (file: File) => {
     setGcodeLoading(true)
@@ -609,12 +638,13 @@ export default function InstantQuoteConfigurator({
       || COLOR_PICKER_FALLBACK
 
   const updateColorAt = useCallback((index: number, nextValue: string) => {
+    if (!isColorAllowed(nextValue, allowedColorTokens)) return
     setColors((prev) => {
       const next = prev.slice()
       next[index] = nextValue
       return next
     })
-  }, [])
+  }, [allowedColorTokens])
 
   return (
     <div className="glass rounded-xl p-5 space-y-4">
@@ -728,7 +758,7 @@ export default function InstantQuoteConfigurator({
             type="button"
             className="px-2 py-1 rounded border border-white/10 hover:border-white/20"
             onClick={() => {
-              if (colors.length >= maxColors) return
+              if (colors.length >= slotLimit) return
               setColors((prev) => [...prev, ''])
             }}
           >

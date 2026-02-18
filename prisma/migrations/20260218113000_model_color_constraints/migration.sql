@@ -1,0 +1,4 @@
+ALTER TABLE "Model"
+  ADD COLUMN IF NOT EXISTS "colorSlotCount" INTEGER,
+  ADD COLUMN IF NOT EXISTS "allowedColors" JSONB;
+

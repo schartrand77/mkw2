@@ -209,6 +209,8 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           sizeZmm={model.sizeZmm}
           thumbnail={coverHref}
           defaultColors={Array.isArray(model.defaultColors) ? model.defaultColors : null}
+          colorSlotCount={typeof model.colorSlotCount === 'number' ? model.colorSlotCount : null}
+          allowedColors={Array.isArray(model.allowedColors) ? model.allowedColors : null}
           flatRatePricing={Boolean(model.flatRatePricing)}
           parts={hasParts ? model.parts.map((p: any, i: number) => ({
             id: p.id,
@@ -265,6 +267,9 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             modelTitle={model.title}
             flatRatePricing={Boolean(model.flatRatePricing)}
             thumbnail={coverHref}
+            colorSlotCount={typeof model.colorSlotCount === 'number' ? model.colorSlotCount : null}
+            allowedColors={Array.isArray(model.allowedColors) ? model.allowedColors : null}
+            defaultColors={Array.isArray(model.defaultColors) ? model.defaultColors : null}
             parts={model.parts.map((p: any, i: number) => ({
               id: p.id,
               name: p.name,

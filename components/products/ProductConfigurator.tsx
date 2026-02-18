@@ -79,6 +79,7 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
         title: product.title,
         priceUsd: resolvedBasePrice ?? null,
         thumbnail: coverUrl || null,
+        colorSlotCount: colorCount,
         size: {
           x: baseModel.sizeXmm ?? undefined,
           y: baseModel.sizeYmm ?? undefined,

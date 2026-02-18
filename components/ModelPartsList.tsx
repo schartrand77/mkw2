@@ -7,6 +7,8 @@ import { useCart } from '@/components/cart/CartProvider'
 import { useMemo, useState } from 'react'
 import type { PricingDetails } from '@/lib/pricing'
 import { buildAssemblyGroups } from '@/lib/assembly-grouping'
+import { normalizeColors } from '@/lib/cartPricing'
+import { buildAllowedColorTokenSet, isColorAllowed, normalizeModelColorSlotCount } from '@/lib/color-constraints'
 
 type Part = {
   id: string
@@ -26,15 +28,24 @@ type Props = {
   modelTitle: string
   flatRatePricing?: boolean | null
   thumbnail?: string | null
+  colorSlotCount?: number | null
+  allowedColors?: string[] | null
+  defaultColors?: string[] | null
   parts: Part[]
 }
 
-export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, thumbnail, parts }: Props) {
+export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, thumbnail, colorSlotCount, allowedColors, defaultColors, parts }: Props) {
   const { add, items } = useCart()
   const router = useRouter()
   const hasPricedPart = parts.some((p) => typeof p.priceUsd === 'number' && Number(p.priceUsd) > 0)
   const [isOpen, setIsOpen] = useState(false)
   const memoizedParts = useMemo(() => parts, [parts])
+  const normalizedSlotCount = useMemo(() => normalizeModelColorSlotCount(colorSlotCount), [colorSlotCount])
+  const allowedTokens = useMemo(() => buildAllowedColorTokenSet(allowedColors || null), [allowedColors])
+  const constrainedDefaultColors = useMemo(
+    () => normalizeColors(Array.isArray(defaultColors) ? defaultColors : [], normalizedSlotCount ?? undefined).filter((value) => isColorAllowed(value, allowedTokens)),
+    [defaultColors, normalizedSlotCount, allowedTokens],
+  )
   const assemblyGroups = useMemo(() => buildAssemblyGroups(memoizedParts), [memoizedParts])
   const partQuantities = useMemo(() => {
     const quantities: Record<string, number> = {}
@@ -115,8 +126,10 @@ export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, t
                                   priceUsd: part.priceUsd ?? null,
                                   thumbnail,
                                   size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
+                                  colorSlotCount: normalizedSlotCount,
+                                  allowedColors: Array.isArray(allowedColors) ? allowedColors : null,
                                 },
-                                { material: 'PLA', colors: [] },
+                                { material: 'PLA', colors: constrainedDefaultColors },
                               )
                             }
                           }}
@@ -189,8 +202,10 @@ export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, t
                                 priceUsd: price,
                                 thumbnail,
                                 size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
+                                colorSlotCount: normalizedSlotCount,
+                                allowedColors: Array.isArray(allowedColors) ? allowedColors : null,
                               },
-                              { material: 'PLA', colors: [] },
+                              { material: 'PLA', colors: constrainedDefaultColors },
                             )
                           }}
                         >
@@ -222,8 +237,10 @@ export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, t
                                 priceUsd: price,
                                 thumbnail,
                                 size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
+                                colorSlotCount: normalizedSlotCount,
+                                allowedColors: Array.isArray(allowedColors) ? allowedColors : null,
                               },
-                              { material: 'PLA', colors: [] },
+                              { material: 'PLA', colors: constrainedDefaultColors },
                             )
                           }
                           router.push(buildPreviewUrl(part.id))

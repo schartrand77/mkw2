@@ -6,6 +6,7 @@ import { normalizeAmazonAffiliateUrl } from '@/lib/amazon'
 import { extractYouTubeId } from '@/lib/youtube'
 import { storageRoot } from '@/lib/storage'
 import { computeEffectivePriceUsd } from '@/lib/pricing-cache'
+import { normalizeModelColorSlotCount, sanitizeAllowedColors } from '@/lib/color-constraints'
 import path from 'path'
 import { unlink } from 'fs/promises'
 export const dynamic = 'force-dynamic'
@@ -97,6 +98,18 @@ export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
 
   if (body.flatRatePricing !== undefined) {
     updates.flatRatePricing = Boolean(body.flatRatePricing)
+  }
+
+  if (body.colorSlotCount !== undefined) {
+    const normalized = normalizeModelColorSlotCount(body.colorSlotCount)
+    if (body.colorSlotCount !== null && body.colorSlotCount !== '' && normalized == null) {
+      return NextResponse.json({ error: 'Invalid color slot count' }, { status: 400 })
+    }
+    updates.colorSlotCount = normalized
+  }
+
+  if (body.allowedColors !== undefined) {
+    updates.allowedColors = sanitizeAllowedColors(body.allowedColors)
   }
 
   if (body.salePriceUsd !== undefined) {

@@ -14,6 +14,8 @@ type Model = {
   salePriceUnit?: string | null
   disableCustomerDiscounts?: boolean | null
   flatRatePricing?: boolean | null
+  colorSlotCount?: number | null
+  allowedColors?: string[] | null
   tags: string[]
   affiliateTitle?: string | null
   affiliateUrl?: string | null
@@ -83,6 +85,8 @@ export default function ModelManager() {
             salePriceUnit: (m as any).salePriceUnit ?? null,
             disableCustomerDiscounts: Boolean((m as any).disableCustomerDiscounts),
             flatRatePricing: Boolean((m as any).flatRatePricing),
+            colorSlotCount: typeof (m as any).colorSlotCount === 'number' ? (m as any).colorSlotCount : null,
+            allowedColors: Array.isArray((m as any).allowedColors) ? (m as any).allowedColors : null,
             videoUrl: m.videoEmbedId ? `https://youtu.be/${m.videoEmbedId}` : ''
           }))
           setItems(normalized)
@@ -121,6 +125,8 @@ export default function ModelManager() {
           salePriceUnit: m.salePriceUnit || '',
           disableCustomerDiscounts: Boolean(m.disableCustomerDiscounts),
           flatRatePricing: Boolean(m.flatRatePricing),
+          colorSlotCount: m.colorSlotCount ?? null,
+          allowedColors: Array.isArray(m.allowedColors) ? m.allowedColors : null,
         })
       })
       if (!res.ok) alert('Failed to save model: ' + (await res.text()))
@@ -319,6 +325,40 @@ export default function ModelManager() {
                 <label htmlFor={`model-flat-rate-${activeModel.id}`}>
                   Flat rate: no color-count or custom-text surcharge
                 </label>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Color slot count (optional)</label>
+                <input
+                  className="input"
+                  type="number"
+                  min={1}
+                  max={16}
+                  value={activeModel.colorSlotCount ?? ''}
+                  placeholder="Blank = global default"
+                  onChange={(e) => updateModel(activeModel.id, {
+                    colorSlotCount: e.target.value === ''
+                      ? null
+                      : Math.max(1, Math.min(16, Math.round(Number(e.target.value) || 1))),
+                  })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Allowed colors (comma-separated)</label>
+                <input
+                  className="input"
+                  value={Array.isArray(activeModel.allowedColors) ? activeModel.allowedColors.join(', ') : ''}
+                  placeholder="Blank, all, or * = allow all"
+                  onChange={(e) => {
+                    const raw = e.target.value.trim()
+                    if (!raw || /^(all|\*)$/i.test(raw)) {
+                      updateModel(activeModel.id, { allowedColors: null })
+                      return
+                    }
+                    updateModel(activeModel.id, {
+                      allowedColors: Array.from(new Set(raw.split(',').map((part) => part.trim()).filter(Boolean))),
+                    })
+                  }}
+                />
               </div>
             </div>
             <div className="md:col-span-3">

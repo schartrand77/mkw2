@@ -24,6 +24,8 @@ export async function GET(req: NextRequest) {
     salePriceUnit: (m as any).salePriceUnit ?? null,
     disableCustomerDiscounts: Boolean((m as any).disableCustomerDiscounts),
     flatRatePricing: Boolean((m as any).flatRatePricing),
+    colorSlotCount: typeof (m as any).colorSlotCount === 'number' ? (m as any).colorSlotCount : null,
+    allowedColors: Array.isArray((m as any).allowedColors) ? (m as any).allowedColors : null,
     updatedAt: m.updatedAt,
     tags: m.modelTags.map(mt => mt.tag.name),
     affiliateTitle: (m as any).affiliateTitle,

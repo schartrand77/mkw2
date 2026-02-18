@@ -23,6 +23,8 @@ export type DiscoverModel = {
   salePriceIsFrom?: boolean | null
   salePriceUnit?: string | null
   flatRatePricing?: boolean | null
+  colorSlotCount?: number | null
+  allowedColors?: string[] | null
   sizeXmm?: number | null
   sizeYmm?: number | null
   sizeZmm?: number | null
@@ -56,6 +58,8 @@ export type ModelWithPartsCountAndTags = {
   salePriceIsFrom: boolean
   salePriceUnit: string | null
   flatRatePricing?: boolean | null
+  colorSlotCount?: number | null
+  allowedColors?: string[] | null
   volumeMm3: number | null
   material: string
   likes: number

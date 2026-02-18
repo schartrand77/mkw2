@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { getColorMultiplier, normalizeColors, normalizeMaterialName, resolveScaleFromDimensions } from '@/lib/cartPricing'
+import { buildAllowedColorTokenSet, isColorAllowed, normalizeModelColorSlotCount } from '@/lib/color-constraints'
 import { estimatePricingDetails } from '@/lib/pricing'
 import { applyPricingAdjustments, getPricingAdjustmentConfig, resolveBatchDiscountPercent } from '@/lib/estimate-adjustments'
 
@@ -57,6 +58,8 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
       salePriceUsd: true,
       flatRatePricing: true,
       supportRatio: true,
+      colorSlotCount: true,
+      allowedColors: true,
     },
   })
   if (!model) return NextResponse.json({ error: 'Model not found' }, { status: 404 })
@@ -111,7 +114,22 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
 
   const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
   const material = normalizeMaterialName(parsed.data.material || model.material || 'PLA')
-  const colors = normalizeColors(parsed.data.colors)
+  const colorSlotCount = normalizeModelColorSlotCount(model.colorSlotCount)
+  const allowedColors = Array.isArray(model.allowedColors)
+    ? model.allowedColors.map((value) => String(value || '')).filter((value) => value.trim().length > 0)
+    : null
+  const allowedTokens = buildAllowedColorTokenSet(allowedColors)
+  const rawColors = Array.isArray(parsed.data.colors)
+    ? parsed.data.colors.map((value) => String(value || '').trim()).filter(Boolean)
+    : []
+  const slotLimit = colorSlotCount ?? undefined
+  if (slotLimit != null && rawColors.length > slotLimit) {
+    return NextResponse.json({ error: `This model allows up to ${slotLimit} color slots.` }, { status: 400 })
+  }
+  const colors = normalizeColors(rawColors, slotLimit ?? undefined)
+  if (allowedTokens && colors.some((color) => !isColorAllowed(color, allowedTokens))) {
+    return NextResponse.json({ error: 'One or more selected colors are not allowed for this model.' }, { status: 400 })
+  }
   const finish = parsed.data.finish ? String(parsed.data.finish) : null
   const infillPct = parsed.data.infillPct ?? null
   const qty = parsed.data.qty ?? 1
