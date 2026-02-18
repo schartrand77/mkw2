@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import type { PrismaClient, SiteConfig } from '@prisma/client'
 import { resolveModelPricing } from '@/lib/pricing'
 
@@ -42,15 +43,26 @@ export async function refreshEffectivePrices(
     })
     if (!models.length) break
 
-    for (const model of models) {
-      const price = computeEffectivePriceUsd(model, cfg)
-      await prisma.$executeRaw`
-        UPDATE "Model"
-        SET "effectivePriceUsd" = ${price},
-            "effectivePriceUpdatedAt" = ${now}
-        WHERE "id" = ${model.id}
-      `
-    }
+    const pricingById = models.map((model) => ({
+      id: model.id,
+      price: computeEffectivePriceUsd(model, cfg),
+    }))
+
+    const caseClauses = Prisma.join(
+      pricingById.map((entry) => Prisma.sql`WHEN ${entry.id} THEN ${entry.price}`),
+      ' ',
+    )
+    const ids = Prisma.join(pricingById.map((entry) => entry.id))
+
+    await prisma.$executeRaw`
+      UPDATE "Model"
+      SET "effectivePriceUsd" = CASE "id"
+        ${caseClauses}
+        ELSE "effectivePriceUsd"
+      END,
+      "effectivePriceUpdatedAt" = ${now}
+      WHERE "id" IN (${ids})
+    `
 
     cursor = models[models.length - 1].id
   }
