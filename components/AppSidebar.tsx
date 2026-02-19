@@ -186,16 +186,14 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     <>
       <button
         type="button"
-        className="app-sidebar-toggle lg:hidden"
+        className={`app-sidebar-handle lg:hidden ${mobileOpen ? 'app-sidebar-handle-open' : ''}`}
         onClick={() => setMobileOpen((open) => !open)}
         aria-expanded={mobileOpen}
         aria-controls="app-sidebar"
+        aria-label={mobileOpen ? 'Collapse sidebar' : 'Expand sidebar'}
       >
-        <span aria-hidden="true">|||</span>
-        <span>Menu</span>
+        <span className="app-sidebar-handle-chevron" aria-hidden="true">{mobileOpen ? '‹' : '›'}</span>
       </button>
-
-      {mobileOpen && <button type="button" className="app-sidebar-backdrop lg:hidden" onClick={() => setMobileOpen(false)} aria-label="Close menu" />}
 
       <aside id="app-sidebar" className={`app-sidebar ${mobileOpen ? 'app-sidebar-open' : ''}`}>
         <div className="app-sidebar-inner">
