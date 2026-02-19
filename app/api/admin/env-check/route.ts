@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '../_utils'
+import { withRequestObservability } from '@/lib/request-observability'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,9 +54,11 @@ function buildCheck(entry: { key: string; label: string; required: boolean; alt?
   }
 }
 
-export async function GET() {
+async function handleGet() {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const checks = [...REQUIRED_CHECKS, ...OPTIONAL_CHECKS].map(buildCheck)
   const requiredOk = checks.filter((c) => c.required).every((c) => c.ok)
   return NextResponse.json({ ok: requiredOk, checks })
 }
+
+export const GET = withRequestObservability(handleGet, { routeName: '/api/admin/env-check' })

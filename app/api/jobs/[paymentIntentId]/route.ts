@@ -14,6 +14,8 @@ import {
   normalizePaymentMethod,
   normalizePaymentStatus,
 } from '@/lib/orderworks-status'
+import { incrementMetric } from '@/lib/observability-metrics'
+import { withRequestObservability } from '@/lib/request-observability'
 
 const patchSchema = z.object({
   status: z.enum(['pending', 'sent']).optional(),
@@ -55,7 +57,7 @@ function resolveFulfilledAt(
 
 export const dynamic = 'force-dynamic'
 
-export async function PATCH(req: Request, { params }: Params) {
+async function handlePatch(req: Request, { params }: Params) {
   const { paymentIntentId } = await params
   try {
     await requireAdmin()
@@ -111,6 +113,9 @@ export async function PATCH(req: Request, { params }: Params) {
     const paymentStatusChanged = payload.paymentStatus !== undefined && updated.paymentStatus !== previousPaymentStatus
     const paymentMethodChanged = payload.paymentMethod !== undefined && updated.paymentMethod !== previousPaymentMethod
     if (paymentStatusChanged || paymentMethodChanged) {
+      if (updated.paymentStatus && ['failed', 'canceled', 'cancelled'].includes(updated.paymentStatus)) {
+        incrementMetric('payment_failures_total', 1, { source: 'admin_job_patch', reason: updated.paymentStatus })
+      }
       const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
       const isPromise = isPaymentPromise(updated.paymentMethod, updated.paymentStatus)
       await sendAdminPushNotification({
@@ -127,3 +132,5 @@ export async function PATCH(req: Request, { params }: Params) {
 
   return NextResponse.json({ ok: true, job: serializeJob(updated) })
 }
+
+export const PATCH = withRequestObservability(handlePatch, { routeName: '/api/jobs/[paymentIntentId]' })

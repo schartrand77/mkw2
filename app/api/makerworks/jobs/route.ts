@@ -14,6 +14,8 @@ import {
   normalizePaymentMethod,
   normalizePaymentStatus,
 } from '@/lib/orderworks-status'
+import { incrementMetric } from '@/lib/observability-metrics'
+import { withRequestObservability } from '@/lib/request-observability'
 
 const webhookPayloadSchema = z.object({
   paymentIntentId: z.string().min(4).max(200),
@@ -98,24 +100,28 @@ function normalizeFulfilledAt(value: unknown): Date | null | undefined {
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const secret = getSecret()
   if (!secret) {
+    incrementMetric('job_webhook_failure_total', 1, { reason: 'secret_missing' })
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
   }
   const rawBody = await req.text()
   const hasValidSecret = verifyBearerSecret(req, secret) || verifySignatureHeaders(req, rawBody, secret)
   if (!hasValidSecret) {
+    incrementMetric('job_webhook_failure_total', 1, { reason: 'invalid_signature' })
     return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
   }
   let parsedJson: unknown
   try {
     parsedJson = JSON.parse(rawBody)
   } catch (err: any) {
+    incrementMetric('job_webhook_failure_total', 1, { reason: 'invalid_json' })
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
   }
   const parsed = webhookPayloadSchema.safeParse(parsedJson)
   if (!parsed.success) {
+    incrementMetric('job_webhook_failure_total', 1, { reason: 'validation_failed' })
     return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 422 })
   }
   const data = parsed.data
@@ -207,5 +213,8 @@ export async function POST(req: NextRequest) {
     console.error('Admin push notification failed for webhook job:', notifyErr)
   }
 
+  incrementMetric('job_webhook_success_total')
   return NextResponse.json({ ok: true, job: serializeJob(job as JobWithUser) })
 }
+
+export const POST = withRequestObservability(handlePost, { routeName: '/api/makerworks/jobs' })

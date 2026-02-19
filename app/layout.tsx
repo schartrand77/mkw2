@@ -12,6 +12,7 @@ import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 import ExtensionsGuard from '@/components/ExtensionsGuard'
 import CartProvider from '@/components/cart/CartProvider'
 import HolidayEffects from '@/components/HolidayEffects'
+import ClientErrorReporter from '@/components/ClientErrorReporter'
 import type { HolidayTheme } from '@/components/HolidayEffects'
 import { BRAND_FULL_NAME, BRAND_LOGO_PREFIX, BRAND_LOGO_SUFFIX, BRAND_VERSION } from '@/lib/brand'
 
@@ -116,6 +117,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </footer>
         <Announcements enabled={authed} />
         <ExtensionsGuard />
+        <ClientErrorReporter />
         <HolidayEffects theme={holidayTheme} />
         <PWARegister />
         <PWAInstallPrompt />

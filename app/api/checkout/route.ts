@@ -17,6 +17,8 @@ import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
 import { applyPricingAdjustments, getPricingAdjustmentConfig, resolveBatchDiscountPercent } from '@/lib/estimate-adjustments'
 import { isPaymentPromise, normalizePaymentStatus } from '@/lib/orderworks-status'
+import { incrementMetric } from '@/lib/observability-metrics'
+import { withRequestObservability } from '@/lib/request-observability'
 
 export const dynamic = 'force-dynamic'
 
@@ -108,7 +110,7 @@ function normalizePaymentStatusForQueue(paymentMethod: string, status: string | 
   return normalized
 }
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   try {
     const json = await req.json()
     const parsed = payloadSchema.safeParse(json)
@@ -118,6 +120,11 @@ export async function POST(req: NextRequest) {
 
     const paymentMethod = parsed.data.paymentMethod || 'card'
     const commit = Boolean(parsed.data.commit)
+    if (commit) {
+      incrementMetric('checkout_committed_total')
+    } else {
+      incrementMetric('checkout_started_total')
+    }
     const isCash = paymentMethod === 'cash'
     const providedPaymentIntentId = (parsed.data.paymentIntentId || '').trim()
     const rush = Boolean(parsed.data.rush)
@@ -472,15 +479,18 @@ export async function POST(req: NextRequest) {
         clientSecret = intent.client_secret
       } else {
         if (!paymentIntentId) {
+          incrementMetric('payment_failures_total', 1, { source: 'checkout_finalize', reason: 'missing_payment_intent_id' })
           return NextResponse.json({ error: 'paymentIntentId is required to finalize checkout.' }, { status: 400 })
         }
         const stripe = getStripe()
         const intent = await stripe.paymentIntents.retrieve(paymentIntentId)
         if (!intent) {
+          incrementMetric('payment_failures_total', 1, { source: 'checkout_finalize', reason: 'payment_intent_not_found' })
           return NextResponse.json({ error: 'Payment intent not found.' }, { status: 404 })
         }
         const allowedStatuses = new Set(['succeeded', 'processing', 'requires_capture'])
         if (!allowedStatuses.has(intent.status)) {
+          incrementMetric('payment_failures_total', 1, { source: 'checkout_finalize', reason: intent.status || 'invalid_status' })
           return NextResponse.json({ error: `Payment not completed (${intent.status}).` }, { status: 400 })
         }
         clientSecret = intent.client_secret || null
@@ -624,6 +634,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: err.message }, { status: 400 })
     }
     console.error('Stripe checkout error:', err)
+    incrementMetric('payment_failures_total', 1, { source: 'checkout_exception', reason: 'exception' })
     return NextResponse.json({ error: err.message || 'Checkout failed' }, { status: 500 })
   }
 }
+
+export const POST = withRequestObservability(handlePost, { routeName: '/api/checkout' })
