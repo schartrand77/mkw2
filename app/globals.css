@@ -153,8 +153,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.5rem;
-  height: 3.2rem;
+  width: 1.65rem;
+  height: 3.5rem;
   border-radius: 9999px;
   border: 1px solid rgba(var(--empire-crimson-rgb) / 0.7);
   background: linear-gradient(180deg, rgba(var(--empire-crimson-rgb) / 0.35), rgba(5, 8, 12, 0.95));
@@ -165,7 +165,7 @@ body {
   transition: left 190ms ease, transform 190ms ease, opacity 190ms ease;
 }
 .app-sidebar-handle-chevron {
-  font-size: 1.28rem;
+  font-size: 1.4rem;
   font-weight: 700;
   line-height: 1;
   text-shadow: 0 0 10px rgba(var(--empire-crimson-rgb) / 0.65);
