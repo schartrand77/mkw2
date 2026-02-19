@@ -3,8 +3,9 @@ import path from 'path'
 import { unlink } from 'fs/promises'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { storageRoot } from '@/lib/storage'
+import { CACHE_TAGS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,11 @@ export async function DELETE(_req: NextRequest, { params }: ModelCommentDeleteCo
   }
   try {
     revalidatePath(`/models/${existing.modelId}`)
+    revalidateTag(modelTag(existing.modelId), 'max')
+    revalidateTag(modelCommentsTag(existing.modelId), 'max')
+    revalidateTag(CACHE_TAGS.discoverModels, 'max')
+    revalidateTag(CACHE_TAGS.homePage, 'max')
+    revalidateTag(CACHE_TAGS.homeCuratedComments, 'max')
   } catch {
     // ignore
   }

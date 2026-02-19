@@ -6,9 +6,10 @@ import { ensureUserPage, slugify } from '@/lib/userpage'
 import { hashPassword } from '@/lib/auth'
 import { saveBuffer } from '@/lib/storage'
 import { isSupportedImageFile } from '@/lib/images'
-import { processPendingAvatars } from '@/lib/image-queue'
 import { unlink } from 'fs/promises'
 import path from 'path'
+import { enqueueImageProcessing } from '@/lib/processing-jobs'
+import { getAdminAuditRequestMeta, recordAdminAuditEvent } from '@/lib/admin-audit'
 
 const patchSchema = z.object({
   email: z.string().email().optional(),
@@ -262,8 +263,30 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
     ])
 
     if (avatarQueued) {
-      try { await processPendingAvatars(1) } catch {}
+      try {
+        await enqueueImageProcessing({
+          includeAvatars: true,
+          includeComments: false,
+          limit: 1,
+          idempotencyKey: `image:avatar:${userId}`,
+        })
+      } catch {}
     }
+    const requestMeta = getAdminAuditRequestMeta(req)
+    await recordAdminAuditEvent({
+      adminId,
+      action: 'admin.user.update',
+      targetType: 'user',
+      targetId: userId,
+      requestMethod: requestMeta.requestMethod,
+      requestPath: requestMeta.requestPath,
+      requestIp: requestMeta.requestIp,
+      userAgent: requestMeta.userAgent,
+      metadata: {
+        updatedUserKeys: Object.keys(updatesUser),
+        updatedProfileKeys: Object.keys(updatesProfile),
+      } as any,
+    })
 
     return NextResponse.json({ user, profile })
   } catch (e: any) {
@@ -271,7 +294,7 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: AdminUserContext) {
+export async function DELETE(req: NextRequest, { params }: AdminUserContext) {
   const { id: userId } = await params
   let adminId = ''
   try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
@@ -293,6 +316,18 @@ export async function DELETE(_req: NextRequest, { params }: AdminUserContext) {
       prisma.jobForm.deleteMany({ where: { userId } }),
       prisma.user.delete({ where: { id: userId } }),
     ])
+    const requestMeta = getAdminAuditRequestMeta(req)
+    await recordAdminAuditEvent({
+      adminId,
+      action: 'admin.user.delete',
+      targetType: 'user',
+      targetId: userId,
+      requestMethod: requestMeta.requestMethod,
+      requestPath: requestMeta.requestPath,
+      requestIp: requestMeta.requestIp,
+      userAgent: requestMeta.userAgent,
+      metadata: { deletedBy: adminId } as any,
+    })
 
     return NextResponse.json({ ok: true })
   } catch (e: any) {

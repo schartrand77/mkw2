@@ -32,6 +32,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     items: [
       { href: '/admin/production', label: 'Production' },
       { href: '/admin/jobs', label: 'Job queue' },
+      { href: '/admin/processing-queues', label: 'Processing queues' },
       { href: '/admin/users', label: 'Users', matchPrefixes: ['/admin/users/'] },
       { href: '/admin/inventory', label: 'Inventory' },
       { href: '/admin/analytics', label: 'Analytics' },

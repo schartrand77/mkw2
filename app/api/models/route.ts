@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import type { Prisma } from '@prisma/client'
 import { DiscoverSort, type ModelWithPartsCountAndTags } from '@/types/discover'
-export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -67,8 +66,6 @@ export async function GET(req: NextRequest) {
     flatRatePricing: true,
     colorSlotCount: true,
     allowedColors: true,
-    volumeMm3: true,
-    material: true,
     likes: true,
     downloads: true,
     createdAt: true,

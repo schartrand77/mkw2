@@ -1,13 +1,22 @@
 import Link from 'next/link'
+import { unstable_cache } from 'next/cache'
 import { BRAND_SLUG } from '@/lib/brand'
 import { resolveBaseUrl } from '@/lib/base-url'
 import FeaturedMarquee from '@/components/FeaturedMarquee'
 import { prisma } from '@/lib/db'
 import { toPublicHref } from '@/lib/storage'
 import { serializeComment } from '@/lib/comments'
+import { CACHE_TAGS, CACHE_TTL_SECONDS } from '@/lib/cache-policy'
+
+export const revalidate = 120
 
 async function fetchFeatured(baseUrl: string) {
-  const res = await fetch(`${baseUrl}/api/featured`, { cache: 'no-store' })
+  const res = await fetch(`${baseUrl}/api/featured`, {
+    next: {
+      revalidate: CACHE_TTL_SECONDS.featuredModels,
+      tags: [CACHE_TAGS.homePage, CACHE_TAGS.featuredModels],
+    },
+  })
   if (!res.ok) return []
   const data = await res.json()
   return data.models as any[]
@@ -23,7 +32,7 @@ type CuratedHomeComment = {
   userAvatarUrl: string | null
 }
 
-async function fetchCuratedComments(): Promise<CuratedHomeComment[]> {
+const fetchCuratedComments = unstable_cache(async (): Promise<CuratedHomeComment[]> => {
   const curated = await prisma.modelComment.findMany({
     where: {
       type: 'comment',
@@ -71,7 +80,10 @@ async function fetchCuratedComments(): Promise<CuratedHomeComment[]> {
   }
 
   return picked
-}
+}, ['home-curated-comments:v1'], {
+  revalidate: CACHE_TTL_SECONDS.homeCuratedComments,
+  tags: [CACHE_TAGS.homePage, CACHE_TAGS.homeCuratedComments],
+})
 
 export default async function HomePage() {
   const baseUrl = await resolveBaseUrl()

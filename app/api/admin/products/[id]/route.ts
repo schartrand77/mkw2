@@ -8,6 +8,7 @@ import {
 } from '@/lib/stockworks-products'
 import { buildLockedTemplateOptions } from '@/lib/product-template-config'
 import { z } from 'zod'
+import { getAdminAuditRequestMeta, recordAdminAuditEvent } from '@/lib/admin-audit'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,7 +60,8 @@ export async function GET(_req: Request, { params }: RouteContext) {
 }
 
 export async function PATCH(req: Request, { params }: RouteContext) {
-  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  let adminId = ''
+  try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const { id } = await params
   try {
     const json = await req.json()
@@ -207,14 +209,27 @@ export async function PATCH(req: Request, { params }: RouteContext) {
       where: { id: product.id },
       include: { baseModel: { select: { id: true, title: true } } },
     })
+    const requestMeta = getAdminAuditRequestMeta(req)
+    await recordAdminAuditEvent({
+      adminId,
+      action: 'admin.product_template.update',
+      targetType: 'product_template',
+      targetId: id,
+      requestMethod: requestMeta.requestMethod,
+      requestPath: requestMeta.requestPath,
+      requestIp: requestMeta.requestIp,
+      userAgent: requestMeta.userAgent,
+      metadata: { updatedKeys: Object.keys(parsed), stockworksWarning } as any,
+    })
     return NextResponse.json({ product: hydrated || product, stockworksWarning })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Failed to save product' }, { status: 400 })
   }
 }
 
-export async function DELETE(_req: Request, { params }: RouteContext) {
-  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+export async function DELETE(req: Request, { params }: RouteContext) {
+  let adminId = ''
+  try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const { id } = await params
   try {
     const existing = await prisma.productTemplate.findUnique({
@@ -230,6 +245,18 @@ export async function DELETE(_req: Request, { params }: RouteContext) {
         stockworksWarning = err?.message || 'StockWorks unlink failed'
       }
     }
+    const requestMeta = getAdminAuditRequestMeta(req)
+    await recordAdminAuditEvent({
+      adminId,
+      action: 'admin.product_template.delete',
+      targetType: 'product_template',
+      targetId: id,
+      requestMethod: requestMeta.requestMethod,
+      requestPath: requestMeta.requestPath,
+      requestIp: requestMeta.requestIp,
+      userAgent: requestMeta.userAgent,
+      metadata: { stockworksWarning } as any,
+    })
     return NextResponse.json({ ok: true, stockworksWarning })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Failed to delete' }, { status: 400 })

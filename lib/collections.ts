@@ -1,7 +1,9 @@
 import type { Collection, Prisma } from '@prisma/client'
+import { unstable_cache } from 'next/cache'
 import { prisma } from '@/lib/db'
 import { resolveModelPricing } from '@/lib/pricing'
 import type { DiscoverModel } from '@/types/discover'
+import { CACHE_TAGS, CACHE_TTL_SECONDS } from '@/lib/cache-policy'
 
 type CollectionWithModels = Collection & {
   models: {
@@ -72,20 +74,25 @@ const MODEL_SELECT = {
 export type CollectionSummary = Pick<Collection, 'id' | 'slug' | 'title' | 'description' | 'kind' | 'materialKey' | 'heroImagePath'>
 
 export async function listActiveCollections(limit = 6): Promise<CollectionSummary[]> {
-  return prisma.collection.findMany({
-    where: buildActiveCollectionWhere(),
-    orderBy: [{ position: 'asc' }, { createdAt: 'desc' }],
-    take: limit,
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      description: true,
-      kind: true,
-      materialKey: true,
-      heroImagePath: true,
-    },
-  })
+  return unstable_cache(async () => (
+    prisma.collection.findMany({
+      where: buildActiveCollectionWhere(),
+      orderBy: [{ position: 'asc' }, { createdAt: 'desc' }],
+      take: limit,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        description: true,
+        kind: true,
+        materialKey: true,
+        heroImagePath: true,
+      },
+    })
+  ), [`active-collections:${limit}`], {
+    revalidate: CACHE_TTL_SECONDS.collections,
+    tags: [CACHE_TAGS.collections],
+  })()
 }
 
 export async function getCollectionBySlug(slug: string): Promise<Collection | null> {

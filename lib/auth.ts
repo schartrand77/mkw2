@@ -4,6 +4,7 @@ import { cookies, headers } from 'next/headers'
 import { prisma } from '@/lib/db'
 
 const COOKIE_NAME = 'mwv2_token'
+const SESSION_IAT_GRACE_MS = 1500
 
 type CookieStore = {
   set: (name: string, value: string, options?: Record<string, any>) => void
@@ -77,11 +78,13 @@ export function signToken(userId: string) {
   return jwt.sign({ sub: userId }, secret, { expiresIn: '30d' })
 }
 
-export function verifyToken(token: string): { sub: string } | null {
+export type AuthTokenPayload = { sub: string; iat?: number; exp?: number }
+
+export function verifyToken(token: string): AuthTokenPayload | null {
   try {
     const secret = process.env.JWT_SECRET
     if (!secret) throw new Error('JWT_SECRET not set')
-    return jwt.verify(token, secret) as any
+    return jwt.verify(token, secret) as AuthTokenPayload
   } catch {
     return null
   }
@@ -117,10 +120,17 @@ export async function getUserIdFromCookie(): Promise<string | null> {
     if (!token) return null
     const payload = verifyToken(token)
     if (!payload?.sub) return null
-    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, isSuspended: true } })
+    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, isSuspended: true, lastLoginAt: true } })
     if (!user || user.isSuspended) {
       await clearAuthCookie(cookieStore as any)
       return null
+    }
+    if (typeof payload.iat === 'number' && user.lastLoginAt) {
+      const tokenIssuedAt = payload.iat * 1000
+      if (tokenIssuedAt + SESSION_IAT_GRACE_MS < user.lastLoginAt.getTime()) {
+        await clearAuthCookie(cookieStore as any)
+        return null
+      }
     }
     return user.id
   } catch {

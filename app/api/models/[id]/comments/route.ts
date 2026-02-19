@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import path from 'path'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import {
   commentInclude,
   commentUserSelect,
@@ -12,6 +12,7 @@ import {
   userHasModelReceipt,
 } from '@/lib/comments'
 import { saveBuffer } from '@/lib/storage'
+import { CACHE_TAGS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -139,6 +140,11 @@ export async function POST(req: NextRequest, { params }: ModelCommentsContext) {
 
   try {
     revalidatePath(`/models/${model.id}`)
+    revalidateTag(modelTag(model.id), 'max')
+    revalidateTag(modelCommentsTag(model.id), 'max')
+    revalidateTag(CACHE_TAGS.discoverModels, 'max')
+    revalidateTag(CACHE_TAGS.homePage, 'max')
+    revalidateTag(CACHE_TAGS.homeCuratedComments, 'max')
   } catch {
     // ignore cache errors
   }

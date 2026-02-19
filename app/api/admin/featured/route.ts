@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../_utils'
+import { revalidatePath, revalidateTag } from 'next/cache'
+import { CACHE_TAGS } from '@/lib/cache-policy'
+import { getAdminAuditRequestMeta, recordAdminAuditEvent } from '@/lib/admin-audit'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
@@ -13,7 +16,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  let adminId = ''
+  try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   let body: any
   try {
     body = await req.json()
@@ -57,6 +61,25 @@ export async function POST(req: NextRequest) {
     orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
     include: { model: { select: { id: true, title: true, coverImagePath: true, visibility: true, updatedAt: true } } },
   })
+
+  const requestMeta = getAdminAuditRequestMeta(req)
+  await recordAdminAuditEvent({
+    adminId,
+    action: 'admin.featured.update',
+    targetType: 'featured_models',
+    requestMethod: requestMeta.requestMethod,
+    requestPath: requestMeta.requestPath,
+    requestIp: requestMeta.requestIp,
+    userAgent: requestMeta.userAgent,
+    metadata: { modelIds: cleanIds } as any,
+  })
+
+  try {
+    revalidatePath('/')
+    revalidatePath('/discover')
+    revalidateTag(CACHE_TAGS.featuredModels, 'max')
+    revalidateTag(CACHE_TAGS.homePage, 'max')
+  } catch {}
 
   return NextResponse.json({ featured: items.map(i => i.model) })
 }

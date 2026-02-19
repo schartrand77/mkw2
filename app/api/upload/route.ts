@@ -18,8 +18,8 @@ import { refreshUserAchievements } from '@/lib/achievements'
 import { isSupportedImageFile } from '@/lib/images'
 import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
-import { processPendingImages } from '@/lib/image-queue'
-import { convert3mfToStl, enqueueModelPreviewJob, processPendingModelPreviews, extract3mfFilamentColors } from '@/lib/model-preview-queue'
+import { convert3mfToStl, enqueueModelPreviewJob, extract3mfFilamentColors } from '@/lib/model-preview-queue'
+import { enqueueImageProcessing, enqueuePreviewProcessing } from '@/lib/processing-jobs'
 import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
@@ -600,14 +600,24 @@ export async function POST(req: NextRequest) {
     }
     if (coverImageSourceRel) {
       try {
-        await processPendingImages(1, { modelId: created.id })
+        await enqueueImageProcessing({
+          modelId: created.id,
+          includeAvatars: false,
+          includeComments: false,
+          limit: 1,
+          idempotencyKey: `image:model:${created.id}`,
+        })
       } catch (err) {
         console.warn('Failed to process cover image', err)
       }
     }
     if (previewJobs.length > 0) {
       try {
-        await processPendingModelPreviews(previewJobs.length, { modelId: created.id })
+        await enqueuePreviewProcessing({
+          modelId: created.id,
+          limit: previewJobs.length,
+          idempotencyKey: `preview:model:${created.id}`,
+        })
       } catch (err) {
         console.warn('Failed to process 3MF previews', err)
       }

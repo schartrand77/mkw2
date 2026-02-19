@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { jwtVerify } from 'jose'
 const PUBLIC_EXACT = new Set([
   '/',
   '/discover',
@@ -18,17 +19,32 @@ function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 }
 
-export function proxy(req: NextRequest) {
+async function isValidJwt(token: string) {
+  const secret = process.env.JWT_SECRET
+  if (!secret) return false
+  try {
+    await jwtVerify(token, new TextEncoder().encode(secret), { algorithms: ['HS256'] })
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
   // Allow login page, manifest, service worker, and favicons to bypass auth
   if (isPublicPath(pathname) || isPublicModelPath(pathname)) return NextResponse.next()
 
   const token = req.cookies.get('mwv2_token')?.value
   if (!token) {
-    const url = req.nextUrl.clone()
-    url.pathname = '/login'
-    url.search = ''
-    return NextResponse.redirect(url)
+    const response = NextResponse.redirect(new URL('/login', req.url))
+    response.cookies.delete('mwv2_token')
+    return response
+  }
+  if (!(await isValidJwt(token))) {
+    const response = NextResponse.redirect(new URL('/login', req.url))
+    response.cookies.delete('mwv2_token')
+    return response
   }
   return NextResponse.next()
 }

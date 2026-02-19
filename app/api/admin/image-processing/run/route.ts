@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '../../_utils'
-import { processPendingImages } from '@/lib/image-queue'
+import { enqueueImageProcessing } from '@/lib/processing-jobs'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +9,6 @@ export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const limitParam = searchParams.get('limit')
   const limit = Math.max(1, Math.min(25, Number(limitParam || 5) || 5))
-  const result = await processPendingImages(limit)
-  return NextResponse.json({ ok: true, ...result })
+  const queued = await enqueueImageProcessing({ limit, includeAvatars: true, includeComments: true })
+  return NextResponse.json({ ok: true, queued })
 }

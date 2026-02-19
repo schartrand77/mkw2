@@ -60,8 +60,6 @@ export type ModelWithPartsCountAndTags = {
   flatRatePricing?: boolean | null
   colorSlotCount?: number | null
   allowedColors?: string[] | null
-  volumeMm3: number | null
-  material: string
   likes: number
   downloads: number
   createdAt: Date

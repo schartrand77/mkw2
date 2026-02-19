@@ -7,7 +7,8 @@ import { saveBuffer } from '@/lib/storage'
 import { computeStlStatsMm } from '@/lib/stl'
 import { estimatePriceUSD, resolveModelPricing } from '@/lib/pricing'
 import { computeModelIntelligence } from '@/lib/model-intelligence'
-import { enqueueModelPreviewJob, processPendingModelPreviews, extract3mfFilamentColors } from '@/lib/model-preview-queue'
+import { enqueueModelPreviewJob, extract3mfFilamentColors } from '@/lib/model-preview-queue'
+import { enqueuePreviewProcessing } from '@/lib/processing-jobs'
 
 export const dynamic = 'force-dynamic'
 
@@ -339,7 +340,11 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
       console.warn('Failed to queue 3MF preview job', err)
     }
     try {
-      await processPendingModelPreviews(previewJobs.length, { modelId: id })
+      await enqueuePreviewProcessing({
+        modelId: id,
+        limit: previewJobs.length,
+        idempotencyKey: `preview:model:${id}`,
+      })
     } catch (err) {
       console.warn('Failed to process 3MF previews', err)
     }

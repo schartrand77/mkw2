@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import path from 'path'
 import { unlink } from 'fs/promises'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { prisma } from '@/lib/db'
 import { storageRoot } from '@/lib/storage'
 import { requireAdmin } from '../../_utils'
+import { CACHE_TAGS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,6 +45,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     revalidatePath('/')
     revalidatePath('/admin/home-comments')
     revalidatePath(`/models/${existing.modelId}`)
+    revalidateTag(modelTag(existing.modelId), 'max')
+    revalidateTag(modelCommentsTag(existing.modelId), 'max')
+    revalidateTag(CACHE_TAGS.homePage, 'max')
+    revalidateTag(CACHE_TAGS.homeCuratedComments, 'max')
   } catch {
     // ignore cache revalidation failures
   }
@@ -78,6 +83,10 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
     revalidatePath('/')
     revalidatePath('/admin/home-comments')
     revalidatePath(`/models/${existing.modelId}`)
+    revalidateTag(modelTag(existing.modelId), 'max')
+    revalidateTag(modelCommentsTag(existing.modelId), 'max')
+    revalidateTag(CACHE_TAGS.homePage, 'max')
+    revalidateTag(CACHE_TAGS.homeCuratedComments, 'max')
   } catch {
     // ignore cache revalidation failures
   }

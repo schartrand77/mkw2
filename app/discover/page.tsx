@@ -10,6 +10,7 @@ import { DiscoverSort, DiscoverViewMode, type CardInfo, type DiscoverModel } fro
 import { resolveBaseUrl } from '@/lib/base-url'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { listActiveCollections } from '@/lib/collections'
+import { CACHE_TAGS, CACHE_TTL_SECONDS } from '@/lib/cache-policy'
 
 type SearchParams = { [key: string]: string | string[] | undefined }
 
@@ -20,7 +21,12 @@ const PAGE_SIZE_OPTIONS = [12, 24, 36, 48, 60]
 
 async function fetchModels(params: URLSearchParams, baseUrl: string) {
   const qs = params.toString()
-  const res = await fetch(`${baseUrl}/api/models${qs ? `?${qs}` : ''}`, { cache: 'no-store' })
+  const res = await fetch(`${baseUrl}/api/models${qs ? `?${qs}` : ''}`, {
+    next: {
+      revalidate: CACHE_TTL_SECONDS.discoverModels,
+      tags: [CACHE_TAGS.discoverModels],
+    },
+  })
   if (!res.ok) return { models: [], total: 0, page: 1, pageSize: 24 }
   return res.json()
 }

@@ -8,6 +8,8 @@ import { PassThrough, Readable } from 'stream'
 import archiver from 'archiver'
 import { storageRoot } from '@/lib/storage'
 import { getUserIdFromCookie } from '@/lib/auth'
+import { revalidateTag } from 'next/cache'
+import { CACHE_TAGS, modelTag } from '@/lib/cache-policy'
 export const dynamic = 'force-dynamic'
 
 type ModelDownloadContext = { params: Promise<{ id: string }> }
@@ -76,6 +78,9 @@ export async function GET(_req: NextRequest, { params }: ModelDownloadContext) {
         create: { modelId: id, userId },
       })
     }
+    revalidateTag(modelTag(id), 'max')
+    revalidateTag(CACHE_TAGS.discoverModels, 'max')
+    revalidateTag(CACHE_TAGS.featuredModels, 'max')
   } catch {}
   return new Response(body, { headers })
 }

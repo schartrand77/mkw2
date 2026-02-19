@@ -9,6 +9,9 @@ import { computeEffectivePriceUsd } from '@/lib/pricing-cache'
 import { normalizeModelColorSlotCount, sanitizeAllowedColors } from '@/lib/color-constraints'
 import path from 'path'
 import { unlink } from 'fs/promises'
+import { revalidatePath, revalidateTag } from 'next/cache'
+import { CACHE_TAGS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
+import { getAdminAuditRequestMeta, recordAdminAuditEvent } from '@/lib/admin-audit'
 export const dynamic = 'force-dynamic'
 
 const SALE_PRICE_UNITS = new Set(['ea', 'bx', 'complete'])
@@ -17,7 +20,8 @@ type AdminModelContext = { params: Promise<{ id: string }> }
 
 export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
   const { id } = await params
-  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  let adminId = ''
+  try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const existing = await prisma.model.findUnique({
     where: { id },
     select: {
@@ -148,13 +152,37 @@ export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
       }
     })
   }
+  const requestMeta = getAdminAuditRequestMeta(req)
+  await recordAdminAuditEvent({
+    adminId,
+    action: 'admin.model.update',
+    targetType: 'model',
+    targetId: id,
+    requestMethod: requestMeta.requestMethod,
+    requestPath: requestMeta.requestPath,
+    requestIp: requestMeta.requestIp,
+    userAgent: requestMeta.userAgent,
+    metadata: { updatedKeys: Object.keys(updates), tagsInput: tagsInput ?? null } as any,
+  })
+
+  try {
+    revalidatePath(`/models/${id}`)
+    revalidatePath('/discover')
+    revalidatePath('/')
+    revalidateTag(modelTag(id), 'max')
+    revalidateTag(modelCommentsTag(id), 'max')
+    revalidateTag(CACHE_TAGS.discoverModels, 'max')
+    revalidateTag(CACHE_TAGS.featuredModels, 'max')
+    revalidateTag(CACHE_TAGS.homePage, 'max')
+  } catch {}
 
   return NextResponse.json({ ok: true })
 }
 
-export async function DELETE(_req: NextRequest, { params }: AdminModelContext) {
+export async function DELETE(req: NextRequest, { params }: AdminModelContext) {
   const { id } = await params
-  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  let adminId = ''
+  try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const model = await prisma.model.findUnique({
     where: { id },
     include: { images: true, parts: true },
@@ -170,6 +198,27 @@ export async function DELETE(_req: NextRequest, { params }: AdminModelContext) {
 
   await prisma.model.delete({ where: { id: model.id } })
   await removeStoredFiles(files)
+  const requestMeta = getAdminAuditRequestMeta(req)
+  await recordAdminAuditEvent({
+    adminId,
+    action: 'admin.model.delete',
+    targetType: 'model',
+    targetId: id,
+    requestMethod: requestMeta.requestMethod,
+    requestPath: requestMeta.requestPath,
+    requestIp: requestMeta.requestIp,
+    userAgent: requestMeta.userAgent,
+    metadata: { title: model.title, visibility: model.visibility } as any,
+  })
+  try {
+    revalidatePath('/discover')
+    revalidatePath('/')
+    revalidateTag(modelTag(id), 'max')
+    revalidateTag(modelCommentsTag(id), 'max')
+    revalidateTag(CACHE_TAGS.discoverModels, 'max')
+    revalidateTag(CACHE_TAGS.featuredModels, 'max')
+    revalidateTag(CACHE_TAGS.homePage, 'max')
+  } catch {}
   return NextResponse.json({ ok: true })
 }
 

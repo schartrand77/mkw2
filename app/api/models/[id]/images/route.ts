@@ -3,8 +3,8 @@ import path from 'path'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer } from '@/lib/storage'
-import { processPendingImages } from '@/lib/image-queue'
 import { MODEL_IMAGE_LIMIT, serializeModelImage, serializeModelImages } from '@/lib/model-images'
+import { enqueueImageProcessing } from '@/lib/processing-jobs'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,7 +76,13 @@ export async function POST(req: NextRequest, { params }: ModelImagesContext) {
     await prisma.model.update({ where: { id: guard.model.id }, data: { coverImagePath: publicPath, coverImageStatus: 'processing' } })
   }
   try {
-    await processPendingImages(1, { modelId: guard.model.id })
+    await enqueueImageProcessing({
+      modelId: guard.model.id,
+      includeAvatars: false,
+      includeComments: false,
+      limit: 1,
+      idempotencyKey: `image:model:${guard.model.id}`,
+    })
   } catch (err) {
     console.warn('Failed to process model image', err)
   }

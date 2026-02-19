@@ -5,6 +5,7 @@ import { requireAdmin } from '../_utils'
 import { z } from 'zod'
 import { resolvePrinterProfile } from '@/lib/printerProfiles'
 import { refreshEffectivePrices } from '@/lib/pricing-cache'
+import { getAdminAuditRequestMeta, recordAdminAuditEvent } from '@/lib/admin-audit'
 export const dynamic = 'force-dynamic'
 
 const schema = z.object({
@@ -147,6 +148,18 @@ export async function PATCH(req: NextRequest) {
     if (pricingChanged) {
       await refreshEffectivePrices(prisma, cfg)
     }
+    const requestMeta = getAdminAuditRequestMeta(req)
+    await recordAdminAuditEvent({
+      adminId,
+      action: 'admin.site_config.update',
+      targetType: 'site_config',
+      targetId: CONFIG_ID,
+      requestMethod: requestMeta.requestMethod,
+      requestPath: requestMeta.requestPath,
+      requestIp: requestMeta.requestIp,
+      userAgent: requestMeta.userAgent,
+      metadata: changePayload || ({ keys: [] } as any),
+    })
     revalidatePath('/admin')
     revalidatePath('/products')
     return NextResponse.json({ config: cfg })

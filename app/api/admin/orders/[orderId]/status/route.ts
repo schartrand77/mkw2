@@ -5,6 +5,7 @@ import { requireAdmin } from '@/app/api/admin/_utils'
 import { ORDER_STATUS_FLOW } from '@/lib/order-status'
 import { maybeConsumeStockForOrder } from '@/lib/stockworks-consumption'
 import { syncJobFulfillmentFromOrderStatus } from '@/lib/orderworks-sync'
+import { getAdminAuditRequestMeta, recordAdminAuditEvent } from '@/lib/admin-audit'
 
 const statusKeys = ORDER_STATUS_FLOW.map((entry) => entry.key) as [string, ...string[]]
 
@@ -16,7 +17,8 @@ const payloadSchema = z.object({
 type RouteParams = { params: Promise<{ orderId: string }> }
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  try { await requireAdmin() } catch (e: any) {
+  let adminId = ''
+  try { adminId = await requireAdmin() } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 })
   }
 
@@ -36,6 +38,18 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     })
     await syncJobFulfillmentFromOrderStatus(order.id)
     await maybeConsumeStockForOrder(order.id, 'admin-status-update')
+    const requestMeta = getAdminAuditRequestMeta(req)
+    await recordAdminAuditEvent({
+      adminId,
+      action: 'admin.order.status.update',
+      targetType: 'print_order',
+      targetId: order.id,
+      requestMethod: requestMeta.requestMethod,
+      requestPath: requestMeta.requestPath,
+      requestIp: requestMeta.requestIp,
+      userAgent: requestMeta.userAgent,
+      metadata: { status: payload.status, failureNote: payload.failureNote || null } as any,
+    })
     return NextResponse.json({ order })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request.' }, { status: 400 })

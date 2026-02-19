@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { readFile, unlink } from 'fs/promises'
-export const dynamic = 'force-dynamic'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer, storageRoot } from '@/lib/storage'
 import path from 'path'
 import { serializeModelImages } from '@/lib/model-images'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { resolveModelPricing, estimatePricingDetails } from '@/lib/pricing'
 import { computeEffectivePriceUsd } from '@/lib/pricing-cache'
 import { extractAmazonAsin, buildAmazonImageUrl } from '@/lib/amazon'
@@ -14,9 +13,10 @@ import { commentInclude, findVerifiedCommentUserIds, serializeComment } from '@/
 import { computeStlStatsMm } from '@/lib/stl'
 import { updateModelPricingForModel } from '@/lib/model-pricing'
 import { computeModelIntelligence } from '@/lib/model-intelligence'
-import { processPendingImages } from '@/lib/image-queue'
 import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
 import { extract3mfFilamentColors } from '@/lib/model-preview-queue'
+import { enqueueImageProcessing } from '@/lib/processing-jobs'
+import { CACHE_TAGS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
 
 type ModelRouteContext = { params: Promise<{ id: string }> }
 
@@ -359,7 +359,13 @@ export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
   const updated = await prisma.model.update({ where: { id }, data: updates })
   if (image) {
     try {
-      await processPendingImages(1, { modelId: id })
+      await enqueueImageProcessing({
+        modelId: id,
+        includeAvatars: false,
+        includeComments: false,
+        limit: 1,
+        idempotencyKey: `image:model:${id}`,
+      })
     } catch (err) {
       console.warn('Failed to process cover image', err)
     }
@@ -368,6 +374,11 @@ export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
     revalidatePath(`/models/${id}`)
     revalidatePath('/discover')
     revalidatePath('/')
+    revalidateTag(modelTag(id), 'max')
+    revalidateTag(modelCommentsTag(id), 'max')
+    revalidateTag(CACHE_TAGS.discoverModels, 'max')
+    revalidateTag(CACHE_TAGS.featuredModels, 'max')
+    revalidateTag(CACHE_TAGS.homePage, 'max')
   } catch {
     // ignore revalidation errors
   }

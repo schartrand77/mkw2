@@ -13,6 +13,14 @@ services:
     networks:
       - makerworks-net
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - makerworks-net
+
   web:
     build:
       context: .
@@ -21,6 +29,7 @@ services:
     restart: unless-stopped
     depends_on:
       - db
+      - redis
     env_file:
       - .env
     environment:
@@ -58,6 +67,7 @@ services:
       RECEIPT_REPLY_TO_EMAIL: ${RECEIPT_REPLY_TO_EMAIL:-}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       # StockWorks filament availability
       STOCKWORKS_BASE_URL: ${STOCKWORKS_BASE_URL:-}
       STOCKWORKS_ADMIN_USERNAME: ${STOCKWORKS_ADMIN_USERNAME:-}

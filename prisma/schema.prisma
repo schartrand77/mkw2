@@ -41,6 +41,7 @@ model User {
   downloadReceipts ModelDownload[]
   modelRevisions ModelRevision[]
   configChanges ConfigChangeLog[]
+  adminAuditEvents AdminAuditEvent[]
   presets CustomerPreset[]
   failurePhotos FailurePhoto[]
 
@@ -757,4 +758,28 @@ model ConfigChangeLog {
   @@index([adminId])
   @@index([createdAt])
   @@index([section])
+}
+
+model AdminAuditEvent {
+  id            String   @id @default(cuid())
+  adminId       String?
+  adminEmail    String?
+  adminName     String?
+  action        String
+  targetType    String?
+  targetId      String?
+  requestMethod String
+  requestPath   String
+  requestIp     String?
+  userAgent     String?
+  metadata      Json?
+  prevHash      String?
+  eventHash     String   @unique
+  createdAt     DateTime @default(now())
+
+  admin User? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
 }

@@ -12,9 +12,15 @@ import ModelComments from '@/components/ModelComments'
 import ModelShareButton from '@/components/ModelShareButton'
 import InstantQuoteConfigurator from '@/components/InstantQuoteConfigurator'
 import ModelProcessingNotifier from '@/components/ModelProcessingNotifier'
+import { CACHE_TAGS, CACHE_TTL_SECONDS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
 
 async function fetchModel(id: string, baseUrl: string) {
-  const res = await fetch(`${baseUrl}/api/models/${id}`, { cache: 'no-store' })
+  const res = await fetch(`${baseUrl}/api/models/${id}`, {
+    next: {
+      revalidate: CACHE_TTL_SECONDS.modelDetail,
+      tags: [modelTag(id), modelCommentsTag(id), CACHE_TAGS.discoverModels],
+    },
+  })
   if (!res.ok) return null
   return (await res.json()).model as any
 }
@@ -34,11 +40,8 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   const fileHref = toPublicHref(model.filePath)
   const filePath = typeof model.filePath === 'string' ? model.filePath : null
   const viewerPath = typeof model.viewerFilePath === 'string' ? model.viewerFilePath : null
-  const has3mf = filePath ? filePath.toLowerCase().endsWith('.3mf') : false
-  const viewerHref = toPublicHref(has3mf ? filePath : (viewerPath || filePath))
-  const viewerFallbackHref = has3mf && viewerPath && viewerPath.toLowerCase().endsWith('.stl')
-    ? toPublicHref(viewerPath)
-    : null
+  const viewerHref = toPublicHref(viewerPath || filePath)
+  const viewerFallbackHref = null
   const coverHref = buildImageSrc(model.coverImagePath, model.updatedAt)
   const hasParts = Array.isArray(model.parts) && model.parts.length > 0
   const partParam = resolvedSearchParams?.part
