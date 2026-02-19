@@ -6,6 +6,8 @@ import { storageRoot } from '@/lib/storage'
 import path from 'path'
 import { unlink } from 'fs/promises'
 import { notifyMerchBackInStock } from '@/lib/merch-notify'
+import { syncMerchItemToStockworks } from '@/lib/stockworks-merch'
+import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +20,8 @@ const schema = z.object({
   imageUrl: z.string().trim().max(500).optional().nullable(),
   externalUrl: z.string().trim().url().max(500).optional().nullable(),
   ctaLabel: z.string().trim().max(40).optional().nullable(),
+  sizeOptions: z.array(z.string().trim().min(1).max(40)).max(64).optional().nullable(),
+  colorOptions: z.array(z.string().trim().min(1).max(40)).max(64).optional().nullable(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
 })
@@ -67,7 +71,20 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     const parsed = schema.parse(await req.json())
     const existing = await prisma.merchItem.findUnique({
       where: { id },
-      select: { imageUrl: true, availability: true },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        priceUsd: true,
+        imageUrl: true,
+        availability: true,
+        sizeOptions: true,
+        colorOptions: true,
+        stockworksCategory: true,
+        stockworksStatus: true,
+        stockworksNotes: true,
+        stockworksVariantMap: true,
+      },
     })
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const nextImage = parsed.imageUrl === undefined ? undefined : normalizeSelfHostedImagePath(parsed.imageUrl)
@@ -83,6 +100,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         imageUrl: nextImage,
         externalUrl: parsed.externalUrl === undefined ? undefined : (parsed.externalUrl || null),
         ctaLabel: parsed.ctaLabel === undefined ? undefined : (parsed.ctaLabel || null),
+        sizeOptions: parsed.sizeOptions === undefined ? undefined : (parsed.sizeOptions ?? Prisma.JsonNull),
+        colorOptions: parsed.colorOptions === undefined ? undefined : (parsed.colorOptions ?? Prisma.JsonNull),
         isActive: parsed.isActive ?? undefined,
         sortOrder: parsed.sortOrder ?? undefined,
       },
@@ -102,7 +121,35 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         notifyWarning = err?.message || 'Failed to process back-in-stock notifications.'
       }
     }
-    return NextResponse.json({ item, notifyResult, notifyWarning })
+    let stockworksWarning: string | null = null
+    let syncedItem = item
+    try {
+      const synced = await syncMerchItemToStockworks({
+        id: item.id,
+        title: item.title,
+        category: item.category,
+        priceUsd: item.priceUsd,
+        sizeOptions: item.sizeOptions,
+        colorOptions: item.colorOptions,
+        stockworksCategory: item.stockworksCategory,
+        stockworksStatus: item.stockworksStatus,
+        stockworksNotes: item.stockworksNotes,
+        stockworksVariantMap: item.stockworksVariantMap,
+      })
+      syncedItem = await prisma.merchItem.update({
+        where: { id: item.id },
+        data: {
+          sizeOptions: synced.sizeOptions,
+          colorOptions: synced.colorOptions,
+          stockworksVariantMap: synced.stockworksVariantMap,
+          stockworksCategory: item.stockworksCategory || 'merch',
+          stockworksStatus: item.stockworksStatus || 'Active',
+        },
+      })
+    } catch (err: any) {
+      stockworksWarning = err?.message || 'StockWorks merch sync failed.'
+    }
+    return NextResponse.json({ item: syncedItem, notifyResult, notifyWarning, stockworksWarning })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
   }

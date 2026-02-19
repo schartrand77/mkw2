@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../_utils'
 import { z } from 'zod'
+import { syncMerchItemToStockworks } from '@/lib/stockworks-merch'
+import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +16,8 @@ const schema = z.object({
   imageUrl: z.string().trim().max(500).optional().nullable(),
   externalUrl: z.string().trim().url().max(500).optional().nullable(),
   ctaLabel: z.string().trim().max(40).optional().nullable(),
+  sizeOptions: z.array(z.string().trim().min(1).max(40)).max(64).optional().nullable(),
+  colorOptions: z.array(z.string().trim().min(1).max(40)).max(64).optional().nullable(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
 })
@@ -60,11 +64,41 @@ export async function POST(req: NextRequest) {
         imageUrl: normalizeSelfHostedImagePath(parsed.imageUrl),
         externalUrl: parsed.externalUrl || null,
         ctaLabel: parsed.ctaLabel || null,
+        sizeOptions: parsed.sizeOptions ?? Prisma.JsonNull,
+        colorOptions: parsed.colorOptions ?? Prisma.JsonNull,
         isActive: parsed.isActive ?? true,
         sortOrder: parsed.sortOrder ?? 0,
       },
     })
-    return NextResponse.json({ item })
+    let stockworksWarning: string | null = null
+    let syncedItem = item
+    try {
+      const synced = await syncMerchItemToStockworks({
+        id: item.id,
+        title: item.title,
+        category: item.category,
+        priceUsd: item.priceUsd,
+        sizeOptions: item.sizeOptions,
+        colorOptions: item.colorOptions,
+        stockworksCategory: item.stockworksCategory,
+        stockworksStatus: item.stockworksStatus,
+        stockworksNotes: item.stockworksNotes,
+        stockworksVariantMap: item.stockworksVariantMap,
+      })
+      syncedItem = await prisma.merchItem.update({
+        where: { id: item.id },
+        data: {
+          sizeOptions: synced.sizeOptions,
+          colorOptions: synced.colorOptions,
+          stockworksVariantMap: synced.stockworksVariantMap,
+          stockworksCategory: item.stockworksCategory || 'merch',
+          stockworksStatus: item.stockworksStatus || 'Active',
+        },
+      })
+    } catch (err: any) {
+      stockworksWarning = err?.message || 'StockWorks merch sync failed.'
+    }
+    return NextResponse.json({ item: syncedItem, stockworksWarning })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
   }

@@ -326,6 +326,12 @@ model MerchItem {
   category    String   @default("Merch")
   availability String  @default("in_stock")
   priceUsd    Float?
+  sizeOptions Json?
+  colorOptions Json?
+  stockworksCategory String? @default("merch")
+  stockworksStatus String? @default("Active")
+  stockworksNotes String?
+  stockworksVariantMap Json?
   imageUrl    String?
   externalUrl String?
   ctaLabel    String?

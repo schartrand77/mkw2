@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { buildImageSrc } from '@/lib/public-path'
 import { formatPriceLabel } from '@/lib/price-label'
 
@@ -11,21 +11,88 @@ type FeaturedMarqueeProps = {
 }
 
 export default function FeaturedMarquee({ models, variant = 'default' }: FeaturedMarqueeProps) {
+  const HOLD_MS = 4400
+  const SLIDE_MS = 500
   const minVisibleCards = 6
   const baseRepeatCount = models.length > 0 ? Math.max(1, Math.ceil(minVisibleCards / models.length)) : 1
   const baseSequence = Array.from({ length: baseRepeatCount }, () => models).flat()
-  const loop = [...baseSequence, ...baseSequence]
-  const durationSeconds = Math.max(18, baseSequence.length * 4)
+  const sequenceLength = baseSequence.length
+  const loop = [...baseSequence, ...baseSequence, ...baseSequence]
+  const startIndex = sequenceLength
   const isCompact = variant === 'compact'
   const [paused, setPaused] = useState(false)
+  const [currentIndex, setCurrentIndex] = useState(startIndex)
+  const [resettingPosition, setResettingPosition] = useState(false)
+  const [stepPx, setStepPx] = useState(0)
+  const [firstCardWidth, setFirstCardWidth] = useState(0)
+  const [viewportWidth, setViewportWidth] = useState(0)
+  const trackRef = useRef<HTMLDivElement | null>(null)
+  const viewportRef = useRef<HTMLDivElement | null>(null)
   const cardClassName = isCompact
     ? 'w-[220px] flex-shrink-0 glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition'
     : 'w-[280px] sm:w-[320px] md:w-[360px] flex-shrink-0 glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition'
   const bodyClassName = isCompact ? 'p-3' : 'p-4'
   const titleClassName = isCompact ? 'text-sm font-semibold truncate' : 'font-semibold truncate'
   const priceClassName = isCompact ? 'text-xs text-slate-400' : 'text-sm text-slate-400'
+
+  useEffect(() => {
+    setCurrentIndex(startIndex)
+  }, [startIndex])
+
+  useEffect(() => {
+    const track = trackRef.current
+    const viewport = viewportRef.current
+    if (!track || !viewport) return
+    const measure = () => {
+      const cards = track.querySelectorAll<HTMLElement>('[data-marquee-card="true"]')
+      if (cards.length === 0) return
+      const first = cards[0]
+      const second = cards[1]
+      const firstRect = first.getBoundingClientRect()
+      setFirstCardWidth(firstRect.width)
+      setViewportWidth(viewport.getBoundingClientRect().width)
+      if (second) {
+        setStepPx(second.offsetLeft - first.offsetLeft)
+        return
+      }
+      const gapRaw = getComputedStyle(track).columnGap || getComputedStyle(track).gap
+      const gap = Number.parseFloat(gapRaw || '0')
+      setStepPx(firstRect.width + (Number.isFinite(gap) ? gap : 0))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(track)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [sequenceLength])
+
+  useEffect(() => {
+    if (paused || sequenceLength === 0) return
+    const interval = window.setInterval(() => {
+      setCurrentIndex((prev) => prev + 1)
+    }, HOLD_MS + SLIDE_MS)
+    return () => window.clearInterval(interval)
+  }, [paused, sequenceLength])
+
+  useEffect(() => {
+    if (sequenceLength === 0 || currentIndex < sequenceLength * 2) return
+    const timeout = window.setTimeout(() => {
+      setResettingPosition(true)
+      setCurrentIndex(startIndex)
+    }, SLIDE_MS)
+    return () => window.clearTimeout(timeout)
+  }, [currentIndex, sequenceLength, startIndex])
+
+  useEffect(() => {
+    if (!resettingPosition) return
+    const raf = window.requestAnimationFrame(() => setResettingPosition(false))
+    return () => window.cancelAnimationFrame(raf)
+  }, [resettingPosition])
+
+  const centerOffset = viewportWidth > 0 && firstCardWidth > 0 ? (viewportWidth - firstCardWidth) / 2 : 0
+  const translateX = centerOffset - currentIndex * stepPx
   return (
-    <div className="marquee-viewport glass rounded-2xl border border-white/10 p-4">
+    <div ref={viewportRef} className="marquee-viewport glass rounded-2xl border border-white/10 p-4">
       <div className="marquee-fade marquee-fade-left" aria-hidden="true" />
       <div className="marquee-fade marquee-fade-right" aria-hidden="true" />
       <button
@@ -47,17 +114,20 @@ export default function FeaturedMarquee({ models, variant = 'default' }: Feature
         )}
       </button>
       <div
+        ref={trackRef}
         className="marquee-track"
         style={{
-          animationDuration: `${durationSeconds}s`,
-          animationPlayState: paused ? 'paused' : 'running',
+          transform: `translateX(${translateX}px)`,
+          transitionDuration: resettingPosition ? '0ms' : `${SLIDE_MS}ms`,
+          transitionTimingFunction: 'ease',
+          transitionProperty: 'transform',
         }}
       >
         {loop.map((model, idx) => (
           <FeaturedCard
             key={`${model.id}-${idx}`}
             model={model}
-            ariaHidden={idx >= baseSequence.length}
+            ariaHidden={idx < startIndex || idx >= startIndex + sequenceLength}
             cardClassName={cardClassName}
             bodyClassName={bodyClassName}
             titleClassName={titleClassName}
@@ -94,6 +164,7 @@ function FeaturedCard({
     <Link
       href={`/models/${model.id}`}
       className={cardClassName}
+      data-marquee-card="true"
       aria-hidden={ariaHidden}
       tabIndex={ariaHidden ? -1 : undefined}
     >

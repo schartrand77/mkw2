@@ -376,7 +376,7 @@ html.theme-light .page-title::after {
   display: flex;
   gap: 1.5rem;
   width: max-content;
-  animation: marquee-scroll 30s linear infinite;
+  will-change: transform;
 }
 .marquee-control {
   position: absolute;
@@ -407,10 +407,6 @@ html.theme-light .page-title::after {
 .marquee-control-icon {
   width: 14px;
   height: 14px;
-}
-@keyframes marquee-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
 }
 .marquee-fade {
   position: absolute;

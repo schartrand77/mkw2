@@ -8,5 +8,10 @@ export async function GET() {
     where: { isActive: true },
     orderBy: [{ sortOrder: 'asc' }, { updatedAt: 'desc' }],
   })
-  return NextResponse.json({ items })
+  const normalized = items.map((item) => ({
+    ...item,
+    sizeOptions: Array.isArray((item as any).sizeOptions) ? (item as any).sizeOptions : null,
+    colorOptions: Array.isArray((item as any).colorOptions) ? (item as any).colorOptions : null,
+  }))
+  return NextResponse.json({ items: normalized })
 }

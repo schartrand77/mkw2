@@ -105,6 +105,8 @@ export default async function ProductDetailPage({ params, searchParams }: Params
                 availability: merch.availability,
                 externalUrl: merch.externalUrl,
                 ctaLabel: merch.ctaLabel,
+                sizeOptions: Array.isArray((merch as any).sizeOptions) ? (merch as any).sizeOptions : null,
+                colorOptions: Array.isArray((merch as any).colorOptions) ? (merch as any).colorOptions : null,
               }}
             />
           </div>

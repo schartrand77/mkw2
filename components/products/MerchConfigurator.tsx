@@ -10,6 +10,8 @@ type MerchItem = {
   availability: string
   externalUrl?: string | null
   ctaLabel?: string | null
+  sizeOptions?: string[] | null
+  colorOptions?: string[] | null
 }
 
 type Props = {
@@ -27,8 +29,14 @@ function isApparel(item: MerchItem) {
 
 export default function MerchConfigurator({ item }: Props) {
   const apparel = isApparel(item)
-  const sizes = apparel ? APPAREL_SIZES : ['One Size']
-  const colors = apparel ? APPAREL_COLORS : DEFAULT_COLORS
+  const sizes = useMemo(() => {
+    if (Array.isArray(item.sizeOptions) && item.sizeOptions.length > 0) return item.sizeOptions
+    return apparel ? APPAREL_SIZES : ['One Size']
+  }, [item.sizeOptions, apparel])
+  const colors = useMemo(() => {
+    if (Array.isArray(item.colorOptions) && item.colorOptions.length > 0) return item.colorOptions
+    return apparel ? APPAREL_COLORS : DEFAULT_COLORS
+  }, [item.colorOptions, apparel])
 
   const [size, setSize] = useState(sizes[0])
   const [color, setColor] = useState(colors[0])

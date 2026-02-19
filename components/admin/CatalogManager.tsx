@@ -19,6 +19,8 @@ type MerchItem = {
   imageUrl?: string | null
   externalUrl?: string | null
   ctaLabel?: string | null
+  sizeOptions?: string[] | null
+  colorOptions?: string[] | null
   isActive: boolean
   sortOrder: number
   updatedAt?: string | null
@@ -105,6 +107,8 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
       imageUrl: item.imageUrl || '',
       externalUrl: item.externalUrl || '',
       ctaLabel: item.ctaLabel || '',
+      sizeOptions: Array.isArray(item.sizeOptions) ? item.sizeOptions : null,
+      colorOptions: Array.isArray(item.colorOptions) ? item.colorOptions : null,
       isActive: item.isActive,
       sortOrder: item.sortOrder ?? 0,
       updatedAt: item.updatedAt || null,
@@ -158,6 +162,12 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
         imageUrl: hostedImageUrl,
         externalUrl: draft.externalUrl?.trim() || null,
         ctaLabel: draft.ctaLabel?.trim() || null,
+        sizeOptions: Array.isArray(draft.sizeOptions)
+          ? draft.sizeOptions.map((entry) => String(entry || '').trim()).filter(Boolean)
+          : null,
+        colorOptions: Array.isArray(draft.colorOptions)
+          ? draft.colorOptions.map((entry) => String(entry || '').trim()).filter(Boolean)
+          : null,
         isActive: Boolean(draft.isActive),
         sortOrder: Math.max(0, Math.round(Number(draft.sortOrder) || 0)),
       }
@@ -179,14 +189,17 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
       resetEditor()
       const notifyResult = data?.notifyResult as { pending: number; sent: number; failed: number } | undefined
       const notifyWarning = typeof data?.notifyWarning === 'string' ? data.notifyWarning : null
+      const stockworksWarning = typeof data?.stockworksWarning === 'string' ? data.stockworksWarning : null
       if (notifyResult && (notifyResult.sent > 0 || notifyResult.failed > 0 || notifyResult.pending > 0)) {
         const parts = ['Updated merch item.']
         parts.push(`Availability emails: ${notifyResult.sent} sent`)
         if (notifyResult.failed > 0) parts.push(`${notifyResult.failed} failed`)
         if (notifyWarning) parts.push(notifyWarning)
+        if (stockworksWarning) parts.push(`StockWorks: ${stockworksWarning}`)
         setMessage(parts.join(' '))
       } else {
-        setMessage(editingId ? 'Updated merch item.' : 'Added merch item.')
+        const base = editingId ? 'Updated merch item.' : 'Added merch item.'
+        setMessage(stockworksWarning ? `${base} StockWorks: ${stockworksWarning}` : base)
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to save merch item.')
@@ -315,6 +328,34 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
             <span className="text-slate-400">CTA label</span>
             <input className="input" value={draft.ctaLabel || ''} onChange={(e) => setDraft((prev) => ({ ...prev, ctaLabel: e.target.value }))} placeholder="Shop now" />
           </label>
+          <label className="text-sm space-y-1">
+            <span className="text-slate-400">Sizes (comma-separated)</span>
+            <input
+              className="input"
+              value={Array.isArray(draft.sizeOptions) ? draft.sizeOptions.join(', ') : ''}
+              onChange={(e) => setDraft((prev) => ({
+                ...prev,
+                sizeOptions: e.target.value.trim()
+                  ? Array.from(new Set(e.target.value.split(',').map((entry) => entry.trim()).filter(Boolean)))
+                  : null,
+              }))}
+              placeholder="XS, S, M, L, XL"
+            />
+          </label>
+          <label className="text-sm space-y-1">
+            <span className="text-slate-400">Colors (comma-separated)</span>
+            <input
+              className="input"
+              value={Array.isArray(draft.colorOptions) ? draft.colorOptions.join(', ') : ''}
+              onChange={(e) => setDraft((prev) => ({
+                ...prev,
+                colorOptions: e.target.value.trim()
+                  ? Array.from(new Set(e.target.value.split(',').map((entry) => entry.trim()).filter(Boolean)))
+                  : null,
+              }))}
+              placeholder="Black, White, Navy"
+            />
+          </label>
           <label className="text-sm flex items-center gap-2">
             <input type="checkbox" checked={draft.isActive} onChange={(e) => setDraft((prev) => ({ ...prev, isActive: e.target.checked }))} />
             <span>Visible on products page</span>
@@ -375,6 +416,12 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
                     />
                   )}
                   {item.description && <div className="text-sm text-slate-300">{item.description}</div>}
+                  {(Array.isArray(item.sizeOptions) && item.sizeOptions.length > 0) && (
+                    <div className="text-xs text-slate-400">Sizes: {item.sizeOptions.join(', ')}</div>
+                  )}
+                  {(Array.isArray(item.colorOptions) && item.colorOptions.length > 0) && (
+                    <div className="text-xs text-slate-400">Colors: {item.colorOptions.join(', ')}</div>
+                  )}
                   <div className="text-xs text-slate-400">
                     {item.priceUsd != null ? formatCurrency(item.priceUsd) : 'No price'} - Sort {item.sortOrder}
                   </div>
