@@ -64,6 +64,7 @@ function GearGlyph() {
 export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   const pathname = usePathname() || '/'
   const router = useRouter()
+  const sidebarRef = useRef<HTMLElement | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
@@ -79,6 +80,28 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       document.body.classList.remove('sidebar-open')
     }
   }, [mobileOpen])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return
+    if (window.matchMedia('(min-width: 1024px)').matches) {
+      document.documentElement.style.removeProperty('--app-sidebar-drawer-width')
+      return
+    }
+    const updateDrawerWidth = () => {
+      const node = sidebarRef.current
+      if (!node) return
+      const width = Math.ceil(node.getBoundingClientRect().width)
+      if (width > 0) {
+        document.documentElement.style.setProperty('--app-sidebar-drawer-width', `${width}px`)
+      }
+    }
+    const raf = window.requestAnimationFrame(updateDrawerWidth)
+    window.addEventListener('resize', updateDrawerWidth)
+    return () => {
+      window.cancelAnimationFrame(raf)
+      window.removeEventListener('resize', updateDrawerWidth)
+    }
+  }, [mobileOpen, adminOpen, pathname, authed, isAdmin])
 
   useEffect(() => {
     if (inAdmin) setAdminOpen(true)
@@ -195,7 +218,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
         <span className="app-sidebar-handle-chevron" aria-hidden="true">{mobileOpen ? '‹' : '›'}</span>
       </button>
 
-      <aside id="app-sidebar" className={`app-sidebar ${mobileOpen ? 'app-sidebar-open' : ''}`}>
+      <aside ref={sidebarRef} id="app-sidebar" className={`app-sidebar ${mobileOpen ? 'app-sidebar-open' : ''}`}>
         <div className="app-sidebar-inner">
           <Link href="/" aria-label={BRAND_FULL_NAME} className="app-sidebar-brand">
             <span>{BRAND_LOGO_PREFIX}</span>

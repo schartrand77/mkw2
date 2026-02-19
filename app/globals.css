@@ -169,7 +169,7 @@ body {
 }
 @media (max-width: 1023px) {
   :root {
-    --app-sidebar-drawer-width: min(82vw, 18rem);
+    --app-sidebar-drawer-width: 18rem;
     --app-sidebar-drawer-left: max(0.75rem, env(safe-area-inset-left));
   }
   .app-sidebar {
@@ -177,7 +177,8 @@ body {
     left: var(--app-sidebar-drawer-left);
     top: calc(max(0.5rem, env(safe-area-inset-top)) + 3rem);
     bottom: max(0.75rem, env(safe-area-inset-bottom));
-    width: var(--app-sidebar-drawer-width);
+    width: max-content;
+    max-width: calc(100vw - var(--app-sidebar-drawer-left) - 0.75rem);
     flex: none;
     max-height: none;
     transform: translateX(-120%);
