@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useCart } from '@/components/cart/CartProvider'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { BRAND_FULL_NAME, BRAND_LOGO_PREFIX, BRAND_LOGO_SUFFIX, BRAND_VERSION } from '@/lib/brand'
 
 type Props = {
@@ -68,10 +69,15 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [avatarSrc, setAvatarSrc] = useState<string | null>(avatarUrl)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const { count } = useCart()
   const inAdmin = pathname.startsWith('/admin')
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -207,16 +213,19 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
 
   return (
     <>
-      <button
-        type="button"
-        className={`app-sidebar-handle lg:hidden ${mobileOpen ? 'app-sidebar-handle-open' : ''}`}
-        onClick={() => setMobileOpen((open) => !open)}
-        aria-expanded={mobileOpen}
-        aria-controls="app-sidebar"
-        aria-label={mobileOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-      >
-        <span className="app-sidebar-handle-chevron" aria-hidden="true">{mobileOpen ? '‹' : '›'}</span>
-      </button>
+      {mounted && createPortal(
+        <button
+          type="button"
+          className={`app-sidebar-handle lg:hidden ${mobileOpen ? 'app-sidebar-handle-open' : ''}`}
+          onClick={() => setMobileOpen((open) => !open)}
+          aria-expanded={mobileOpen}
+          aria-controls="app-sidebar"
+          aria-label={mobileOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+        >
+          <span className="app-sidebar-handle-chevron" aria-hidden="true">{mobileOpen ? '‹' : '›'}</span>
+        </button>,
+        document.body
+      )}
 
       <aside ref={sidebarRef} id="app-sidebar" className={`app-sidebar ${mobileOpen ? 'app-sidebar-open' : ''}`}>
         <div className="app-sidebar-inner">
