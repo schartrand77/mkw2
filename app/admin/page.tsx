@@ -6,7 +6,6 @@ import { prisma } from '@/lib/db'
 type BackupSummary = { folder: string; createdAt: string }
 type PendingRestore = { relativePath?: string; backupPath?: string; createdAt: string }
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const backupModule = require('@/lib/backups') as {
   listBackups: () => BackupSummary[]
   getPendingRestore: () => (PendingRestore & { manifest?: string }) | null
@@ -26,7 +25,7 @@ export default async function AdminPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-semibold">Admin</h1>
-        <p className="mt-1 text-sm text-slate-400">Use the sidebar to open each admin tool as a dedicated page.</p>
+        <p className="mt-1 text-sm text-slate-400">Use the main menu sidebar to open each admin tool page.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
