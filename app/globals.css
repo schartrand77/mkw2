@@ -148,7 +148,7 @@ body {
 .app-sidebar-handle {
   position: fixed;
   left: 0.35rem;
-  top: calc(max(0.5rem, env(safe-area-inset-top)) + 3.8rem);
+  top: 50dvh;
   z-index: 1250;
   display: inline-flex;
   align-items: center;
@@ -160,6 +160,7 @@ body {
   background: rgba(5, 8, 12, 0.9);
   color: rgb(226 232 240);
   backdrop-filter: blur(12px);
+  transform: translateY(-50%);
   transition: left 190ms ease, transform 190ms ease, opacity 190ms ease;
 }
 .app-sidebar-handle-chevron {
