@@ -189,6 +189,12 @@ body {
   top: max(0.75rem, env(safe-area-inset-top));
   right: max(0.75rem, env(safe-area-inset-right));
   z-index: 1260;
+  transition: right 190ms ease, transform 190ms ease;
+  transform: translateX(0);
+}
+body.sidebar-open .app-user-shortcut {
+  right: max(0.75rem, env(safe-area-inset-right));
+  transform: translateX(0);
 }
 .app-user-shortcut-row {
   display: flex;

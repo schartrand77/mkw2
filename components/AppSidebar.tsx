@@ -79,6 +79,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   const quickMenuRef = useRef<HTMLDivElement | null>(null)
   const { count } = useCart()
   const inAdmin = pathname.startsWith('/admin')
+  const sidebarExpanded = isMobileViewport ? mobileOpen : !desktopCollapsed
 
   useEffect(() => {
     setMounted(true)
@@ -86,11 +87,11 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    document.body.classList.toggle('sidebar-open', isMobileViewport && mobileOpen)
+    document.body.classList.toggle('sidebar-open', sidebarExpanded)
     return () => {
       document.body.classList.remove('sidebar-open')
     }
-  }, [isMobileViewport, mobileOpen])
+  }, [sidebarExpanded])
 
   // Always close the mobile drawer after navigation.
   useEffect(() => {
@@ -250,7 +251,6 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     }
   }
 
-  const sidebarExpanded = isMobileViewport ? mobileOpen : !desktopCollapsed
   const toggleSidebar = () => {
     if (isMobileViewport) {
       setMobileOpen((open) => !open)
