@@ -4,6 +4,13 @@ MakerWorks Storefront is a production-grade 3D printing commerce platform: custo
 
 It is built for print labs and shops that need one system for sales, manufacturing, and inventory-aware planning.
 
+## Lender Presentation Pack
+
+For bank/business-loan review, start here:
+
+- Business brief: [`docs/bank-loan-brief.md`](docs/bank-loan-brief.md)
+- Technical audit snapshot: [`docs/professional-app-audit.md`](docs/professional-app-audit.md)
+
 ## What This App Does
 
 - Runs a public 3D print storefront (discover, product pages, upload, cart, checkout).
