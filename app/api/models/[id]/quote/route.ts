@@ -5,6 +5,7 @@ import { getColorMultiplier, normalizeColors, normalizeMaterialName, resolveScal
 import { buildAllowedColorTokenSet, isColorAllowed, normalizeModelColorSlotCount } from '@/lib/color-constraints'
 import { estimatePricingDetails } from '@/lib/pricing'
 import { applyPricingAdjustments, getPricingAdjustmentConfig, resolveBatchDiscountPercent } from '@/lib/estimate-adjustments'
+import { estimateLeadTimeHours } from '@/lib/lead-time-estimator'
 
 export const dynamic = 'force-dynamic'
 
@@ -205,6 +206,11 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
     return Object.keys(dims).length ? dims : null
   })()
 
+  const leadTime = await estimateLeadTimeHours({
+    baseHours: pricing.hours,
+    material,
+  })
+
   return NextResponse.json({
     quote: {
       modelId: model.id,
@@ -218,7 +224,12 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
       scaleZ,
       targetDimensions,
       priceUsd,
-      leadTimeHours: pricing.hours,
+      leadTimeHours: leadTime.hours,
+      leadTimeWindowHours: {
+        min: leadTime.minHours,
+        max: leadTime.maxHours,
+      },
+      etaConfidenceScore: leadTime.confidenceScore,
       pricing,
       adjustments: {
         batchDiscountPercent,
@@ -226,6 +237,7 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
         demandSurgeMultiplier: adjustments.demandSurgeMultiplier,
         rushMultiplier: adjustments.rushMultiplier,
       },
+      leadTimeSignals: leadTime.signals,
     },
   })
 }

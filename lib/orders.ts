@@ -7,6 +7,7 @@ import type { CheckoutLineItem, ShippingSelection, CheckoutPaymentMethod } from 
 import { saveBuffer } from '@/lib/storage'
 import type { OrderStatus } from '@/lib/order-status'
 import { normalizePaymentMethod as normalizeOrderWorksPaymentMethod } from '@/lib/orderworks-status'
+import { listOrganizationIdsForUser } from '@/lib/organizations'
 
 type PersistOrderPayload = {
   paymentIntentId: string
@@ -19,6 +20,7 @@ type PersistOrderPayload = {
   customerEmail?: string | null
   customerName?: string | null
   discountPercent?: number | null
+  organizationId?: string | null
   metadata?: Prisma.InputJsonValue
 }
 
@@ -108,6 +110,9 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
     }
     return { paymentIntentId: payload.paymentIntentId }
   })()
+  const metadataRecord = metadataPayload as Record<string, unknown>
+  const organizationRole = typeof metadataRecord.organizationRole === 'string' ? metadataRecord.organizationRole : null
+  const orgRequiresApproval = metadataRecord.quoteApprovalRequired === true
 
   return prisma.printOrder.create({
     data: {
@@ -120,6 +125,7 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
       totalCents: payload.amountCents,
       currency: normalizeCurrency(payload.currency),
       metadata: metadataPayload,
+      organizationId: payload.organizationId || undefined,
       userId: payload.userId || undefined,
       customerEmail: payload.customerEmail || undefined,
       customerName: payload.customerName || undefined,
@@ -130,7 +136,9 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
         ? {
           approvalRequests: {
             create: {
-              message: 'Please approve this quote to move your order into production.',
+              message: organizationRole === 'requester' || orgRequiresApproval
+                ? 'Requester submitted quote. Approver review is required before production.'
+                : 'Please approve this quote to move your order into production.',
             },
           },
         }
@@ -195,8 +203,14 @@ async function filterVisibleOrdersForUser<T extends { id: string; metadata: unkn
 
 export async function listOrdersForUser(userId: string, limit = 20): Promise<OrderListEntry[]> {
   if (!userId) return []
+  const orgIds = await listOrganizationIdsForUser(userId)
   const orders = await prisma.printOrder.findMany({
-    where: { userId },
+    where: {
+      OR: [
+        { userId },
+        ...(orgIds.length > 0 ? [{ organizationId: { in: orgIds } }] : []),
+      ],
+    },
     orderBy: { createdAt: 'desc' },
     take: limit,
     include: {
@@ -219,6 +233,7 @@ export type OrderDetail = PrintOrder & {
   revisions: (PrintOrderRevision & { user?: { id: string; name: string | null; email: string } | null })[]
   messages: (PrintOrderMessage & { user?: { id: string; name: string | null; email: string } | null })[]
   approvalRequests: (PrintOrderApprovalRequest & { requestedBy?: { id: string; name: string | null; email: string } | null })[]
+  failurePhotos: { id: string; filePath: string; label: string; confidence: number | null; note: string | null; createdAt: Date }[]
   reprintOf: { id: string; orderNumber: number | null } | null
   reprints: { id: string; orderNumber: number | null; status: string; createdAt: Date }[]
 }
@@ -261,8 +276,15 @@ export async function createOrderFromJobForm(job: JobForm & { user?: { id: strin
 
 export async function getOrderForUser(orderId: string, userId: string): Promise<OrderDetail | null> {
   if (!userId) return null
+  const orgIds = await listOrganizationIdsForUser(userId)
   const order = await prisma.printOrder.findFirst({
-    where: { id: orderId, userId },
+    where: {
+      id: orderId,
+      OR: [
+        { userId },
+        ...(orgIds.length > 0 ? [{ organizationId: { in: orgIds } }] : []),
+      ],
+    },
     include: {
       items: true,
       revisions: {
@@ -278,6 +300,10 @@ export async function getOrderForUser(orderId: string, userId: string): Promise<
       approvalRequests: {
         orderBy: { createdAt: 'asc' },
         include: { requestedBy: { select: { id: true, name: true, email: true } } },
+      },
+      failurePhotos: {
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, filePath: true, label: true, confidence: true, note: true, createdAt: true },
       },
       reprintOf: { select: { id: true, orderNumber: true } },
       reprints: { select: { id: true, orderNumber: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' } },

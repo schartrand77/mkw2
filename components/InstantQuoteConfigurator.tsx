@@ -19,6 +19,8 @@ type QuoteResponse = {
   quote: {
     priceUsd: number
     leadTimeHours: number
+    leadTimeWindowHours?: { min: number; max: number }
+    etaConfidenceScore?: number
     scale: number
     scaleX: number
     scaleY: number
@@ -256,6 +258,7 @@ export default function InstantQuoteConfigurator({
   const [activeDimensionAxis, setActiveDimensionAxis] = useState<DimensionAxis | null>(null)
   const [quote, setQuote] = useState<QuoteResponse['quote'] | null>(null)
   const [loading, setLoading] = useState(false)
+  const [reportLoading, setReportLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [gcodeEstimate, setGcodeEstimate] = useState<GcodeEstimate['estimate'] | null>(null)
   const [gcodeError, setGcodeError] = useState<string | null>(null)
@@ -305,6 +308,18 @@ export default function InstantQuoteConfigurator({
     if (typeof sizeZmm === 'number' && Number.isFinite(sizeZmm)) dims.z = Number((sizeZmm * axisScale.z).toFixed(1))
     return Object.keys(dims).length ? dims : null
   }, [axisScale, hasDimensions, sizeXmm, sizeYmm, sizeZmm])
+  const quoteRequestPayload = useMemo(() => ({
+    material: materialChoice,
+    colors: normalizedColors,
+    finish,
+    infillPct,
+    rush,
+    scale,
+    scaleX: axisScale.x,
+    scaleY: axisScale.y,
+    scaleZ: axisScale.z,
+    targetDimensions: targetDimensions || undefined,
+  }), [materialChoice, normalizedColors, finish, infillPct, rush, scale, axisScale, targetDimensions])
 
   const materialOptions = useMemo(() => {
     const normalized = normalizeMaterialName(materialChoice)
@@ -479,18 +494,7 @@ export default function InstantQuoteConfigurator({
         const res = await fetch(`/api/models/${modelId}/quote`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            material: materialChoice,
-            colors: normalizedColors,
-            finish,
-            infillPct,
-            rush,
-            scale,
-            scaleX: axisScale.x,
-            scaleY: axisScale.y,
-            scaleZ: axisScale.z,
-            targetDimensions: targetDimensions || undefined,
-          }),
+          body: JSON.stringify(quoteRequestPayload),
         })
         if (!res.ok) {
           const payload = await res.json().catch(() => null)
@@ -513,7 +517,7 @@ export default function InstantQuoteConfigurator({
     }
     run()
     return () => { active = false }
-  }, [modelId, materialChoice, normalizedColors, finish, infillPct, rush, scale, axisScale, targetDimensions])
+  }, [modelId, quoteRequestPayload])
 
   useEffect(() => {
     let active = true
@@ -625,6 +629,35 @@ export default function InstantQuoteConfigurator({
       setGcodeLoading(false)
     }
   }
+
+  const downloadManufacturabilityReport = useCallback(async () => {
+    setReportLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/models/${modelId}/manufacturability-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quoteRequestPayload),
+      })
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null)
+        throw new Error(payload?.error || 'Unable to generate manufacturability report.')
+      }
+      const blob = await res.blob()
+      const href = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = href
+      a.download = `manufacturability-${modelId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(href)
+    } catch (err: any) {
+      setError(err?.message || 'Unable to generate manufacturability report.')
+    } finally {
+      setReportLoading(false)
+    }
+  }, [modelId, quoteRequestPayload])
 
   const activeSlotValue = activeColorSlot != null ? colors[activeColorSlot] || '' : ''
   const activeSlotParsed = parseColorString(activeSlotValue)
@@ -844,13 +877,23 @@ export default function InstantQuoteConfigurator({
               : (quote ? formatCurrency(quote.priceUsd) : (priceUsd ? formatCurrency(priceUsd) : '...'))}
           </div>
           <div className="text-xs text-slate-400">
-            Lead time: {quote ? `${quote.leadTimeHours.toFixed(1)} hrs` : '...'}
+            Lead time: {quote
+              ? `${quote.leadTimeHours.toFixed(1)} hrs${quote.leadTimeWindowHours ? ` (${quote.leadTimeWindowHours.min.toFixed(1)}-${quote.leadTimeWindowHours.max.toFixed(1)} hrs)` : ''}${typeof quote.etaConfidenceScore === 'number' ? ` • ${Math.round(quote.etaConfidenceScore * 100)}% confidence` : ''}`
+              : '...'}
           </div>
         </div>
         <div className="text-right text-xs text-slate-500">
           {targetDimensions
             ? `Size: ${DIMENSION_AXES.map((axis) => targetDimensions?.[axis]).filter(Boolean).join(' x ')} mm`
             : 'Size pending'}
+          <button
+            type="button"
+            onClick={downloadManufacturabilityReport}
+            disabled={reportLoading}
+            className="mt-2 block ml-auto px-2 py-1 rounded border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {reportLoading ? 'Generating PDF...' : 'Manufacturability PDF'}
+          </button>
         </div>
       </div>
       <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-slate-300 space-y-2">

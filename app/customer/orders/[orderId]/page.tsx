@@ -1,4 +1,4 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { getOrderForUser, type OrderDetail } from '@/lib/orders'
@@ -8,6 +8,7 @@ import RequestReprintButton from '@/components/orders/RequestReprintButton'
 import RevisionUploader from '@/components/orders/RevisionUploader'
 import ApprovalRequests from '@/components/orders/ApprovalRequests'
 import OrderMessageComposer from '@/components/orders/OrderMessageComposer'
+import OrganizationQuoteApproval from '@/components/orders/OrganizationQuoteApproval'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { normalizeOrderStatus } from '@/lib/order-status'
 
@@ -41,6 +42,34 @@ function buildFileHref(path: string) {
 
 type CustomerOrderDetailProps = { params: Promise<{ orderId: string }> }
 
+type ManufacturabilityReportArtifact = {
+  filePath: string
+  generatedAt?: string
+}
+
+function getManufacturabilityReport(metadata: unknown): ManufacturabilityReportArtifact | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
+  const artifacts = (metadata as Record<string, unknown>).artifacts
+  if (!artifacts || typeof artifacts !== 'object' || Array.isArray(artifacts)) return null
+  const report = (artifacts as Record<string, unknown>).manufacturabilityReport
+  if (!report || typeof report !== 'object' || Array.isArray(report)) return null
+  const filePath = (report as Record<string, unknown>).filePath
+  if (typeof filePath !== 'string' || !filePath.trim()) return null
+  const generatedAt = (report as Record<string, unknown>).generatedAt
+  return { filePath: filePath.trim(), generatedAt: typeof generatedAt === 'string' ? generatedAt : undefined }
+}
+
+function formatConfidence(score?: number | null) {
+  if (typeof score !== 'number' || !Number.isFinite(score)) return 'Pending'
+  return `${Math.round(score * 100)}%`
+}
+
+function getOrderOrganizationId(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
+  const orgId = (metadata as Record<string, unknown>).organizationId
+  return typeof orgId === 'string' && orgId.trim().length > 0 ? orgId.trim() : null
+}
+
 export default async function CustomerOrderDetail({ params }: CustomerOrderDetailProps) {
   const { orderId } = await params
   const userId = await getUserIdFromCookie()
@@ -57,7 +86,9 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
   })
   const progress = buildProgress(order.status)
   const pendingApprovals = order.approvalRequests.filter((request) => request.status === 'pending')
-  const timeline = buildTimeline(order)
+  const reportArtifact = getManufacturabilityReport(order.metadata)
+  const orderOrganizationId = getOrderOrganizationId(order.metadata)
+  const timeline = buildTimeline(order, reportArtifact)
 
   return (
     <div className="space-y-6">
@@ -121,12 +152,16 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
                     </p>
                   </div>
                   <div>
+                    <p className="text-slate-500">ETA confidence</p>
+                    <p className="text-sm font-medium">{formatConfidence(production?.etaConfidenceScore)}</p>
+                  </div>
+                  <div>
                     <p className="text-slate-500">Estimated print hours</p>
-                    <p className="text-sm font-medium">{production ? production.totalHours.toFixed(1) : 'ƒ?"'} hrs</p>
+                    <p className="text-sm font-medium">{production ? production.totalHours.toFixed(1) : 'Æ’?"'} hrs</p>
                   </div>
                   <div>
                     <p className="text-slate-500">Queue position</p>
-                    <p className="text-sm font-medium">{production?.queuePosition ?? 'ƒ?"'}</p>
+                    <p className="text-sm font-medium">{production?.queuePosition ?? 'Æ’?"'}</p>
                   </div>
                 </div>
                 {production?.orderWorksLastError ? (
@@ -152,7 +187,20 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
             </div>
             <div className="rounded-xl border border-white/10 p-4 bg-black/20 space-y-3">
               <h2 className="text-lg font-semibold">Actions</h2>
+              {reportArtifact ? (
+                <a
+                  href={`/api/customer/orders/${order.id}/manufacturability-report`}
+                  className="inline-flex text-sm text-brand-400 hover:text-brand-300 underline underline-offset-4"
+                >
+                  Download manufacturability report
+                </a>
+              ) : (
+                <p className="text-xs text-slate-500">Manufacturability report will appear after order artifacts are generated.</p>
+              )}
               <RequestReprintButton orderId={order.id} />
+              {orderOrganizationId && order.status === 'awaiting_review' ? (
+                <OrganizationQuoteApproval organizationId={orderOrganizationId} orderId={order.id} />
+              ) : null}
             </div>
           </div>
         </div>
@@ -264,7 +312,7 @@ type TimelineEntry = {
   link?: { href: string; label: string }
 }
 
-function buildTimeline(order: OrderDetail): TimelineEntry[] {
+function buildTimeline(order: OrderDetail, reportArtifact?: ManufacturabilityReportArtifact | null): TimelineEntry[] {
   const entries: TimelineEntry[] = [
     {
       id: `order-${order.id}`,
@@ -315,5 +363,30 @@ function buildTimeline(order: OrderDetail): TimelineEntry[] {
     })
   })
 
+  if (reportArtifact?.generatedAt) {
+    const generatedAt = new Date(reportArtifact.generatedAt)
+    if (!Number.isNaN(generatedAt.getTime())) {
+      entries.push({
+        id: `report-${order.id}`,
+        title: 'Manufacturability report attached',
+        createdAt: generatedAt,
+        actor: 'Shop',
+        link: { href: `/api/customer/orders/${order.id}/manufacturability-report`, label: 'Download report' },
+      })
+    }
+  }
+
+  order.failurePhotos.forEach((photo) => {
+    entries.push({
+      id: `failure-photo-${photo.id}`,
+      title: 'Production photo captured',
+      createdAt: photo.createdAt,
+      actor: 'Shop',
+      detail: `${photo.label}${photo.note ? ` - ${photo.note}` : ''}`,
+      link: { href: buildFileHref(photo.filePath), label: 'View photo' },
+    })
+  })
+
   return entries.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
 }
+

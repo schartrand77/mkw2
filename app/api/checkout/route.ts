@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto'
+import path from 'path'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { estimatePricingDetails, resolveModelPricing, type PricingDetails } from '@/lib/pricing'
@@ -19,6 +20,9 @@ import { applyPricingAdjustments, getPricingAdjustmentConfig, resolveBatchDiscou
 import { isPaymentPromise, normalizePaymentStatus } from '@/lib/orderworks-status'
 import { incrementMetric } from '@/lib/observability-metrics'
 import { withRequestObservability } from '@/lib/request-observability'
+import { saveBuffer } from '@/lib/storage'
+import { buildManufacturabilitySnapshot, renderManufacturabilityReportPdf, type ManufacturabilityModelInput } from '@/lib/manufacturability-report'
+import { getOrganizationMembership, isPrivilegedOrgRole } from '@/lib/organizations'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,6 +77,8 @@ const payloadSchema = z.object({
     billingContact: z.string().max(120).optional(),
     notes: z.string().max(300).optional(),
   }).partial().optional(),
+  organizationId: z.string().cuid().optional(),
+  projectCode: z.string().max(64).optional(),
 })
 
 function sanitizeBaseUrl(raw?: string | null) {
@@ -129,6 +135,8 @@ async function handlePost(req: NextRequest) {
     const providedPaymentIntentId = (parsed.data.paymentIntentId || '').trim()
     const rush = Boolean(parsed.data.rush)
     const paymentDetails = parsed.data.paymentDetails || undefined
+    const organizationId = parsed.data.organizationId || undefined
+    const projectCode = typeof parsed.data.projectCode === 'string' ? parsed.data.projectCode.trim() : ''
 
     const items = parsed.data.items
     const shipping = parsed.data.shipping as ShippingSelection | undefined
@@ -165,6 +173,10 @@ async function handlePost(req: NextRequest) {
           sizeYmm: true,
           sizeZmm: true,
           supportRatio: true,
+          printabilityScore: true,
+          failureRiskScore: true,
+          orientationSuggestion: true,
+          supportLikelihood: true,
           colorSlotCount: true,
           allowedColors: true,
           filePath: true,
@@ -220,6 +232,17 @@ async function handlePost(req: NextRequest) {
       })
       : null
     const isAdmin = Boolean(userForCheckout?.isAdmin || userForCheckout?.role === 'admin')
+    const organizationMembership = organizationId && userId
+      ? await getOrganizationMembership(userId, organizationId)
+      : null
+    if (organizationId && !organizationMembership) {
+      return NextResponse.json({ error: 'Organization membership is required to use this billing account.' }, { status: 403 })
+    }
+    if (organizationMembership && organizationMembership.status !== 'active') {
+      return NextResponse.json({ error: 'Organization membership is not active.' }, { status: 403 })
+    }
+    const orgRole = organizationMembership?.role || null
+    const orgRequiresApproval = Boolean(organizationMembership?.organization.quoteApprovalRequired)
     const discountSummary = summarizeDiscount(userForCheckout)
     const pricingAdjustments = getPricingAdjustmentConfig(cfg || undefined)
 
@@ -444,6 +467,21 @@ async function handlePost(req: NextRequest) {
     const isFreeOrder = totalCents === 0
     const amount = totalCents
 
+    if (organizationMembership && orgRole === 'requester' && orgRequiresApproval && paymentMethod !== 'quote') {
+      return NextResponse.json({ error: 'Requester role must submit as quote for approver review.' }, { status: 400 })
+    }
+    const requirePoAboveCents = organizationMembership?.organization.requirePoAboveCents
+    if (
+      organizationMembership
+      && paymentMethod === 'po'
+      && typeof requirePoAboveCents === 'number'
+      && Number.isFinite(requirePoAboveCents)
+      && totalCents >= requirePoAboveCents
+      && !paymentDetails?.purchaseOrderNumber
+    ) {
+      return NextResponse.json({ error: 'PO number is required for this order amount.' }, { status: 400 })
+    }
+
     if (!isFreeOrder && paymentMethod === 'card' && !process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
     }
@@ -527,6 +565,11 @@ async function handlePost(req: NextRequest) {
             shipping,
             paymentMethod,
             rush,
+            organizationId: organizationMembership?.organization.id || null,
+            organizationName: organizationMembership?.organization.name || null,
+            organizationRole: orgRole,
+            projectCode: projectCode || null,
+            quoteApprovalRequired: orgRequiresApproval,
             demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
             rushMultiplier: pricingAdjustments.rushMultiplier,
             paymentDetails,
@@ -557,16 +600,73 @@ async function handlePost(req: NextRequest) {
           customerEmail,
           customerName,
           discountPercent: discountSummary.totalPercent ?? null,
+          organizationId: organizationMembership?.organization.id || null,
           metadata: {
             cartItems: items,
             shipping,
             paymentMethod,
             rush,
+            organizationId: organizationMembership?.organization.id || null,
+            organizationName: organizationMembership?.organization.name || null,
+            organizationRole: orgRole,
+            projectCode: projectCode || null,
+            quoteApprovalRequired: orgRequiresApproval,
             demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
             rushMultiplier: pricingAdjustments.rushMultiplier,
             paymentDetails,
           },
         })
+        if (order) {
+          const modelsById = new Map<string, ManufacturabilityModelInput>(
+            models.map((model) => [
+              model.id,
+              {
+                id: model.id,
+                title: model.title,
+                material: model.material,
+                sizeXmm: model.sizeXmm,
+                sizeYmm: model.sizeYmm,
+                sizeZmm: model.sizeZmm,
+                printabilityScore: model.printabilityScore ?? null,
+                failureRiskScore: model.failureRiskScore ?? null,
+                orientationSuggestion: model.orientationSuggestion ?? null,
+                supportLikelihood: model.supportLikelihood ?? null,
+              },
+            ]),
+          )
+          const reportSnapshot = buildManufacturabilitySnapshot({
+            lineItems,
+            modelsById,
+          })
+          const reportPdf = renderManufacturabilityReportPdf(reportSnapshot, `Order ${order.orderNumber ?? order.id}`)
+          const reportRelativePath = path.posix.join(
+            'orders',
+            order.id,
+            'reports',
+            `manufacturability-${Date.now()}.pdf`,
+          )
+          await saveBuffer(reportRelativePath, reportPdf)
+          const metadataPatch = {
+            ...(order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+              ? order.metadata as Record<string, unknown>
+              : {}),
+            artifacts: {
+              ...(((order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+                ? (order.metadata as Record<string, unknown>).artifacts
+                : null) as Record<string, unknown> | null) || {}),
+              manufacturabilityReport: {
+                version: 1,
+                filePath: `/${reportRelativePath}`,
+                generatedAt: reportSnapshot.generatedAt,
+                summary: reportSnapshot.summary,
+              },
+            },
+          }
+          order = await prisma.printOrder.update({
+            where: { id: order.id },
+            data: { metadata: metadataPatch },
+          })
+        }
       } catch (err) {
         console.error('Failed to persist customer order', err)
       }

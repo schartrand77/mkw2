@@ -8,7 +8,7 @@ import OrderSummary from '@/components/checkout/OrderSummary'
 import TrustBadge from '@/components/checkout/TrustBadge'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 import { useCart } from '@/components/cart/CartProvider'
-import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, CheckoutPaymentMethod, Dimensions } from '@/types/checkout'
+import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, CheckoutPaymentMethod, Dimensions, CheckoutOrganization } from '@/types/checkout'
 import type { Appearance, PaymentIntent } from '@stripe/stripe-js'
 import { DIMENSION_AXES, normalizeColors, resolveAxisScale, normalizeMaterialName } from '@/lib/cartPricing'
 import { formatCurrency } from '@/lib/currency'
@@ -49,6 +49,10 @@ type StockworksWarningResponse = {
   updatedAt?: string
 }
 
+type OrganizationsResponse = {
+  organizations: CheckoutOrganization[]
+}
+
 export default function CheckoutPage() {
   const { items, clear, minimumOrder } = useCart()
   const [publishableKey, setPublishableKey] = useState<string>('')
@@ -75,6 +79,9 @@ export default function CheckoutPage() {
     billingContact: '',
     notes: '',
   })
+  const [organizations, setOrganizations] = useState<CheckoutOrganization[]>([])
+  const [organizationId, setOrganizationId] = useState('')
+  const [projectCode, setProjectCode] = useState('')
   const normalizedPaymentDetails = useMemo(() => {
     const details: Record<string, string> = {}
     const purchaseOrderNumber = paymentDetails.purchaseOrderNumber.trim()
@@ -194,12 +201,23 @@ export default function CheckoutPage() {
     method: shippingMethod,
     address: shippingMethod === 'ship' && shippingAddress ? shippingAddress : undefined,
   }), [shippingMethod, shippingAddress])
+  const selectedOrganization = useMemo(
+    () => organizations.find((entry) => entry.id === organizationId) || null,
+    [organizations, organizationId],
+  )
 
   useEffect(() => {
     if (shippingMethod === 'ship' && paymentMethod === 'cash') {
       setPaymentMethod(cardPaymentAvailable ? 'card' : 'invoice')
     }
   }, [shippingMethod, paymentMethod, cardPaymentAvailable])
+
+  useEffect(() => {
+    if (!selectedOrganization) return
+    if (selectedOrganization.quoteApprovalRequired && selectedOrganization.role === 'requester' && paymentMethod !== 'quote') {
+      setPaymentMethod('quote')
+    }
+  }, [selectedOrganization, paymentMethod])
 
   useEffect(() => {
     let cancelled = false
@@ -234,6 +252,18 @@ export default function CheckoutPage() {
         if (!res.ok) return
         const data = await res.json()
         if (mounted) setProfile(data)
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
+    fetch('/api/customer/organizations', { cache: 'no-store' })
+      .then(async (res) => (res.ok ? res.json() as Promise<OrganizationsResponse> : null))
+      .then((data) => {
+        if (!mounted || !data?.organizations) return
+        setOrganizations(data.organizations)
       })
       .catch(() => {})
     return () => { mounted = false }
@@ -280,6 +310,8 @@ export default function CheckoutPage() {
           paymentMethod,
           rush,
           paymentDetails: normalizedPaymentDetails,
+          organizationId: organizationId || undefined,
+          projectCode: projectCode.trim() || undefined,
           commit: false,
         }),
       })
@@ -294,7 +326,7 @@ export default function CheckoutPage() {
     } finally {
       setLoading(false)
     }
-  }, [checkoutItems, hasMissingColors, shippingSelection, shippingAddress, shippingMethod, paymentMethod, rush, normalizedPaymentDetails])
+  }, [checkoutItems, hasMissingColors, shippingSelection, shippingAddress, shippingMethod, paymentMethod, rush, normalizedPaymentDetails, organizationId, projectCode])
 
   useEffect(() => {
     fetchIntent()
@@ -310,6 +342,8 @@ export default function CheckoutPage() {
         paymentMethod: method,
         rush,
         paymentDetails: normalizedPaymentDetails,
+        organizationId: organizationId || undefined,
+        projectCode: projectCode.trim() || undefined,
         commit: true,
         paymentIntentId,
       }),
@@ -319,7 +353,7 @@ export default function CheckoutPage() {
       throw new Error(body.error || 'Unable to finalize checkout.')
     }
     return res.json() as Promise<CheckoutIntentResponse>
-  }, [checkoutItems, shippingSelection, rush, normalizedPaymentDetails])
+  }, [checkoutItems, shippingSelection, rush, normalizedPaymentDetails, organizationId, projectCode])
 
   const handleSuccess = useCallback(async (pi: PaymentIntent) => {
     setFinalizingJob(true)
@@ -504,6 +538,44 @@ export default function CheckoutPage() {
       })()}
         <div className="glass rounded-xl border border-white/10 p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Organization billing</h2>
+            <span className="text-xs text-slate-500">Optional</span>
+          </div>
+          <div className="space-y-2 text-sm">
+            <label className="block text-xs text-slate-400">Bill this order to</label>
+            <select
+              className="input"
+              value={organizationId}
+              onChange={(e) => setOrganizationId(e.target.value)}
+            >
+              <option value="">Personal account</option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name} ({org.role})
+                </option>
+              ))}
+            </select>
+          </div>
+          {selectedOrganization ? (
+            <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-slate-300 space-y-1">
+              <div>Role: <span className="uppercase tracking-wide">{selectedOrganization.role}</span></div>
+              {selectedOrganization.quoteApprovalRequired && selectedOrganization.role === 'requester' ? (
+                <div className="text-amber-200">Requester role must submit as quote for approver review.</div>
+              ) : null}
+              {typeof selectedOrganization.requirePoAboveCents === 'number' && selectedOrganization.requirePoAboveCents > 0 ? (
+                <div>PO number required for orders above {formatCurrency(selectedOrganization.requirePoAboveCents / 100)}.</div>
+              ) : null}
+              <input
+                className="input text-xs mt-2"
+                placeholder="Project code (optional)"
+                value={projectCode}
+                onChange={(e) => setProjectCode(e.target.value)}
+              />
+            </div>
+          ) : null}
+        </div>
+        <div className="glass rounded-xl border border-white/10 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">Shipping</h2>
             <Link href="/settings/profile" className="text-xs text-brand-400 hover:text-brand-300 underline underline-offset-4">Edit profile</Link>
           </div>
@@ -574,7 +646,7 @@ export default function CheckoutPage() {
                 value="card"
                 checked={paymentMethod === 'card'}
                 onChange={() => setPaymentMethod('card')}
-                disabled={!cardPaymentAvailable}
+                disabled={!cardPaymentAvailable || Boolean(selectedOrganization?.quoteApprovalRequired && selectedOrganization.role === 'requester')}
               />
               Pay now (card)
             </label>
@@ -585,7 +657,7 @@ export default function CheckoutPage() {
                 value="cash"
                 checked={paymentMethod === 'cash'}
                 onChange={() => setPaymentMethod('cash')}
-                disabled={shippingMethod !== 'pickup'}
+                disabled={shippingMethod !== 'pickup' || Boolean(selectedOrganization?.quoteApprovalRequired && selectedOrganization.role === 'requester')}
               />
               Pay cash at pickup
             </label>
@@ -596,6 +668,7 @@ export default function CheckoutPage() {
                 value="invoice"
                 checked={paymentMethod === 'invoice'}
                 onChange={() => setPaymentMethod('invoice')}
+                disabled={Boolean(selectedOrganization?.quoteApprovalRequired && selectedOrganization.role === 'requester')}
               />
               Invoice me
             </label>
@@ -606,6 +679,7 @@ export default function CheckoutPage() {
                 value="po"
                 checked={paymentMethod === 'po'}
                 onChange={() => setPaymentMethod('po')}
+                disabled={Boolean(selectedOrganization?.quoteApprovalRequired && selectedOrganization.role === 'requester')}
               />
               Purchase order (PO)
             </label>

@@ -103,3 +103,13 @@ export type CheckoutIntentResponse = {
   committed: boolean
   discount?: DiscountSummary
 }
+
+export type CheckoutOrganization = {
+  id: string
+  name: string
+  role: string
+  billingEmail?: string | null
+  billingContact?: string | null
+  quoteApprovalRequired?: boolean
+  requirePoAboveCents?: number | null
+}

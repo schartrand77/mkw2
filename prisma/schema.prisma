@@ -44,6 +44,8 @@ model User {
   adminAuditEvents AdminAuditEvent[]
   presets CustomerPreset[]
   failurePhotos FailurePhoto[]
+  organizationsCreated Organization[] @relation("OrganizationCreatedBy")
+  organizationMemberships OrganizationMember[]
 
   @@index([lastLoginAt])
 }
@@ -633,6 +635,7 @@ model PrintOrder {
   failedAt        DateTime?
   failureNote     String?
   reprintOfId     String?
+  organizationId  String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -645,6 +648,44 @@ model PrintOrder {
   reprintOf PrintOrder?   @relation("ReprintSource", fields: [reprintOfId], references: [id])
   reprints  PrintOrder[]  @relation("ReprintSource")
   failurePhotos FailurePhoto[]
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+}
+
+model Organization {
+  id                       String   @id @default(cuid())
+  name                     String
+  slug                     String   @unique
+  billingEmail             String?
+  billingContact           String?
+  quoteApprovalRequired    Boolean  @default(true)
+  requirePoAboveCents      Int?
+  createdById              String
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  createdBy User @relation("OrganizationCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  members OrganizationMember[]
+  orders  PrintOrder[]
+
+  @@index([createdById])
+  @@index([name])
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String   @default("requester")
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId, role])
 }
 
 model FailurePhoto {

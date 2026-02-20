@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -68,10 +68,14 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   const sidebarRef = useRef<HTMLElement | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
+  const [quickMenuOpen, setQuickMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [avatarSrc, setAvatarSrc] = useState<string | null>(avatarUrl)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const quickMenuRef = useRef<HTMLDivElement | null>(null)
   const { count } = useCart()
   const inAdmin = pathname.startsWith('/admin')
 
@@ -81,11 +85,30 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    document.body.classList.toggle('sidebar-open', mobileOpen)
+    document.body.classList.toggle('sidebar-open', isMobileViewport && mobileOpen)
     return () => {
       document.body.classList.remove('sidebar-open')
     }
-  }, [mobileOpen])
+  }, [isMobileViewport, mobileOpen])
+
+  // Always close the mobile drawer after navigation.
+  useEffect(() => {
+    if (isMobileViewport) setMobileOpen(false)
+  }, [isMobileViewport, pathname])
+
+  // If viewport is desktop, ensure mobile drawer state is reset.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(max-width: 1023px)')
+    const handleChange = () => {
+      const nextMobile = mq.matches
+      setIsMobileViewport(nextMobile)
+      if (!nextMobile) setMobileOpen(false)
+    }
+    handleChange()
+    mq.addEventListener('change', handleChange)
+    return () => mq.removeEventListener('change', handleChange)
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
@@ -136,8 +159,9 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
-      if (!menuRef.current) return
-      if (!menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+      const target = e.target as Node
+      if (menuRef.current && !menuRef.current.contains(target)) setMenuOpen(false)
+      if (quickMenuRef.current && !quickMenuRef.current.contains(target)) setQuickMenuOpen(false)
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
@@ -149,6 +173,20 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     const saved = localStorage.getItem('mwv2:theme') as 'light' | 'dark' | null
     if (saved === 'light') setTheme('light')
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      setDesktopCollapsed(localStorage.getItem('mwv2:sidebarCollapsed') === '1')
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.setItem('mwv2:sidebarCollapsed', desktopCollapsed ? '1' : '0')
+    } catch {}
+  }, [desktopCollapsed])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -211,23 +249,82 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     }
   }
 
+  const sidebarExpanded = isMobileViewport ? mobileOpen : !desktopCollapsed
+  const toggleSidebar = () => {
+    if (isMobileViewport) {
+      setMobileOpen((open) => !open)
+      return
+    }
+    setDesktopCollapsed((collapsed) => !collapsed)
+  }
+
+  const closeMenus = () => {
+    setMenuOpen(false)
+    setQuickMenuOpen(false)
+  }
+
+  const renderAccountMenu = (className: string) => (
+    <div role="menu" className={className}>
+      {isAdmin && <Link href="/admin" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Admin</Link>}
+      <Link href="/settings/profile" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Edit Profile</Link>
+      <Link href="/me" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">My Page</Link>
+      <Link href="/customer/portal" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Customer Portal</Link>
+      <Link href="/customer/orders" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Orders</Link>
+      <Link href="/settings/organizations" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Organizations</Link>
+      <Link href="/settings/account" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Account</Link>
+      <button type="button" role="menuitem" onClick={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))} className="app-sidebar-menu-item w-full text-left">
+        {theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+      </button>
+      <button role="menuitem" onClick={logout} className="app-sidebar-menu-item w-full text-left">Sign out</button>
+    </div>
+  )
+
   return (
     <>
+      {authed && mounted && createPortal(
+        <div className="app-user-shortcut" ref={quickMenuRef}>
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={quickMenuOpen}
+            onClick={() => setQuickMenuOpen((open) => !open)}
+            className={`app-sidebar-profile ${isActivePath(pathname, '/me') ? 'app-sidebar-profile-active' : ''}`}
+            aria-label="Open account menu"
+          >
+            {avatarSrc ? <img src={avatarSrc} alt="Avatar" className="h-8 w-8 rounded-full border border-white/10 object-cover" /> : <span>Me</span>}
+          </button>
+          {quickMenuOpen && renderAccountMenu('app-sidebar-menu app-user-shortcut-menu')}
+        </div>,
+        document.body
+      )}
+
       {mounted && createPortal(
         <button
           type="button"
-          className={`app-sidebar-handle lg:hidden ${mobileOpen ? 'app-sidebar-handle-open' : ''}`}
-          onClick={() => setMobileOpen((open) => !open)}
-          aria-expanded={mobileOpen}
+          className={`app-sidebar-handle ${sidebarExpanded ? 'app-sidebar-handle-open' : ''}`}
+          onClick={toggleSidebar}
+          aria-expanded={sidebarExpanded}
           aria-controls="app-sidebar"
-          aria-label={mobileOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          aria-label={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
         >
-          <span className="app-sidebar-handle-chevron" aria-hidden="true">{mobileOpen ? '‹' : '›'}</span>
+          <span className="app-sidebar-handle-chevron" aria-hidden="true">{sidebarExpanded ? '‹' : '›'}</span>
         </button>,
         document.body
       )}
 
-      <aside ref={sidebarRef} id="app-sidebar" className={`app-sidebar ${mobileOpen ? 'app-sidebar-open' : ''}`}>
+      <aside
+        ref={sidebarRef}
+        id="app-sidebar"
+        data-mobile-open={mobileOpen ? 'true' : 'false'}
+        className={`app-sidebar ${mobileOpen ? 'app-sidebar-open' : ''} ${desktopCollapsed ? 'app-sidebar-collapsed' : ''}`}
+        style={isMobileViewport
+          ? {
+              transform: mobileOpen ? 'translateX(0)' : 'translateX(calc(-100% - var(--app-sidebar-drawer-left) - 1rem))',
+              opacity: mobileOpen ? 1 : 0,
+              pointerEvents: mobileOpen ? 'auto' : 'none',
+            }
+          : undefined}
+      >
         <div className="app-sidebar-inner">
           <Link href="/" aria-label={BRAND_FULL_NAME} className="app-sidebar-brand">
             <span>{BRAND_LOGO_PREFIX}</span>
@@ -292,19 +389,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
                 >
                   {avatarSrc ? <img src={avatarSrc} alt="Avatar" className="h-8 w-8 rounded-full border border-white/10 object-cover" /> : <span>Me</span>}
                 </button>
-                {menuOpen && (
-                  <div role="menu" className="app-sidebar-menu">
-                    <Link href="/settings/profile" role="menuitem" className="app-sidebar-menu-item">Edit Profile</Link>
-                    <Link href="/me" role="menuitem" className="app-sidebar-menu-item">My Page</Link>
-                    <Link href="/customer/portal" role="menuitem" className="app-sidebar-menu-item">Customer Portal</Link>
-                    <Link href="/customer/orders" role="menuitem" className="app-sidebar-menu-item">Orders</Link>
-                    <Link href="/settings/account" role="menuitem" className="app-sidebar-menu-item">Account</Link>
-                    <button type="button" role="menuitem" onClick={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))} className="app-sidebar-menu-item w-full text-left">
-                      {theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
-                    </button>
-                    <button role="menuitem" onClick={logout} className="app-sidebar-menu-item w-full text-left">Sign out</button>
-                  </div>
-                )}
+                {menuOpen && renderAccountMenu('app-sidebar-menu')}
               </div>
             </div>
           )}
@@ -313,3 +398,4 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     </>
   )
 }
+

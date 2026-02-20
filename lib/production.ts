@@ -47,6 +47,7 @@ type OrderQueueEntry = {
   totalHours: number
   queuePosition: number | null
   estimatedCompletionAt: Date | null
+  etaConfidenceScore: number | null
 }
 
 type OrderWorksSummary = {
@@ -63,6 +64,20 @@ export type ProductionSnapshot = {
   queueHours: number
   orderWorks: OrderWorksSummary
   orders: OrderQueueEntry[]
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
+}
+
+function estimateEtaConfidenceScore(entry: { status: string; queuePosition: number | null; orderWorksLastError?: string | null }, capacityHoursPerDay: number) {
+  let score = capacityHoursPerDay > 0 ? 0.82 : 0.45
+  const normalized = normalizeOrderStatus(entry.status)
+  if (normalized === 'printing') score += 0.1
+  if (normalized === 'post_process') score += 0.12
+  if (normalized === 'queued' && (entry.queuePosition ?? 0) > 6) score -= 0.1
+  if (entry.orderWorksLastError) score -= 0.15
+  return Math.round(clamp(score, 0.2, 0.98) * 100) / 100
 }
 
 function resolvePrinterCapacity(printers: PrinterSnapshot[]): number {
@@ -303,6 +318,7 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
         totalHours: estimateOrderHours(order.items, volumeMaps, cfg),
         queuePosition: null,
         estimatedCompletionAt: null,
+        etaConfidenceScore: null,
       } satisfies OrderQueueEntry
     })
     .filter((entry) => ACTIVE_FLOW_STATUSES.has(normalizeOrderStatus(entry.status)))
@@ -322,6 +338,7 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
       ...entry,
       queuePosition: idx + 1,
       estimatedCompletionAt,
+      etaConfidenceScore: estimateEtaConfidenceScore({ ...entry, queuePosition: idx + 1 }, capacityHoursPerDay),
     }
   })
 
@@ -387,5 +404,6 @@ export async function getOrderProductionDetail(order: {
     totalHours,
     queuePosition: null,
     estimatedCompletionAt: null,
+    etaConfidenceScore: null,
   }
 }

@@ -1,4 +1,4 @@
-# MakerWorks v2 Professional App Audit
+﻿# MakerWorks v2 Professional App Audit
 
 Date: 2026-02-19
 
@@ -22,7 +22,7 @@ MakerWorks v2 already has strong product depth: full storefront, quoting, checko
 
 ## Priority improvements (professionalization plan)
 
-## P0 (next 2–4 weeks)
+## P0 (next 2-4 weeks)
 
 ### 1) Add production observability baseline
 **Why:** You cannot professionally operate what you cannot measure.
@@ -76,7 +76,7 @@ MakerWorks v2 already has strong product depth: full storefront, quoting, checko
 
 ---
 
-## P1 (1–2 quarters)
+## P1 (1-2 quarters)
 
 ### 5) Queue and background job architecture
 **Why:** Heavy processing (3MF conversion/images/model intelligence) should be isolated from web request capacity.
@@ -109,28 +109,76 @@ MakerWorks v2 already has strong product depth: full storefront, quoting, checko
 ## High-impact new feature ideas
 
 ### A) Customer trust & conversion
-- **“Manufacturability report” PDF** attached to quote/order (dimensions, risk, orientation recommendation, material rationale).
-- **Lead-time estimator** that blends queue load + material inventory + printer availability.
+- **Manufacturability report PDF** attached to every quote/order.
+  - Customer sees: part dimensions, printability/failure risk, recommended orientation, material choice rationale, and expected post-processing needs.
+  - MVP scope: generate on quote acceptance and store immutable snapshot with order artifacts.
+  - Inputs: existing mesh analysis, orientation engine output, material profile data, and pricing assumptions.
+  - KPI impact: increase quote-to-order conversion and reduce pre-production clarification messages.
+- **Lead-time estimator** that blends queue load, material availability, and printer capacity.
+  - Customer sees: estimated ship window and confidence band before checkout.
+  - MVP scope: rules-based ETA using queue depth, printer uptime history, and in-stock filament constraints.
+  - Inputs: job queue metrics, printer telemetry/utilization, and inventory reservations.
+  - KPI impact: improve on-time fulfillment and reduce orders delayed by unavailable material/printer contention.
 - **Order transparency timeline** with photo milestones and ETA confidence score.
+  - Customer sees: timestamped stages (queued, printing, post-process, packed, shipped), milestone photos, and updated ETA confidence.
+  - MVP scope: timeline events from existing job status transitions plus optional operator photo upload at key checkpoints.
+  - Inputs: order/job events, shipping tracking events, and queue-based ETA recalculation.
+  - KPI impact: lower support ticket volume ("where is my order") and increase repeat purchase trust.
 
 ### B) B2B revenue expansion
-- **Organization accounts** (teams, seats, role permissions, shared billing).
-- **Quote approval workflow** (requester/approver split, PO attachment controls).
-- **Usage analytics for enterprise customers** (spend by project/material/time).
+- **Organization accounts** with teams, seats, role permissions, and shared billing.
+  - Customer sees: centralized workspace with member roles (requester, approver, finance, admin) and shared payment methods.
+  - MVP scope: multi-user org container, invitation flow, role-based permissions, and org-level billing profile.
+  - Inputs: existing user/auth model, RBAC checks, and checkout/invoicing flows.
+  - KPI impact: increase average order value, retention of business customers, and multi-seat account adoption.
+- **Quote approval workflow** with requester/approver split and PO controls.
+  - Customer sees: configurable approval steps, approver comments, and required PO attachment for eligible orders.
+  - MVP scope: approval states (draft, pending approval, approved, rejected) and policy rules by order amount/customer type.
+  - Inputs: quote/order state machine, notification system, and document storage for PO files.
+  - KPI impact: improve enterprise conversion rate and reduce manual back-and-forth in sales operations.
+- **Usage analytics for enterprise customers** (spend by project, material, and time).
+  - Customer sees: downloadable dashboards for budget tracking, trend analysis, and team-level usage accountability.
+  - MVP scope: org reporting views with date filters, project tags, and CSV export.
+  - Inputs: order line items, material metadata, project attribution fields, and invoice/payment status.
+  - KPI impact: increase enterprise stickiness and upsell potential through procurement visibility.
 
 ### C) Operations excellence
 - **Predictive maintenance** from print failure patterns and printer telemetry.
-- **Capacity planner** that proposes staffing/printer utilization plans from demand forecasts.
+  - Operator sees: maintenance risk score per printer with recommended preventive actions and due windows.
+  - MVP scope: rules-based anomaly detection using failure counts, runtime hours, and error-code patterns.
+  - Inputs: printer telemetry stream, failure/reprint history, and maintenance logs.
+  - KPI impact: reduce unplanned downtime, failed prints, and emergency repair costs.
+- **Capacity planner** proposing staffing and utilization plans from demand forecasts.
+  - Operator sees: projected weekly load vs available machine/labor hours with suggested staffing adjustments.
+  - MVP scope: forecast-aware planner with scenario toggles for rush demand, maintenance outages, and shift coverage.
+  - Inputs: demand forecast, queue backlog, printer availability calendar, and labor schedule.
+  - KPI impact: improve on-time delivery and gross margin per printer-hour.
 - **Auto-routing** to best-fit printer based on material, due date, and confidence score.
+  - Operator sees: recommended printer assignment with rationale and override controls.
+  - MVP scope: decision engine using material compatibility, current queue position, expected completion time, and reliability score.
+  - Inputs: printer capability matrix, queue state, maintenance flags, and job SLA/due date.
+  - KPI impact: increase throughput and first-pass success rate while reducing manual scheduling time.
 
 ### D) Marketplace/community growth
 - **Designer storefront tiers** (verified creators, royalties, featured placement bidding).
+  - Creator sees: tiered visibility and monetization options with transparent payout/fee rules.
+  - MVP scope: creator profiles, verification badge workflow, royalty split settings, and featured listing placements.
+  - Inputs: commerce/order pipeline, payout ledger, moderation queue, and ranking signals.
+  - KPI impact: increase catalog quality, creator retention, and marketplace GMV.
 - **Remix/version lineage graph** for model derivatives.
+  - Community sees: parent-child model history with attribution, version notes, and license inheritance.
+  - MVP scope: version graph metadata, attribution display, and remix creation flow linked to source model.
+  - Inputs: model metadata store, user identity, and licensing terms.
+  - KPI impact: increase content reuse velocity and trust in creator attribution.
 - **Public API + webhooks** for external storefront/ERP integrations.
+  - Integrator sees: stable endpoints/events for quote, order, status, and inventory synchronization.
+  - MVP scope: API keys, scoped permissions, webhook signing/retry policy, and core integration endpoints.
+  - Inputs: existing internal services for orders, inventory, and job status events.
+  - KPI impact: expand partner ecosystem and reduce integration friction for high-volume customers.
 
 ---
 
-## Suggested KPI dashboard for “professional app” readiness
+## Suggested KPI dashboard for "professional app" readiness
 Track weekly:
 - Checkout conversion rate
 - Quote-to-order conversion rate
@@ -151,3 +199,4 @@ Track weekly:
 5. Predictive/capacity intelligence and platform API
 
 This sequence maximizes risk reduction first, then compounds into growth features that are easier to support at scale.
+

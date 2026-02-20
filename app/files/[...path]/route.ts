@@ -38,6 +38,7 @@ function mimeFromExt(ext: string) {
     case '.stl': return 'model/stl'
     case '.obj': return 'text/plain'
     case '.3mf': return 'model/3mf'
+    case '.pdf': return 'application/pdf'
     default: return 'application/octet-stream'
   }
 }
