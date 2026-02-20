@@ -289,6 +289,9 @@ body.sidebar-open .app-user-shortcut {
   .app-user-search-form {
     width: min(17rem, calc(100vw - max(1rem, env(safe-area-inset-left)) - max(1rem, env(safe-area-inset-right)) - 4rem));
   }
+  body.sidebar-open .app-user-shortcut {
+    transform: translateX(min(calc(var(--app-sidebar-drawer-width) + var(--app-sidebar-drawer-left)), 55vw));
+  }
   .app-content-shell {
     transition: transform 190ms ease;
     will-change: transform;
