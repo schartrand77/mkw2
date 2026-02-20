@@ -202,7 +202,7 @@ body {
   gap: 0.5rem;
 }
 .app-user-search-form {
-  width: min(30rem, calc(100vw - max(1rem, env(safe-area-inset-left)) - max(1rem, env(safe-area-inset-right)) - 4rem));
+  width: min(30rem, calc(100vw - max(1rem, env(safe-area-inset-left)) - max(1rem, env(safe-area-inset-right)) - 5rem));
 }
 .app-user-search-input {
   width: 100%;
@@ -287,10 +287,10 @@ body {
     left: calc(var(--app-sidebar-drawer-left) + var(--app-sidebar-drawer-width) + 0.5rem);
   }
   .app-user-search-form {
-    width: min(17rem, calc(100vw - max(1rem, env(safe-area-inset-left)) - max(1rem, env(safe-area-inset-right)) - 4rem));
+    width: min(17rem, calc(100vw - max(1rem, env(safe-area-inset-left)) - max(1rem, env(safe-area-inset-right)) - 5rem));
   }
   .app-user-shortcut.app-user-shortcut-open {
-    transform: translateX(min(calc(var(--app-sidebar-drawer-width) + var(--app-sidebar-drawer-left)), 55vw));
+    transform: translateX(0);
   }
   .app-content-shell {
     transition: transform 190ms ease;
@@ -1211,4 +1211,3 @@ html.theme-light body.holiday-valentines .btn {
     animation-duration: 1.6s !important;
   }
 }
-
