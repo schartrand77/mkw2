@@ -44,6 +44,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   const viewerFallbackHref = null
   const coverHref = buildImageSrc(model.coverImagePath, model.updatedAt)
   const hasParts = Array.isArray(model.parts) && model.parts.length > 0
+  const downloadsEnabled = model.downloadsEnabled !== false
   const partParam = resolvedSearchParams?.part
   const partIndexRaw = Array.isArray(partParam) ? partParam[0] : partParam
   const partIndex = partIndexRaw != null ? Number.parseInt(String(partIndexRaw), 10) : NaN
@@ -270,6 +271,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             modelTitle={model.title}
             flatRatePricing={Boolean(model.flatRatePricing)}
             thumbnail={coverHref}
+            downloadsEnabled={downloadsEnabled}
             colorSlotCount={typeof model.colorSlotCount === 'number' ? model.colorSlotCount : null}
             allowedColors={Array.isArray(model.allowedColors) ? model.allowedColors : null}
             defaultColors={Array.isArray(model.defaultColors) ? model.defaultColors : null}
@@ -308,13 +310,19 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           </div>
         )}
         <div className="flex gap-3">
-          <a
-            href={hasParts ? `/api/models/${model.id}/download.zip` : (fileHref || '#')}
-            {...(!hasParts && fileHref ? { download: true } : {})}
-            className="btn"
-          >
-            {hasParts ? 'Download All Parts (.zip)' : 'Download Model'}
-          </a>
+          {downloadsEnabled ? (
+            <a
+              href={hasParts ? `/api/models/${model.id}/download.zip` : (fileHref || '#')}
+              {...(!hasParts && fileHref ? { download: true } : {})}
+              className="btn"
+            >
+              {hasParts ? 'Download All Parts (.zip)' : 'Download Model'}
+            </a>
+          ) : (
+            <span className="px-3 py-2 rounded-md border border-amber-400/30 bg-amber-400/10 text-sm text-amber-200">
+              Downloads disabled
+            </span>
+          )}
           <ModelShareButton title={model.title} url={shareUrl} />
           {canEdit && (
             <Link href={`/models/${model.id}/edit`} className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20">Edit</Link>

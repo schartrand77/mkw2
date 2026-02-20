@@ -28,13 +28,14 @@ type Props = {
   modelTitle: string
   flatRatePricing?: boolean | null
   thumbnail?: string | null
+  downloadsEnabled?: boolean
   colorSlotCount?: number | null
   allowedColors?: string[] | null
   defaultColors?: string[] | null
   parts: Part[]
 }
 
-export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, thumbnail, colorSlotCount, allowedColors, defaultColors, parts }: Props) {
+export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, thumbnail, downloadsEnabled = true, colorSlotCount, allowedColors, defaultColors, parts }: Props) {
   const { add, items } = useCart()
   const router = useRouter()
   const hasPricedPart = parts.some((p) => typeof p.priceUsd === 'number' && Number(p.priceUsd) > 0)
@@ -174,7 +175,7 @@ export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, t
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      {part.downloadUrl && (
+                      {downloadsEnabled && part.downloadUrl && (
                         <a className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={part.downloadUrl} download>
                           Download
                         </a>
@@ -255,7 +256,9 @@ export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, t
             </ul>
           )}
 
-          {hasPricedPart ? (
+          {!downloadsEnabled ? (
+            <p className="text-xs text-amber-300">Model downloads are currently disabled by the site admin.</p>
+          ) : hasPricedPart ? (
             <p className="text-xs text-slate-500">Need everything? Use the main download button to grab a zipped bundle.</p>
           ) : (
             <p className="text-xs text-amber-300">Part pricing is still being calculated. Download the full set or check back soon.</p>

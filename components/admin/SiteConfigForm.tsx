@@ -28,6 +28,7 @@ const materialPriceSchema = z.object({
 const configSchema = z.object({
   ...materialPriceSchema.shape,
   allowAnonymousUploads: z.boolean().optional(),
+  allowModelDownloads: z.boolean().optional(),
   printSpeedCm3PerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   energyUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   machineUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
@@ -91,6 +92,7 @@ type Config = {
   pcPricePerKgUsd?: number | null
   resinPricePerKgUsd?: number | null
   allowAnonymousUploads?: boolean | null
+  allowModelDownloads?: boolean | null
   printSpeedCm3PerHour?: number | null
   energyUsdPerHour?: number | null
   machineUsdPerHour?: number | null
@@ -178,6 +180,7 @@ function buildPayload(cfg: Config): SchemaShape {
   return {
     ...buildMaterialPricePayload(cfg),
     allowAnonymousUploads: typeof cfg.allowAnonymousUploads === 'boolean' ? cfg.allowAnonymousUploads : undefined,
+    allowModelDownloads: typeof cfg.allowModelDownloads === 'boolean' ? cfg.allowModelDownloads : undefined,
     printSpeedCm3PerHour: cfg.printSpeedCm3PerHour ?? undefined,
     energyUsdPerHour: cfg.energyUsdPerHour ?? undefined,
     machineUsdPerHour: cfg.machineUsdPerHour ?? undefined,
@@ -1113,7 +1116,7 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
           },
           {
             key: 'uploads',
-            label: 'Uploads',
+            label: 'Uploads & Downloads',
             content: (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -1128,6 +1131,19 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                     }}
                   />
                   <label htmlFor="anu" className="text-sm">Allow anonymous uploads</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="amd"
+                    type="checkbox"
+                    checked={cfg.allowModelDownloads !== false}
+                    disabled={saving}
+                    onChange={(e) => {
+                      markTouched('allowModelDownloads')
+                      setCfg({ ...cfg, allowModelDownloads: e.target.checked })
+                    }}
+                  />
+                  <label htmlFor="amd" className="text-sm">Allow model downloads</label>
                 </div>
                 <div>
                   <label className="block text-sm mb-1">Direct upload URL (optional)</label>

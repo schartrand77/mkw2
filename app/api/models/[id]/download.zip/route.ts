@@ -23,11 +23,18 @@ function readZipLevel() {
 
 export async function GET(_req: NextRequest, { params }: ModelDownloadContext) {
   const { id } = await params
-  const model = await prisma.model.findUnique({
-    where: { id },
-    select: { id: true, title: true, parts: true, filePath: true, userId: true, updatedAt: true },
-  })
+  const [model, cfg] = await Promise.all([
+    prisma.model.findUnique({
+      where: { id },
+      select: { id: true, title: true, parts: true, filePath: true, userId: true, updatedAt: true },
+    }),
+    prisma.siteConfig.findUnique({
+      where: { id: 'main' },
+      select: { allowModelDownloads: true },
+    }),
+  ])
   if (!model) return new Response('Not found', { status: 404 })
+  if (cfg?.allowModelDownloads === false) return new Response('Model downloads are disabled', { status: 403 })
   const userId = await getUserIdFromCookie()
   const storage = storageRoot()
   const versionKey = model.updatedAt ? model.updatedAt.getTime() : Date.now()

@@ -206,6 +206,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
   return NextResponse.json({
     model: {
       ...rest,
+      downloadsEnabled: cfg?.allowModelDownloads !== false,
       previewProcessing: has3mf ? previewJobsPending > 0 : false,
       priceUsd: displayPriceUsd,
       basePriceUsd: pricingSummary.basePriceUsd,
