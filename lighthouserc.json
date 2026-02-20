@@ -29,8 +29,14 @@
             "maxNumericValue": 2500
           }
         ],
-        "interaction-to-next-paint": [
+        "total-blocking-time": [
           "error",
+          {
+            "maxNumericValue": 300
+          }
+        ],
+        "interaction-to-next-paint": [
+          "warn",
           {
             "maxNumericValue": 300
           }

@@ -342,7 +342,7 @@ model MerchItem {
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @default(now()) @updatedAt
   notifyRequests MerchNotifyRequest[]
 
   @@index([isActive])
@@ -357,7 +357,7 @@ model MerchNotifyRequest {
   name        String?
   notifiedAt  DateTime?
   createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  updatedAt   DateTime  @default(now()) @updatedAt
 
   merchItem MerchItem @relation(fields: [merchItemId], references: [id], onDelete: Cascade)
 
@@ -650,6 +650,8 @@ model PrintOrder {
   reprints  PrintOrder[]  @relation("ReprintSource")
   failurePhotos FailurePhoto[]
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
 }
 
 model Organization {
@@ -662,7 +664,7 @@ model Organization {
   requirePoAboveCents      Int?
   createdById              String
   createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  updatedAt                DateTime @default(now()) @updatedAt
 
   createdBy User @relation("OrganizationCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
   members OrganizationMember[]
@@ -679,7 +681,7 @@ model OrganizationMember {
   role           String   @default("requester")
   status         String   @default("active")
   createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  updatedAt      DateTime @default(now()) @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
