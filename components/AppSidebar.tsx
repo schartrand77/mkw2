@@ -87,7 +87,8 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    document.body.classList.toggle('sidebar-open', sidebarExpanded)
+    if (sidebarExpanded) document.body.classList.add('sidebar-open')
+    else document.body.classList.remove('sidebar-open')
     return () => {
       document.body.classList.remove('sidebar-open')
     }
@@ -371,7 +372,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       )}
 
       {authed && mounted && createPortal(
-        <div className="app-user-shortcut" ref={quickMenuRef}>
+        <div className={`app-user-shortcut ${sidebarExpanded ? 'app-user-shortcut-open' : ''}`} ref={quickMenuRef}>
           <div className="app-user-shortcut-row">
             <form className="app-user-search-form" onSubmit={handleQuickSearchSubmit}>
               <input
