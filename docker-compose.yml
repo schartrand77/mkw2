@@ -99,6 +99,30 @@ services:
     networks:
       - makerworks-net
 
+  backup-scheduler:
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/makerworks?schema=public}
+      STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
+      BACKUP_SCHEDULE_ENABLED: ${BACKUP_SCHEDULE_ENABLED:-0}
+      BACKUP_SCHEDULE_TIME_UTC: ${BACKUP_SCHEDULE_TIME_UTC:-03:00}
+      BACKUP_RUN_ON_START: ${BACKUP_RUN_ON_START:-0}
+      BACKUP_PRUNE_ON_BACKUP: ${BACKUP_PRUNE_ON_BACKUP:-1}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_RETENTION_MAX_COUNT: ${BACKUP_RETENTION_MAX_COUNT:-30}
+      LOG_BACKUPS: ${LOG_BACKUPS:-true}
+    command: ["node", "scripts/backup-scheduler.js"]
+    volumes:
+      - ./storage:/app/storage
+    networks:
+      - makerworks-net
+
 volumes:
   db_data:
 

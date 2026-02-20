@@ -22,6 +22,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "bootstrap:admin": "node scripts/bootstrap-admin.js",
     "backup": "node scripts/backup.js",
+    "backup:scheduler": "node scripts/backup-scheduler.js",
     "backfill:3mf-previews": "node scripts/backfill-3mf-previews.js",
     "retention:run": "tsx scripts/data-retention.ts"
   },

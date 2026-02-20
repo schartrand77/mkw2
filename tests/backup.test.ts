@@ -5,7 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { runBackup, listBackups, scheduleRestore, getPendingRestore } = require('../lib/backups')
+const { runBackup, listBackups, scheduleRestore, getPendingRestore, pruneBackups, getNextScheduledBackupAt } = require('../lib/backups')
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'makerworks-backup-'))
@@ -19,7 +19,7 @@ function writeFakePgDump(binDir: string) {
       [
         '@echo off',
         'if "%1"=="--version" (',
-        '  echo pg_dump (PostgreSQL) 16.0',
+        '  echo pg_dump ^(PostgreSQL^) 16.0',
         '  exit /B 0',
         ')',
         'echo -- mock pg_dump',
@@ -156,5 +156,76 @@ test('scheduleRestore creates pending restore manifest', () => {
       process.env.LOG_BACKUPS = previousLog
     }
     fs.rmSync(tempRoot, { recursive: true, force: true })
+  }
+})
+
+test('pruneBackups applies retention and protects pending restore backup', () => {
+  const tempRoot = makeTempDir()
+  const storageDir = path.join(tempRoot, 'storage')
+  const backupsDir = path.join(storageDir, 'backups')
+  fs.mkdirSync(backupsDir, { recursive: true })
+
+  const folders = ['2026-02-10', '2026-02-12', '2026-02-14', '2026-02-19', '2026-02-20']
+  folders.forEach((folder, index) => {
+    const target = path.join(backupsDir, folder)
+    fs.mkdirSync(target, { recursive: true })
+    fs.writeFileSync(path.join(target, 'db.sql'), '-- mock', 'utf8')
+    const daysAgo = 10 - index * 2
+    const mtime = new Date(Date.now() - Math.max(0, daysAgo) * 24 * 60 * 60 * 1000)
+    fs.utimesSync(target, mtime, mtime)
+  })
+
+  const pendingManifest = path.join(backupsDir, 'pending-restore.json')
+  fs.writeFileSync(
+    pendingManifest,
+    JSON.stringify({ backupPath: 'backups/2026-02-10', createdAt: new Date().toISOString() }, null, 2),
+    'utf8',
+  )
+
+  const previousStorage = process.env.STORAGE_DIR
+  const previousRetentionDays = process.env.BACKUP_RETENTION_DAYS
+  const previousRetentionCount = process.env.BACKUP_RETENTION_MAX_COUNT
+  process.env.STORAGE_DIR = storageDir
+  process.env.BACKUP_RETENTION_DAYS = '2'
+  process.env.BACKUP_RETENTION_MAX_COUNT = '2'
+
+  try {
+    const result = pruneBackups()
+    assert.ok(result.deleted.includes('2026-02-12'))
+    assert.ok(result.deleted.includes('2026-02-14'))
+    assert.ok(result.kept.includes('2026-02-10'), 'pending restore backup should not be pruned')
+    assert.ok(result.kept.includes('2026-02-19'))
+    assert.ok(result.kept.includes('2026-02-20'))
+
+    assert.ok(fs.existsSync(path.join(backupsDir, '2026-02-10')))
+    assert.ok(!fs.existsSync(path.join(backupsDir, '2026-02-12')))
+    assert.ok(!fs.existsSync(path.join(backupsDir, '2026-02-14')))
+    assert.ok(fs.existsSync(path.join(backupsDir, '2026-02-19')))
+    assert.ok(fs.existsSync(path.join(backupsDir, '2026-02-20')))
+  } finally {
+    if (previousStorage === undefined) delete process.env.STORAGE_DIR
+    else process.env.STORAGE_DIR = previousStorage
+    if (previousRetentionDays === undefined) delete process.env.BACKUP_RETENTION_DAYS
+    else process.env.BACKUP_RETENTION_DAYS = previousRetentionDays
+    if (previousRetentionCount === undefined) delete process.env.BACKUP_RETENTION_MAX_COUNT
+    else process.env.BACKUP_RETENTION_MAX_COUNT = previousRetentionCount
+    fs.rmSync(tempRoot, { recursive: true, force: true })
+  }
+})
+
+test('getNextScheduledBackupAt returns next daily UTC run', () => {
+  const previousSchedule = process.env.BACKUP_SCHEDULE_TIME_UTC
+  process.env.BACKUP_SCHEDULE_TIME_UTC = '03:00'
+  try {
+    const nowBefore = new Date('2026-02-20T02:30:00.000Z')
+    const nextBefore = getNextScheduledBackupAt(nowBefore)
+    assert.equal(nextBefore.toISOString(), '2026-02-20T03:00:00.000Z')
+
+    const nowAfter = new Date('2026-02-20T04:15:00.000Z')
+    const nextAfter = getNextScheduledBackupAt(nowAfter)
+    assert.equal(nextAfter.toISOString(), '2026-02-21T03:00:00.000Z')
+  } finally {
+    if (previousSchedule === undefined) delete process.env.BACKUP_SCHEDULE_TIME_UTC
+    else process.env.BACKUP_SCHEDULE_TIME_UTC = previousSchedule
   }
 })

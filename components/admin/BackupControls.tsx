@@ -1,7 +1,7 @@
 "use client"
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 type BackupMeta = {
   folder: string
@@ -9,6 +9,27 @@ type BackupMeta = {
   hasDatabase?: boolean
   hasStorage?: boolean
   downloadUrl?: string | null
+}
+
+type RuntimeReadiness = {
+  ok: boolean
+  mode: 'docker' | 'local' | 'unavailable'
+  dockerComposeAvailable: boolean
+  pgDumpAvailable?: boolean
+  psqlAvailable?: boolean
+  pgDumpCommand?: string
+  psqlCommand?: string
+  reasons?: string[]
+}
+
+type BackupPolicy = {
+  retentionDays: number
+  retentionMaxCount: number
+  scheduleEnabled: boolean
+  scheduleTimeUtc: string
+  scheduleTimeValid: boolean
+  pruneOnBackup: boolean
+  runOnStart: boolean
 }
 
 export default function BackupControls() {
@@ -20,8 +41,14 @@ export default function BackupControls() {
   const [latestMessage, setLatestMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmRestore, setConfirmRestore] = useState(false)
+  const [readiness, setReadiness] = useState<{
+    backup: RuntimeReadiness
+    restore: RuntimeReadiness
+    policy: BackupPolicy
+    nextRunAt?: string
+  } | null>(null)
 
-  const loadBackups = async () => {
+  const loadBackups = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -40,11 +67,24 @@ export default function BackupControls() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     loadBackups()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadBackups])
+
+  useEffect(() => {
+    const loadReadiness = async () => {
+      try {
+        const res = await fetch('/api/admin/backup')
+        const data = await res.json()
+        if (!res.ok) throw new Error(data?.error || 'Failed to check backup prerequisites')
+        setReadiness({ backup: data.backup, restore: data.restore, policy: data.policy, nextRunAt: data.nextRunAt })
+      } catch {
+        setReadiness(null)
+      }
+    }
+    loadReadiness()
   }, [])
 
   const triggerBackup = async () => {
@@ -103,10 +143,31 @@ export default function BackupControls() {
       <p className="text-sm text-slate-400">
         Backups live under <code>/files/backups</code>. Restoring removes files uploaded after that snapshot and will take effect after a restart.
       </p>
+      {readiness?.policy && (
+        <div className="text-xs text-slate-400">
+          Retention: keep backups from last <code>{readiness.policy.retentionDays}</code> day(s) and newest <code>{readiness.policy.retentionMaxCount}</code>.
+          {' '}Prune on backup: <code>{readiness.policy.pruneOnBackup ? 'enabled' : 'disabled'}</code>.
+          {' '}Schedule: <code>{readiness.policy.scheduleEnabled ? 'enabled' : 'disabled'}</code> at{' '}
+          <code>{readiness.policy.scheduleTimeUtc} UTC</code>
+          {readiness.nextRunAt ? <> (next run: {new Date(readiness.nextRunAt).toLocaleString()}).</> : '.'}
+        </div>
+      )}
+      {readiness && !readiness.backup.ok && (
+        <div className="text-sm text-amber-300">
+          Backup prerequisites missing ({(readiness.backup.reasons || []).join(', ')}). Configure Docker Compose with the <code>db</code> service
+          running, or set <code>PG_DUMP_BIN</code> to your local <code>pg_dump</code> path.
+        </div>
+      )}
+      {readiness && !readiness.restore.ok && (
+        <div className="text-sm text-amber-300">
+          Restore prerequisites missing ({(readiness.restore.reasons || []).join(', ')}). Configure Docker Compose with the <code>db</code> service
+          running, or set <code>PSQL_BIN</code> to your local <code>psql</code> path before applying restore.
+        </div>
+      )}
       {error && <div className="text-sm text-amber-400">{error}</div>}
       {latestMessage && <div className="text-sm text-green-400">{latestMessage}</div>}
       <div className="flex flex-wrap gap-3">
-        <button className="btn" onClick={triggerBackup} disabled={creating}>
+        <button className="btn" onClick={triggerBackup} disabled={creating || (readiness ? !readiness.backup.ok : false)}>
           {creating ? 'Creating backup...' : 'Create backup'}
         </button>
         <button className="px-3 py-2 rounded-md border border-white/10 text-sm" type="button" onClick={loadBackups} disabled={loading}>

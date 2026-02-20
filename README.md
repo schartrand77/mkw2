@@ -79,6 +79,7 @@ Root cause observed:
 cp .env.example .env
 ```
 2. Set required values (`DATABASE_URL`, `JWT_SECRET`, admin credentials, and optional integrations).
+   - Optional for automated backups: set `BACKUP_SCHEDULE_ENABLED=1` and tune `BACKUP_*` retention vars.
 3. Start services:
 ```bash
 docker compose up --build -d
@@ -117,6 +118,8 @@ npm run dev
 Use `.env.example` as source of truth. Key variable groups:
 
 - Core: `DATABASE_URL`, `JWT_SECRET`, `BASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`
+- Backup/restore (optional local overrides): `PG_DUMP_BIN`, `PSQL_BIN`
+- Backup scheduling/retention: `BACKUP_SCHEDULE_ENABLED`, `BACKUP_SCHEDULE_TIME_UTC`, `BACKUP_RUN_ON_START`, `BACKUP_PRUNE_ON_BACKUP`, `BACKUP_RETENTION_DAYS`, `BACKUP_RETENTION_MAX_COUNT`
 - Payments: `STRIPE_*`
 - Orderworks bridge: `ORDERWORKS_*`
 - Stockworks inventory: `STOCKWORKS_*`
@@ -135,7 +138,10 @@ npm run typecheck
 npm test
 npm run prisma:deploy
 npm run backup
+npm run backup:scheduler
 ```
+
+`backup:scheduler` is intended to run as a separate long-lived process/container and uses UTC schedule + retention env vars from `.env`.
 
 ## Architecture
 

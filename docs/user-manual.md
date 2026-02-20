@@ -350,6 +350,19 @@ All pages below require admin/staff access.
 - Create backups.
 - View latest backup metadata.
 - Queue/monitor restore manifests.
+- Runtime readiness is shown in-page before backup/restore operations.
+- Backup requires one of:
+  - Docker Compose available with a running `db` service (container `pg_dump`/`psql`).
+  - Local PostgreSQL client tools with `pg_dump` and `psql` available via `PATH` or explicit env vars:
+    - `PG_DUMP_BIN`
+    - `PSQL_BIN`
+- Daily schedule and retention policy are env-driven:
+  - `BACKUP_SCHEDULE_ENABLED=1` enables scheduler process.
+  - `BACKUP_SCHEDULE_TIME_UTC` sets daily run time (24h `HH:mm`, UTC).
+  - `BACKUP_RETENTION_DAYS` and `BACKUP_RETENTION_MAX_COUNT` control prune policy.
+  - `BACKUP_PRUNE_ON_BACKUP=1` prunes after successful backup.
+  - `BACKUP_RUN_ON_START=1` runs one backup when scheduler starts.
+  - Run scheduler process with `npm run backup:scheduler` (or equivalent process manager/container).
 
 ### 18.7 Model Library (`/admin/models`)
 
@@ -471,4 +484,3 @@ Check:
 4. Add items to cart and configure materials/colors.
 5. Complete checkout using preferred payment method.
 6. Track order in `/customer/orders`.
-
