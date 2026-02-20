@@ -1,10 +1,22 @@
 import { NextResponse } from 'next/server'
-import path from 'path'
 import { requireAdmin } from '../_utils'
 import { storageRoot, toPublicHref } from '@/lib/storage'
-const { runBackup, getBackupReadiness, getRestoreReadiness, getBackupPolicy, getNextScheduledBackupAt } = require('@/lib/backups')
+const {
+  runBackup,
+  resolveBackupsDir,
+  getBackupReadiness,
+  getRestoreReadiness,
+  getBackupPolicy,
+  getNextScheduledBackupAt,
+} = require('@/lib/backups')
 
 export const dynamic = 'force-dynamic'
+
+function isWithin(base: string, target: string) {
+  const baseNorm = `${base}`.replace(/[\\/]+$/, '')
+  const targetNorm = `${target}`.replace(/[\\/]+$/, '')
+  return targetNorm === baseNorm || targetNorm.startsWith(`${baseNorm}/`) || targetNorm.startsWith(`${baseNorm}\\`)
+}
 
 export async function GET() {
   try {
@@ -13,11 +25,15 @@ export async function GET() {
     return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 })
   }
 
+  const storageDir = storageRoot()
+  const backupsRoot = resolveBackupsDir(storageDir)
   const policy = getBackupPolicy()
   return NextResponse.json({
     ok: true,
     backup: getBackupReadiness(),
     restore: getRestoreReadiness(),
+    backupsRoot,
+    backupsRootInStorage: isWithin(storageDir, backupsRoot),
     policy,
     nextRunAt: policy.scheduleEnabled ? getNextScheduledBackupAt(new Date(), policy).toISOString() : null,
   })
@@ -45,13 +61,17 @@ export async function POST() {
     }
 
     const storageDir = storageRoot()
-    const backupsDir = path.join(storageDir, 'backups')
-    const absolutePath = runBackup({ backupDir: backupsDir })
-    const rel = absolutePath.startsWith(storageDir)
+    const absolutePath = runBackup()
+    const rel = isWithin(storageDir, absolutePath)
       ? absolutePath.slice(storageDir.length).replace(/^[\\/]+/, '')
-      : absolutePath
-    const href = toPublicHref(rel)
-    return NextResponse.json({ ok: true, path: href, folder: rel })
+      : null
+    const href = rel ? toPublicHref(rel) : null
+    return NextResponse.json({
+      ok: true,
+      path: href,
+      folder: rel || absolutePath.split(/[\\/]/).pop() || absolutePath,
+      absolutePath,
+    })
   } catch (err: any) {
     console.error('Backup failed', err)
     return NextResponse.json({ error: err?.message || 'Backup failed' }, { status: 500 })

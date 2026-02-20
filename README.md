@@ -119,7 +119,9 @@ Use `.env.example` as source of truth. Key variable groups:
 
 - Core: `DATABASE_URL`, `JWT_SECRET`, `BASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`
 - Backup/restore (optional local overrides): `PG_DUMP_BIN`, `PSQL_BIN`
-- Backup scheduling/retention: `BACKUP_SCHEDULE_ENABLED`, `BACKUP_SCHEDULE_TIME_UTC`, `BACKUP_RUN_ON_START`, `BACKUP_PRUNE_ON_BACKUP`, `BACKUP_RETENTION_DAYS`, `BACKUP_RETENTION_MAX_COUNT`
+- Backup scheduling/retention: `BACKUP_DOCKER_SERVICE`, `BACKUP_SCHEDULE_ENABLED`, `BACKUP_SCHEDULE_TIME_UTC`, `BACKUP_RUN_ON_START`, `BACKUP_PRUNE_ON_BACKUP`, `BACKUP_RETENTION_DAYS`, `BACKUP_RETENTION_MAX_COUNT`
+- Backup runtime mode: `SKIP_DOCKER`, `PG_DUMP_BIN`, `PSQL_BIN`
+- Backup destination path: `BACKUP_DIR` (defaults to `STORAGE_DIR/backups`)
 - Payments: `STRIPE_*`
 - Orderworks bridge: `ORDERWORKS_*`
 - Stockworks inventory: `STOCKWORKS_*`

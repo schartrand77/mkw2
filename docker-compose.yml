@@ -38,6 +38,14 @@ services:
       BASE_URL: ${BASE_URL:-http://localhost:3000}
       # Persist uploads under STORAGE_DIR
       STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
+      # Backup destination. Defaults to STORAGE_DIR/backups when empty.
+      BACKUP_DIR: ${BACKUP_DIR:-}
+      # Backup runtime mode and DB service target for compose exec.
+      SKIP_DOCKER: ${SKIP_DOCKER:-0}
+      BACKUP_DOCKER_SERVICE: ${BACKUP_DOCKER_SERVICE:-db}
+      # Optional explicit client-tool paths (mainly for non-compose runtimes).
+      PG_DUMP_BIN: ${PG_DUMP_BIN:-}
+      PSQL_BIN: ${PSQL_BIN:-}
       # In local Docker (HTTP), do not mark cookies as Secure
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       PLA_PRICE_PER_KG_USD: ${PLA_PRICE_PER_KG_USD:-25.00}
@@ -110,6 +118,11 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/makerworks?schema=public}
       STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
+      BACKUP_DIR: ${BACKUP_DIR:-}
+      SKIP_DOCKER: ${SKIP_DOCKER:-0}
+      BACKUP_DOCKER_SERVICE: ${BACKUP_DOCKER_SERVICE:-db}
+      PG_DUMP_BIN: ${PG_DUMP_BIN:-}
+      PSQL_BIN: ${PSQL_BIN:-}
       BACKUP_SCHEDULE_ENABLED: ${BACKUP_SCHEDULE_ENABLED:-0}
       BACKUP_SCHEDULE_TIME_UTC: ${BACKUP_SCHEDULE_TIME_UTC:-03:00}
       BACKUP_RUN_ON_START: ${BACKUP_RUN_ON_START:-0}

@@ -351,12 +351,18 @@ All pages below require admin/staff access.
 - View latest backup metadata.
 - Queue/monitor restore manifests.
 - Runtime readiness is shown in-page before backup/restore operations.
+- Backup location can be remapped with `BACKUP_DIR` (otherwise defaults to `STORAGE_DIR/backups`).
+- If `BACKUP_DIR` is outside `STORAGE_DIR`, restore still works but in-app `/files/...` download links are not available for those backups.
 - Backup requires one of:
   - Docker Compose available with a running `db` service (container `pg_dump`/`psql`).
   - Local PostgreSQL client tools with `pg_dump` and `psql` available via `PATH` or explicit env vars:
     - `PG_DUMP_BIN`
     - `PSQL_BIN`
 - Daily schedule and retention policy are env-driven:
+  - Runtime mode:
+    - Unraid/non-compose: `SKIP_DOCKER=1`, `PG_DUMP_BIN=/usr/bin/pg_dump`, `PSQL_BIN=/usr/bin/psql`
+    - Docker Compose: `SKIP_DOCKER=0` (or unset) and `BACKUP_DOCKER_SERVICE` set to your Postgres service name
+  - `BACKUP_DOCKER_SERVICE` overrides the Docker Compose service used for `pg_dump`/`psql` (default: `db`).
   - `BACKUP_SCHEDULE_ENABLED=1` enables scheduler process.
   - `BACKUP_SCHEDULE_TIME_UTC` sets daily run time (24h `HH:mm`, UTC).
   - `BACKUP_RETENTION_DAYS` and `BACKUP_RETENTION_MAX_COUNT` control prune policy.

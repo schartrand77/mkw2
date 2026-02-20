@@ -38,6 +38,8 @@ export default function BackupControls() {
   const [backups, setBackups] = useState<BackupMeta[]>([])
   const [selected, setSelected] = useState('')
   const [pending, setPending] = useState<{ folder: string; scheduledAt: string } | null>(null)
+  const [backupsRoot, setBackupsRoot] = useState<string | null>(null)
+  const [backupsRootInStorage, setBackupsRootInStorage] = useState<boolean>(true)
   const [latestMessage, setLatestMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmRestore, setConfirmRestore] = useState(false)
@@ -57,6 +59,8 @@ export default function BackupControls() {
       if (!res.ok) throw new Error(data?.error || 'Failed to load backups')
       setBackups(data.backups || [])
       setPending(data.pending || null)
+      setBackupsRoot(data.backupsRoot || null)
+      setBackupsRootInStorage(Boolean(data.backupsRootInStorage))
       if (data.backups?.length) {
         setSelected((prev) => (prev && data.backups.some((b: BackupMeta) => b.folder === prev) ? prev : data.backups[0].folder))
       } else {
@@ -141,8 +145,13 @@ export default function BackupControls() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-400">
-        Backups live under <code>/files/backups</code>. Restoring removes files uploaded after that snapshot and will take effect after a restart.
+        Backups root: <code>{backupsRoot || '/files/backups'}</code>. Restoring removes files uploaded after that snapshot and will take effect after a restart.
       </p>
+      {backupsRoot && !backupsRootInStorage && (
+        <p className="text-xs text-amber-300">
+          This backup root is outside <code>STORAGE_DIR</code>. Restore works, but browser download links are disabled for these backups.
+        </p>
+      )}
       {readiness?.policy && (
         <div className="text-xs text-slate-400">
           Retention: keep backups from last <code>{readiness.policy.retentionDays}</code> day(s) and newest <code>{readiness.policy.retentionMaxCount}</code>.
