@@ -4,7 +4,7 @@ import ViewPreferenceSync from '@/components/discover/ViewPreferenceSync'
 import ViewToggle from '@/components/discover/ViewToggle'
 import { buildImageSrc } from '@/lib/public-path'
 import { formatPriceLabel } from '@/lib/price-label'
-import { DiscoverEntityType, DiscoverSort, DiscoverViewMode, type CardInfo, type DiscoverModel } from '@/types/discover'
+import { DiscoverEntityType, DiscoverViewMode, type CardInfo, type DiscoverModel } from '@/types/discover'
 import { resolveBaseUrl } from '@/lib/base-url'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { listActiveCollections } from '@/lib/collections'
@@ -13,7 +13,6 @@ import { CACHE_TAGS, CACHE_TTL_SECONDS } from '@/lib/cache-policy'
 type SearchParams = { [key: string]: string | string[] | undefined }
 
 import DiscoverModelList from '@/components/discover/DiscoverModelList'
-import DiscoverFilters from '@/components/discover/DiscoverFilters'
 
 async function fetchModels(params: URLSearchParams, baseUrl: string) {
   const qs = params.toString()
@@ -69,8 +68,6 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   const models: DiscoverModel[] = Array.isArray(data.models) ? data.models : []
   const total = typeof data.total === 'number' ? data.total : 0
   const safeTotal = total || 0
-  const q = params.get('q') || ''
-  const sort = params.get('sort') || DiscoverSort.Latest
   const totalPages = Math.max(1, Math.ceil(safeTotal / pageSize))
   const showingStart = safeTotal > 0 ? (page - 1) * pageSize + 1 : 0
   const showingEnd = safeTotal > 0 ? Math.min(safeTotal, (page - 1) * pageSize + (models?.length || 0)) : 0
@@ -89,7 +86,6 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       : isModel ? 'N/A' : 'Configured'
     return { model: m, coverSrc, priceLabel, sizeLabel, partsLabel }
   })
-  const hasModels = cards.length > 0
   const gridViewHref = buildQS({ page: 1, view: viewMode === DiscoverViewMode.Compact ? DiscoverViewMode.Grid : '' }, params)
   const compactViewHref = buildQS({ page: 1, view: DiscoverViewMode.Compact }, params)
 
@@ -127,8 +123,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
           </div>
         </div>
       )}
-      <DiscoverFilters q={q} sort={sort} pageSize={pageSize} viewMode={viewMode} />
-<div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-400">
           Showing {safeTotal > 0 ? `${showingStart}-${showingEnd}` : 0} of {safeTotal} models
         </p>
