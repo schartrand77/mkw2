@@ -6,7 +6,7 @@
     "predev": "node scripts/ensure-env.js",
     "dev": "next dev",
     "build": "next build",
-    "perf:ci": "lhci autorun --config=./lighthouserc.json",
+    "perf:ci": "node scripts/perf-ci.js",
     "prestart": "node scripts/restore.js",
     "start": "next start -p 3000",
     "worker:processing": "tsx scripts/processing-worker.ts",
