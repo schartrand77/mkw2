@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../_utils'
 import { z } from 'zod'
 import { resolvePrinterProfile } from '@/lib/printerProfiles'
 import { refreshEffectivePrices } from '@/lib/pricing-cache'
 import { getAdminAuditRequestMeta, recordAdminAuditEvent } from '@/lib/admin-audit'
+import { CACHE_TAGS } from '@/lib/cache-policy'
 export const dynamic = 'force-dynamic'
 
 const schema = z.object({
@@ -163,6 +164,9 @@ export async function PATCH(req: NextRequest) {
     })
     revalidatePath('/admin')
     revalidatePath('/products')
+    revalidateTag(CACHE_TAGS.discoverModels, 'max')
+    revalidateTag(CACHE_TAGS.featuredModels, 'max')
+    revalidateTag(CACHE_TAGS.homePage, 'max')
     return NextResponse.json({ config: cfg })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request' }, { status: 400 })
