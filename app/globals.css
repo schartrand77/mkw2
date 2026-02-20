@@ -81,6 +81,34 @@ body {
   font-weight: 600;
   letter-spacing: -0.02em;
 }
+.app-home-shortcut {
+  position: fixed;
+  top: max(0.75rem, env(safe-area-inset-top));
+  left: max(0.75rem, env(safe-area-inset-left));
+  z-index: 1265;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(5, 7, 12, 0.82);
+  height: 2.25rem;
+  padding: 0 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: #f8fafc;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+}
+.app-home-shortcut-offset {
+  left: calc(17rem + 1.5rem);
+}
+.app-home-shortcut:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(8, 11, 18, 0.9);
+}
 .app-sidebar-link {
   display: block;
   border-radius: 0.55rem;
@@ -162,6 +190,33 @@ body {
   right: max(0.75rem, env(safe-area-inset-right));
   z-index: 1260;
 }
+.app-user-shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.app-user-search-form {
+  width: min(30rem, calc(100vw - max(1rem, env(safe-area-inset-left)) - max(1rem, env(safe-area-inset-right)) - 4rem));
+}
+.app-user-search-input {
+  width: 100%;
+  height: 2.25rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(5, 7, 12, 0.78);
+  color: #f8fafc;
+  font-size: 0.8rem;
+  padding: 0 0.85rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+.app-user-search-input::placeholder {
+  color: rgba(148, 163, 184, 0.95);
+}
+.app-user-search-input:focus {
+  outline: none;
+  border-color: rgba(var(--empire-crimson-rgb) / 0.8);
+  box-shadow: 0 0 0 2px rgba(var(--empire-crimson-rgb) / 0.35);
+}
 .app-user-shortcut-menu {
   left: auto;
   right: 0;
@@ -221,6 +276,12 @@ body {
   }
   .app-main {
     padding-top: 3rem;
+  }
+  .app-home-shortcut-offset {
+    left: calc(var(--app-sidebar-drawer-left) + var(--app-sidebar-drawer-width) + 0.5rem);
+  }
+  .app-user-search-form {
+    width: min(17rem, calc(100vw - max(1rem, env(safe-area-inset-left)) - max(1rem, env(safe-area-inset-right)) - 4rem));
   }
   .app-content-shell {
     transition: transform 190ms ease;
@@ -483,8 +544,31 @@ html.theme-light .app-sidebar-menu-item:hover {
   background: rgba(15, 23, 42, 0.09);
   color: #020617;
 }
+html.theme-light .app-home-shortcut {
+  border-color: rgba(15, 23, 42, 0.2);
+  background: rgba(255, 255, 255, 0.94);
+  color: #0f172a;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+}
+html.theme-light .app-home-shortcut:hover {
+  border-color: rgba(15, 23, 42, 0.35);
+  background: rgba(255, 255, 255, 0.98);
+}
 html.theme-light .app-user-shortcut {
   color: #0f172a;
+}
+html.theme-light .app-user-search-input {
+  border-color: rgba(15, 23, 42, 0.2);
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+}
+html.theme-light .app-user-search-input::placeholder {
+  color: rgba(51, 65, 85, 0.9);
+}
+html.theme-light .app-user-search-input:focus {
+  border-color: rgba(var(--empire-crimson-rgb) / 0.75);
+  box-shadow: 0 0 0 2px rgba(var(--empire-crimson-rgb) / 0.28);
 }
 html.theme-light .app-sidebar-handle {
   border-color: rgba(var(--empire-crimson-rgb) / 0.55);

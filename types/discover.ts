@@ -10,8 +10,16 @@ export enum DiscoverSort {
   PriceDesc = 'price_desc',
 }
 
+export enum DiscoverEntityType {
+  Model = 'model',
+  Product = 'product',
+  Merch = 'merch',
+}
+
 export type DiscoverModel = {
   id: string
+  entityType?: DiscoverEntityType | null
+  href?: string | null
   title: string
   coverImagePath?: string | null
   fileType?: string | null

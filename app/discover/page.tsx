@@ -2,11 +2,9 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import ViewPreferenceSync from '@/components/discover/ViewPreferenceSync'
 import ViewToggle from '@/components/discover/ViewToggle'
-import { formatCurrency } from '@/lib/currency'
-import AddToCartButtons from '@/components/cart/AddToCartButtons'
 import { buildImageSrc } from '@/lib/public-path'
 import { formatPriceLabel } from '@/lib/price-label'
-import { DiscoverSort, DiscoverViewMode, type CardInfo, type DiscoverModel } from '@/types/discover'
+import { DiscoverEntityType, DiscoverSort, DiscoverViewMode, type CardInfo, type DiscoverModel } from '@/types/discover'
 import { resolveBaseUrl } from '@/lib/base-url'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { listActiveCollections } from '@/lib/collections'
@@ -16,8 +14,6 @@ type SearchParams = { [key: string]: string | string[] | undefined }
 
 import DiscoverModelList from '@/components/discover/DiscoverModelList'
 import DiscoverFilters from '@/components/discover/DiscoverFilters'
-
-const PAGE_SIZE_OPTIONS = [12, 24, 36, 48, 60]
 
 async function fetchModels(params: URLSearchParams, baseUrl: string) {
   const qs = params.toString()
@@ -85,11 +81,12 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       from: hasCustomPrice ? false : Boolean(m.salePriceIsFrom),
       unit: m.salePriceUnit || undefined,
     })
-    const partsCount = typeof m.partsCount === 'number' ? m.partsCount : null
+    const isModel = (m.entityType || DiscoverEntityType.Model) === DiscoverEntityType.Model
+    const partsCount = isModel && typeof m.partsCount === 'number' ? m.partsCount : null
     const partsLabel = partsCount && partsCount > 0 ? `${partsCount} part${partsCount === 1 ? '' : 's'}` : null
     const sizeLabel = m.sizeXmm && m.sizeYmm && m.sizeZmm
       ? `${Math.round(m.sizeXmm)} x ${Math.round(m.sizeYmm)} x ${Math.round(m.sizeZmm)} mm`
-      : 'N/A'
+      : isModel ? 'N/A' : 'Configured'
     return { model: m, coverSrc, priceLabel, sizeLabel, partsLabel }
   })
   const hasModels = cards.length > 0

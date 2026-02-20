@@ -74,6 +74,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   const [mounted, setMounted] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [avatarSrc, setAvatarSrc] = useState<string | null>(avatarUrl)
+  const [quickSearch, setQuickSearch] = useState('')
   const menuRef = useRef<HTMLDivElement | null>(null)
   const quickMenuRef = useRef<HTMLDivElement | null>(null)
   const { count } = useCart()
@@ -279,20 +280,121 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     </div>
   )
 
+  const resolveQuickSearchNavigation = (rawQuery: string) => {
+    const query = rawQuery.trim()
+    const tokens = query.split(/\s+/).filter(Boolean)
+    const navTags = new Set<string>()
+    const contentTokens: string[] = []
+    for (const token of tokens) {
+      if (token.startsWith('#')) navTags.add(token.toLowerCase().replace(/^#+/, ''))
+      else contentTokens.push(token)
+    }
+
+    const routeByTag: Record<string, string> = {
+      home: '/',
+      discover: '/discover',
+      store: '/products',
+      upload: '/upload',
+      cart: '/cart',
+      checkout: '/checkout',
+      orders: '/customer/orders',
+      portal: '/customer/portal',
+      profile: '/settings/profile',
+      account: '/settings/account',
+      orgs: '/settings/organizations',
+      organizations: '/settings/organizations',
+      likes: '/likes',
+      me: '/me',
+      admin: '/admin',
+      users: '/admin/users',
+      jobs: '/admin/jobs',
+      inventory: '/admin/inventory',
+      analytics: '/admin/analytics',
+      production: '/admin/production',
+      models: '/discover',
+      merch: '/discover',
+    }
+
+    const preferredNavOrder = [
+      'home', 'discover', 'store', 'upload', 'cart', 'checkout', 'orders', 'portal', 'profile',
+      'account', 'orgs', 'organizations', 'likes', 'me', 'admin', 'users', 'jobs', 'inventory', 'analytics', 'production',
+    ]
+    const navTag = preferredNavOrder.find((tag) => navTags.has(tag))
+    const navRoute = navTag ? routeByTag[navTag] : null
+    const discoverQuery = [contentTokens.join(' ').trim(), ...Array.from(navTags).filter((tag) => ['models', 'merch', 'products'].includes(tag)).map((tag) => `#${tag}`)]
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+
+    return { navRoute, discoverQuery }
+  }
+
+  const handleQuickSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const raw = quickSearch.trim()
+    if (!raw) {
+      router.push('/discover')
+      return
+    }
+    const { navRoute, discoverQuery } = resolveQuickSearchNavigation(raw)
+
+    if (navRoute?.startsWith('/admin') && !isAdmin) {
+      pushSessionNotification({ type: 'error', title: 'Admin only', message: 'That hashtag route requires admin access.' })
+      return
+    }
+    if (navRoute && navRoute !== '/discover') {
+      router.push(navRoute)
+      return
+    }
+    const qs = new URLSearchParams()
+    if (discoverQuery) qs.set('q', discoverQuery)
+    const href = `/discover${qs.toString() ? `?${qs.toString()}` : ''}`
+    router.push(href)
+  }
+
   return (
     <>
+      {mounted && createPortal(
+        <Link
+          href="/"
+          aria-label={BRAND_FULL_NAME}
+          className={`app-home-shortcut ${sidebarExpanded ? 'app-home-shortcut-offset' : ''}`}
+        >
+          <span>{BRAND_LOGO_PREFIX}</span>
+          <span className="inline-block align-baseline text-brand-500 gear app-brand-gear-tight" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
+            <GearGlyph />
+          </span>
+          {BRAND_LOGO_SUFFIX && <span>{BRAND_LOGO_SUFFIX}</span>}
+          {BRAND_VERSION && <span className="text-brand-500"> {BRAND_VERSION}</span>}
+        </Link>,
+        document.body
+      )}
+
       {authed && mounted && createPortal(
         <div className="app-user-shortcut" ref={quickMenuRef}>
-          <button
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={quickMenuOpen}
-            onClick={() => setQuickMenuOpen((open) => !open)}
-            className={`app-sidebar-profile ${isActivePath(pathname, '/me') ? 'app-sidebar-profile-active' : ''}`}
-            aria-label="Open account menu"
-          >
-            {avatarSrc ? <img src={avatarSrc} alt="Avatar" className="h-8 w-8 rounded-full border border-white/10 object-cover" /> : <span>Me</span>}
-          </button>
+          <div className="app-user-shortcut-row">
+            <form className="app-user-search-form" onSubmit={handleQuickSearchSubmit}>
+              <input
+                className="app-user-search-input"
+                type="search"
+                name="quickSearch"
+                value={quickSearch}
+                onChange={(e) => setQuickSearch(e.target.value)}
+                placeholder="Search... (#discover #store #upload)"
+                aria-label="Search and navigate"
+              />
+            </form>
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={quickMenuOpen}
+              onClick={() => setQuickMenuOpen((open) => !open)}
+              className={`app-sidebar-profile ${isActivePath(pathname, '/me') ? 'app-sidebar-profile-active' : ''}`}
+              aria-label="Open account menu"
+            >
+              {avatarSrc ? <img src={avatarSrc} alt="Avatar" className="h-8 w-8 rounded-full border border-white/10 object-cover" /> : <span>Me</span>}
+            </button>
+          </div>
           {quickMenuOpen && renderAccountMenu('app-sidebar-menu app-user-shortcut-menu')}
         </div>,
         document.body
@@ -326,16 +428,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
           : undefined}
       >
         <div className="app-sidebar-inner">
-          <Link href="/" aria-label={BRAND_FULL_NAME} className="app-sidebar-brand">
-            <span>{BRAND_LOGO_PREFIX}</span>
-            <span className="inline-block align-baseline text-brand-500 gear app-brand-gear-tight" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
-              <GearGlyph />
-            </span>
-            {BRAND_LOGO_SUFFIX && <span>{BRAND_LOGO_SUFFIX}</span>}
-            {BRAND_VERSION && <span className="text-brand-500"> {BRAND_VERSION}</span>}
-          </Link>
-
-          <nav className="mt-5 space-y-1" aria-label="Main navigation">
+          <nav className="space-y-1" aria-label="Main navigation">
             <Link href="/discover" className={navLinkCls('/discover')}>Discover</Link>
             <Link href="/products" className={navLinkCls('/products')}>Store</Link>
             {authed && (

@@ -18,13 +18,6 @@ export default function DiscoverFilters({ q, sort, pageSize, viewMode }: Discove
         <div
           className="flex flex-wrap items-center gap-2 rounded-2xl p-2 px-4 py-3 transition-all duration-300 discover-search-shell"
         >
-          <input
-            className="flex-1 min-w-[220px] px-2 py-2 text-sm focus:outline-none discover-search-input"
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="Search models..."
-          />
           <div className="flex flex-wrap items-center gap-2 transition-opacity duration-200">
             <label className="sr-only" htmlFor="discover-sort">Sort</label>
             <select
@@ -55,6 +48,7 @@ export default function DiscoverFilters({ q, sort, pageSize, viewMode }: Discove
           </div>
         </div>
       </div>
+      {q ? <input type="hidden" name="q" value={q} /> : null}
       <input type="hidden" name="page" value="1" />
       {viewMode === DiscoverViewMode.Compact && <input type="hidden" name="view" value={DiscoverViewMode.Compact} />}
     </form>

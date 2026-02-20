@@ -151,3 +151,7 @@ MIT (`LICENSE`)
 ## Support
 
 Issues: `https://github.com/schartrand77/mkw2/issues`
+
+## Documentation
+
+- User Manual: [`docs/user-manual.md`](docs/user-manual.md)

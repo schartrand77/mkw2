@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { formatCurrency } from '@/lib/currency'
 import AddToCartButtons from '@/components/cart/AddToCartButtons'
 import DiscoverLikeButton from '@/components/discover/DiscoverLikeButton'
-import { DiscoverViewMode, type CardInfo } from '@/types/discover'
+import { DiscoverEntityType, DiscoverViewMode, type CardInfo } from '@/types/discover'
 
 type DiscoverModelListProps = {
   cards: CardInfo[]
@@ -20,10 +20,12 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {cards.map(({ model: m, coverSrc, priceLabel, sizeLabel, partsLabel }) => {
               const hasCustomPrice = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd))
+              const isModel = (m.entityType || DiscoverEntityType.Model) === DiscoverEntityType.Model
+              const href = m.href || `/models/${m.id}`
               return (
               <Link
                 key={m.id}
-                href={`/models/${m.id}`}
+                href={href}
                 className="group flex items-center gap-3 rounded-xl border border-white/10 hover:border-white/20 bg-slate-900/40 px-3 py-2 sm:px-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
               >
                 {coverSrc ? (
@@ -55,28 +57,34 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                         <span className="text-[11px] text-slate-500 line-through">{formatCurrency(m.basePriceUsd)}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <AddToCartButtons model={{
-                        id: m.id,
-                        title: m.title,
-                        priceUsd: m.priceUsd,
-                        flatRatePricing: m.flatRatePricing,
-                        coverImagePath: m.coverImagePath,
-                        updatedAt: m.updatedAt,
-                        sizeXmm: m.sizeXmm ?? undefined,
-                        sizeYmm: m.sizeYmm ?? undefined,
-                        sizeZmm: m.sizeZmm ?? undefined,
-                        defaultColors: Array.isArray(m.defaultColors) ? m.defaultColors : null,
-                        colorSlotCount: typeof m.colorSlotCount === 'number' ? m.colorSlotCount : null,
-                        allowedColors: Array.isArray(m.allowedColors) ? m.allowedColors : null,
-                      }} />
-                      {canLike && <DiscoverLikeButton modelId={m.id} initialLikes={m.likes} />}
+                    {isModel ? (
+                      <div className="flex items-center gap-2">
+                        <AddToCartButtons model={{
+                          id: m.id,
+                          title: m.title,
+                          priceUsd: m.priceUsd,
+                          flatRatePricing: m.flatRatePricing,
+                          coverImagePath: m.coverImagePath,
+                          updatedAt: m.updatedAt,
+                          sizeXmm: m.sizeXmm ?? undefined,
+                          sizeYmm: m.sizeYmm ?? undefined,
+                          sizeZmm: m.sizeZmm ?? undefined,
+                          defaultColors: Array.isArray(m.defaultColors) ? m.defaultColors : null,
+                          colorSlotCount: typeof m.colorSlotCount === 'number' ? m.colorSlotCount : null,
+                          allowedColors: Array.isArray(m.allowedColors) ? m.allowedColors : null,
+                        }} />
+                        {canLike && <DiscoverLikeButton modelId={m.id} initialLikes={m.likes} />}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] uppercase tracking-wide text-brand-300">View details</span>
+                    )}
+                  </div>
+                  {isModel && (
+                    <div className="text-[10px] uppercase tracking-wide text-slate-500 flex gap-4">
+                      <span>Downloads: {m.downloads ?? 0}</span>
+                      <span>Comments: {m.commentsCount ?? 0}</span>
                     </div>
-                  </div>
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500 flex gap-4">
-                    <span>Downloads: {m.downloads ?? 0}</span>
-                    <span>Comments: {m.commentsCount ?? 0}</span>
-                  </div>
+                  )}
                 </div>
               </Link>
               )
@@ -86,8 +94,10 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
           <section className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
             {cards.map(({ model: m, coverSrc, priceLabel, sizeLabel, partsLabel }) => {
               const hasCustomPrice = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd))
+              const isModel = (m.entityType || DiscoverEntityType.Model) === DiscoverEntityType.Model
+              const href = m.href || `/models/${m.id}`
               return (
-              <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+              <Link key={m.id} href={href} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
                 {coverSrc ? (
                   <img
                     src={coverSrc}
@@ -105,23 +115,27 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                     <span>{m.fileType || 'Unknown format'}</span>
                     {partsLabel && <span>{partsLabel}</span>}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <AddToCartButtons model={{
-                      id: m.id,
-                      title: m.title,
-                      priceUsd: m.priceUsd,
-                      flatRatePricing: m.flatRatePricing,
-                      coverImagePath: m.coverImagePath,
-                      updatedAt: m.updatedAt,
-                      sizeXmm: m.sizeXmm ?? undefined,
-                      sizeYmm: m.sizeYmm ?? undefined,
-                      sizeZmm: m.sizeZmm ?? undefined,
-                      defaultColors: Array.isArray(m.defaultColors) ? m.defaultColors : null,
-                      colorSlotCount: typeof m.colorSlotCount === 'number' ? m.colorSlotCount : null,
-                      allowedColors: Array.isArray(m.allowedColors) ? m.allowedColors : null,
-                    }} />
-                    {canLike && <DiscoverLikeButton modelId={m.id} initialLikes={m.likes} />}
-                  </div>
+                  {isModel ? (
+                    <div className="flex items-center gap-2">
+                      <AddToCartButtons model={{
+                        id: m.id,
+                        title: m.title,
+                        priceUsd: m.priceUsd,
+                        flatRatePricing: m.flatRatePricing,
+                        coverImagePath: m.coverImagePath,
+                        updatedAt: m.updatedAt,
+                        sizeXmm: m.sizeXmm ?? undefined,
+                        sizeYmm: m.sizeYmm ?? undefined,
+                        sizeZmm: m.sizeZmm ?? undefined,
+                        defaultColors: Array.isArray(m.defaultColors) ? m.defaultColors : null,
+                        colorSlotCount: typeof m.colorSlotCount === 'number' ? m.colorSlotCount : null,
+                        allowedColors: Array.isArray(m.allowedColors) ? m.allowedColors : null,
+                      }} />
+                      {canLike && <DiscoverLikeButton modelId={m.id} initialLikes={m.likes} />}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-brand-300">Open details</div>
+                  )}
                   <div className="flex justify-between text-xs text-slate-300">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{priceLabel || 'N/A'}</span>
@@ -131,10 +145,12 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                     </div>
                     <span>{sizeLabel}</span>
                   </div>
-                  <div className="flex justify-between text-[11px] text-slate-500">
-                    <span>Downloads: {m.downloads ?? 0}</span>
-                    <span>Comments: {m.commentsCount ?? 0}</span>
-                  </div>
+                  {isModel && (
+                    <div className="flex justify-between text-[11px] text-slate-500">
+                      <span>Downloads: {m.downloads ?? 0}</span>
+                      <span>Comments: {m.commentsCount ?? 0}</span>
+                    </div>
+                  )}
                 </div>
               </Link>
               )
@@ -142,7 +158,7 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
           </section>
         )
       ) : (
-        <p className="text-slate-400">No models matched your filters.</p>
+        <p className="text-slate-400">No results matched your filters.</p>
       )}
     </>
   )
