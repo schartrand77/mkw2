@@ -189,6 +189,7 @@ body {
   top: max(0.75rem, env(safe-area-inset-top));
   right: max(0.75rem, env(safe-area-inset-right));
   z-index: 1260;
+  max-width: calc(100vw - max(1rem, env(safe-area-inset-left)) - max(1rem, env(safe-area-inset-right)));
   transition: right 190ms ease, transform 190ms ease;
   transform: translateX(0);
 }
@@ -200,9 +201,12 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  max-width: 100%;
+  justify-content: flex-end;
 }
 .app-user-search-form {
   width: min(30rem, calc(100vw - max(1rem, env(safe-area-inset-left)) - max(1rem, env(safe-area-inset-right)) - 5rem));
+  min-width: 0;
 }
 .app-user-search-input {
   width: 100%;

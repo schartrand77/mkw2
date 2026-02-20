@@ -84,7 +84,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
       : false
   const isProcessing = coverProcessing || previewProcessing
   return (
-    <div className="max-w-5xl mx-auto space-y-5">
+    <div className="max-w-5xl mx-auto min-w-0 space-y-5">
       <div>
         <Link href="/discover" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white">
           <span aria-hidden="true">&larr;</span>
@@ -112,8 +112,8 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           initialPreviewProcessing={previewProcessing}
         />
       )}
-      <div className="grid lg:grid-cols-2 gap-6">
-        <div>
+      <div className="grid lg:grid-cols-2 gap-6 min-w-0">
+        <div className="min-w-0">
           <Gallery
             coverSrc={coverHref}
             parts={hasParts ? model.parts : []}
@@ -128,8 +128,8 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             ) : null}
           />
         </div>
-        <div className="space-y-3">
-        <h1 className="text-3xl font-semibold">{model.title}</h1>
+        <div className="space-y-3 min-w-0">
+        <h1 className="text-3xl font-semibold break-words">{model.title}</h1>
         {model.tags && model.tags.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {model.tags.map((t: any) => (
@@ -309,7 +309,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             </div>
           </div>
         )}
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {downloadsEnabled ? (
             <a
               href={hasParts ? `/api/models/${model.id}/download.zip` : (fileHref || '#')}
