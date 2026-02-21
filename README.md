@@ -130,6 +130,64 @@ Use `.env.example` as source of truth. Key variable groups:
 - Push notifications: `VAPID_*`
 - Branding: `NEXT_PUBLIC_BRAND_*`, `HOLIDAY_THEME`
 
+## Backups On Unraid
+
+Use these settings when running MakerWorks as a single container on Unraid (non-compose runtime).
+
+### Required container mappings
+
+- Map your storage share to `/app/storage` (example host path: `/mnt/user/makerworks/storage`)
+- Optional dedicated backup mapping:
+  - Container path: `/app/backups`
+  - Host path: `/mnt/user/makerworks/storage/backups`
+
+### Required backup env vars
+
+- `SKIP_DOCKER=1`
+- `PG_DUMP_BIN=/usr/bin/pg_dump`
+- `PSQL_BIN=/usr/bin/psql`
+- `BACKUP_DIR=/app/backups` (if you created the dedicated `/app/backups` mapping)
+
+If `BACKUP_DIR` is not set, backups default to `STORAGE_DIR/backups` (usually `/app/storage/backups`).
+
+### Verify backup tooling in the app container
+
+Run inside the MakerWorks container:
+
+```bash
+which pg_dump
+pg_dump --version
+echo "$SKIP_DOCKER $PG_DUMP_BIN $PSQL_BIN $BACKUP_DIR"
+```
+
+Expected:
+- `which pg_dump` returns `/usr/bin/pg_dump`
+- `pg_dump --version` prints PostgreSQL version
+- `SKIP_DOCKER` is `1`
+
+### Run and verify a backup
+
+```bash
+npm run backup
+ls -lah "${BACKUP_DIR:-$STORAGE_DIR/backups}"
+find "${BACKUP_DIR:-$STORAGE_DIR/backups}" -maxdepth 2 -type f -name "db.sql"
+```
+
+Expected:
+- backup logs include `Running pg_dump` and `Backup stored at ...`
+- `find ... db.sql` returns at least one file path
+
+Note: `ls -lah` on the backup root may show `total 0` even when backups are valid, because files are inside timestamped subfolders. Use the `find` command above to confirm `db.sql` exists.
+
+### Common failure causes
+
+- `pg_dump executable was not found`:
+  - `PG_DUMP_BIN` is wrong or not present in container.
+  - fix by using `/usr/bin/pg_dump` and redeploying the container.
+- backup folder created but empty:
+  - backup failed before dump completed; check `npm run backup` logs.
+  - verify DB host in `DATABASE_URL` is reachable from the MakerWorks container.
+
 ## Operational Commands
 
 ```bash
