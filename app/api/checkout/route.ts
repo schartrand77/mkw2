@@ -156,9 +156,40 @@ async function handlePost(req: NextRequest) {
     }
     const ids = Array.from(new Set(items.map(i => i.modelId)))
     const partIds = Array.from(new Set(items.map(i => i.partId).filter((id): id is string => typeof id === 'string' && id.length > 0)))
+    const userId = await getUserIdFromCookie()
+    const userForCheckout = userId
+      ? await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          name: true,
+          email: true,
+          discountPercent: true,
+          friendsAndFamilyPercent: true,
+          isFriendsAndFamily: true,
+          isAdmin: true,
+          role: true,
+        },
+      })
+      : null
+    const isAdmin = Boolean(userForCheckout?.isAdmin || userForCheckout?.role === 'admin')
+    const hasElevatedModelAccess = Boolean(
+      userForCheckout?.isAdmin
+      || userForCheckout?.role === 'admin'
+      || userForCheckout?.role === 'staff',
+    )
+    const modelWhere = hasElevatedModelAccess
+      ? { id: { in: ids } }
+      : userId
+        ? { id: { in: ids }, OR: [{ visibility: 'public' }, { userId }] }
+        : { id: { in: ids }, visibility: 'public' }
+    const partWhere = hasElevatedModelAccess
+      ? { id: { in: partIds } }
+      : userId
+        ? { id: { in: partIds }, model: { OR: [{ visibility: 'public' }, { userId }] } }
+        : { id: { in: partIds }, model: { visibility: 'public' } }
     const [models, cfg, parts] = await Promise.all([
       prisma.model.findMany({
-        where: { id: { in: ids }, visibility: 'public' },
+        where: modelWhere,
         select: {
           id: true,
           title: true,
@@ -187,7 +218,7 @@ async function handlePost(req: NextRequest) {
       prisma.siteConfig.findUnique({ where: { id: 'main' } }),
       partIds.length > 0
         ? prisma.modelPart.findMany({
-            where: { id: { in: partIds }, model: { visibility: 'public' } },
+            where: partWhere,
             select: {
               id: true,
               modelId: true,
@@ -215,23 +246,6 @@ async function handlePost(req: NextRequest) {
         : parseFloat(process.env.MINIMUM_PRICE_USD || '1')
       return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : 1
     })()
-
-    const userId = await getUserIdFromCookie()
-    const userForCheckout = userId
-      ? await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          name: true,
-          email: true,
-          discountPercent: true,
-          friendsAndFamilyPercent: true,
-          isFriendsAndFamily: true,
-          isAdmin: true,
-          role: true,
-        },
-      })
-      : null
-    const isAdmin = Boolean(userForCheckout?.isAdmin || userForCheckout?.role === 'admin')
     const organizationMembership = organizationId && userId
       ? await getOrganizationMembership(userId, organizationId)
       : null
@@ -423,17 +437,18 @@ async function handlePost(req: NextRequest) {
     }
     const currencyCode = getCurrency().toUpperCase() as Currency
     const currency = currencyCode.toLowerCase()
+    const isAdminFreeCheckout = isAdmin
     const minimumOrderSubtotal = cfg?.minimumOrderSubtotalUsd != null && Number.isFinite(Number(cfg.minimumOrderSubtotalUsd))
       ? Number(cfg.minimumOrderSubtotalUsd)
       : null
-    if (minimumOrderSubtotal && itemsTotal < minimumOrderSubtotal) {
+    if (!isAdminFreeCheckout && minimumOrderSubtotal && itemsTotal < minimumOrderSubtotal) {
       return NextResponse.json({ error: `Minimum order subtotal is ${formatCurrency(minimumOrderSubtotal, currencyCode)}.` }, { status: 400 })
     }
     const shippingPayload: ShippingSelection = shipping || { method: 'pickup' }
     const shippingRateId = (process.env.STRIPE_SHIPPING_RATE_ID || '').trim()
     let shippingRate: { id: string; label: string; amount: number; currency: Currency } | null = null
     let shippingAmountCents = 0
-    if (shippingPayload.method === 'ship') {
+    if (shippingPayload.method === 'ship' && !isAdminFreeCheckout) {
       if (!process.env.STRIPE_SECRET_KEY) {
         return NextResponse.json({ error: 'Stripe is not configured for shipping rates' }, { status: 500 })
       }
@@ -462,10 +477,10 @@ async function handlePost(req: NextRequest) {
     }
 
     const itemsTotalCents = Math.max(0, Math.round(itemsTotal * 100))
-    const totalCents = itemsTotalCents + shippingAmountCents
-    const total = Number((totalCents / 100).toFixed(2))
-    const isFreeOrder = totalCents === 0
-    const amount = totalCents
+    const estimatedTotalCents = itemsTotalCents + shippingAmountCents
+    const amount = isAdminFreeCheckout ? 0 : estimatedTotalCents
+    const total = Number((amount / 100).toFixed(2))
+    const isFreeOrder = amount === 0
 
     if (organizationMembership && orgRole === 'requester' && orgRequiresApproval && paymentMethod !== 'quote') {
       return NextResponse.json({ error: 'Requester role must submit as quote for approver review.' }, { status: 400 })
@@ -476,7 +491,7 @@ async function handlePost(req: NextRequest) {
       && paymentMethod === 'po'
       && typeof requirePoAboveCents === 'number'
       && Number.isFinite(requirePoAboveCents)
-      && totalCents >= requirePoAboveCents
+      && amount >= requirePoAboveCents
       && !paymentDetails?.purchaseOrderNumber
     ) {
       return NextResponse.json({ error: 'PO number is required for this order amount.' }, { status: 400 })
@@ -573,6 +588,8 @@ async function handlePost(req: NextRequest) {
             demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
             rushMultiplier: pricingAdjustments.rushMultiplier,
             paymentDetails,
+            adminFreeCheckout: isAdminFreeCheckout,
+            estimatedTotalCents,
           },
           paymentMethod,
           paymentStatus: finalizedPaymentStatus || (paymentMethod === 'cash' ? 'pending' : null),
@@ -614,6 +631,8 @@ async function handlePost(req: NextRequest) {
             demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
             rushMultiplier: pricingAdjustments.rushMultiplier,
             paymentDetails,
+            adminFreeCheckout: isAdminFreeCheckout,
+            estimatedTotalCents,
           },
         })
         if (order) {
@@ -678,7 +697,7 @@ async function handlePost(req: NextRequest) {
         const totalLabel = formatCurrency(amount / 100, currencyCode as Currency)
         const orderUrl = order && publicBaseUrl ? `${publicBaseUrl}/customer/orders/${order.id}` : undefined
         await sendAdminDiscordNotification({
-          title: paymentMethod === 'cash' ? 'New cash order' : 'New paid order',
+          title: isAdminFreeCheckout ? 'New admin free order' : paymentMethod === 'cash' ? 'New cash order' : 'New paid order',
           body: [
             `Total: ${totalLabel}`,
             `Fulfillment: ${shippingPayload.method === 'pickup' ? 'pickup' : 'ship'}`,
@@ -725,6 +744,8 @@ async function handlePost(req: NextRequest) {
       paymentMethod,
       committed: commit,
       discount: discountSummary,
+      adminFreeCheckout: isAdminFreeCheckout,
+      estimatedTotal: Number((estimatedTotalCents / 100).toFixed(2)),
     })
   } catch (err: any) {
     if (typeof err?.message === 'string' && (

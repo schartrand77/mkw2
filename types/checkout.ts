@@ -96,12 +96,14 @@ export type CheckoutIntentResponse = {
   currency: Currency
   amount: number
   total: number
+  estimatedTotal?: number
   lineItems: CheckoutLineItem[]
   shipping?: ShippingSelection
   shippingRate?: CheckoutShippingRate | null
   paymentMethod: CheckoutPaymentMethod
   committed: boolean
   discount?: DiscountSummary
+  adminFreeCheckout?: boolean
 }
 
 export type CheckoutOrganization = {

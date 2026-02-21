@@ -159,6 +159,89 @@ test('scheduleRestore creates pending restore manifest', () => {
   }
 })
 
+test('runBackup falls back to PATH when PG_DUMP_BIN is invalid', () => {
+  const tempRoot = makeTempDir()
+  const binDir = path.join(tempRoot, 'bin')
+  const storageDir = path.join(tempRoot, 'storage')
+  fs.mkdirSync(binDir, { recursive: true })
+  fs.mkdirSync(storageDir, { recursive: true })
+  const pgDumpPath = writeFakePgDump(binDir)
+
+  const previousPath = process.env.PATH
+  const previousPathAlt = process.env.Path
+  const previousStorage = process.env.STORAGE_DIR
+  const previousPgDump = process.env.PG_DUMP_BIN
+  const previousSkipDocker = process.env.SKIP_DOCKER
+  const previousLog = process.env.LOG_BACKUPS
+  const nextPath = `${binDir}${path.delimiter}${previousPath || previousPathAlt || ''}`
+  process.env.PATH = nextPath
+  process.env.Path = nextPath
+  process.env.STORAGE_DIR = storageDir
+  process.env.PG_DUMP_BIN = path.join(tempRoot, 'missing', 'pg_dump')
+  process.env.SKIP_DOCKER = '1'
+  process.env.LOG_BACKUPS = 'false'
+
+  try {
+    const backupDir = runBackup()
+    const dbFile = path.join(backupDir, 'db.sql')
+    assert.ok(fs.existsSync(dbFile), 'db.sql should exist when PATH pg_dump is available')
+    const contents = fs.readFileSync(dbFile, 'utf8')
+    assert.ok(contents.includes('-- mock pg_dump'))
+    assert.ok(pgDumpPath)
+  } finally {
+    process.env.PATH = previousPath
+    process.env.Path = previousPathAlt
+    if (previousStorage === undefined) delete process.env.STORAGE_DIR
+    else process.env.STORAGE_DIR = previousStorage
+    if (previousPgDump === undefined) delete process.env.PG_DUMP_BIN
+    else process.env.PG_DUMP_BIN = previousPgDump
+    if (previousSkipDocker === undefined) delete process.env.SKIP_DOCKER
+    else process.env.SKIP_DOCKER = previousSkipDocker
+    if (previousLog === undefined) delete process.env.LOG_BACKUPS
+    else process.env.LOG_BACKUPS = previousLog
+    fs.rmSync(tempRoot, { recursive: true, force: true })
+  }
+})
+
+test('runBackup removes target folder when pg_dump is unavailable', () => {
+  const tempRoot = makeTempDir()
+  const storageDir = path.join(tempRoot, 'storage')
+  fs.mkdirSync(storageDir, { recursive: true })
+
+  const previousPath = process.env.PATH
+  const previousPathAlt = process.env.Path
+  const previousStorage = process.env.STORAGE_DIR
+  const previousPgDump = process.env.PG_DUMP_BIN
+  const previousSkipDocker = process.env.SKIP_DOCKER
+  const previousLog = process.env.LOG_BACKUPS
+  process.env.PATH = ''
+  process.env.Path = ''
+  process.env.STORAGE_DIR = storageDir
+  process.env.PG_DUMP_BIN = path.join(tempRoot, 'missing', 'pg_dump')
+  process.env.SKIP_DOCKER = '1'
+  process.env.LOG_BACKUPS = 'false'
+
+  try {
+    assert.throws(() => runBackup(), /pg_dump is not available/i)
+    const backupsDir = path.join(storageDir, 'backups')
+    const entries = fs.existsSync(backupsDir) ? fs.readdirSync(backupsDir, { withFileTypes: true }) : []
+    const directories = entries.filter((entry) => entry.isDirectory())
+    assert.equal(directories.length, 0, 'failed backup should not leave timestamp directories behind')
+  } finally {
+    process.env.PATH = previousPath
+    process.env.Path = previousPathAlt
+    if (previousStorage === undefined) delete process.env.STORAGE_DIR
+    else process.env.STORAGE_DIR = previousStorage
+    if (previousPgDump === undefined) delete process.env.PG_DUMP_BIN
+    else process.env.PG_DUMP_BIN = previousPgDump
+    if (previousSkipDocker === undefined) delete process.env.SKIP_DOCKER
+    else process.env.SKIP_DOCKER = previousSkipDocker
+    if (previousLog === undefined) delete process.env.LOG_BACKUPS
+    else process.env.LOG_BACKUPS = previousLog
+    fs.rmSync(tempRoot, { recursive: true, force: true })
+  }
+})
+
 test('pruneBackups applies retention and protects pending restore backup', () => {
   const tempRoot = makeTempDir()
   const storageDir = path.join(tempRoot, 'storage')

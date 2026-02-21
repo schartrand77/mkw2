@@ -67,6 +67,7 @@ export default function CheckoutPage() {
   const [shippingMethod, setShippingMethod] = useState<'pickup' | 'ship'>('pickup')
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(cardPaymentAvailable ? 'card' : 'cash')
   const [cashConfirmationId, setCashConfirmationId] = useState<string | null>(null)
+  const [adminFreeConfirmation, setAdminFreeConfirmation] = useState(false)
   const [cashProcessing, setCashProcessing] = useState(false)
   const [finalizingJob, setFinalizingJob] = useState(false)
   const [applePayAvailable, setApplePayAvailable] = useState(false)
@@ -243,7 +244,10 @@ export default function CheckoutPage() {
     if (checkoutItemsState.length > 0 && cashConfirmationId) {
       setCashConfirmationId(null)
     }
-  }, [checkoutItemsState.length, cashConfirmationId])
+    if (checkoutItemsState.length > 0 && adminFreeConfirmation) {
+      setAdminFreeConfirmation(false)
+    }
+  }, [checkoutItemsState.length, cashConfirmationId, adminFreeConfirmation])
 
   useEffect(() => {
     let mounted = true
@@ -380,17 +384,21 @@ export default function CheckoutPage() {
   }, [clear, finalizeJob])
 
   const handleDeferredConfirm = async () => {
-    if (!checkoutItems.length || paymentMethod === 'card') return
+    if (!checkoutItems.length) return
+    if (paymentMethod === 'card' && !intent?.adminFreeCheckout) return
     setCashProcessing(true)
     setFinalizingJob(true)
     setError(null)
     try {
       const data = await finalizeJob({ method: paymentMethod })
       setCashConfirmationId(data.paymentIntentId)
+      setAdminFreeConfirmation(Boolean(data.adminFreeCheckout))
       setSuccessIntent(null)
       setIntent(null)
       clear()
-      const label = paymentMethod === 'cash'
+      const label = data.adminFreeCheckout
+        ? 'Admin free order placed'
+        : paymentMethod === 'cash'
         ? 'Cash order placed'
         : paymentMethod === 'invoice'
           ? 'Invoice request sent'
@@ -426,10 +434,13 @@ export default function CheckoutPage() {
   const isPoPayment = paymentMethod === 'po'
   const isQuotePayment = paymentMethod === 'quote'
   const isDeferredPayment = paymentMethod !== 'card'
-  const trustBadgeProviders = paymentMethod === 'card' && cardPaymentAvailable
+  const isAdminFreeCheckout = Boolean(intent?.adminFreeCheckout)
+  const trustBadgeProviders = !isAdminFreeCheckout && paymentMethod === 'card' && cardPaymentAvailable
     ? (applePayAvailable ? ['Stripe', 'Apple Pay'] : ['Stripe'])
     : []
-  const trustBadgeNote = paymentMethod === 'cash'
+  const trustBadgeNote = isAdminFreeCheckout
+    ? 'Admin free checkout: this order skips payment processing and still enters the job queue.'
+    : paymentMethod === 'cash'
     ? 'No card details are required for cash orders.'
     : paymentMethod === 'invoice'
       ? 'We will invoice you before production begins.'
@@ -439,10 +450,13 @@ export default function CheckoutPage() {
           ? 'Submit a quote request and approve it before production.'
           : 'Card details are encrypted and handled by the payment processor.'
   const intentSubtotal = intent?.lineItems?.reduce((sum, item) => sum + (item.lineTotal || 0), 0) ?? null
+  const estimatedTotal = typeof intent?.estimatedTotal === 'number' && Number.isFinite(intent.estimatedTotal)
+    ? intent.estimatedTotal
+    : null
   const minimumOrderSubtotal = typeof minimumOrder.subtotal === 'number' && Number.isFinite(minimumOrder.subtotal)
     ? minimumOrder.subtotal
     : null
-  const meetsMinimumOrder = !minimumOrderSubtotal || (intentSubtotal != null && intentSubtotal >= minimumOrderSubtotal)
+  const meetsMinimumOrder = isAdminFreeCheckout || !minimumOrderSubtotal || (intentSubtotal != null && intentSubtotal >= minimumOrderSubtotal)
   const disableFinalize = hasMissingColors || !meetsMinimumOrder
 
   if (!checkoutItemsState.length && !successIntent && !cashConfirmationId) {
@@ -772,11 +786,22 @@ export default function CheckoutPage() {
             shippingRate={intent.shippingRate}
           />
         )}
+        {isAdminFreeCheckout && intent && (
+          <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm space-y-1">
+            <p className="font-semibold text-emerald-200">Admin free checkout</p>
+            <p className="text-emerald-100">Payment is bypassed for this admin order. It still goes through queue and inventory tracking.</p>
+            {estimatedTotal != null && (
+              <p className="text-xs text-emerald-100/90">
+                Estimated standard total (reference): {formatCurrency(estimatedTotal, intent.currency)}
+              </p>
+            )}
+          </div>
+        )}
         {(loading || finalizingJob) && (
           <p className="text-sm text-slate-400">
             {finalizingJob
               ? 'Wrapping up your order...'
-              : paymentMethod === 'card'
+              : paymentMethod === 'card' && !isAdminFreeCheckout
                 ? 'Preparing secure payment...'
                 : 'Preparing order...'}
           </p>
@@ -791,7 +816,9 @@ export default function CheckoutPage() {
         {(successIntent || cashConfirmationId) && (
           <div className="glass rounded-xl border border-emerald-500/30 p-4 text-sm">
             <p className="font-semibold text-emerald-300">
-              {successIntent
+              {adminFreeConfirmation
+                ? 'Admin free order placed!'
+                : successIntent
                 ? 'Payment received!'
                 : paymentMethod === 'cash'
                   ? 'Cash order placed!'
@@ -818,15 +845,33 @@ export default function CheckoutPage() {
             <CheckoutForm amount={intent.amount} currency={intent.currency} clientSecret={intent.clientSecret} onSuccess={handleSuccess} />
           </Elements>
         )}
-        {paymentMethod === 'card' && !meetsMinimumOrder && (
+        {paymentMethod === 'card' && !meetsMinimumOrder && !isAdminFreeCheckout && (
           <p className="text-sm text-amber-300">
             Minimum order subtotal is {formatCurrency(minimumOrderSubtotal || 0)}.
           </p>
         )}
-        {paymentMethod === 'card' && (!stripePromise || !cardPaymentAvailable) && (
+        {paymentMethod === 'card' && !isAdminFreeCheckout && (!stripePromise || !cardPaymentAvailable) && (
           <p className="text-sm text-amber-300">Stripe publishable key is not configured. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to enable card payments.</p>
         )}
-        {paymentMethod !== 'card' && intent && !cashConfirmationId && (
+        {isAdminFreeCheckout && intent && !cashConfirmationId && !successIntent && (
+          <div className="space-y-3 text-sm text-slate-300">
+            <p>No payment step is required for this admin checkout. Confirm to send it to the queue.</p>
+            {estimatedTotal != null && (
+              <p className="text-xs text-slate-400">
+                Estimated standard total: {formatCurrency(estimatedTotal, intent.currency)}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleDeferredConfirm}
+              disabled={cashProcessing || finalizingJob || disableFinalize}
+              className="btn w-full justify-center disabled:opacity-60"
+            >
+              {cashProcessing ? 'Submitting...' : 'Confirm admin free order'}
+            </button>
+          </div>
+        )}
+        {paymentMethod !== 'card' && intent && !cashConfirmationId && !isAdminFreeCheckout && (
           <div className="space-y-3 text-sm text-slate-300">
             <p>
               {paymentMethod === 'cash'

@@ -89,12 +89,11 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    if (!isMobileViewport && desktopSidebarOpen) document.body.classList.add('sidebar-open')
-    else document.body.classList.remove('sidebar-open')
+    document.body.classList.remove('sidebar-open')
     return () => {
       document.body.classList.remove('sidebar-open')
     }
-  }, [desktopSidebarOpen, isMobileViewport])
+  }, [])
 
   // Always close the mobile menu after navigation.
   useEffect(() => {
@@ -358,7 +357,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
         <button
           ref={hamburgerRef}
           type="button"
-          className={`app-hamburger-shortcut ${!isMobileViewport && desktopSidebarOpen ? 'app-hamburger-shortcut-offset' : ''}`}
+          className="app-hamburger-shortcut"
           onClick={toggleSidebar}
           aria-expanded={isMobileViewport ? mobileNavOpen : desktopSidebarOpen}
           aria-controls={isMobileViewport ? 'app-mobile-nav-menu' : 'app-sidebar'}
@@ -373,7 +372,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
         <Link
           href="/"
           aria-label={BRAND_FULL_NAME}
-          className={`app-home-shortcut ${!isMobileViewport && desktopSidebarOpen ? 'app-home-shortcut-offset' : ''}`}
+          className="app-home-shortcut"
         >
           <span>{BRAND_LOGO_PREFIX}</span>
           <span className="inline-block align-baseline text-brand-500 gear app-brand-gear-tight" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
@@ -477,7 +476,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
 
       <aside
         id="app-sidebar"
-        className={`app-sidebar ${desktopCollapsed ? 'app-sidebar-collapsed' : ''}`}
+        className={`app-sidebar ${desktopCollapsed ? 'app-sidebar-collapsed' : ''} ${!isMobileViewport && desktopSidebarOpen ? 'app-sidebar-open' : ''}`}
         style={isMobileViewport ? { display: 'none' } : undefined}
       >
         <div className="app-sidebar-inner">

@@ -33,6 +33,15 @@ type Particle = {
   tone: number
 }
 
+type EasterPeek = {
+  id: number
+  left: number
+  durationSec: number
+  scale: number
+  tiltDeg: number
+  side: 'left' | 'right'
+}
+
 type ParticleConfig = {
   count: number
   className: string
@@ -129,7 +138,6 @@ function toShipStyle(motion: ShipMotion, durationSec: number, isLeader: boolean)
 function createParticles(theme: HolidayTheme): Particle[] {
   if (theme === 'maythefourth') return []
   const { count, minSize, maxSize } = CONFIG[theme]
-  const targetCount = theme === 'easter' ? Math.floor(Math.random() * 3) + 1 : count
   return Array.from({ length: count }, (_, idx) => {
     const size = Math.random() * (maxSize - minSize) + minSize
     return {
@@ -142,12 +150,27 @@ function createParticles(theme: HolidayTheme): Particle[] {
       variant: Math.floor(Math.random() * 3),
       tone: Math.floor(Math.random() * 6),
     }
-  }).slice(0, targetCount)
+  })
+}
+
+function createEasterPeek(id: number): EasterPeek {
+  const side = Math.random() < 0.5 ? 'left' : 'right'
+  const left = side === 'left' ? rand(10, 40) : rand(60, 90)
+  return {
+    id,
+    left,
+    durationSec: rand(4.2, 5.8),
+    scale: rand(0.84, 1.06),
+    tiltDeg: side === 'left' ? rand(-8, -2) : rand(2, 8),
+    side,
+  }
 }
 
 export default function HolidayEffects({ theme }: { theme: HolidayTheme | null }) {
-  const particles = useMemo(() => (theme ? createParticles(theme) : []), [theme])
+  const particles = useMemo(() => (theme && theme !== 'easter' ? createParticles(theme) : []), [theme])
+  const [easterPeek, setEasterPeek] = useState<EasterPeek>(() => createEasterPeek(1))
   const [run, setRun] = useState<ChaseRun>(() => createChaseRun(null, 1))
+  const easterPeekRef = useRef(1)
   const runRef = useRef(1)
   const leaderRef = useRef<Ship | null>(null)
 
@@ -161,6 +184,24 @@ export default function HolidayEffects({ theme }: { theme: HolidayTheme | null }
       leaderRef.current = next.leader
       setRun(next)
       timer = setTimeout(schedule, Math.max(5000, Math.floor(next.durationSec * 1000)))
+    }
+
+    schedule()
+    return () => {
+      if (timer) clearTimeout(timer)
+    }
+  }, [theme])
+
+  useEffect(() => {
+    if (theme !== 'easter') return
+    let timer: ReturnType<typeof setTimeout> | null = null
+
+    const schedule = () => {
+      easterPeekRef.current += 1
+      const next = createEasterPeek(easterPeekRef.current)
+      setEasterPeek(next)
+      const gapMs = Math.floor(rand(900, 2300))
+      timer = setTimeout(schedule, Math.floor(next.durationSec * 1000) + gapMs)
     }
 
     schedule()
@@ -190,6 +231,31 @@ export default function HolidayEffects({ theme }: { theme: HolidayTheme | null }
           style={toShipStyle(run.tie, run.durationSec, run.leader === 'tie')}
         >
           <span className="holiday-mtf-laser" />
+        </span>
+      </div>
+    )
+  }
+  if (theme === 'easter') {
+    return (
+      <div className="holiday-effects holiday-easter-scene" aria-hidden="true">
+        <span
+          key={`holiday-easter-bunny-${easterPeek.id}`}
+          className="holiday-easter-bunny"
+          data-side={easterPeek.side}
+          style={{
+            left: `${easterPeek.left}%`,
+            animationDuration: `${easterPeek.durationSec}s`,
+            ['--peek-scale' as any]: `${easterPeek.scale}`,
+            ['--peek-tilt' as any]: `${easterPeek.tiltDeg}deg`,
+          }}
+        >
+          <span className="holiday-easter-bunny-ear holiday-easter-bunny-ear-left" />
+          <span className="holiday-easter-bunny-ear holiday-easter-bunny-ear-right" />
+          <span className="holiday-easter-bunny-head">
+            <span className="holiday-easter-bunny-eye holiday-easter-bunny-eye-left" />
+            <span className="holiday-easter-bunny-eye holiday-easter-bunny-eye-right" />
+            <span className="holiday-easter-bunny-nose" />
+          </span>
         </span>
       </div>
     )
