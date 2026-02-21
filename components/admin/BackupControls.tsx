@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
+import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 
 type BackupMeta = {
   folder: string
@@ -100,9 +101,20 @@ export default function BackupControls() {
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || 'Failed to create backup')
       setLatestMessage(`Backup created: ${data.folder}`)
+      pushSessionNotification({
+        type: 'success',
+        title: 'Backup created',
+        message: data?.folder ? `Snapshot ${data.folder} is ready.` : 'Backup completed successfully.',
+      })
       await loadBackups()
     } catch (err: any) {
-      setError(err?.message || 'Failed to create backup')
+      const message = err?.message || 'Failed to create backup'
+      setError(message)
+      pushSessionNotification({
+        type: 'error',
+        title: 'Backup failed',
+        message,
+      })
     } finally {
       setCreating(false)
     }
