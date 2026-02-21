@@ -402,6 +402,15 @@ body {
     padding-top: 3rem;
   }
 }
+@media (max-width: 640px) {
+  .app-home-shortcut {
+    top: calc(max(0.75rem, env(safe-area-inset-top)) + 2.55rem);
+    left: max(0.75rem, env(safe-area-inset-left));
+  }
+  .app-main {
+    padding-top: 5.7rem;
+  }
+}
 
 .btn {
   @apply inline-flex items-center justify-center rounded-md bg-brand-600 hover:bg-brand-700 transition px-4 py-2 text-sm font-medium shadow-soft;
