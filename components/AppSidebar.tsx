@@ -65,11 +65,11 @@ function GearGlyph() {
 export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   const pathname = usePathname() || '/'
   const router = useRouter()
-  const sidebarRef = useRef<HTMLElement | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [desktopCollapsed, setDesktopCollapsed] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
+  const [mobileAdminOpen, setMobileAdminOpen] = useState(false)
   const [quickMenuOpen, setQuickMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
@@ -77,9 +77,11 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   const [quickSearch, setQuickSearch] = useState('')
   const menuRef = useRef<HTMLDivElement | null>(null)
   const quickMenuRef = useRef<HTMLDivElement | null>(null)
+  const mobileNavRef = useRef<HTMLDivElement | null>(null)
+  const hamburgerRef = useRef<HTMLButtonElement | null>(null)
   const { count } = useCart()
   const inAdmin = pathname.startsWith('/admin')
-  const sidebarExpanded = isMobileViewport ? mobileOpen : !desktopCollapsed
+  const desktopSidebarOpen = !desktopCollapsed
 
   useEffect(() => {
     setMounted(true)
@@ -87,56 +89,43 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    if (sidebarExpanded) document.body.classList.add('sidebar-open')
+    if (!isMobileViewport && desktopSidebarOpen) document.body.classList.add('sidebar-open')
     else document.body.classList.remove('sidebar-open')
     return () => {
       document.body.classList.remove('sidebar-open')
     }
-  }, [sidebarExpanded])
+  }, [desktopSidebarOpen, isMobileViewport])
 
-  // Always close the mobile drawer after navigation.
+  // Always close the mobile menu after navigation.
   useEffect(() => {
-    if (isMobileViewport) setMobileOpen(false)
+    if (isMobileViewport) setMobileNavOpen(false)
   }, [isMobileViewport, pathname])
 
-  // If viewport is desktop, ensure mobile drawer state is reset.
+  // If viewport is desktop, ensure mobile menu state is reset.
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const mq = window.matchMedia('(max-width: 1023px)')
+    const widthMq = window.matchMedia('(max-width: 1023px)')
+    const coarseMq = window.matchMedia('(pointer: coarse)')
     const handleChange = () => {
-      const nextMobile = mq.matches
+      const nextMobile = widthMq.matches && coarseMq.matches
       setIsMobileViewport(nextMobile)
-      if (!nextMobile) setMobileOpen(false)
+      if (!nextMobile) setMobileNavOpen(false)
     }
     handleChange()
-    mq.addEventListener('change', handleChange)
-    return () => mq.removeEventListener('change', handleChange)
+    widthMq.addEventListener('change', handleChange)
+    coarseMq.addEventListener('change', handleChange)
+    return () => {
+      widthMq.removeEventListener('change', handleChange)
+      coarseMq.removeEventListener('change', handleChange)
+    }
   }, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return
-    if (window.matchMedia('(min-width: 1024px)').matches) {
-      document.documentElement.style.removeProperty('--app-sidebar-drawer-width')
-      return
-    }
-    const updateDrawerWidth = () => {
-      const node = sidebarRef.current
-      if (!node) return
-      const width = Math.ceil(node.getBoundingClientRect().width)
-      if (width > 0) {
-        document.documentElement.style.setProperty('--app-sidebar-drawer-width', `${width}px`)
-      }
-    }
-    const raf = window.requestAnimationFrame(updateDrawerWidth)
-    window.addEventListener('resize', updateDrawerWidth)
-    return () => {
-      window.cancelAnimationFrame(raf)
-      window.removeEventListener('resize', updateDrawerWidth)
-    }
-  }, [mobileOpen, adminOpen, pathname, authed, isAdmin])
+    if (inAdmin) setAdminOpen(true)
+  }, [inAdmin])
 
   useEffect(() => {
-    if (inAdmin) setAdminOpen(true)
+    if (inAdmin) setMobileAdminOpen(true)
   }, [inAdmin])
 
   const logout = async () => {
@@ -165,6 +154,14 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       const target = e.target as Node
       if (menuRef.current && !menuRef.current.contains(target)) setMenuOpen(false)
       if (quickMenuRef.current && !quickMenuRef.current.contains(target)) setQuickMenuOpen(false)
+      if (
+        mobileNavRef.current &&
+        !mobileNavRef.current.contains(target) &&
+        hamburgerRef.current &&
+        !hamburgerRef.current.contains(target)
+      ) {
+        setMobileNavOpen(false)
+      }
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
@@ -254,7 +251,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
 
   const toggleSidebar = () => {
     if (isMobileViewport) {
-      setMobileOpen((open) => !open)
+      setMobileNavOpen((open) => !open)
       return
     }
     setDesktopCollapsed((collapsed) => !collapsed)
@@ -263,6 +260,8 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   const closeMenus = () => {
     setMenuOpen(false)
     setQuickMenuOpen(false)
+    setMobileNavOpen(false)
+    setMobileAdminOpen(false)
   }
 
   const renderAccountMenu = (className: string) => (
@@ -356,10 +355,25 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   return (
     <>
       {mounted && createPortal(
+        <button
+          ref={hamburgerRef}
+          type="button"
+          className={`app-hamburger-shortcut ${!isMobileViewport && desktopSidebarOpen ? 'app-hamburger-shortcut-offset' : ''}`}
+          onClick={toggleSidebar}
+          aria-expanded={isMobileViewport ? mobileNavOpen : desktopSidebarOpen}
+          aria-controls={isMobileViewport ? 'app-mobile-nav-menu' : 'app-sidebar'}
+          aria-label={isMobileViewport ? 'Toggle navigation menu' : (desktopSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar')}
+        >
+          <span aria-hidden="true">☰</span>
+        </button>,
+        document.body
+      )}
+
+      {mounted && createPortal(
         <Link
           href="/"
           aria-label={BRAND_FULL_NAME}
-          className={`app-home-shortcut ${sidebarExpanded ? 'app-home-shortcut-offset' : ''}`}
+          className={`app-home-shortcut ${!isMobileViewport && desktopSidebarOpen ? 'app-home-shortcut-offset' : ''}`}
         >
           <span>{BRAND_LOGO_PREFIX}</span>
           <span className="inline-block align-baseline text-brand-500 gear app-brand-gear-tight" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
@@ -372,7 +386,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       )}
 
       {authed && mounted && createPortal(
-        <div className={`app-user-shortcut ${sidebarExpanded ? 'app-user-shortcut-open' : ''}`} ref={quickMenuRef}>
+        <div className={`app-user-shortcut ${!isMobileViewport && desktopSidebarOpen ? 'app-user-shortcut-open' : ''}`} ref={quickMenuRef}>
           <div className="app-user-shortcut-row">
             <form className="app-user-search-form" onSubmit={handleQuickSearchSubmit}>
               <input
@@ -402,31 +416,69 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       )}
 
       {mounted && createPortal(
-        <button
-          type="button"
-          className={`app-sidebar-handle ${sidebarExpanded ? 'app-sidebar-handle-open' : ''}`}
-          onClick={toggleSidebar}
-          aria-expanded={sidebarExpanded}
-          aria-controls="app-sidebar"
-          aria-label={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-        >
-          <span className="app-sidebar-handle-chevron" aria-hidden="true">{sidebarExpanded ? '‹' : '›'}</span>
-        </button>,
+        isMobileViewport && mobileNavOpen ? (
+          <div id="app-mobile-nav-menu" ref={mobileNavRef} role="menu" className="app-sidebar-menu app-mobile-nav-menu">
+            <Link href="/discover" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Discover</Link>
+            <Link href="/products" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Store</Link>
+            {authed ? (
+              <>
+                <Link href="/upload" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Upload</Link>
+                <Link href="/cart" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Cart{count > 0 ? ` (${count})` : ''}</Link>
+                <Link href="/checkout" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Checkout</Link>
+                {isAdmin && (
+                  <>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      aria-expanded={mobileAdminOpen}
+                      onClick={() => setMobileAdminOpen((open) => !open)}
+                      className="app-sidebar-menu-item w-full text-left"
+                    >
+                      Admin {mobileAdminOpen ? '▾' : '▸'}
+                    </button>
+                    {mobileAdminOpen && (
+                      <div className="pl-2 pb-1">
+                        {ADMIN_NAV_ITEMS.map((item) => {
+                          const active = isActiveAdminPath(pathname, item)
+                          return (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              role="menuitem"
+                              onClick={closeMenus}
+                              className={`app-sidebar-menu-item ${active ? 'app-sidebar-sub-link-active' : ''}`}
+                            >
+                              {item.label}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+                <Link href="/me" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">My Page</Link>
+                <Link href="/customer/orders" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Orders</Link>
+                <Link href="/settings/profile" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Edit Profile</Link>
+                <button type="button" role="menuitem" onClick={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))} className="app-sidebar-menu-item w-full text-left">
+                  {theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+                </button>
+                <button type="button" role="menuitem" onClick={logout} className="app-sidebar-menu-item w-full text-left">Sign out</button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Sign in</Link>
+                <Link href="/register" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Join</Link>
+              </>
+            )}
+          </div>
+        ) : null,
         document.body
       )}
 
       <aside
-        ref={sidebarRef}
         id="app-sidebar"
-        data-mobile-open={mobileOpen ? 'true' : 'false'}
-        className={`app-sidebar ${mobileOpen ? 'app-sidebar-open' : ''} ${desktopCollapsed ? 'app-sidebar-collapsed' : ''}`}
-        style={isMobileViewport
-          ? {
-              transform: mobileOpen ? 'translateX(0)' : 'translateX(calc(-100% - var(--app-sidebar-drawer-left) - 1rem))',
-              opacity: mobileOpen ? 1 : 0,
-              pointerEvents: mobileOpen ? 'auto' : 'none',
-            }
-          : undefined}
+        className={`app-sidebar ${desktopCollapsed ? 'app-sidebar-collapsed' : ''}`}
+        style={isMobileViewport ? { display: 'none' } : undefined}
       >
         <div className="app-sidebar-inner">
           <nav className="space-y-1" aria-label="Main navigation">
