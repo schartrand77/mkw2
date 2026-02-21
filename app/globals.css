@@ -265,6 +265,11 @@ body {
   left: max(0.75rem, env(safe-area-inset-left));
   width: min(17rem, calc(100vw - max(1rem, env(safe-area-inset-left)) - max(1rem, env(safe-area-inset-right))));
   z-index: 1266;
+  max-height: calc(100dvh - max(0.75rem, env(safe-area-inset-top)) - 2.65rem - max(0.75rem, env(safe-area-inset-bottom)));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .app-sidebar-handle {
   position: fixed;
