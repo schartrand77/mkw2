@@ -32,6 +32,7 @@ const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
   z: 'Height (Z)',
 }
 const COLOR_PICKER_FALLBACK = '#1f2937'
+const PREVIEW_DEFAULT_COLOR = '#f8fafc'
 const PALETTE_MARGIN = 16
 const HEX_WITH_HASH_RE = /#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
 const HEX_WITH_0X_RE = /0x([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
@@ -591,7 +592,7 @@ export default function CartPage() {
   const selectedViewerFallback = selectedPreviewFallback ? toPublicHref(selectedPreviewFallback) : null
   const selectedViewerColors = useMemo(() => {
     if (!selectedPreviewItem) return []
-    return (selectedPreviewItem.options.colors || []).map((value) => {
+    const derived = (selectedPreviewItem.options.colors || []).map((value) => {
       if (isHexColor(value)) return value
       const parsed = parseColorString(value)
       const normalized = normalizeColorValue(parsed.name || parsed.hex || value)
@@ -601,6 +602,7 @@ export default function CartPage() {
         || paletteValueToHex.get(normalized)
         || COLOR_PICKER_FALLBACK
     })
+    return derived.length > 0 ? derived : [PREVIEW_DEFAULT_COLOR]
   }, [selectedPreviewItem, paletteValueToHex])
 
   const discountMultiplier = useMemo(() => getDiscountMultiplier(discount), [discount])
