@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 
 type StockworksMaterial = {
   id: number
+  name?: string | null
+  title?: string | null
   filament_type?: string | null
   category?: string | null
   brand?: string | null
@@ -36,6 +38,24 @@ type StockworksColor = {
 const normalizeType = (value?: string | null) => {
   const trimmed = (value || '').trim()
   return trimmed ? trimmed.toUpperCase() : null
+}
+
+const MATERIAL_TYPE_TOKENS = ['PETG', 'RESIN', 'NYLON', 'PA12', 'PA6', 'ASA', 'ABS', 'TPU', 'PLA', 'PC'] as const
+
+const inferMaterialType = (material?: StockworksMaterial | null) => {
+  if (!material) return null
+  const direct = normalizeType(material.filament_type)
+  if (direct) return direct
+  const candidates = [material.category, material.name, material.title]
+  for (const candidate of candidates) {
+    const upper = normalizeType(candidate)
+    if (!upper) continue
+    for (const token of MATERIAL_TYPE_TOKENS) {
+      const pattern = new RegExp(`(^|[^A-Z0-9])${token}([^A-Z0-9]|$)`)
+      if (pattern.test(upper)) return token
+    }
+  }
+  return null
 }
 
 const HEX_WITH_PREFIX_RE = /(?:#|0x)([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
@@ -152,106 +172,128 @@ async function loginToStockworks(baseUrl: string, username: string, password: st
   return cookie.split(';')[0]
 }
 
+function coerceArray<T = any>(payload: any, keys: string[]): T[] {
+  if (Array.isArray(payload)) return payload as T[]
+  if (!payload || typeof payload !== 'object') return []
+  for (const key of keys) {
+    if (Array.isArray((payload as Record<string, unknown>)[key])) {
+      return (payload as Record<string, unknown>)[key] as T[]
+    }
+  }
+  return []
+}
+
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const baseUrl = process.env.STOCKWORKS_BASE_URL?.replace(/\/+$/, '') || ''
-  const username = process.env.STOCKWORKS_ADMIN_USERNAME || process.env.STOCKWORKS_USERNAME || ''
-  const password = process.env.STOCKWORKS_ADMIN_PASSWORD || process.env.STOCKWORKS_PASSWORD || ''
+  try {
+    const baseUrl = process.env.STOCKWORKS_BASE_URL?.replace(/\/+$/, '') || ''
+    const username = process.env.STOCKWORKS_ADMIN_USERNAME || process.env.STOCKWORKS_USERNAME || ''
+    const password = process.env.STOCKWORKS_ADMIN_PASSWORD || process.env.STOCKWORKS_PASSWORD || ''
 
-  if (!baseUrl || !username || !password) {
-    return NextResponse.json({ enabled: false, materials: {} })
-  }
+    if (!baseUrl || !username || !password) {
+      return NextResponse.json({ enabled: false, materials: {} })
+    }
 
-  const sessionCookie = await loginToStockworks(baseUrl, username, password)
-  if (!sessionCookie) {
-    return NextResponse.json({ enabled: false, materials: {}, error: 'StockWorks authentication failed.' })
-  }
+    const sessionCookie = await loginToStockworks(baseUrl, username, password)
+    if (!sessionCookie) {
+      return NextResponse.json({ enabled: false, materials: {}, error: 'StockWorks authentication failed.' })
+    }
 
-  const headers = { Cookie: sessionCookie }
-  const [materialsRes, inventoryRes] = await Promise.all([
-    fetch(`${baseUrl}/materials`, { headers, cache: 'no-store' }),
-    fetch(`${baseUrl}/inventory`, { headers, cache: 'no-store' }),
-  ])
+    const headers = { Cookie: sessionCookie }
+    const [materialsRes, inventoryRes] = await Promise.all([
+      fetch(`${baseUrl}/materials`, { headers, cache: 'no-store' }),
+      fetch(`${baseUrl}/inventory`, { headers, cache: 'no-store' }),
+    ])
 
-  if (!materialsRes.ok || !inventoryRes.ok) {
+    if (!materialsRes.ok || !inventoryRes.ok) {
+      return NextResponse.json({
+        enabled: false,
+        materials: {},
+        error: `StockWorks request failed (${materialsRes.status}/${inventoryRes.status}).`,
+      })
+    }
+
+    const materialsRaw = await materialsRes.json()
+    const inventoryRaw = await inventoryRes.json()
+    const materials = coerceArray<StockworksMaterial>(materialsRaw, ['materials', 'items', 'data', 'results'])
+    const inventory = coerceArray<StockworksInventoryItem>(inventoryRaw, ['items', 'inventory', 'data', 'results'])
+    const materialById = new Map<number, StockworksMaterial>()
+    const materialTypes = new Set<string>()
+
+    for (const material of materials) {
+      if (typeof material.id === 'number') {
+        materialById.set(material.id, material)
+      }
+      const typeKey = inferMaterialType(material)
+      if (typeKey) materialTypes.add(typeKey)
+    }
+
+    const orderableByType = new Map<string, Map<string, StockworksColor>>()
+    for (const material of materials) {
+      const typeKey = inferMaterialType(material)
+      const color = normalizeColor(
+        material.color,
+        material.color_hex || material.color_hex_code || material.hex,
+        resolveBrand(material),
+        resolveCategory(material),
+      )
+      if (!typeKey || !color) continue
+      const key = colorKey(color)
+      if (!key) continue
+      if (!orderableByType.has(typeKey)) orderableByType.set(typeKey, new Map())
+      orderableByType.get(typeKey)!.set(key, color)
+    }
+
+    const inStockByType = new Map<string, Map<string, StockworksColor>>()
+    for (const item of inventory) {
+      const qty = typeof item.quantity_grams === 'number' ? item.quantity_grams : 0
+      if (qty <= 0) continue
+      const material = item.material || (typeof item.material_id === 'number' ? materialById.get(item.material_id) : null)
+      if (!material) continue
+      const typeKey = inferMaterialType(material)
+      if (typeKey) materialTypes.add(typeKey)
+      const color = normalizeColor(
+        material.color,
+        material.color_hex || material.color_hex_code || material.hex,
+        resolveBrand(material),
+        resolveCategory(material),
+      )
+      if (!typeKey || !color) continue
+      const key = colorKey(color)
+      if (!key) continue
+      if (!inStockByType.has(typeKey)) inStockByType.set(typeKey, new Map())
+      inStockByType.get(typeKey)!.set(key, color)
+    }
+
+    const materialsPayload: Record<string, MaterialPalette> = {}
+    const allTypes = new Set<string>([...orderableByType.keys(), ...inStockByType.keys()])
+    for (const typeKey of allTypes) {
+      const inStock = Array.from(inStockByType.get(typeKey)?.values() || []).sort((a, b) => {
+        const left = a.name || a.hex || ''
+        const right = b.name || b.hex || ''
+        return left.localeCompare(right)
+      })
+      const orderable = Array.from(orderableByType.get(typeKey)?.values() || []).sort((a, b) => {
+        const left = a.name || a.hex || ''
+        const right = b.name || b.hex || ''
+        return left.localeCompare(right)
+      })
+      materialsPayload[typeKey] = { inStock, orderable }
+    }
+
+    const typeList = Array.from(new Set([...materialTypes, ...Object.keys(materialsPayload)])).sort((a, b) => a.localeCompare(b))
+    return NextResponse.json({
+      enabled: true,
+      materials: materialsPayload,
+      materialTypes: typeList,
+      updatedAt: new Date().toISOString(),
+    })
+  } catch (err: any) {
     return NextResponse.json({
       enabled: false,
       materials: {},
-      error: `StockWorks request failed (${materialsRes.status}/${inventoryRes.status}).`,
+      error: err?.message || 'StockWorks filament palette failed.',
     })
   }
-
-  const materials = (await materialsRes.json()) as StockworksMaterial[]
-  const inventory = (await inventoryRes.json()) as StockworksInventoryItem[]
-  const materialById = new Map<number, StockworksMaterial>()
-  const materialTypes = new Set<string>()
-
-  for (const material of materials) {
-    if (typeof material.id === 'number') {
-      materialById.set(material.id, material)
-    }
-    const typeKey = normalizeType(material.filament_type)
-    if (typeKey) materialTypes.add(typeKey)
-  }
-
-  const orderableByType = new Map<string, Map<string, StockworksColor>>()
-  for (const material of materials) {
-    const typeKey = normalizeType(material.filament_type)
-    const color = normalizeColor(
-      material.color,
-      material.color_hex || material.color_hex_code || material.hex,
-      resolveBrand(material),
-      resolveCategory(material),
-    )
-    if (!typeKey || !color) continue
-    const key = colorKey(color)
-    if (!key) continue
-    if (!orderableByType.has(typeKey)) orderableByType.set(typeKey, new Map())
-    orderableByType.get(typeKey)!.set(key, color)
-  }
-
-  const inStockByType = new Map<string, Map<string, StockworksColor>>()
-  for (const item of inventory) {
-    const qty = typeof item.quantity_grams === 'number' ? item.quantity_grams : 0
-    if (qty <= 0) continue
-    const material = item.material || (typeof item.material_id === 'number' ? materialById.get(item.material_id) : null)
-    if (!material) continue
-    const typeKey = normalizeType(material.filament_type)
-    if (typeKey) materialTypes.add(typeKey)
-    const color = normalizeColor(
-      material.color,
-      material.color_hex || material.color_hex_code || material.hex,
-      resolveBrand(material),
-      resolveCategory(material),
-    )
-    if (!typeKey || !color) continue
-    const key = colorKey(color)
-    if (!key) continue
-    if (!inStockByType.has(typeKey)) inStockByType.set(typeKey, new Map())
-    inStockByType.get(typeKey)!.set(key, color)
-  }
-
-  const materialsPayload: Record<string, MaterialPalette> = {}
-  for (const [typeKey, colors] of orderableByType.entries()) {
-    const inStock = Array.from(inStockByType.get(typeKey)?.values() || []).sort((a, b) => {
-      const left = a.name || a.hex || ''
-      const right = b.name || b.hex || ''
-      return left.localeCompare(right)
-    })
-    const orderable = Array.from(colors.values()).sort((a, b) => {
-      const left = a.name || a.hex || ''
-      const right = b.name || b.hex || ''
-      return left.localeCompare(right)
-    })
-    materialsPayload[typeKey] = { inStock, orderable }
-  }
-
-  const typeList = Array.from(materialTypes).sort((a, b) => a.localeCompare(b))
-  return NextResponse.json({
-    enabled: true,
-    materials: materialsPayload,
-    materialTypes: typeList,
-    updatedAt: new Date().toISOString(),
-  })
 }
