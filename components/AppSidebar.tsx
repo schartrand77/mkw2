@@ -131,6 +131,21 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     let redirectTarget = '/signed-out'
     try {
       const res = await fetch('/api/logout', { method: 'POST', credentials: 'include' })
+      if (!res.ok) {
+        let message = 'Sign out failed. Please try again.'
+        try {
+          const contentType = res.headers.get('content-type') || ''
+          if (contentType.includes('application/json')) {
+            const body = await res.json()
+            if (typeof body?.error === 'string' && body.error.trim()) message = body.error
+          } else {
+            const text = await res.text()
+            if (text.trim()) message = text.trim()
+          }
+        } catch {}
+        pushSessionNotification({ type: 'error', title: 'Sign out failed', message })
+        return
+      }
       const contentType = res.headers.get('content-type') || ''
       if (res.ok && contentType.includes('application/json')) {
         try {

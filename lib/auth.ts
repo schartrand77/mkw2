@@ -154,12 +154,17 @@ export async function setAuthCookie(userId: string, store?: CookieStore, options
 export async function clearAuthCookie(store?: CookieStore, options?: CookieOptions) {
   const c = await resolveCookieStore(store)
   const secure = await shouldUseSecureCookies(options?.secureHint)
-  c.set(COOKIE_NAME, '', {
+  const expiredCookie = {
     maxAge: 0,
     path: '/',
-    secure,
     httpOnly: true,
     sameSite: 'lax',
     expires: new Date(0),
-  })
+  } as const
+
+  c.set(COOKIE_NAME, '', { ...expiredCookie, secure })
+  if (secure) {
+    // Clear both variants to avoid stale auth when runtime protocol hints differ.
+    c.set(COOKIE_NAME, '', { ...expiredCookie, secure: false })
+  }
 }

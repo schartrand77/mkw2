@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { BRAND_FULL_NAME } from '@/lib/brand'
+import { getUserIdFromCookie } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 import ClearClientState from './ClearClientState'
 
 export const metadata = {
@@ -7,7 +9,10 @@ export const metadata = {
   description: `You are now signed out of ${BRAND_FULL_NAME}.`,
 }
 
-export default function SignedOutPage() {
+export default async function SignedOutPage() {
+  const userId = await getUserIdFromCookie()
+  if (userId) redirect('/discover')
+
   return (
     <div className="max-w-2xl mx-auto text-center space-y-6">
       <ClearClientState />
