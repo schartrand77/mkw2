@@ -17,12 +17,19 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const requestedNext = searchParams?.get('next') || ''
   const inviteStatus = searchParams?.get('invite')
   const inviteMessage = inviteStatus === 'invalid'
     ? 'Invite link is invalid or expired. Please request a new invite.'
     : inviteStatus === 'missing'
       ? 'Invite link is missing a token. Please use the full invite URL.'
       : null
+
+  const resolveNextTarget = (nextValue: string) => {
+    if (!nextValue.startsWith('/') || nextValue.startsWith('//')) return '/discover'
+    if (nextValue === '/login' || nextValue.startsWith('/login?')) return '/discover'
+    return nextValue
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,10 +45,11 @@ export default function LoginPage() {
       await notify({ type: 'success', title: 'Signed in', message: 'Welcome back!' })
       setEmail('')
       setPassword('')
+      const nextTarget = resolveNextTarget(requestedNext)
       if (typeof window !== 'undefined') {
-        window.location.href = '/discover'
+        window.location.href = nextTarget
       } else {
-        router.replace('/discover')
+        router.replace(nextTarget)
       }
     } catch (err: any) {
       await notify({ type: 'error', title: 'Login failed', message: err.message || 'Login failed' })

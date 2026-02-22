@@ -31,18 +31,24 @@ async function isValidJwt(token: string) {
 }
 
 export async function proxy(req: NextRequest) {
-  const { pathname } = req.nextUrl
+  const { pathname, search } = req.nextUrl
   // Allow login page, manifest, service worker, and favicons to bypass auth
   if (isPublicPath(pathname) || isPublicModelPath(pathname)) return NextResponse.next()
 
+  const loginUrl = new URL('/login', req.url)
+  const nextPath = `${pathname}${search || ''}`
+  if (nextPath.startsWith('/')) {
+    loginUrl.searchParams.set('next', nextPath)
+  }
+
   const token = req.cookies.get('mwv2_token')?.value
   if (!token) {
-    const response = NextResponse.redirect(new URL('/login', req.url))
+    const response = NextResponse.redirect(loginUrl)
     response.cookies.delete('mwv2_token')
     return response
   }
   if (!(await isValidJwt(token))) {
-    const response = NextResponse.redirect(new URL('/login', req.url))
+    const response = NextResponse.redirect(loginUrl)
     response.cookies.delete('mwv2_token')
     return response
   }
