@@ -6,6 +6,7 @@ const PUBLIC_EXACT = new Set([
   '/discover',
   '/login',
   '/register',
+  '/signed-out',
   '/gear',
   '/manifest.webmanifest',
   '/sw.js',

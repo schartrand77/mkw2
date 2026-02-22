@@ -28,6 +28,7 @@ export default function LoginPage() {
   const resolveNextTarget = (nextValue: string) => {
     if (!nextValue.startsWith('/') || nextValue.startsWith('//')) return '/discover'
     if (nextValue === '/login' || nextValue.startsWith('/login?')) return '/discover'
+    if (nextValue === '/signed-out' || nextValue.startsWith('/signed-out?')) return '/discover'
     return nextValue
   }
 

@@ -139,6 +139,13 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
         } catch {}
       }
     } catch {}
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('mwv2:avatarUrl')
+      } catch {}
+      window.dispatchEvent(new CustomEvent('mwv2:avatar:update', { detail: '' }))
+    }
+    setAvatarSrc(null)
     pushSessionNotification({ type: 'info', title: 'Signed out', message: 'Come back soon!' })
     setMenuOpen(false)
     if (typeof window !== 'undefined') {
@@ -226,7 +233,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       } else {
         try {
           const fallback = localStorage.getItem(storageKey)
-          if (fallback) setAvatarSrc(fallback)
+          setAvatarSrc(fallback || null)
         } catch {}
       }
     }
