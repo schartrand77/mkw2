@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { cookies, headers } from 'next/headers'
 import { prisma } from '@/lib/db'
+import { assertProductionSecurityConfig, validateJwtSecret } from '@/lib/security-config'
 
 const COOKIE_NAME = 'mwv2_token'
 const SESSION_IAT_GRACE_MS = 1500
@@ -72,19 +73,25 @@ export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash)
 }
 
-export function signToken(userId: string) {
+function getJwtSecret() {
+  assertProductionSecurityConfig()
   const secret = process.env.JWT_SECRET
-  if (!secret) throw new Error('JWT_SECRET not set')
-  return jwt.sign({ sub: userId }, secret, { expiresIn: '30d' })
+  const validation = validateJwtSecret(secret)
+  if (!validation.ok) throw new Error(validation.message || 'JWT_SECRET is invalid')
+  return secret as string
+}
+
+export function signToken(userId: string) {
+  const secret = getJwtSecret()
+  return jwt.sign({ sub: userId }, secret, { algorithm: 'HS256', expiresIn: '30d' })
 }
 
 export type AuthTokenPayload = { sub: string; iat?: number; exp?: number }
 
 export function verifyToken(token: string): AuthTokenPayload | null {
   try {
-    const secret = process.env.JWT_SECRET
-    if (!secret) throw new Error('JWT_SECRET not set')
-    return jwt.verify(token, secret) as AuthTokenPayload
+    const secret = getJwtSecret()
+    return jwt.verify(token, secret, { algorithms: ['HS256'] }) as AuthTokenPayload
   } catch {
     return null
   }
@@ -93,19 +100,17 @@ export function verifyToken(token: string): AuthTokenPayload | null {
 type InviteTokenPayload = { sub: string; purpose: 'invite_login' }
 
 export function signInviteToken(userId: string) {
-  const secret = process.env.JWT_SECRET
-  if (!secret) throw new Error('JWT_SECRET not set')
+  const secret = getJwtSecret()
   const hours = Number.parseInt(process.env.INVITE_LOGIN_TOKEN_TTL_HOURS || '24', 10)
   const ttlHours = Number.isFinite(hours) && hours > 0 ? hours : 24
   const expiresIn = ttlHours * 60 * 60
-  return jwt.sign({ sub: userId, purpose: 'invite_login' }, secret, { expiresIn })
+  return jwt.sign({ sub: userId, purpose: 'invite_login' }, secret, { algorithm: 'HS256', expiresIn })
 }
 
 export function verifyInviteToken(token: string): InviteTokenPayload | null {
   try {
-    const secret = process.env.JWT_SECRET
-    if (!secret) throw new Error('JWT_SECRET not set')
-    const payload = jwt.verify(token, secret) as InviteTokenPayload
+    const secret = getJwtSecret()
+    const payload = jwt.verify(token, secret, { algorithms: ['HS256'] }) as InviteTokenPayload
     if (!payload?.sub || payload.purpose !== 'invite_login') return null
     return payload
   } catch {

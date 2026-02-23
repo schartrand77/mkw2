@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
+import { validateJwtSecret } from '@/lib/security-config'
 const PUBLIC_EXACT = new Set([
   '/',
   '/discover',
@@ -22,9 +23,10 @@ function isPublicPath(pathname: string) {
 
 async function isValidJwt(token: string) {
   const secret = process.env.JWT_SECRET
-  if (!secret) return false
+  const validation = validateJwtSecret(secret)
+  if (!validation.ok) return false
   try {
-    await jwtVerify(token, new TextEncoder().encode(secret), { algorithms: ['HS256'] })
+    await jwtVerify(token, new TextEncoder().encode(secret as string), { algorithms: ['HS256'] })
     return true
   } catch {
     return false

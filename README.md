@@ -130,6 +130,19 @@ Use `.env.example` as source of truth. Key variable groups:
 - Push notifications: `VAPID_*`
 - Branding: `NEXT_PUBLIC_BRAND_*`, `HOLIDAY_THEME`
 
+### Admin Password Guardrails
+
+`ADMIN_PASSWORD` is now validated with security guardrails:
+
+- Must be at least 12 characters.
+- Must not be a weak/default value such as `changeme`, `change-me-please`, `password`, `admin`, `default`, `secret`, `test`, or `dev`.
+
+Enforcement behavior:
+
+- `npm run bootstrap:admin` skips admin bootstrap when the password is weak in non-production environments.
+- In production (`NODE_ENV=production`), weak `ADMIN_PASSWORD` causes bootstrap to fail fast.
+- `/api/admin/env-check` now flags weak `ADMIN_PASSWORD` and weak/short `JWT_SECRET` as insecure config.
+
 ## Backups On Unraid
 
 Use these settings when running MakerWorks as a single container on Unraid (non-compose runtime).

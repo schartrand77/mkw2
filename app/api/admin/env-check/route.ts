@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '../_utils'
 import { withRequestObservability } from '@/lib/request-observability'
+import { validateAdminBootstrapPassword, validateJwtSecret } from '@/lib/security-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +33,7 @@ const OPTIONAL_CHECKS: Array<{ key: string; label: string; required: boolean; al
   { key: 'BAMBU_VIEW_AUTH_HEADER', label: 'Bambu View auth header', required: false },
   { key: 'VAPID_PUBLIC_KEY', label: 'Push notifications key', required: false, alt: ['NEXT_PUBLIC_VAPID_PUBLIC_KEY'] },
   { key: 'VAPID_PRIVATE_KEY', label: 'Push notifications secret', required: false },
+  { key: 'ADMIN_PASSWORD', label: 'Admin bootstrap password', required: false },
 ]
 
 function resolveValue(keys: string[]): string | null {
@@ -45,12 +47,25 @@ function resolveValue(keys: string[]): string | null {
 function buildCheck(entry: { key: string; label: string; required: boolean; alt?: string[] }): Check {
   const keys = [entry.key, ...(entry.alt || [])]
   const value = resolveValue(keys)
+  let detail = value ? null : `Missing ${entry.key}${entry.alt?.length ? ` (or ${entry.alt.join(', ')})` : ''}`
+  let ok = Boolean(value)
+
+  if (value && entry.key === 'JWT_SECRET') {
+    const jwt = validateJwtSecret(value)
+    ok = jwt.ok
+    detail = jwt.ok ? null : jwt.message || 'Invalid JWT secret'
+  } else if (value && entry.key === 'ADMIN_PASSWORD') {
+    const adminPassword = validateAdminBootstrapPassword(value)
+    ok = adminPassword.ok
+    detail = adminPassword.ok ? null : adminPassword.message || 'Invalid admin bootstrap password'
+  }
+
   return {
     key: entry.key,
     label: entry.label,
     required: entry.required,
-    ok: Boolean(value),
-    detail: value ? null : `Missing ${entry.key}${entry.alt?.length ? ` (or ${entry.alt.join(', ')})` : ''}`,
+    ok,
+    detail,
   }
 }
 
