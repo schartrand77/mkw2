@@ -50,6 +50,8 @@ function isActivePath(pathname: string, href: string): boolean {
 }
 
 function isActiveAdminPath(pathname: string, item: AdminNavItem): boolean {
+  // Keep Overview active only on the exact /admin route.
+  if (item.href === '/admin') return pathname === '/admin'
   if (isActivePath(pathname, item.href)) return true
   return (item.matchPrefixes || []).some((prefix) => pathname.startsWith(prefix))
 }
@@ -265,9 +267,6 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
 
   const adminToggle = () => {
     setAdminOpen((open) => !open)
-    if (!inAdmin) {
-      router.push('/admin')
-    }
   }
 
   const toggleSidebar = () => {
@@ -512,7 +511,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
                 <Link href="/checkout" className={navLinkCls('/checkout')}>Checkout</Link>
                 {isAdmin && (
                   <>
-                    <button type="button" className={navLinkCls('/admin')} onClick={adminToggle} aria-expanded={adminOpen}>
+                    <button type="button" className={`${navLinkCls('/admin')} app-sidebar-admin-toggle`} onClick={adminToggle} aria-expanded={adminOpen}>
                       <span>Admin</span>
                     </button>
                     {adminOpen && (

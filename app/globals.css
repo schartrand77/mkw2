@@ -39,8 +39,11 @@ body {
   backdrop-filter: blur(18px);
 }
 .app-sidebar {
+  --app-sidebar-top-offset: calc(max(0.75rem, env(safe-area-inset-top)) + 2.75rem);
   position: sticky;
-  top: calc(max(0.75rem, env(safe-area-inset-top)) + 2.75rem);
+  top: var(--app-sidebar-top-offset);
+  /* Keep desktop sidebar anchored at the same visual top offset before/after sticky activation. */
+  margin-top: calc(var(--app-sidebar-top-offset) - 1rem);
   z-index: 50;
   width: 17rem;
   flex: 0 0 17rem;
@@ -137,12 +140,16 @@ body {
 }
 .app-sidebar-link {
   display: block;
+  width: 100%;
   border-radius: 0.55rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 0.5rem 0.72rem;
   font-size: 0.92rem;
   color: rgb(226 232 240);
   transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+.app-sidebar-admin-toggle {
+  text-align: left;
 }
 .app-sidebar-link:hover {
   border-color: rgba(255, 255, 255, 0.24);
@@ -305,6 +312,7 @@ body {
     position: fixed;
     left: var(--app-sidebar-drawer-left);
     top: calc(max(0.75rem, env(safe-area-inset-top)) + 2.75rem);
+    margin-top: 0;
     bottom: max(0.75rem, env(safe-area-inset-bottom));
     width: max-content;
     max-width: calc(100vw - var(--app-sidebar-drawer-left) - 0.75rem);
