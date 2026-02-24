@@ -8,6 +8,7 @@ import { unlink } from 'fs/promises'
 import path from 'path'
 import { ensureUserPage, slugify } from '@/lib/userpage'
 import { isSupportedImageFile } from '@/lib/images'
+import { isSameOriginRequest } from '@/lib/csrf'
 
 export async function GET() {
   const userId = await getUserIdFromCookie()
@@ -18,6 +19,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  if (!isSameOriginRequest(req)) return NextResponse.json({ error: 'Invalid CSRF origin' }, { status: 403 })
   const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

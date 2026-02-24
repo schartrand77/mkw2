@@ -3,10 +3,12 @@ export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { z } from 'zod'
+import { isSameOriginRequest } from '@/lib/csrf'
 
 const schema = z.object({ email: z.string().email() })
 
 export async function PATCH(req: NextRequest) {
+  if (!isSameOriginRequest(req)) return NextResponse.json({ error: 'Invalid CSRF origin' }, { status: 403 })
   const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
