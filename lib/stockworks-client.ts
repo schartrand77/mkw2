@@ -29,18 +29,47 @@ function resolveConfig() {
   return { baseUrl, username, password }
 }
 
+function extractCookie(headers: Headers) {
+  const getSetCookie = (headers as Headers & { getSetCookie?: () => string[] }).getSetCookie
+  const setCookies = typeof getSetCookie === 'function' ? getSetCookie.call(headers) : null
+  const raw = setCookies?.[0] || headers.get('set-cookie') || ''
+  const first = raw.split(';')[0]?.trim()
+  return first || null
+}
+
+function extractCsrfToken(html: string) {
+  const nameFirst = html.match(/name=["']csrf_token["'][^>]*value=["']([^"']+)["']/i)
+  if (nameFirst?.[1]) return nameFirst[1]
+  const valueFirst = html.match(/value=["']([^"']+)["'][^>]*name=["']csrf_token["']/i)
+  return valueFirst?.[1] || null
+}
+
 async function login(baseUrl: string, username: string, password: string): Promise<StockworksSession> {
+  const loginPage = await fetchWithTimeout(`${baseUrl}/login`, {
+    method: 'GET',
+    cache: 'no-store',
+  })
+  const loginPageCookie = extractCookie(loginPage.headers)
+  const loginPageHtml = await loginPage.text().catch(() => '')
+  const csrfToken = extractCsrfToken(loginPageHtml)
+
   const payload = new URLSearchParams({ username, password })
+  if (csrfToken) payload.set('csrf_token', csrfToken)
+
+  const headers = new Headers({ 'Content-Type': 'application/x-www-form-urlencoded' })
+  if (loginPageCookie) headers.set('Cookie', loginPageCookie)
+  headers.set('Referer', `${baseUrl}/login`)
+
   const response = await fetchWithTimeout(`${baseUrl}/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers,
     body: payload.toString(),
     redirect: 'manual',
     cache: 'no-store',
   })
-  const cookie = response.headers.get('set-cookie')
+  const cookie = extractCookie(response.headers) || loginPageCookie
   if (!cookie) throw new Error('StockWorks authentication failed')
-  return { cookie: cookie.split(';')[0] }
+  return { cookie }
 }
 
 export async function getStockworksSession(): Promise<{ baseUrl: string; cookie: string }> {

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getStockworksSession } from '@/lib/stockworks-client'
 
 type StockworksMaterial = {
   id: number
@@ -158,20 +159,6 @@ const colorKey = (color: StockworksColor | null) => {
   return scope ? `${scope}::${raw.toLowerCase()}` : raw.toLowerCase()
 }
 
-async function loginToStockworks(baseUrl: string, username: string, password: string): Promise<string | null> {
-  const payload = new URLSearchParams({ username, password })
-  const response = await fetch(`${baseUrl}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: payload.toString(),
-    redirect: 'manual',
-    cache: 'no-store',
-  })
-  const cookie = response.headers.get('set-cookie')
-  if (!cookie) return null
-  return cookie.split(';')[0]
-}
-
 function coerceArray<T = any>(payload: any, keys: string[]): T[] {
   if (Array.isArray(payload)) return payload as T[]
   if (!payload || typeof payload !== 'object') return []
@@ -195,8 +182,11 @@ export async function GET() {
       return NextResponse.json({ enabled: false, materials: {} })
     }
 
-    const sessionCookie = await loginToStockworks(baseUrl, username, password)
-    if (!sessionCookie) {
+    let sessionCookie = ''
+    try {
+      const session = await getStockworksSession()
+      sessionCookie = session.cookie
+    } catch {
       return NextResponse.json({ enabled: false, materials: {}, error: 'StockWorks authentication failed.' })
     }
 

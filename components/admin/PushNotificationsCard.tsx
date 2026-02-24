@@ -74,18 +74,33 @@ export default function PushNotificationsCard() {
     }
   }, [])
 
-  const enablePush = async () => {
+  const syncSubscription = useCallback(async (subscription: PushSubscription) => {
+    const payload = subscription.toJSON()
+    const res = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data?.error || 'Unable to store subscription.')
+    }
+  }, [])
+
+  const enablePush = useCallback(async (opts?: { silent?: boolean; skipPermissionPrompt?: boolean }) => {
     if (!supported || !hasPublicKey) return
     setBusy(true)
     setError(null)
     try {
       let nextPermission = Notification.permission
-      if (nextPermission === 'default') {
+      if (nextPermission === 'default' && !opts?.skipPermissionPrompt) {
         nextPermission = await Notification.requestPermission()
       }
       setPermission(nextPermission)
       if (nextPermission !== 'granted') {
-        setError('Browser blocked notifications. Update your permission settings and try again.')
+        if (!opts?.silent && !opts?.skipPermissionPrompt) {
+          setError('Browser blocked notifications. Update your permission settings and try again.')
+        }
         return
       }
       const registration = await navigator.serviceWorker.ready
@@ -93,7 +108,9 @@ export default function PushNotificationsCard() {
       if (existing) {
         await syncSubscription(existing)
         setSubscribed(true)
-        pushSessionNotification({ type: 'info', title: 'Notifications already enabled', message: 'This device is already subscribed.' })
+        if (!opts?.silent) {
+          pushSessionNotification({ type: 'info', title: 'Notifications already enabled', message: 'This device is already subscribed.' })
+        }
         return
       }
       const subscription = await registration.pushManager.subscribe({
@@ -102,14 +119,18 @@ export default function PushNotificationsCard() {
       })
       await syncSubscription(subscription)
       setSubscribed(true)
-      pushSessionNotification({ type: 'success', title: 'Notifications enabled', message: 'Admin alerts will appear even when offline.' })
+      if (!opts?.silent) {
+        pushSessionNotification({ type: 'success', title: 'Notifications enabled', message: 'Admin alerts will appear even when offline.' })
+      }
     } catch (err: any) {
       console.error('Failed to enable push notifications', err)
-      setError(err?.message || 'Unable to enable notifications.')
+      if (!opts?.silent) {
+        setError(err?.message || 'Unable to enable notifications.')
+      }
     } finally {
       setBusy(false)
     }
-  }
+  }, [supported, hasPublicKey, publicKey, syncSubscription])
 
   const disablePush = async () => {
     if (!supported) return
@@ -138,18 +159,13 @@ export default function PushNotificationsCard() {
     }
   }
 
-  const syncSubscription = async (subscription: PushSubscription) => {
-    const payload = subscription.toJSON()
-    const res = await fetch('/api/push/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+  useEffect(() => {
+    if (!supported || !hasPublicKey || busy || subscribed) return
+    if (permission !== 'granted') return
+    enablePush({ silent: true, skipPermissionPrompt: true }).catch((err) => {
+      console.error('Failed to auto-enable push notifications', err)
     })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      throw new Error(data?.error || 'Unable to store subscription.')
-    }
-  }
+  }, [supported, hasPublicKey, busy, subscribed, permission, enablePush])
 
   return (
     <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm">
@@ -179,7 +195,7 @@ export default function PushNotificationsCard() {
         <button
           type="button"
           className="rounded-md border border-white/10 px-4 py-2 text-xs hover:border-white/30 disabled:opacity-50"
-          onClick={enablePush}
+          onClick={() => { void enablePush() }}
           disabled={busy || !supported || !hasPublicKey}
         >
           {busy ? 'Working...' : subscribed ? 'Re-enable' : 'Enable'}
