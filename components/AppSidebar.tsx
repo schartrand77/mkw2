@@ -419,6 +419,13 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
                 aria-label="Search and navigate"
               />
             </form>
+            <Link
+              href="/cart"
+              className={`app-user-shortcut-link ${isActivePath(pathname, '/cart') ? 'app-user-shortcut-link-active' : ''}`}
+              aria-label="Open cart"
+            >
+              Cart{count > 0 ? ` (${count})` : ''}
+            </Link>
             <button
               type="button"
               aria-haspopup="menu"
