@@ -49,6 +49,11 @@ async function login(baseUrl: string, username: string, password: string): Promi
     method: 'GET',
     cache: 'no-store',
   })
+  if (!loginPage.ok) {
+    throw Object.assign(new Error(`StockWorks login page request failed (${loginPage.status})`), {
+      status: 502,
+    })
+  }
   const loginPageCookie = extractCookie(loginPage.headers)
   const loginPageHtml = await loginPage.text().catch(() => '')
   const csrfToken = extractCsrfToken(loginPageHtml)
@@ -67,8 +72,17 @@ async function login(baseUrl: string, username: string, password: string): Promi
     redirect: 'manual',
     cache: 'no-store',
   })
+  if (response.status === 401 || response.status === 403) {
+    throw Object.assign(new Error('StockWorks authentication failed'), {
+      status: 502,
+    })
+  }
   const cookie = extractCookie(response.headers) || loginPageCookie
-  if (!cookie) throw new Error('StockWorks authentication failed')
+  if (!cookie) {
+    throw Object.assign(new Error('StockWorks authentication failed'), {
+      status: 502,
+    })
+  }
   return { cookie }
 }
 
@@ -98,6 +112,12 @@ export async function stockworksJson(path: string, init?: RequestInit) {
   const response = await stockworksFetch(path, init)
   const body = await response.json().catch(() => null)
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw Object.assign(new Error('StockWorks upstream denied the request. Check StockWorks credentials/permissions.'), {
+        status: 502,
+        payload: body,
+      })
+    }
     throw Object.assign(new Error(body?.detail || body?.error || `StockWorks request failed (${response.status})`), {
       status: response.status,
       payload: body,

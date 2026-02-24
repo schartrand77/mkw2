@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="application-name" content="StockWorks" />
+    <meta name="theme-color" content="#f4f6fb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="StockWorks" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="csrf-token" content="9XROmjCugFN4P0fx94SmYf7h225fJ_8rr7SSdTxr7lcWMsH1Ur8ERuQTxolvfRH-" />
+    <title>Sign in - StockWorks</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="1024x1024" href="/public/favicon.png" />
+    <link rel="apple-touch-icon" sizes="1024x1024" href="/public/favicon.png" />
+  </head>
+  <body class="auth-body">
+    <main class="auth-shell">
+      <section class="auth-card">
+        <div>
+          <p class="brand-chip" aria-hidden="true">StockWorks</p>
+          <h1>Sign in</h1>
+          <p class="auth-subtitle">Enter your administrator credentials to access inventory.</p>
+        </div>
+        
+        <form method="post" action="/login" class="auth-form">
+          <input type="hidden" name="csrf_token" value="9XROmjCugFN4P0fx94SmYf7h225fJ_8rr7SSdTxr7lcWMsH1Ur8ERuQTxolvfRH-" />
+          <label>
+            Username
+            <input type="text" name="username" autocomplete="username" required value="" />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit">Sign in</button>
+        </form>
+      </section>
+    </main>
+    <script>
+      // Keep login outside service-worker control to avoid stale cached auth shells.
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .getRegistrations()
+          .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+          .catch((error) => {
+            console.warn("Service worker cleanup on login failed:", error);
+          });
+      }
+      if ("caches" in window) {
+        caches
+          .keys()
+          .then((keys) =>
+            Promise.all(
+              keys
+                .filter((key) => key.startsWith("stockworks-shell-"))
+                .map((key) => caches.delete(key)),
+            ),
+          )
+          .catch((error) => {
+            console.warn("Cache cleanup on login failed:", error);
+          });
+      }
+    </script>
+  </body>
+</html>
