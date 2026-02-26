@@ -7,7 +7,7 @@ export async function requireRole(allowedRoles: ApiRole[]): Promise<string> {
   const userId = await getUserIdFromCookie()
   if (!userId) throw Object.assign(new Error('Unauthorized'), { status: 401 })
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true, role: true } })
-  const role = (user?.role || (user?.isAdmin ? 'admin' : 'customer')) as ApiRole
+  const role = ((user?.isAdmin ? 'admin' : (user?.role || 'customer')) as ApiRole)
   if (!allowedRoles.includes(role)) {
     throw Object.assign(new Error('Forbidden'), { status: 403 })
   }

@@ -791,11 +791,16 @@ html.theme-light .page-title::after {
   margin: 0 -0.12em;
 }
 .app-brand-gear-tight {
-  margin-left: -0.22em;
-  margin-right: -0.2em;
+  margin-left: -0.3em;
+  margin-right: -0.28em;
 }
 @keyframes mw-gear-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .gear { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  .gear {
+    /* Keep brand affordance visible while honoring reduced-motion preferences. */
+    animation-duration: 8s !important;
+  }
+}
 
 
 /* Safe area support for iOS notch devices */
