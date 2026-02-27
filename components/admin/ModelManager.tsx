@@ -395,7 +395,11 @@ export default function ModelManager() {
                 value={activeModel.videoUrl || ''}
                 onChange={(e) => updateModel(activeModel.id, { videoUrl: e.target.value })}
               />
-              <Link href={`/admin/models/${activeModel.id}/images`} className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20 md:col-span-2">
+              <Link
+                href={`/admin/models/${activeModel.id}/images`}
+                prefetch={false}
+                className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20 md:col-span-2"
+              >
                 Manage images
               </Link>
             </div>

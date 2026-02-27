@@ -37,6 +37,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
 
   const [images, setImages] = useState<ModelImage[]>([])
   const [coverPath, setCoverPath] = useState<string | null>(initialCover || null)
+  const [coverStatus, setCoverStatus] = useState<string | null>(initialCover ? 'ready' : null)
   const [captionDrafts, setCaptionDrafts] = useState<Record<string, string>>({})
   const [file, setFile] = useState<File | null>(null)
   const [caption, setCaption] = useState('')
@@ -55,6 +56,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
     const data = await res.json()
     setImages(data.images)
     setCoverPath(data.coverImagePath || null)
+    setCoverStatus(data.coverImageStatus || null)
     const drafts: Record<string, string> = {}
     data.images.forEach((img: ModelImage) => { drafts[img.id] = img.caption || '' })
     setCaptionDrafts(drafts)
@@ -66,6 +68,16 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
   useEffect(() => {
     load().catch(() => setError('Failed to load images'))
   }, [load])
+
+  const hasProcessing = (coverStatus === 'processing') || images.some((img) => img.status === 'processing')
+
+  useEffect(() => {
+    if (!hasProcessing) return
+    const timer = setInterval(() => {
+      load().catch(() => {})
+    }, 4000)
+    return () => clearInterval(timer)
+  }, [hasProcessing, load])
 
   const resetForm = () => {
     setFile(null)
@@ -241,7 +253,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
 
   const limitReached = images.length >= MODEL_IMAGE_LIMIT
   const galleryImages = coverPath ? images.filter((img) => img.filePath !== coverPath) : images
-  const coverSrc = coverPath ? toPublicHref(coverPath) : null
+  const coverSrc = coverPath && coverStatus === 'ready' ? toPublicHref(coverPath) : null
 
   return (
     <div className="space-y-6">
@@ -273,15 +285,30 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">Existing images</h2>
-        {coverSrc && (
+        {hasProcessing && (
+          <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+            Image processing is still running. This page refreshes automatically every few seconds.
+          </div>
+        )}
+        {(coverPath || coverSrc) && (
           <div className="glass rounded-xl overflow-hidden border border-white/10">
             <div className="aspect-video w-full bg-black/40 flex items-center justify-center overflow-hidden">
-              <img
-                src={`${coverSrc}?v=${cacheBuster}`}
-                alt="Cover image"
-                className={`transition-transform duration-150 max-h-full max-w-full ${Math.abs(coverRotation) % 2 ? 'object-contain' : 'object-cover'} pointer-events-none select-none`}
-                style={coverRotation ? { transform: `rotate(${coverRotation * 90}deg)` } : undefined}
-              />
+              {coverSrc ? (
+                <img
+                  src={`${coverSrc}?v=${cacheBuster}`}
+                  alt="Cover image"
+                  className={`transition-transform duration-150 max-h-full max-w-full ${Math.abs(coverRotation) % 2 ? 'object-contain' : 'object-cover'} pointer-events-none select-none`}
+                  style={coverRotation ? { transform: `rotate(${coverRotation * 90}deg)` } : undefined}
+                />
+              ) : (
+                <div className="px-4 text-center text-sm text-slate-400">
+                  {coverStatus === 'processing'
+                    ? 'Cover image is processing.'
+                    : coverStatus === 'failed'
+                      ? 'Cover image processing failed.'
+                      : 'Cover image unavailable'}
+                </div>
+              )}
             </div>
             <div className="p-3 space-y-2">
               <span className="text-xs px-2 py-0.5 rounded-full bg-brand-600/20 text-brand-200 border border-brand-500/40">Current cover</span>
@@ -293,11 +320,13 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
               <button
                 type="button"
                 className="px-3 py-2 rounded-md border border-brand-500/60 text-sm"
-                disabled={!coverRotation || savingCover}
+                disabled={!coverRotation || savingCover || coverStatus !== 'ready'}
                 onClick={saveCoverRotation}
               >
                 {savingCover ? 'Saving...' : 'Save rotation'}
               </button>
+              {coverStatus === 'processing' && <p className="text-[11px] text-amber-300">Cover is still processing and will appear here automatically when ready.</p>}
+              {coverStatus === 'failed' && <p className="text-[11px] text-red-300">Cover processing failed. Re-upload the image if this persists.</p>}
               {coverRotation !== 0 && <p className="text-[11px] text-amber-300">Rotation pending - don't forget to save.</p>}
             </div>
           </div>
