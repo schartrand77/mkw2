@@ -17,6 +17,7 @@ type MerchItem = {
   availability: 'in_stock' | 'back_ordered'
   priceUsd?: number | null
   imageUrl?: string | null
+  galleryImageUrls?: string[] | null
   externalUrl?: string | null
   ctaLabel?: string | null
   sizeOptions?: string[] | null
@@ -40,6 +41,7 @@ const emptyDraft = (): MerchDraft => ({
   availability: 'in_stock',
   priceUsd: null,
   imageUrl: '',
+  galleryImageUrls: [],
   externalUrl: '',
   ctaLabel: '',
   isActive: true,
@@ -56,8 +58,21 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imageFiles, setImageFiles] = useState<File[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
+
+  const normalizeGalleryImages = (values?: (string | null | undefined)[] | null) => {
+    if (!Array.isArray(values)) return []
+    const output: string[] = []
+    const seen = new Set<string>()
+    for (const entry of values) {
+      const value = String(entry || '').trim()
+      if (!value || seen.has(value)) continue
+      seen.add(value)
+      output.push(value)
+    }
+    return output.slice(0, 24)
+  }
 
   const categoryPreview = useMemo(() => {
     const map = new Map<string, number>()
@@ -105,6 +120,7 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
       availability: item.availability || 'in_stock',
       priceUsd: item.priceUsd ?? null,
       imageUrl: item.imageUrl || '',
+      galleryImageUrls: normalizeGalleryImages([...(Array.isArray(item.galleryImageUrls) ? item.galleryImageUrls : []), item.imageUrl || null]),
       externalUrl: item.externalUrl || '',
       ctaLabel: item.ctaLabel || '',
       sizeOptions: Array.isArray(item.sizeOptions) ? item.sizeOptions : null,
@@ -113,7 +129,7 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
       sortOrder: item.sortOrder ?? 0,
       updatedAt: item.updatedAt || null,
     })
-    setImageFile(null)
+    setImageFiles([])
     setMessage(null)
     setError(null)
   }
@@ -121,23 +137,26 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
   const resetEditor = () => {
     setEditingId(null)
     setDraft(emptyDraft())
-    setImageFile(null)
+    setImageFiles([])
   }
 
-  const uploadDraftImage = async () => {
-    if (!imageFile) return draft.imageUrl?.trim() || null
+  const uploadImages = async (files: File[]) => {
+    if (!files.length) return []
     setUploadingImage(true)
     try {
-      const form = new FormData()
-      form.set('image', imageFile)
-      const res = await fetch('/api/admin/merch/image', { method: 'POST', body: form })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data?.error || 'Failed to upload image.')
-      const nextImageUrl = String(data?.imageUrl || '').trim()
-      if (!nextImageUrl) throw new Error('Image upload did not return a path.')
-      setDraft((prev) => ({ ...prev, imageUrl: nextImageUrl }))
-      setImageFile(null)
-      return nextImageUrl
+      const uploaded: string[] = []
+      for (const file of files) {
+        const form = new FormData()
+        form.set('image', file)
+        const res = await fetch('/api/admin/merch/image', { method: 'POST', body: form })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.error || 'Failed to upload image.')
+        const nextImageUrl = String(data?.imageUrl || '').trim()
+        if (!nextImageUrl) throw new Error('Image upload did not return a path.')
+        uploaded.push(nextImageUrl)
+      }
+      setImageFiles([])
+      return uploaded
     } finally {
       setUploadingImage(false)
     }
@@ -152,7 +171,9 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
     setError(null)
     setMessage(null)
     try {
-      const hostedImageUrl = await uploadDraftImage()
+      const uploadedImages = await uploadImages(imageFiles)
+      const galleryImageUrls = normalizeGalleryImages([...(draft.galleryImageUrls || []), ...uploadedImages])
+      const hostedImageUrl = String(draft.imageUrl || '').trim() || galleryImageUrls[0] || null
       const payload = {
         title: draft.title.trim(),
         description: draft.description?.trim() || null,
@@ -160,6 +181,7 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
         availability: draft.availability || 'in_stock',
         priceUsd: draft.priceUsd != null && Number.isFinite(Number(draft.priceUsd)) ? Number(draft.priceUsd) : null,
         imageUrl: hostedImageUrl,
+        galleryImageUrls,
         externalUrl: draft.externalUrl?.trim() || null,
         ctaLabel: draft.ctaLabel?.trim() || null,
         sizeOptions: Array.isArray(draft.sizeOptions)
@@ -316,9 +338,10 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
               className="input"
               type="file"
               accept="image/*"
-              onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+              multiple
+              onChange={(e) => setImageFiles(Array.from(e.target.files || []))}
             />
-            <div className="text-xs text-slate-500">Self-hosted in app storage.</div>
+            <div className="text-xs text-slate-500">Self-hosted in app storage. Choose multiple photos for gallery.</div>
           </label>
           <label className="text-sm space-y-1">
             <span className="text-slate-400">External URL</span>
@@ -361,22 +384,60 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
             <span>Visible on products page</span>
           </label>
           <div className="md:col-span-2 text-xs text-slate-400">
-            Image path: {draft.imageUrl?.trim() || 'No image uploaded'}
+            Cover image path: {draft.imageUrl?.trim() || 'No image selected'}
           </div>
-          {(imageFile || draft.imageUrl) && (
-            <div className="md:col-span-2 flex gap-2">
-              {imageFile && (
-                <span className="rounded border border-white/10 px-2 py-1 text-xs text-slate-300">
-                  Pending upload: {imageFile.name}
-                </span>
+          {(imageFiles.length > 0 || (draft.galleryImageUrls && draft.galleryImageUrls.length > 0) || draft.imageUrl) && (
+            <div className="md:col-span-2 space-y-2">
+              {imageFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {imageFiles.map((file) => (
+                    <span key={file.name} className="rounded border border-white/10 px-2 py-1 text-xs text-slate-300">
+                      Pending upload: {file.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {(draft.galleryImageUrls && draft.galleryImageUrls.length > 0) && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {draft.galleryImageUrls.map((image, idx) => (
+                    <div key={`${image}-${idx}`} className="rounded border border-white/10 p-1 bg-black/20 space-y-1">
+                      <img src={buildImageSrc(image, draft.updatedAt || null) || image} alt={`Gallery ${idx + 1}`} className="h-20 w-full rounded object-cover" />
+                      <div className="flex gap-1">
+                        {idx !== 0 && (
+                          <button
+                            type="button"
+                            className="text-[10px] px-2 py-1 rounded border border-white/10 hover:border-white/30"
+                            onClick={() => setDraft((prev) => {
+                              const list = normalizeGalleryImages(prev.galleryImageUrls)
+                              const next = [list[idx], ...list.filter((_, i) => i !== idx)]
+                              return { ...prev, galleryImageUrls: next, imageUrl: next[0] || '' }
+                            })}
+                          >
+                            Set cover
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="text-[10px] px-2 py-1 rounded border border-rose-500/40 text-rose-200 hover:border-rose-400/70"
+                          onClick={() => setDraft((prev) => {
+                            const list = normalizeGalleryImages(prev.galleryImageUrls).filter((_, i) => i !== idx)
+                            return { ...prev, galleryImageUrls: list, imageUrl: list[0] || '' }
+                          })}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
               {draft.imageUrl && (
                 <button
                   type="button"
                   className="text-xs px-2 py-1 rounded border border-white/10 hover:border-white/30"
-                  onClick={() => setDraft((prev) => ({ ...prev, imageUrl: '' }))}
+                  onClick={() => setDraft((prev) => ({ ...prev, imageUrl: '', galleryImageUrls: [] }))}
                 >
-                  Remove image
+                  Clear all gallery images
                 </button>
               )}
             </div>
@@ -408,13 +469,24 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
                   <div className="font-semibold">{item.title}</div>
                   <div className="text-xs text-slate-400">{item.category} {item.isActive ? '' : '- hidden'}</div>
                   <div className="text-xs text-slate-400">Status: {item.availability === 'back_ordered' ? 'Back ordered' : 'In stock'}</div>
-                  {item.imageUrl && (
+                  {(Array.isArray(item.galleryImageUrls) && item.galleryImageUrls.length > 0) ? (
+                    <div className="flex gap-2">
+                      {item.galleryImageUrls.slice(0, 3).map((image, idx) => (
+                        <img
+                          key={`${image}-${idx}`}
+                          src={buildImageSrc(image, item.updatedAt || null) || image}
+                          alt={`${item.title} ${idx + 1}`}
+                          className="h-16 w-24 rounded border border-white/10 object-cover"
+                        />
+                      ))}
+                    </div>
+                  ) : item.imageUrl ? (
                     <img
                       src={buildImageSrc(item.imageUrl, item.updatedAt || null) || item.imageUrl}
                       alt={item.title}
                       className="h-16 w-24 rounded border border-white/10 object-cover"
                     />
-                  )}
+                  ) : null}
                   {item.description && <div className="text-sm text-slate-300">{item.description}</div>}
                   {(Array.isArray(item.sizeOptions) && item.sizeOptions.length > 0) && (
                     <div className="text-xs text-slate-400">Sizes: {item.sizeOptions.join(', ')}</div>

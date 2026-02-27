@@ -14,6 +14,7 @@ const schema = z.object({
   availability: z.enum(['in_stock', 'back_ordered']).optional(),
   priceUsd: z.number().nonnegative().optional().nullable(),
   imageUrl: z.string().trim().max(500).optional().nullable(),
+  galleryImageUrls: z.array(z.string().trim().max(500)).max(24).optional().nullable(),
   externalUrl: z.string().trim().url().max(500).optional().nullable(),
   ctaLabel: z.string().trim().max(40).optional().nullable(),
   sizeOptions: z.array(z.string().trim().min(1).max(40)).max(64).optional().nullable(),
@@ -32,6 +33,19 @@ function normalizeSelfHostedImagePath(value?: string | null) {
     throw new Error('Merch image path must start with "/".')
   }
   return trimmed
+}
+
+function normalizeSelfHostedImagePaths(values?: (string | null | undefined)[] | null): string[] {
+  if (!Array.isArray(values)) return []
+  const output: string[] = []
+  const seen = new Set<string>()
+  for (const value of values) {
+    const normalized = normalizeSelfHostedImagePath(value || null)
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    output.push(normalized)
+  }
+  return output.slice(0, 24)
 }
 
 export async function GET() {
@@ -55,20 +69,25 @@ export async function POST(req: NextRequest) {
   try {
     const parsed = schema.parse(await req.json())
     const item = await prisma.merchItem.create({
-      data: {
-        title: parsed.title,
-        description: parsed.description || null,
-        category: parsed.category || 'Merch',
-        availability: parsed.availability || 'in_stock',
-        priceUsd: parsed.priceUsd ?? null,
-        imageUrl: normalizeSelfHostedImagePath(parsed.imageUrl),
-        externalUrl: parsed.externalUrl || null,
-        ctaLabel: parsed.ctaLabel || null,
-        sizeOptions: parsed.sizeOptions ?? Prisma.JsonNull,
-        colorOptions: parsed.colorOptions ?? Prisma.JsonNull,
-        isActive: parsed.isActive ?? true,
-        sortOrder: parsed.sortOrder ?? 0,
-      },
+      data: (() => {
+        const galleryImageUrls = normalizeSelfHostedImagePaths(parsed.galleryImageUrls)
+        const imageUrl = normalizeSelfHostedImagePath(parsed.imageUrl) || galleryImageUrls?.[0] || null
+        return {
+          title: parsed.title,
+          description: parsed.description || null,
+          category: parsed.category || 'Merch',
+          availability: parsed.availability || 'in_stock',
+          priceUsd: parsed.priceUsd ?? null,
+          imageUrl,
+          galleryImageUrls: galleryImageUrls ?? Prisma.JsonNull,
+          externalUrl: parsed.externalUrl || null,
+          ctaLabel: parsed.ctaLabel || null,
+          sizeOptions: parsed.sizeOptions ?? Prisma.JsonNull,
+          colorOptions: parsed.colorOptions ?? Prisma.JsonNull,
+          isActive: parsed.isActive ?? true,
+          sortOrder: parsed.sortOrder ?? 0,
+        }
+      })(),
     })
     let stockworksWarning: string | null = null
     let syncedItem = item

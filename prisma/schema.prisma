@@ -332,6 +332,7 @@ model MerchItem {
   priceUsd    Float?
   sizeOptions Json?
   colorOptions Json?
+  galleryImageUrls Json?
   stockworksCategory String? @default("merch")
   stockworksStatus String? @default("Active")
   stockworksNotes String?

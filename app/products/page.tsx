@@ -164,9 +164,19 @@ export default async function ProductsPage() {
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {entries.map((item) => (
                     <Link key={item.id} href={`/products/${item.id}?kind=merch`} className="rounded-xl border border-white/10 bg-black/30 overflow-hidden transition-colors hover:border-white/30">
-                      {buildImageSrc(item.imageUrl || null, item.updatedAt || null) ? (
+                      {buildImageSrc(
+                        (Array.isArray((item as any).galleryImageUrls) && (item as any).galleryImageUrls.length > 0
+                          ? String((item as any).galleryImageUrls[0] || '')
+                          : (item.imageUrl || null)),
+                        item.updatedAt || null,
+                      ) ? (
                         <img
-                          src={buildImageSrc(item.imageUrl || null, item.updatedAt || null) || ''}
+                          src={buildImageSrc(
+                            (Array.isArray((item as any).galleryImageUrls) && (item as any).galleryImageUrls.length > 0
+                              ? String((item as any).galleryImageUrls[0] || '')
+                              : (item.imageUrl || null)),
+                            item.updatedAt || null,
+                          ) || ''}
                           alt={item.title}
                           className="w-full h-40 object-cover bg-slate-900/70"
                         />

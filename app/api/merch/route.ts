@@ -12,6 +12,7 @@ export async function GET() {
     ...item,
     sizeOptions: Array.isArray((item as any).sizeOptions) ? (item as any).sizeOptions : null,
     colorOptions: Array.isArray((item as any).colorOptions) ? (item as any).colorOptions : null,
+    galleryImageUrls: Array.isArray((item as any).galleryImageUrls) ? (item as any).galleryImageUrls : null,
   }))
   return NextResponse.json({ items: normalized })
 }

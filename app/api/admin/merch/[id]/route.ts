@@ -18,6 +18,7 @@ const schema = z.object({
   availability: z.enum(['in_stock', 'back_ordered']).optional(),
   priceUsd: z.number().nonnegative().optional().nullable(),
   imageUrl: z.string().trim().max(500).optional().nullable(),
+  galleryImageUrls: z.array(z.string().trim().max(500)).max(24).optional().nullable(),
   externalUrl: z.string().trim().url().max(500).optional().nullable(),
   ctaLabel: z.string().trim().max(40).optional().nullable(),
   sizeOptions: z.array(z.string().trim().min(1).max(40)).max(64).optional().nullable(),
@@ -38,6 +39,19 @@ function normalizeSelfHostedImagePath(value?: string | null) {
     throw new Error('Merch image path must start with "/".')
   }
   return trimmed
+}
+
+function normalizeSelfHostedImagePaths(values?: (string | null | undefined)[] | null): string[] {
+  if (!Array.isArray(values)) return []
+  const output: string[] = []
+  const seen = new Set<string>()
+  for (const value of values) {
+    const normalized = normalizeSelfHostedImagePath(value || null)
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    output.push(normalized)
+  }
+  return output.slice(0, 24)
 }
 
 function resolveStorageFilePath(input: string | null | undefined): string | null {
@@ -77,6 +91,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         category: true,
         priceUsd: true,
         imageUrl: true,
+        galleryImageUrls: true,
         availability: true,
         sizeOptions: true,
         colorOptions: true,
@@ -87,7 +102,15 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       },
     })
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    const nextImage = parsed.imageUrl === undefined ? undefined : normalizeSelfHostedImagePath(parsed.imageUrl)
+    const normalizedGallery = parsed.galleryImageUrls === undefined
+      ? undefined
+      : normalizeSelfHostedImagePaths(parsed.galleryImageUrls)
+    const nextImage = parsed.imageUrl === undefined
+      ? undefined
+      : normalizeSelfHostedImagePath(parsed.imageUrl)
+    const finalImage = nextImage !== undefined
+      ? nextImage
+      : (normalizedGallery !== undefined ? (normalizedGallery[0] || null) : undefined)
     const nextAvailability = parsed.availability ?? existing.availability
     const item = await prisma.merchItem.update({
       where: { id },
@@ -97,7 +120,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         category: parsed.category === undefined ? undefined : (parsed.category || 'Merch'),
         availability: parsed.availability ?? undefined,
         priceUsd: parsed.priceUsd ?? undefined,
-        imageUrl: nextImage,
+        imageUrl: finalImage,
+        galleryImageUrls: normalizedGallery === undefined ? undefined : (normalizedGallery ?? Prisma.JsonNull),
         externalUrl: parsed.externalUrl === undefined ? undefined : (parsed.externalUrl || null),
         ctaLabel: parsed.ctaLabel === undefined ? undefined : (parsed.ctaLabel || null),
         sizeOptions: parsed.sizeOptions === undefined ? undefined : (parsed.sizeOptions ?? Prisma.JsonNull),
@@ -106,9 +130,19 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         sortOrder: parsed.sortOrder ?? undefined,
       },
     })
-    if (parsed.imageUrl !== undefined && existing.imageUrl && existing.imageUrl !== item.imageUrl) {
-      const oldFile = resolveStorageFilePath(existing.imageUrl)
-      if (oldFile) {
+    if (parsed.imageUrl !== undefined || parsed.galleryImageUrls !== undefined) {
+      const previousImages = Array.from(new Set([
+        existing.imageUrl,
+        ...(Array.isArray((existing as any).galleryImageUrls) ? ((existing as any).galleryImageUrls as string[]) : []),
+      ].map((entry) => String(entry || '').trim()).filter(Boolean)))
+      const nextImages = new Set([
+        item.imageUrl,
+        ...(Array.isArray((item as any).galleryImageUrls) ? ((item as any).galleryImageUrls as string[]) : []),
+      ].map((entry) => String(entry || '').trim()).filter(Boolean))
+      for (const previous of previousImages) {
+        if (nextImages.has(previous)) continue
+        const oldFile = resolveStorageFilePath(previous)
+        if (!oldFile) continue
         try { await unlink(oldFile) } catch {}
       }
     }
@@ -165,11 +199,16 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
     const { id } = await params
     const existing = await prisma.merchItem.findUnique({
       where: { id },
-      select: { imageUrl: true },
+      select: { imageUrl: true, galleryImageUrls: true },
     })
     await prisma.merchItem.delete({ where: { id } })
-    const filePath = resolveStorageFilePath(existing?.imageUrl || null)
-    if (filePath) {
+    const allImages = Array.from(new Set([
+      existing?.imageUrl,
+      ...(Array.isArray((existing as any)?.galleryImageUrls) ? ((existing as any).galleryImageUrls as string[]) : []),
+    ].map((entry) => String(entry || '').trim()).filter(Boolean)))
+    for (const image of allImages) {
+      const filePath = resolveStorageFilePath(image)
+      if (!filePath) continue
       try { await unlink(filePath) } catch {}
     }
     return NextResponse.json({ ok: true })
