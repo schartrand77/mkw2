@@ -33,6 +33,7 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/lib ./lib
 COPY package.json ./package.json
+COPY tsconfig.json ./tsconfig.json
 COPY prisma ./prisma
 COPY scripts ./scripts
 # Storage + backups directories; can be mounted by docker-compose/unraid

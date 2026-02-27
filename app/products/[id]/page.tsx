@@ -160,6 +160,7 @@ export default async function ProductDetailPage({ params, searchParams }: Params
             lockedScale: resolvedProduct.lockedScale,
             lockedFinish: resolvedProduct.lockedFinish,
             lockedPriceMultiplier: resolvedProduct.lockedPriceMultiplier,
+            colorOptions: Array.isArray((resolvedProduct as any).colorOptions) ? (resolvedProduct as any).colorOptions : null,
           }}
           baseModel={resolvedProduct.baseModel}
           coverUrl={cover}

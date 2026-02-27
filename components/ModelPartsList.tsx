@@ -32,10 +32,11 @@ type Props = {
   colorSlotCount?: number | null
   allowedColors?: string[] | null
   defaultColors?: string[] | null
+  selectedPartIndex?: number | null
   parts: Part[]
 }
 
-export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, thumbnail, downloadsEnabled = true, colorSlotCount, allowedColors, defaultColors, parts }: Props) {
+export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, thumbnail, downloadsEnabled = true, colorSlotCount, allowedColors, defaultColors, selectedPartIndex, parts }: Props) {
   const { add, items } = useCart()
   const router = useRouter()
   const hasPricedPart = parts.some((p) => typeof p.priceUsd === 'number' && Number(p.priceUsd) > 0)
@@ -57,12 +58,65 @@ export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, t
     return quantities
   }, [items, modelId])
   const buildPreviewUrl = (partId: string) => `/cart?previewModelId=${encodeURIComponent(modelId)}&previewPartId=${encodeURIComponent(partId)}`
+  const selectedPart = useMemo(() => {
+    if (selectedPartIndex == null || !Number.isFinite(Number(selectedPartIndex))) return null
+    return memoizedParts.find((part) => part.index === selectedPartIndex) || null
+  }, [memoizedParts, selectedPartIndex])
+
+  const addPartToCart = (part: Part) => {
+    const price = typeof part.priceUsd === 'number' && part.priceUsd > 0 ? part.priceUsd : null
+    if (price == null) return
+    add(
+      {
+        modelId,
+        partId: part.id,
+        partName: part.name || `Part ${part.index + 1}`,
+        partIndex: part.index,
+        flatRatePricing: Boolean(flatRatePricing),
+        title: modelTitle,
+        priceUsd: price,
+        thumbnail,
+        size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
+        colorSlotCount: normalizedSlotCount,
+        allowedColors: Array.isArray(allowedColors) ? allowedColors : null,
+      },
+      { material: 'PLA', colors: constrainedDefaultColors },
+    )
+  }
+
+  const ensurePartInCart = (part: Part) => {
+    const inCart = items.some((item) => item.modelId === modelId && (item.partId ?? null) === part.id)
+    if (!inCart) addPartToCart(part)
+  }
 
   return (
     <div className="glass rounded-xl p-4 text-sm">
       <div className="flex items-center justify-between gap-3">
         <div className="font-semibold">Parts breakdown</div>
         <div className="flex items-center gap-2">
+          {!isOpen && selectedPart && (
+            <>
+              <button
+                type="button"
+                className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs"
+                onClick={() => {
+                  ensurePartInCart(selectedPart)
+                  router.push(buildPreviewUrl(selectedPart.id))
+                }}
+                disabled={!(typeof selectedPart.priceUsd === 'number' && selectedPart.priceUsd > 0)}
+              >
+                Configure selected part
+              </button>
+              <button
+                type="button"
+                className="px-2 py-1 rounded-md border border-brand-500/40 hover:border-brand-500 text-brand-200 text-xs disabled:opacity-40"
+                onClick={() => addPartToCart(selectedPart)}
+                disabled={!(typeof selectedPart.priceUsd === 'number' && selectedPart.priceUsd > 0)}
+              >
+                Add selected part
+              </button>
+            </>
+          )}
           <span className="text-xs text-slate-400">
             {memoizedParts.length} {memoizedParts.length === 1 ? 'part' : 'parts'}
           </span>
@@ -192,22 +246,7 @@ export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, t
                           disabled={price == null}
                           onClick={() => {
                             if (price == null) return
-                            add(
-                              {
-                                modelId,
-                                partId: part.id,
-                                partName: part.name || `Part ${i + 1}`,
-                                partIndex: part.index,
-                                flatRatePricing: Boolean(flatRatePricing),
-                                title: modelTitle,
-                                priceUsd: price,
-                                thumbnail,
-                                size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
-                                colorSlotCount: normalizedSlotCount,
-                                allowedColors: Array.isArray(allowedColors) ? allowedColors : null,
-                              },
-                              { material: 'PLA', colors: constrainedDefaultColors },
-                            )
+                            addPartToCart(part)
                           }}
                         >
                           Add to cart
@@ -225,25 +264,7 @@ export default function ModelPartsList({ modelId, modelTitle, flatRatePricing, t
                         disabled={price == null}
                         onClick={() => {
                           if (price == null) return
-                          const inCart = items.some((item) => item.modelId === modelId && (item.partId ?? null) === part.id)
-                          if (!inCart) {
-                            add(
-                              {
-                                modelId,
-                                partId: part.id,
-                                partName: part.name || `Part ${i + 1}`,
-                                partIndex: part.index,
-                                flatRatePricing: Boolean(flatRatePricing),
-                                title: modelTitle,
-                                priceUsd: price,
-                                thumbnail,
-                                size: { x: part.sizeXmm ?? undefined, y: part.sizeYmm ?? undefined, z: part.sizeZmm ?? undefined },
-                                colorSlotCount: normalizedSlotCount,
-                                allowedColors: Array.isArray(allowedColors) ? allowedColors : null,
-                              },
-                              { material: 'PLA', colors: constrainedDefaultColors },
-                            )
-                          }
+                          ensurePartInCart(part)
                           router.push(buildPreviewUrl(part.id))
                         }}
                       >

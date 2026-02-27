@@ -110,6 +110,7 @@ type SwatchOption = {
 }
 type ModelPreviewPart = {
   id: string
+  index?: number | null
   filePath: string
   previewFilePath?: string | null
 }
@@ -242,6 +243,7 @@ export default function CartPage() {
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
   const [materialWarnings, setMaterialWarnings] = useState<StockworksWarningResponse | null>(null)
   const [modelPreviewCache, setModelPreviewCache] = useState<Record<string, ModelPreviewEntry>>({})
+  const [optimisticPartPreviewHex, setOptimisticPartPreviewHex] = useState<Record<string, string>>({})
   const [dimensionInputs, setDimensionInputs] = useState<Record<string, Record<(typeof DIMENSION_AXES)[number], string>>>({})
   const [activeDimensionInput, setActiveDimensionInput] = useState<{ key: string; axis: (typeof DIMENSION_AXES)[number] } | null>(null)
   const [selectedPreviewKey, setSelectedPreviewKey] = useState<{ modelId: string; partId: string | null } | null>(null)
@@ -373,10 +375,9 @@ export default function CartPage() {
       setPaletteMaxHeight(null)
       return
     }
-    const updateAnchor = () => {
-      const button = document.querySelector(`[data-color-slot="${activeColorSlot.id}"]`)
-      if (!button) return
-      const rect = (button as HTMLElement).getBoundingClientRect()
+    if (!activeColorAnchor) return
+    const updateLayout = () => {
+      const rect = activeColorAnchor
       const containerRect = containerRef.current?.getBoundingClientRect()
       const availableWidth = Math.max(0, window.innerWidth - PALETTE_MARGIN * 2)
       const targetWidth = Math.max(320, Math.min(containerRect?.width ?? availableWidth, availableWidth))
@@ -386,17 +387,16 @@ export default function CartPage() {
       const nextPlacement = availableAbove > availableBelow ? 'above' : 'below'
       setActiveColorAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
       setPaletteWidth(targetWidth)
-      setPaletteMaxHeight(Math.max(240, nextPlacement === 'above' ? availableAbove : availableBelow))
+      const available = nextPlacement === 'above' ? availableAbove : availableBelow
+      setPaletteMaxHeight(Math.max(220, Math.min(320, available)))
       setPalettePlacement(nextPlacement)
     }
-    updateAnchor()
-    window.addEventListener('resize', updateAnchor)
-    window.addEventListener('scroll', updateAnchor, true)
+    updateLayout()
+    window.addEventListener('resize', updateLayout)
     return () => {
-      window.removeEventListener('resize', updateAnchor)
-      window.removeEventListener('scroll', updateAnchor, true)
+      window.removeEventListener('resize', updateLayout)
     }
-  }, [activeColorSlot])
+  }, [activeColorSlot, activeColorAnchor])
 
   const activeSlotItem = activeColorSlot
     ? items.find((item) => item.modelId === activeColorSlot.modelId && (item.partId ?? null) === activeColorSlot.partId)
@@ -451,6 +451,7 @@ export default function CartPage() {
           ? model.parts
             .map((part) => ({
               id: String(part?.id ?? ''),
+              index: typeof part?.index === 'number' ? part.index : null,
               filePath: String(part?.filePath ?? ''),
               previewFilePath: typeof part?.previewFilePath === 'string' ? part.previewFilePath : null,
             }))
@@ -580,9 +581,88 @@ export default function CartPage() {
       || COLOR_PICKER_FALLBACK
   const paletteTitle = stockworksEntry ? 'Filament brands' : 'Palette'
   const selectedPreview = selectedPreviewItem ? modelPreviewCache[selectedPreviewItem.modelId] : null
+  const selectedModelItems = useMemo(
+    () => (selectedPreviewItem ? items.filter((item) => item.modelId === selectedPreviewItem.modelId) : []),
+    [items, selectedPreviewItem],
+  )
+  const selectedModelPartItemMap = useMemo(() => {
+    const map = new Map<string, (typeof items)[number]>()
+    for (const item of selectedModelItems) {
+      const partId = item.partId ?? null
+      if (!partId) continue
+      if (!map.has(partId)) map.set(partId, item)
+    }
+    return map
+  }, [selectedModelItems])
+  const selectedModelPartDescriptorKey = useMemo(() => {
+    const descriptors = selectedModelItems
+      .map((item) => {
+        const partId = item.partId ?? ''
+        if (!partId) return null
+        const partIndex = typeof item.partIndex === 'number' ? item.partIndex : null
+        return `${partId}:${partIndex == null ? '' : partIndex}`
+      })
+      .filter((value): value is string => Boolean(value))
+      .sort((a, b) => a.localeCompare(b))
+    return descriptors.join('|')
+  }, [selectedModelItems])
+  const selectedModelPartDescriptors = useMemo(() => {
+    if (!selectedModelPartDescriptorKey) return []
+    return selectedModelPartDescriptorKey
+      .split('|')
+      .map((token) => {
+        const [partId, idxRaw] = token.split(':')
+        if (!partId) return null
+        const parsed = idxRaw ? Number(idxRaw) : Number.NaN
+        return {
+          partId,
+          partIndex: Number.isFinite(parsed) ? parsed : null,
+        }
+      })
+      .filter((value): value is { partId: string; partIndex: number | null } => Boolean(value))
+  }, [selectedModelPartDescriptorKey])
   const selectedPreviewPart = selectedPreviewItem?.partId
-    ? selectedPreview?.parts.find((part) => part.id === selectedPreviewItem.partId)
+    ? (
+      selectedPreview?.parts.find((part) => part.id === selectedPreviewItem.partId)
+      || (typeof selectedPreviewItem.partIndex === 'number'
+        ? selectedPreview?.parts.find((part) => part.index === selectedPreviewItem.partIndex)
+        : null)
+    )
     : null
+  const selectedPreviewMultipartSources = useMemo(() => {
+    if (!selectedPreview || selectedModelPartDescriptors.length <= 1) return []
+    const partsById = new Map<string, (typeof selectedPreview.parts)[number]>()
+    const partsByIndex = new Map<number, (typeof selectedPreview.parts)[number]>()
+    for (const part of selectedPreview.parts) {
+      if (part.id) partsById.set(part.id, part)
+      if (typeof part.index === 'number') partsByIndex.set(part.index, part)
+    }
+    const entries: Array<{ partId: string; src: string; fallback: string | null }> = []
+    for (const descriptor of selectedModelPartDescriptors) {
+      const partId = descriptor.partId
+      const matched = partsById.get(partId)
+        || (typeof descriptor.partIndex === 'number' ? partsByIndex.get(descriptor.partIndex) : null)
+      if (!matched) continue
+      const src = toPublicHref(matched.filePath)
+      if (!src) continue
+      const fallback = matched.previewFilePath ? toPublicHref(matched.previewFilePath) : null
+      entries.push({ partId, src, fallback })
+    }
+    return entries
+  }, [selectedPreview, selectedModelPartDescriptors])
+  const selectedMultipartViewerSrcs = useMemo(
+    () => selectedPreviewMultipartSources.map((entry) => entry.src),
+    [selectedPreviewMultipartSources],
+  )
+  const selectedMultipartViewerFallbacks = useMemo(
+    () => selectedPreviewMultipartSources.map((entry) => entry.fallback),
+    [selectedPreviewMultipartSources],
+  )
+  const selectedMultipartViewerPartKeys = useMemo(
+    () => selectedPreviewMultipartSources.map((entry) => entry.partId),
+    [selectedPreviewMultipartSources],
+  )
+  const selectedPreviewUsesMultipartViewer = selectedPreviewMultipartSources.length > 1
   const selectedPreviewSource = selectedPreviewPart?.filePath || selectedPreview?.filePath || selectedPreview?.viewerFilePath || null
   const selectedPreviewIs3mf = !!selectedPreviewSource && selectedPreviewSource.toLowerCase().endsWith('.3mf')
   const selectedPreviewFallback = selectedPreviewIs3mf
@@ -590,7 +670,30 @@ export default function CartPage() {
     : null
   const selectedViewerSrc = selectedPreviewSource ? toPublicHref(selectedPreviewSource) : null
   const selectedViewerFallback = selectedPreviewFallback ? toPublicHref(selectedPreviewFallback) : null
+  const resolveItemPreviewHex = useCallback((item: (typeof items)[number] | null | undefined) => {
+    if (!item) return PREVIEW_DEFAULT_COLOR
+    const primary = item.options.colors?.[0] || ''
+    if (isHexColor(primary)) return primary
+    const parsed = parseColorString(primary)
+    const normalized = normalizeColorValue(parsed.name || parsed.hex || primary)
+    const swatch = resolveSwatch(primary)
+    return swatch?.hex
+      || parsed.hex
+      || paletteValueToHex.get(normalized)
+      || PREVIEW_DEFAULT_COLOR
+  }, [paletteValueToHex])
+  const partPreviewKey = useCallback((modelId: string, partId: string | null) => `${modelId}::${partId || ''}`, [])
+  const resolveItemPreviewHexWithOptimistic = useCallback((item: (typeof items)[number] | null | undefined) => {
+    if (!item) return PREVIEW_DEFAULT_COLOR
+    const key = partPreviewKey(item.modelId, item.partId ?? null)
+    const optimistic = optimisticPartPreviewHex[key]
+    if (optimistic) return optimistic
+    return resolveItemPreviewHex(item)
+  }, [optimisticPartPreviewHex, partPreviewKey, resolveItemPreviewHex])
   const selectedViewerColors = useMemo(() => {
+    if (selectedPreviewUsesMultipartViewer) {
+      return selectedPreviewMultipartSources.map((entry) => resolveItemPreviewHexWithOptimistic(selectedModelPartItemMap.get(entry.partId)))
+    }
     if (!selectedPreviewItem) return []
     const derived = (selectedPreviewItem.options.colors || []).map((value) => {
       if (isHexColor(value)) return value
@@ -603,7 +706,20 @@ export default function CartPage() {
         || COLOR_PICKER_FALLBACK
     })
     return derived.length > 0 ? derived : [PREVIEW_DEFAULT_COLOR]
-  }, [selectedPreviewItem, paletteValueToHex])
+  }, [selectedPreviewUsesMultipartViewer, selectedPreviewMultipartSources, selectedModelPartItemMap, selectedPreviewItem, paletteValueToHex, resolveItemPreviewHexWithOptimistic])
+  const selectedViewerColorMap = useMemo(() => {
+    if (!selectedPreviewUsesMultipartViewer) return null
+    const out: Record<string, string> = {}
+    for (const entry of selectedPreviewMultipartSources) {
+      out[entry.partId] = resolveItemPreviewHexWithOptimistic(selectedModelPartItemMap.get(entry.partId))
+    }
+    return out
+  }, [selectedPreviewUsesMultipartViewer, selectedPreviewMultipartSources, selectedModelPartItemMap, resolveItemPreviewHexWithOptimistic])
+  const handlePreviewPartTap = useCallback((partKey: string) => {
+    const tappedItem = selectedModelPartItemMap.get(partKey)
+    if (!tappedItem) return
+    setSelectedPreviewKey({ modelId: tappedItem.modelId, partId: tappedItem.partId ?? null })
+  }, [selectedModelPartItemMap])
 
   const discountMultiplier = useMemo(() => getDiscountMultiplier(discount), [discount])
   const totalDiscountPercent = discount?.totalPercent ?? 0
@@ -663,6 +779,30 @@ export default function CartPage() {
     const allowedTokens = buildAllowedColorTokenSet(Array.isArray(item.allowedColors) ? item.allowedColors : null)
     return normalizeColors(colors, slotLimit).filter((value) => isColorAllowed(value, allowedTokens))
   }, [maxColors])
+
+  const applyColorToSlot = useCallback(
+    (slot: { modelId: string; partId: string | null; index: number }, nextValue: string) => {
+      const item = items.find((entry) => entry.modelId === slot.modelId && (entry.partId ?? null) === slot.partId)
+      if (!item || item.options.lockedConfig) return
+      const allowedTokens = buildAllowedColorTokenSet(Array.isArray(item.allowedColors) ? item.allowedColors : null)
+      if (nextValue && !isColorAllowed(nextValue, allowedTokens)) return
+      const next = [...(item.options.colors || [])]
+      next[slot.index] = nextValue
+      if (slot.partId && slot.index === 0) {
+        const key = partPreviewKey(slot.modelId, slot.partId)
+        const optimisticHex = resolveColorHex(nextValue) || PREVIEW_DEFAULT_COLOR
+        setOptimisticPartPreviewHex((prev) => {
+          if (nextValue) return { ...prev, [key]: optimisticHex }
+          if (!(key in prev)) return prev
+          const out = { ...prev }
+          delete out[key]
+          return out
+        })
+      }
+      update(slot.modelId, { colors: applyColorRulesForItem(item, next) }, slot.partId)
+    },
+    [items, update, applyColorRulesForItem, partPreviewKey],
+  )
 
   const applyPreset = (preset: CustomerPreset, item: (typeof items)[number]) => {
     const data = preset.data || {}
@@ -733,13 +873,29 @@ export default function CartPage() {
           )}
         </div>
         {selectedPreviewItem ? (
-          selectedViewerSrc ? (
+          selectedPreviewUsesMultipartViewer ? (
             <LazyModelViewer
-              src={selectedViewerSrc}
-              fallbackSrc={selectedViewerFallback || undefined}
+              srcs={selectedMultipartViewerSrcs}
+              fallbackSrcs={selectedMultipartViewerFallbacks}
+              partKeys={selectedMultipartViewerPartKeys}
+              selectedPartKey={selectedPreviewItem.partId ?? null}
+              onPartTap={handlePreviewPartTap}
               height={360}
               className="bg-black/40"
               colorOverrides={selectedViewerColors}
+              colorOverridesByPartKey={selectedViewerColorMap}
+            />
+          ) : selectedViewerSrc ? (
+            <LazyModelViewer
+              src={selectedViewerSrc}
+              fallbackSrc={selectedViewerFallback || undefined}
+              partKeys={selectedPreviewItem.partId ? [selectedPreviewItem.partId] : undefined}
+              selectedPartKey={selectedPreviewItem.partId ?? null}
+              onPartTap={handlePreviewPartTap}
+              height={360}
+              className="bg-black/40"
+              colorOverrides={selectedViewerColors}
+              colorOverridesByPartKey={selectedPreviewItem.partId ? { [selectedPreviewItem.partId]: selectedViewerColors[0] || PREVIEW_DEFAULT_COLOR } : null}
             />
           ) : (
             <div className="h-[360px] flex items-center justify-center text-sm text-slate-400 bg-slate-900/60">
@@ -805,7 +961,6 @@ export default function CartPage() {
               const slotLimit = isLockedProduct
                 ? Math.max(1, normalizeColors(item.options.colors).length)
                 : (modelSlotCount ?? Math.max(1, maxColors))
-              const itemAllowedTokens = buildAllowedColorTokenSet(Array.isArray(item.allowedColors) ? item.allowedColors : null)
               const qty = Math.max(1, item.options.qty || 1)
               const unit = itemUnitPrice(item)
               const baseTotal = unit * qty
@@ -997,10 +1152,10 @@ export default function CartPage() {
                                     const isActive = activeColorSlot?.id === slotId
                                     const updateColor = (nextValue: string) => {
                                       if (isLockedProduct) return
-                                      if (nextValue && !isColorAllowed(nextValue, itemAllowedTokens)) return
-                                      const next = [...(item.options.colors || [])]
-                                      next[idx] = nextValue
-                                      update(item.modelId, { colors: applyColorRulesForItem(item, next) }, item.partId)
+                                      applyColorToSlot(
+                                        { modelId: item.modelId, partId: item.partId ?? null, index: idx },
+                                        nextValue,
+                                      )
                                     }
                                     return (
                                       <div key={slotId} className="flex flex-col items-center gap-0.5">
@@ -1311,6 +1466,20 @@ export default function CartPage() {
       {activeColorSlot && activeSlotItem && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/50" />
+          {(() => {
+            const estimatedPaletteHeight = Math.min(320, paletteMaxHeight || 320)
+            const desktopTop = activeColorAnchor
+              ? palettePlacement === 'above'
+                ? Math.max(PALETTE_MARGIN, activeColorAnchor.top - 12 - estimatedPaletteHeight)
+                : Math.max(
+                  PALETTE_MARGIN,
+                  Math.min(
+                    activeColorAnchor.top + activeColorAnchor.height + 12,
+                    window.innerHeight - estimatedPaletteHeight - PALETTE_MARGIN,
+                  ),
+                )
+              : undefined
+            return (
           <div
             ref={paletteRef}
             className={`absolute bg-slate-950/95 text-white rounded-xl border border-white/10 shadow-2xl p-3 w-[320px] max-w-[calc(100vw-2rem)] flex flex-col ${
@@ -1319,11 +1488,12 @@ export default function CartPage() {
             style={isMobilePalette || !activeColorAnchor ? undefined : {
               left: Math.max(
                 PALETTE_MARGIN,
-                Math.min(containerRef.current?.getBoundingClientRect().left ?? activeColorAnchor.left, window.innerWidth - (paletteWidth || 340) - PALETTE_MARGIN),
+                Math.min(
+                  activeColorAnchor.left + activeColorAnchor.width / 2 - (paletteWidth || 340) / 2,
+                  window.innerWidth - (paletteWidth || 340) - PALETTE_MARGIN,
+                ),
               ),
-              top: palettePlacement === 'above'
-                ? Math.max(PALETTE_MARGIN, activeColorAnchor.top - 12 - (paletteMaxHeight || 0))
-                : Math.max(activeColorAnchor.top + activeColorAnchor.height + 12, PALETTE_MARGIN),
+              top: desktopTop,
               width: paletteWidth || undefined,
               maxHeight: paletteMaxHeight || undefined,
             }}
@@ -1385,12 +1555,10 @@ export default function CartPage() {
                                 onClick={() => {
                                   if (activeSlotLocked) return
                                   if (!isColorAllowed(`${swatchOption.name} ${swatchOption.hex}`, activeSlotAllowedTokens)) return
-                                  const next = [...(activeSlotItem.options.colors || [])]
                                   const nextValue = swatchOption.name && swatchOption.hex
                                     ? `${swatchOption.name} ${swatchOption.hex}`
                                     : swatchOption.name || swatchOption.hex
-                                  next[activeColorSlot.index] = nextValue
-                                  update(activeColorSlot.modelId, { colors: applyColorRulesForItem(activeSlotItem, next) }, activeColorSlot.partId)
+                                  applyColorToSlot(activeColorSlot, nextValue)
                                 }}
                               >
                                 <span className="sr-only">{swatchOption.name}</span>
@@ -1451,9 +1619,7 @@ export default function CartPage() {
                 onChange={(e) => {
                   if (activeSlotLocked) return
                   if (e.target.value && !isColorAllowed(e.target.value, activeSlotAllowedTokens)) return
-                  const next = [...(activeSlotItem.options.colors || [])]
-                  next[activeColorSlot.index] = e.target.value
-                  update(activeColorSlot.modelId, { colors: applyColorRulesForItem(activeSlotItem, next) }, activeColorSlot.partId)
+                  applyColorToSlot(activeColorSlot, e.target.value)
                 }}
               />
               <label className="text-[10px] uppercase tracking-wide text-slate-400">
@@ -1467,14 +1633,14 @@ export default function CartPage() {
                   onChange={(e) => {
                     if (activeSlotLocked) return
                     if (!isColorAllowed(e.target.value, activeSlotAllowedTokens)) return
-                    const next = [...(activeSlotItem.options.colors || [])]
-                    next[activeColorSlot.index] = e.target.value
-                    update(activeColorSlot.modelId, { colors: applyColorRulesForItem(activeSlotItem, next) }, activeColorSlot.partId)
+                    applyColorToSlot(activeColorSlot, e.target.value)
                   }}
                 />
               </label>
             </div>
           </div>
+            )
+          })()}
         </div>
       )}
     </div>

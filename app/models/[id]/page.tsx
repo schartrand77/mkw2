@@ -5,7 +5,6 @@ import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { buildYouTubeEmbedUrl } from '@/lib/youtube'
 import { buildImageSrc, toPublicHref } from '@/lib/storage'
-import { BRAND_NAME } from '@/lib/brand'
 import { resolveBaseUrl } from '@/lib/base-url'
 import ModelPartsList from '@/components/ModelPartsList'
 import ModelComments from '@/components/ModelComments'
@@ -55,12 +54,11 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   const affiliateHost = model.affiliateUrl ? (() => {
     try {
       const rawHost = new URL(model.affiliateUrl).hostname
-      return rawHost.replace(/^www\./i, '') || 'amazon.ca'
+      return rawHost.replace(/^www\./i, '') || 'external site'
     } catch {
-      return 'amazon.ca'
+      return 'external site'
     }
   })() : null
-  const affiliateImage = model.affiliateImage || null
   const creditName = typeof model.creditName === 'string' ? model.creditName.trim() : ''
   const creditUrlRaw = typeof model.creditUrl === 'string' ? model.creditUrl.trim() : ''
   const creditUrlHref = creditUrlRaw ? (() => {
@@ -229,23 +227,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
         {model.affiliateUrl && (
           <div className="glass rounded-xl p-4 space-y-3">
             <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Required parts</div>
-            <div className="flex flex-col sm:flex-row gap-4">
-              {affiliateImage && (
-                <a
-                  href={model.affiliateUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-shrink-0 inline-flex items-center justify-center"
-                >
-                  <img
-                    src={affiliateImage}
-                    alt={model.affiliateTitle ? `Amazon preview of ${model.affiliateTitle}` : 'Amazon preview'}
-                    className="w-24 h-24 object-contain rounded-lg border border-white/10 bg-white/5 p-2"
-                    loading="lazy"
-                  />
-                </a>
-              )}
-              <div className="space-y-2">
+            <div className="space-y-2">
                 <p className="text-lg font-semibold">{model.affiliateTitle || 'Recommended hardware'}</p>
                 <p className="text-sm text-slate-300">
                   Link provided by the maker so you can grab the exact companion parts (springs, screws, electronics, etc.) this model expects.
@@ -256,12 +238,8 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
                   rel="noopener noreferrer"
                   className="btn w-full md:w-auto text-center"
                 >
-                  Shop on {affiliateHost || 'Amazon'}
+                  Open on {affiliateHost || 'external site'}
                 </a>
-                <p className="text-xs text-slate-500">
-                  As an Amazon Associate, {BRAND_NAME} may earn from qualifying purchases. Pricing/availability updates instantly on Amazon.
-                </p>
-              </div>
             </div>
           </div>
         )}
@@ -275,6 +253,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             colorSlotCount={typeof model.colorSlotCount === 'number' ? model.colorSlotCount : null}
             allowedColors={Array.isArray(model.allowedColors) ? model.allowedColors : null}
             defaultColors={Array.isArray(model.defaultColors) ? model.defaultColors : null}
+            selectedPartIndex={Number.isFinite(partIndex) ? partIndex : null}
             parts={model.parts.map((p: any, i: number) => ({
               id: p.id,
               name: p.name,

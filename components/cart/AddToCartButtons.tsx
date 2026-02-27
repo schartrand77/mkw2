@@ -130,7 +130,7 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
       }
     } else {
       setParts(fetchedParts && fetchedParts.length > 1 ? fetchedParts : null)
-      add(
+        add(
         {
           modelId: model.id,
           flatRatePricing,

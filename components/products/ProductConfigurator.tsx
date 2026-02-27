@@ -1,6 +1,6 @@
-﻿"use client"
+"use client"
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useCart } from '@/components/cart/CartProvider'
 import { formatCurrency } from '@/lib/currency'
 import {
@@ -10,6 +10,14 @@ import {
   getMaterialMultiplier,
   normalizeMaterialName,
 } from '@/lib/cartPricing'
+
+type OptionRow = {
+  label: string
+  value?: string
+  scale?: number
+  colorCount?: number
+  priceMultiplier?: number
+}
 
 type ProductTemplate = {
   id: string
@@ -22,6 +30,7 @@ type ProductTemplate = {
   lockedScale?: number | null
   lockedFinish?: string | null
   lockedPriceMultiplier?: number | null
+  colorOptions?: OptionRow[] | null
 }
 
 type BaseModel = {
@@ -45,6 +54,10 @@ type Props = {
   coverUrl?: string | null
 }
 
+function getOptionColor(option: OptionRow): string {
+  return (option.value || option.label || '').trim()
+}
+
 export default function ProductConfigurator({ product, baseModel, coverUrl }: Props) {
   const { add, pricingAdjustments } = useCart()
   const [qty, setQty] = useState(1)
@@ -55,6 +68,39 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
   const finish = (product.lockedFinish || 'standard').trim().toLowerCase()
   const priceMultiplier = Math.max(0.1, Math.min(5, Number(product.lockedPriceMultiplier ?? 1)))
   const lockedColor = (product.lockedColor || '').trim() || 'Standard'
+  const availableColors = useMemo(() => {
+    const rows = Array.isArray(product.colorOptions) ? product.colorOptions : []
+    const output: OptionRow[] = []
+    const seen = new Set<string>()
+    for (const row of rows) {
+      const color = getOptionColor(row)
+      if (!color) continue
+      const key = color.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      output.push({
+        label: row.label || color,
+        value: color,
+        colorCount: row.colorCount,
+        priceMultiplier: row.priceMultiplier,
+      })
+    }
+    if (output.length === 0) {
+      output.push({ label: lockedColor, value: lockedColor, colorCount })
+    }
+    return output
+  }, [colorCount, lockedColor, product.colorOptions])
+  const [selectedColor, setSelectedColor] = useState(() => availableColors[0]?.value || lockedColor)
+  useEffect(() => {
+    const hasSelected = availableColors.some((row) => (row.value || '').toLowerCase() === selectedColor.toLowerCase())
+    if (!hasSelected) setSelectedColor(availableColors[0]?.value || lockedColor)
+  }, [availableColors, lockedColor, selectedColor])
+  const selectedColorOption = useMemo(
+    () => availableColors.find((row) => (row.value || '').toLowerCase() === selectedColor.toLowerCase()) || null,
+    [availableColors, selectedColor],
+  )
+  const selectedColorCount = Math.max(1, Math.round(selectedColorOption?.colorCount ?? colorCount))
+  const selectedVariantPriceMultiplier = Math.max(0.1, Math.min(5, Number(selectedColorOption?.priceMultiplier ?? 1)))
   const resolvedBasePrice = baseModel
     ? (baseModel.salePriceUsd ?? baseModel.effectivePriceUsd ?? baseModel.priceUsd ?? null)
     : null
@@ -63,15 +109,15 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
     const basePrice = resolvedBasePrice ?? 0
     if (!basePrice) return null
     const volumeMultiplier = Math.pow(scale, 3)
-    const colorMultiplier = baseModel?.flatRatePricing ? 1 : getColorMultiplier(Array.from({ length: colorCount }, () => 'X'))
+    const colorMultiplier = baseModel?.flatRatePricing ? 1 : getColorMultiplier(Array.from({ length: selectedColorCount }, () => 'X'))
     const materialMultiplier = getMaterialMultiplier(resolvedMaterial)
     const finishMultiplier = getFinishMultiplier(finish)
-    return Number((basePrice * volumeMultiplier * colorMultiplier * materialMultiplier * finishMultiplier * priceMultiplier).toFixed(2))
-  }, [baseModel?.flatRatePricing, colorCount, finish, priceMultiplier, resolvedBasePrice, resolvedMaterial, scale])
+    return Number((basePrice * volumeMultiplier * colorMultiplier * materialMultiplier * finishMultiplier * priceMultiplier * selectedVariantPriceMultiplier).toFixed(2))
+  }, [baseModel?.flatRatePricing, finish, priceMultiplier, resolvedBasePrice, resolvedMaterial, scale, selectedColorCount, selectedVariantPriceMultiplier])
 
   const addToCart = () => {
     if (!baseModel?.id) return
-    const colors = Array.from({ length: colorCount }, () => lockedColor)
+    const colors = Array.from({ length: selectedColorCount }, () => selectedColor || lockedColor)
     add(
       {
         modelId: baseModel.id,
@@ -79,7 +125,7 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
         title: product.title,
         priceUsd: resolvedBasePrice ?? null,
         thumbnail: coverUrl || null,
-        colorSlotCount: colorCount,
+        colorSlotCount: selectedColorCount,
         size: {
           x: baseModel.sizeXmm ?? undefined,
           y: baseModel.sizeYmm ?? undefined,
@@ -93,7 +139,7 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
         colors,
         finish,
         customText: null,
-        priceMultiplier,
+        priceMultiplier: Number((priceMultiplier * selectedVariantPriceMultiplier).toFixed(4)),
         lockedConfig: true,
         productTemplateId: product.id,
       },
@@ -129,13 +175,28 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
 
       <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-slate-300 space-y-1">
         <div>Material: {resolvedMaterial}</div>
-        <div>Color: {lockedColor || 'Configured at production'}</div>
-        <div>Color slots: {colorCount}</div>
+        <div>Color: {selectedColor || lockedColor || 'Configured at production'}</div>
+        <div>Color slots: {selectedColorCount}</div>
         <div>Finish: {finish}</div>
         <div>Scale: {scale.toFixed(2)}x</div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
+        {availableColors.length > 1 && (
+          <label className="text-sm space-y-1">
+            <span className="text-slate-400">Color</span>
+            <select className="input" value={selectedColor} onChange={(e) => setSelectedColor(e.target.value)}>
+              {availableColors.map((row) => {
+                const color = row.value || row.label
+                return (
+                  <option key={color} value={color}>
+                    {row.label || color}
+                  </option>
+                )
+              })}
+            </select>
+          </label>
+        )}
         <label className="text-sm space-y-1">
           <span className="text-slate-400">Quantity</span>
           <input

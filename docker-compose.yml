@@ -107,6 +107,31 @@ services:
     networks:
       - makerworks-net
 
+  processing-worker:
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/makerworks?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
+      PROCESSING_QUEUE_ATTEMPTS: ${PROCESSING_QUEUE_ATTEMPTS:-5}
+      PROCESSING_QUEUE_BACKOFF_MS: ${PROCESSING_QUEUE_BACKOFF_MS:-5000}
+      IMAGE_WORKER_CONCURRENCY: ${IMAGE_WORKER_CONCURRENCY:-2}
+      PREVIEW_WORKER_CONCURRENCY: ${PREVIEW_WORKER_CONCURRENCY:-1}
+    command: ["npm", "run", "worker:processing"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./storage:/app/storage
+    networks:
+      - makerworks-net
+
   backup-scheduler:
     build:
       context: .

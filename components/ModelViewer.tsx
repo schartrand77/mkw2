@@ -48,12 +48,16 @@ function loadFflate() {
 type Props = {
   src?: string
   srcs?: string[]
+  partKeys?: Array<string | null | undefined>
   fallbackSrc?: string | null
   fallbackSrcs?: Array<string | null | undefined>
   className?: string
   height?: number
   autoRotate?: boolean
   colorOverrides?: Array<string | null | undefined> | null
+  colorOverridesByPartKey?: Record<string, string | null | undefined> | null
+  selectedPartKey?: string | null
+  onPartTap?: (partKey: string) => void
 }
 
 function toAbsoluteUrl(url?: string | null) {
@@ -118,6 +122,7 @@ function parseColorToHexInt(value?: string | null) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+
 function parseXml(text: string) {
   return new DOMParser().parseFromString(text, 'application/xml')
 }
@@ -157,6 +162,15 @@ function parseProjectPalette(text: string) {
 function buildOverrideKey(overrides?: Array<string | null | undefined> | null) {
   if (!overrides || overrides.length === 0) return ''
   return overrides.map((value) => (value == null ? '' : String(value))).join('|')
+}
+
+function buildPartOverrideKey(overrides?: Record<string, string | null | undefined> | null) {
+  if (!overrides || typeof overrides !== 'object') return ''
+  const pairs = Object.entries(overrides)
+    .filter(([key]) => Boolean(key))
+    .sort(([a], [b]) => a.localeCompare(b))
+  if (pairs.length === 0) return ''
+  return pairs.map(([key, value]) => `${key}:${value == null ? '' : String(value)}`).join('|')
 }
 
 function parseOverrideColors(overrides?: Array<string | null | undefined> | null) {
@@ -639,24 +653,42 @@ async function parse3mfSimple(THREE: ThreeLib, buffer: ArrayBuffer, overrides?: 
 export default function ModelViewer({
   src,
   srcs,
+  partKeys,
   fallbackSrc,
   fallbackSrcs,
   className,
   height = 480,
   autoRotate = false,
   colorOverrides = null,
+  colorOverridesByPartKey = null,
+  selectedPartKey = null,
+  onPartTap,
 }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const fitRef = useRef<(() => void) | null>(null)
   const pivotRef = useRef<InstanceType<ThreeLib['Group']> | null>(null)
   const groupRef = useRef<InstanceType<ThreeLib['Group']> | null>(null)
+  const sceneRef = useRef<InstanceType<ThreeLib['Scene']> | null>(null)
+  const cameraRef = useRef<InstanceType<ThreeLib['PerspectiveCamera']> | null>(null)
+  const rendererRef = useRef<InstanceType<ThreeLib['WebGLRenderer']> | null>(null)
   const threeRef = useRef<ThreeLib | null>(null)
   const bambuTargetsRef = useRef<Array<{ buffer: ArrayBuffer; root: InstanceType<ThreeLib['Object3D']> }>>([])
-  const non3mfTargetsRef = useRef<Array<InstanceType<ThreeLib['Object3D']>>>([])
+  const non3mfTargetsRef = useRef<Array<{ root: InstanceType<ThreeLib['Object3D']>; overrideIndex: number; partKey: string }>>([])
   const bambuPlanCacheRef = useRef<WeakMap<ArrayBuffer, Map<string, BambuColorPlan | null>>>(new WeakMap())
   const colorOverridesRef = useRef<Array<string | null | undefined> | null>(colorOverrides)
+  const colorOverridesByPartKeyRef = useRef<Record<string, string | null | undefined> | null>(colorOverridesByPartKey)
+  const onPartTapRef = useRef<Props['onPartTap']>(onPartTap)
+  const selectedPartKeyRef = useRef<string | null>(selectedPartKey)
+  const selectableRootsRef = useRef<Map<string, InstanceType<ThreeLib['Object3D']>>>(new Map())
+  const selectedRootRef = useRef<InstanceType<ThreeLib['Object3D']> | null>(null)
   const has3mfRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
+  const [loadedTargetRevision, setLoadedTargetRevision] = useState(0)
+  // Keep async loader callbacks synchronized with the latest props immediately.
+  colorOverridesRef.current = colorOverrides
+  colorOverridesByPartKeyRef.current = colorOverridesByPartKey
+  onPartTapRef.current = onPartTap
+  selectedPartKeyRef.current = selectedPartKey
   const fileEntries = useMemo(() => {
     const list = srcs && srcs.length ? srcs : (src ? [src] : [])
     const fallbacks = fallbackSrcs && fallbackSrcs.length ? fallbackSrcs : (fallbackSrc ? [fallbackSrc] : [])
@@ -664,13 +696,10 @@ export default function ModelViewer({
       .map((item, idx) => ({
         src: toAbsoluteUrl(item),
         fallback: fallbacks[idx] ? toAbsoluteUrl(fallbacks[idx]) : null,
+        partKey: String(partKeys?.[idx] ?? idx),
       }))
-      .filter((item): item is { src: string, fallback: string | null } => !!item.src)
-  }, [src, srcs, fallbackSrc, fallbackSrcs])
-
-  useEffect(() => {
-    colorOverridesRef.current = colorOverrides
-  }, [colorOverrides])
+      .filter((item): item is { src: string, fallback: string | null, partKey: string } => !!item.src)
+  }, [src, srcs, fallbackSrc, fallbackSrcs, partKeys])
 
   useEffect(() => {
     if (!mountRef.current) return
@@ -684,6 +713,7 @@ export default function ModelViewer({
       threeRef.current = THREE
       bambuTargetsRef.current = []
       non3mfTargetsRef.current = []
+      selectableRootsRef.current = new Map()
 
       const OBJLoaderModule = await loadObj().catch((err) => {
         console.warn('OBJ loader unavailable, OBJ previews disabled', err)
@@ -722,6 +752,9 @@ export default function ModelViewer({
       renderer.outputColorSpace = THREE.SRGBColorSpace
       renderer.toneMapping = THREE.ACESFilmicToneMapping
       renderer.toneMappingExposure = 1.6
+      sceneRef.current = scene
+      cameraRef.current = camera
+      rendererRef.current = renderer
       container.appendChild(renderer.domElement)
 
       const keyLight = new THREE.DirectionalLight(0xffffff, 1.2)
@@ -765,8 +798,6 @@ export default function ModelViewer({
       groupRef.current = group
 
       const files = fileEntries
-      const overrideColor = parseColorToHexInt(colorOverridesRef.current?.[0] ?? null)
-      const palette = [overrideColor ?? 0xd0d0d0]
       let loaded = 0
       has3mfRef.current = files.some((entry) => entry.src.split('.').pop()?.toLowerCase() === '3mf')
 
@@ -794,6 +825,57 @@ export default function ModelViewer({
       }
       fitRef.current = fitToView
 
+      const clearSelectionHighlight = (target: InstanceType<ThreeLib['Object3D']> | null) => {
+        if (!target) return
+        target.traverse((child: any) => {
+          if (!(child instanceof THREE.Mesh)) return
+          const material = child.material
+          const restore = (mat: any) => {
+            if (!mat) return
+            const prev = mat.userData?.__mwv2SelectionPrev
+            if (!prev || !mat.emissive) return
+            mat.emissive.setHex(prev.emissiveHex)
+            if (typeof prev.emissiveIntensity === 'number' && 'emissiveIntensity' in mat) {
+              mat.emissiveIntensity = prev.emissiveIntensity
+            }
+            delete mat.userData.__mwv2SelectionPrev
+            mat.needsUpdate = true
+          }
+          if (Array.isArray(material)) material.forEach((mat) => restore(mat))
+          else restore(material)
+        })
+      }
+
+      const applySelectionHighlight = (target: InstanceType<ThreeLib['Object3D']> | null) => {
+        if (!target) return
+        target.traverse((child: any) => {
+          if (!(child instanceof THREE.Mesh)) return
+          const material = child.material
+          const apply = (mat: any) => {
+            if (!mat || !mat.emissive) return
+            if (!mat.userData.__mwv2SelectionPrev) {
+              mat.userData.__mwv2SelectionPrev = {
+                emissiveHex: mat.emissive.getHex(),
+                emissiveIntensity: typeof mat.emissiveIntensity === 'number' ? mat.emissiveIntensity : undefined,
+              }
+            }
+            mat.emissive.setHex(0x38bdf8)
+            if ('emissiveIntensity' in mat) mat.emissiveIntensity = Math.max(0.45, Number(mat.emissiveIntensity) || 0)
+            mat.needsUpdate = true
+          }
+          if (Array.isArray(material)) material.forEach((mat) => apply(mat))
+          else apply(material)
+        })
+      }
+
+      const syncSelection = () => {
+        const nextRoot = selectedPartKeyRef.current ? (selectableRootsRef.current.get(selectedPartKeyRef.current) || null) : null
+        if (selectedRootRef.current === nextRoot) return
+        clearSelectionHighlight(selectedRootRef.current)
+        selectedRootRef.current = nextRoot
+        applySelectionHighlight(nextRoot)
+      }
+
       const onLoaded = () => {
         group.updateMatrixWorld(true)
         const box = new THREE.Box3().setFromObject(group)
@@ -813,12 +895,16 @@ export default function ModelViewer({
         onLoaded()
       }
 
-      const addObject = (object: InstanceType<ThreeLib['Object3D']>) => {
+      const addObject = (object: InstanceType<ThreeLib['Object3D']>, partKey: string) => {
         if (disposed) {
           disposeObject(THREE, object)
           return
         }
+        object.userData.__mwv2PartKey = partKey
+        selectableRootsRef.current.set(partKey, object)
         group.add(object)
+        syncSelection()
+        setLoadedTargetRevision((prev) => prev + 1)
         loaded++
         if (loaded === files.length) onLoaded()
       }
@@ -862,23 +948,26 @@ export default function ModelViewer({
       files.forEach((entry, idx) => {
         const file = entry.src
         const fallback = entry.fallback
+        const partKey = entry.partKey
         const ext = file.split('.').pop()?.toLowerCase()
-        const color = palette[idx % palette.length]
+        const resolveInitialColor = () => {
+          const keyedColor = parseColorToHexInt(colorOverridesByPartKeyRef.current?.[partKey] ?? null)
+          const indexedColor = parseColorToHexInt(colorOverridesRef.current?.[idx] ?? colorOverridesRef.current?.[0] ?? null)
+          return keyedColor ?? indexedColor ?? 0xd0d0d0
+        }
         const handleError = (err: any, attemptedFile = file) => {
           console.error('Failed to load model', attemptedFile, err)
           setError(`Failed to load ${attemptedFile}: ${err?.message || err}`)
           loaded++
           if (loaded === files.length) onLoaded()
         }
-        console.info('[ModelViewer] file entry', { file, ext, has3mf: ext === '3mf', hasTmfLoader: Boolean(tmfLoader) })
-
         if (ext === 'obj' && objLoader) {
           objLoader.load(
             file,
             (obj: any) => {
-              const mesh = meshify(obj, color)
-              non3mfTargetsRef.current.push(mesh)
-              addObject(mesh)
+              const mesh = meshify(obj, resolveInitialColor())
+              non3mfTargetsRef.current.push({ root: mesh, overrideIndex: idx, partKey })
+              addObject(mesh, partKey)
             },
             undefined,
             handleError
@@ -889,49 +978,33 @@ export default function ModelViewer({
         if (ext === '3mf' && tmfLoader) {
           ;(async () => {
             try {
-              console.info('[ModelViewer] loading 3MF', file)
               const res = await fetch(file)
               if (!res.ok) throw new Error(`Failed to fetch ${file}`)
               const buf = await res.arrayBuffer()
               let obj: InstanceType<ThreeLib['Object3D']> | null = null
-              let parsedWithFallback = false
               try {
                 obj = tmfLoader.parse(buf)
               } catch (parseErr) {
-                console.warn('[ModelViewer] 3MF loader parse failed, trying fallback parser', parseErr)
                 obj = await parse3mfSimple(THREE, buf, colorOverridesRef.current)
-                parsedWithFallback = Boolean(obj)
+                void parseErr
               }
               if (!obj) throw new Error('3MF parsing failed')
               const plan = await tryBuildBambuColorPlan(buf, colorOverridesRef.current)
-              console.info('[ModelViewer] 3MF bambu color plan', {
-                hasPlan: Boolean(plan),
-                buildCount: plan?.buildItems.length || 0,
-                items: plan?.buildItems.map((item) => ({
-                  objectId: item.objectId,
-                  componentCount: item.componentIds.length,
-                  componentColors: item.componentColors,
-                  objectColor: item.objectColor,
-                })),
-                fallbackParser: parsedWithFallback,
-              })
               if (plan) applyBambuColors(THREE, obj, plan)
               bambuTargetsRef.current.push({ buffer: buf, root: obj })
-              addObject(preserveMaterials(obj))
+              addObject(preserveMaterials(obj), partKey)
             } catch (err: any) {
-              console.error('[ModelViewer] 3MF load error', err)
               if (fallback) {
-                console.info('[ModelViewer] 3MF failed, falling back to STL', { file, fallback })
                 stlLoader.load(
                   fallback,
                   (geometry: any) => {
                     try {
                       if ((geometry as any).computeVertexNormals) (geometry as any).computeVertexNormals()
                     } catch {}
-                    const material = new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
+                    const material = new THREE.MeshStandardMaterial({ color: resolveInitialColor(), metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
                     const mesh = new THREE.Mesh(geometry as any, material)
-                    non3mfTargetsRef.current.push(mesh)
-                    addObject(mesh)
+                    non3mfTargetsRef.current.push({ root: mesh, overrideIndex: idx, partKey })
+                    addObject(mesh, partKey)
                   },
                   undefined,
                   (fallbackErr: any) => handleError(fallbackErr, fallback)
@@ -953,10 +1026,10 @@ export default function ModelViewer({
                 try {
                   if ((geometry as any).computeVertexNormals) (geometry as any).computeVertexNormals()
                 } catch {}
-                const material = new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
+                const material = new THREE.MeshStandardMaterial({ color: resolveInitialColor(), metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
                 const mesh = new THREE.Mesh(geometry as any, material)
-                non3mfTargetsRef.current.push(mesh)
-                addObject(mesh)
+                non3mfTargetsRef.current.push({ root: mesh, overrideIndex: idx, partKey })
+                addObject(mesh, partKey)
               },
               undefined,
               (fallbackErr: any) => handleError(fallbackErr, fallback)
@@ -972,10 +1045,10 @@ export default function ModelViewer({
             try {
               if ((geometry as any).computeVertexNormals) (geometry as any).computeVertexNormals()
             } catch {}
-            const material = new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
+            const material = new THREE.MeshStandardMaterial({ color: resolveInitialColor(), metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
             const mesh = new THREE.Mesh(geometry as any, material)
-            non3mfTargetsRef.current.push(mesh)
-            addObject(mesh)
+            non3mfTargetsRef.current.push({ root: mesh, overrideIndex: idx, partKey })
+            addObject(mesh, partKey)
           },
           undefined,
           handleError
@@ -999,6 +1072,54 @@ export default function ModelViewer({
       }
 
       let raf = 0
+      let pointerDown: { x: number; y: number; moved: boolean } | null = null
+      const raycaster = new THREE.Raycaster()
+      const pointerNdc = new THREE.Vector2()
+      const moveThresholdPx = 8
+      const findPartKey = (start: any) => {
+        let node = start
+        while (node) {
+          const key = node?.userData?.__mwv2PartKey
+          if (typeof key === 'string' && key) return key
+          node = node.parent
+        }
+        return null
+      }
+      const handlePointerDown = (event: PointerEvent) => {
+        if (event.button !== 0) return
+        pointerDown = { x: event.clientX, y: event.clientY, moved: false }
+      }
+      const handlePointerMove = (event: PointerEvent) => {
+        if (!pointerDown) return
+        if (Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y) > moveThresholdPx) {
+          pointerDown.moved = true
+        }
+      }
+      const handlePointerUp = (event: PointerEvent) => {
+        if (!pointerDown || pointerDown.moved || event.button !== 0) {
+          pointerDown = null
+          return
+        }
+        const rect = renderer.domElement.getBoundingClientRect()
+        if (rect.width <= 0 || rect.height <= 0) {
+          pointerDown = null
+          return
+        }
+        pointerNdc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+        pointerNdc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+        raycaster.setFromCamera(pointerNdc, camera)
+        const intersections = raycaster.intersectObjects(group.children, true)
+        const hit = intersections.find((entry) => findPartKey(entry.object))
+        const partKey = hit ? findPartKey(hit.object) : null
+        if (partKey) {
+          if (onPartTapRef.current) onPartTapRef.current(partKey)
+        }
+        pointerDown = null
+      }
+      renderer.domElement.addEventListener('pointerdown', handlePointerDown)
+      renderer.domElement.addEventListener('pointermove', handlePointerMove)
+      renderer.domElement.addEventListener('pointerup', handlePointerUp)
+
       const animate = () => {
         controls.update()
         renderer.render(scene, camera)
@@ -1010,8 +1131,14 @@ export default function ModelViewer({
       return () => {
         cancelAnimationFrame(raf)
         window.removeEventListener('resize', onResize)
+        renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
+        renderer.domElement.removeEventListener('pointermove', handlePointerMove)
+        renderer.domElement.removeEventListener('pointerup', handlePointerUp)
         if (ro) ro.disconnect()
         controls.dispose?.()
+        clearSelectionHighlight(selectedRootRef.current)
+        selectedRootRef.current = null
+        selectableRootsRef.current.clear()
         disposeObject(THREE, group)
         pivot.clear()
         renderer.dispose()
@@ -1020,6 +1147,9 @@ export default function ModelViewer({
         fitRef.current = null
         pivotRef.current = null
         groupRef.current = null
+        sceneRef.current = null
+        cameraRef.current = null
+        rendererRef.current = null
         non3mfTargetsRef.current = []
         scene.clear()
       }
@@ -1051,12 +1181,116 @@ export default function ModelViewer({
   }, [fileEntries, height, autoRotate])
 
   useEffect(() => {
+    const THREE = threeRef.current
+    if (!THREE) return
+    const restoreIsolation = (target: InstanceType<ThreeLib['Object3D']> | null) => {
+      if (!target) return
+      target.traverse((child: any) => {
+        if (!(child instanceof THREE.Mesh)) return
+        const material = child.material
+        const restore = (mat: any) => {
+          if (!mat) return
+          const prev = mat.userData?.__mwv2IsolationPrev
+          if (!prev) return
+          if (typeof prev.opacity === 'number') mat.opacity = prev.opacity
+          if (typeof prev.transparent === 'boolean') mat.transparent = prev.transparent
+          if (typeof prev.depthWrite === 'boolean') mat.depthWrite = prev.depthWrite
+          delete mat.userData.__mwv2IsolationPrev
+          mat.needsUpdate = true
+        }
+        if (Array.isArray(material)) material.forEach((mat) => restore(mat))
+        else restore(material)
+      })
+    }
+    const applyIsolation = (target: InstanceType<ThreeLib['Object3D']> | null, isSelected: boolean) => {
+      if (!target) return
+      target.traverse((child: any) => {
+        if (!(child instanceof THREE.Mesh)) return
+        const material = child.material
+        const apply = (mat: any) => {
+          if (!mat) return
+          if (!mat.userData.__mwv2IsolationPrev) {
+            mat.userData.__mwv2IsolationPrev = {
+              opacity: typeof mat.opacity === 'number' ? mat.opacity : 1,
+              transparent: Boolean(mat.transparent),
+              depthWrite: typeof mat.depthWrite === 'boolean' ? mat.depthWrite : true,
+            }
+          }
+          if (isSelected) {
+            mat.opacity = 1
+            mat.transparent = false
+            mat.depthWrite = true
+          } else {
+            mat.opacity = 0.18
+            mat.transparent = true
+            mat.depthWrite = false
+          }
+          mat.needsUpdate = true
+        }
+        if (Array.isArray(material)) material.forEach((mat) => apply(mat))
+        else apply(material)
+      })
+    }
+    const clearSelectionHighlight = (target: InstanceType<ThreeLib['Object3D']> | null) => {
+      if (!target) return
+      target.traverse((child: any) => {
+        if (!(child instanceof THREE.Mesh)) return
+        const material = child.material
+        const restore = (mat: any) => {
+          if (!mat) return
+          const prev = mat.userData?.__mwv2SelectionPrev
+          if (!prev || !mat.emissive) return
+          mat.emissive.setHex(prev.emissiveHex)
+          if (typeof prev.emissiveIntensity === 'number' && 'emissiveIntensity' in mat) {
+            mat.emissiveIntensity = prev.emissiveIntensity
+          }
+          delete mat.userData.__mwv2SelectionPrev
+          mat.needsUpdate = true
+        }
+        if (Array.isArray(material)) material.forEach((mat) => restore(mat))
+        else restore(material)
+      })
+    }
+    const applySelectionHighlight = (target: InstanceType<ThreeLib['Object3D']> | null) => {
+      if (!target) return
+      target.traverse((child: any) => {
+        if (!(child instanceof THREE.Mesh)) return
+        const material = child.material
+        const apply = (mat: any) => {
+          if (!mat || !mat.emissive) return
+          if (!mat.userData.__mwv2SelectionPrev) {
+            mat.userData.__mwv2SelectionPrev = {
+              emissiveHex: mat.emissive.getHex(),
+              emissiveIntensity: typeof mat.emissiveIntensity === 'number' ? mat.emissiveIntensity : undefined,
+            }
+          }
+          mat.emissive.setHex(0x38bdf8)
+          if ('emissiveIntensity' in mat) mat.emissiveIntensity = Math.max(0.45, Number(mat.emissiveIntensity) || 0)
+          mat.needsUpdate = true
+        }
+        if (Array.isArray(material)) material.forEach((mat) => apply(mat))
+        else apply(material)
+      })
+    }
+    const nextRoot = selectedPartKey ? (selectableRootsRef.current.get(selectedPartKey) || null) : null
+    if (selectedRootRef.current === nextRoot) return
+    const roots = Array.from(selectableRootsRef.current.values())
+    roots.forEach((root) => restoreIsolation(root))
+    if (selectedPartKey && nextRoot) {
+      roots.forEach((root) => applyIsolation(root, root === nextRoot))
+    }
+    clearSelectionHighlight(selectedRootRef.current)
+    selectedRootRef.current = nextRoot
+    applySelectionHighlight(nextRoot)
+  }, [selectedPartKey])
+
+  useEffect(() => {
     const targets = bambuTargetsRef.current
     const non3mfTargets = non3mfTargetsRef.current
     const THREE = threeRef.current
     if (!THREE) return
     let cancelled = false
-    const overrideKey = buildOverrideKey(colorOverrides)
+    const overrideKey = `${buildOverrideKey(colorOverrides)}::${buildPartOverrideKey(colorOverridesByPartKey)}`
     const overridePalette = (colorOverrides || []).map((value) => parseColorToHexInt(value ?? null))
     const singleOverride = parseOverrideColors(colorOverrides)[0] ?? null
     const applyPaintOverrides = (target: InstanceType<ThreeLib['Object3D']>) => {
@@ -1110,7 +1344,10 @@ export default function ModelViewer({
       }
       if (cancelled) return
       if (non3mfTargets.length === 0) return
-      const paint = (target: InstanceType<ThreeLib['Object3D']>) => {
+      const paint = (target: InstanceType<ThreeLib['Object3D']>, overrideIndex: number, partKey: string) => {
+        const keyedOverride = parseColorToHexInt(colorOverridesByPartKey?.[partKey] ?? null)
+        const indexedOverride = overridePalette[overrideIndex] ?? singleOverride ?? null
+        const resolvedOverride = keyedOverride ?? indexedOverride
         target.traverse((child: any) => {
           if (!(child instanceof THREE.Mesh)) return
           const material = child.material
@@ -1119,7 +1356,7 @@ export default function ModelViewer({
             applyPaintOverrides(child)
             return
           }
-          const override = parseColorToHexInt(colorOverrides?.[0] ?? null)
+          const override = resolvedOverride
           if (override == null) return
           const setMatColor = (mat: any) => {
             if (!mat || !mat.color) return
@@ -1130,13 +1367,25 @@ export default function ModelViewer({
           else setMatColor(material)
         })
       }
-      non3mfTargets.forEach((target) => paint(target))
+      non3mfTargets.forEach((target) => paint(target.root, target.overrideIndex, target.partKey))
+      const renderer = rendererRef.current
+      const scene = sceneRef.current
+      const camera = cameraRef.current
+      if (renderer && scene && camera) {
+        renderer.render(scene, camera)
+        requestAnimationFrame(() => {
+          const r = rendererRef.current
+          const s = sceneRef.current
+          const c = cameraRef.current
+          if (r && s && c) r.render(s, c)
+        })
+      }
     }
     apply()
     return () => {
       cancelled = true
     }
-  }, [colorOverrides])
+  }, [colorOverrides, colorOverridesByPartKey, loadedTargetRevision])
 
   const firstEntry = fileEntries[0]
   const errorLink = firstEntry?.fallback || firstEntry?.src

@@ -385,7 +385,7 @@ export default function ModelManager() {
               />
               <input
                 className="input"
-                placeholder="Amazon.ca link (dp/ASIN)"
+                placeholder="Affiliate URL"
                 value={activeModel.affiliateUrl || ''}
                 onChange={(e) => updateModel(activeModel.id, { affiliateUrl: e.target.value })}
               />

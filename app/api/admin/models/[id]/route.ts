@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../../_utils'
 import { slugify } from '@/lib/userpage'
-import { normalizeAmazonAffiliateUrl } from '@/lib/amazon'
 import { extractYouTubeId } from '@/lib/youtube'
 import { storageRoot } from '@/lib/storage'
 import { computeEffectivePriceUsd } from '@/lib/pricing-cache'
@@ -54,8 +53,12 @@ export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
     if (!raw) {
       updates.affiliateUrl = null
     } else {
-      const normalized = normalizeAmazonAffiliateUrl(raw)
-      if (!normalized) return NextResponse.json({ error: 'Affiliate link must be an Amazon URL' }, { status: 400 })
+      let normalized = ''
+      try {
+        normalized = new URL(raw).toString()
+      } catch {
+        return NextResponse.json({ error: 'Affiliate link must be a valid URL' }, { status: 400 })
+      }
       updates.affiliateUrl = normalized
     }
   }

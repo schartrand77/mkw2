@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>MakerWorks v2 Worker</Name>
+  <Repository>ghcr.io/schartrand77/mkw2:latest</Repository>
+  <Registry>https://ghcr.io/schartrand77/mkw2</Registry>
+  <Network>bridge</Network>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://forums.unraid.net/topic/195232-support-makerw%E2%9A%99%EF%B8%8Frks-3d-print-hub/</Support>
+  <Project>https://github.com/schartrand77/mkw2</Project>
+  <Overview><![CDATA[
+Companion worker for MakerWorks v2. This container runs the BullMQ processing worker so image and preview jobs queued by the web app are consumed in the background.
+  ]]></Overview>
+  <Category>Productivity:Tools</Category>
+  <Icon>https://raw.githubusercontent.com/schartrand77/mkw2/main/public/favicon.jpg</Icon>
+
+  <Config Name="Storage" Target="/app/storage" Default="/mnt/user/makerworks/storage" Mode="rw" Description="Persistent directory for uploaded models, covers, and avatars (must match the web container mapping)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/makerworks/storage</Config>
+
+  <Config Name="DATABASE_URL" Target="DATABASE_URL" Default="postgresql://postgres:postgres@postgres:5432/makerworks?schema=public" Mode="" Description="Postgres connection string (must match the web container)" Type="Variable" Display="always" Required="true" Mask="false">postgresql://postgres:postgres@postgres:5432/makerworks?schema=public</Config>
+  <Config Name="REDIS_URL" Target="REDIS_URL" Default="redis://redis:6379" Mode="" Description="Redis connection string used for BullMQ queues" Type="Variable" Display="always" Required="true" Mask="false">redis://redis:6379</Config>
+  <Config Name="STORAGE_DIR" Target="STORAGE_DIR" Default="/app/storage" Mode="" Description="Internal storage path (leave at /app/storage unless customizing)" Type="Variable" Display="advanced" Required="false" Mask="false">/app/storage</Config>
+  <Config Name="PROCESSING_QUEUE_ATTEMPTS" Target="PROCESSING_QUEUE_ATTEMPTS" Default="5" Mode="" Description="Queue retry attempts before dead-lettering" Type="Variable" Display="advanced" Required="false" Mask="false">5</Config>
+  <Config Name="PROCESSING_QUEUE_BACKOFF_MS" Target="PROCESSING_QUEUE_BACKOFF_MS" Default="5000" Mode="" Description="Exponential retry backoff delay in milliseconds" Type="Variable" Display="advanced" Required="false" Mask="false">5000</Config>
+  <Config Name="IMAGE_WORKER_CONCURRENCY" Target="IMAGE_WORKER_CONCURRENCY" Default="2" Mode="" Description="Parallel image-processing job workers" Type="Variable" Display="advanced" Required="false" Mask="false">2</Config>
+  <Config Name="PREVIEW_WORKER_CONCURRENCY" Target="PREVIEW_WORKER_CONCURRENCY" Default="1" Mode="" Description="Parallel preview-processing job workers" Type="Variable" Display="advanced" Required="false" Mask="false">1</Config>
+
+  <Config Name="Post Arguments" Target="" Default="npm run worker:processing" Mode="" Description="Command to run the background processing worker" Type="Variable" Display="always" Required="true" Mask="false">npm run worker:processing</Config>
+</Container>

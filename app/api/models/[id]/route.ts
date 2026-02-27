@@ -8,7 +8,6 @@ import { serializeModelImages } from '@/lib/model-images'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { resolveModelPricing, estimatePricingDetails } from '@/lib/pricing'
 import { computeEffectivePriceUsd } from '@/lib/pricing-cache'
-import { extractAmazonAsin, buildAmazonImageUrl } from '@/lib/amazon'
 import { commentInclude, findVerifiedCommentUserIds, serializeComment } from '@/lib/comments'
 import { computeStlStatsMm } from '@/lib/stl'
 import { updateModelPricingForModel } from '@/lib/model-pricing'
@@ -196,11 +195,6 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     })
     : null
   const totalPriceForParts = pricingSummary.salePriceUsd ?? totalPricing?.price ?? pricingSummary.priceUsd ?? null
-  let affiliateImage: string | null = null
-  if (rest.affiliateUrl) {
-    const asin = extractAmazonAsin(rest.affiliateUrl)
-    if (asin) affiliateImage = buildAmazonImageUrl(asin)
-  }
   const verifiedComments = await findVerifiedCommentUserIds(model.id, (comments || []).map((c: any) => c.userId))
   const isMultipart = parts.length > 1
   return NextResponse.json({
@@ -212,7 +206,6 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
       basePriceUsd: pricingSummary.basePriceUsd,
       salePriceUsd: pricingSummary.salePriceUsd,
       pricing: pricingSummary.breakdown,
-      affiliateImage,
       tags,
       parts: parts.map((part) => {
         const rawPrice = part.priceUsd != null ? Number(part.priceUsd) : null

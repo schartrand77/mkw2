@@ -81,6 +81,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   const quickMenuRef = useRef<HTMLDivElement | null>(null)
   const mobileNavRef = useRef<HTMLDivElement | null>(null)
   const hamburgerRef = useRef<HTMLButtonElement | null>(null)
+  const sidebarRef = useRef<HTMLElement | null>(null)
   const { count } = useCart()
   const inAdmin = pathname.startsWith('/admin')
   const desktopSidebarOpen = !desktopCollapsed
@@ -178,6 +179,16 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       if (menuRef.current && !menuRef.current.contains(target)) setMenuOpen(false)
       if (quickMenuRef.current && !quickMenuRef.current.contains(target)) setQuickMenuOpen(false)
       if (
+        !isMobileViewport &&
+        desktopSidebarOpen &&
+        sidebarRef.current &&
+        !sidebarRef.current.contains(target) &&
+        hamburgerRef.current &&
+        !hamburgerRef.current.contains(target)
+      ) {
+        setDesktopCollapsed(true)
+      }
+      if (
         mobileNavRef.current &&
         !mobileNavRef.current.contains(target) &&
         hamburgerRef.current &&
@@ -188,7 +199,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
-  }, [])
+  }, [desktopSidebarOpen, isMobileViewport])
 
   const [theme, setTheme] = useState<'light' | 'dark'>('dark')
   useEffect(() => {
@@ -504,6 +515,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
 
       <aside
         id="app-sidebar"
+        ref={sidebarRef}
         className={`app-sidebar ${desktopCollapsed ? 'app-sidebar-collapsed' : ''} ${!isMobileViewport && desktopSidebarOpen ? 'app-sidebar-open' : ''}`}
         style={isMobileViewport ? { display: 'none' } : undefined}
       >

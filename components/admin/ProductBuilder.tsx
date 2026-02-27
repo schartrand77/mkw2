@@ -112,6 +112,28 @@ const normalizeColorName = (entry: StockworksColor | string) => {
   return name || hex
 }
 
+const getOptionColor = (option: OptionRow) => (option.value || option.label || '').trim()
+
+const sanitizeColorOptions = (rows: OptionRow[] | null | undefined, fallbackColorCount: number): OptionRow[] => {
+  if (!Array.isArray(rows)) return []
+  const output: OptionRow[] = []
+  const seen = new Set<string>()
+  for (const row of rows) {
+    const color = getOptionColor(row)
+    if (!color) continue
+    const key = color.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    output.push({
+      label: row.label?.trim() || color,
+      value: color,
+      colorCount: Math.max(1, Math.round(row.colorCount ?? fallbackColorCount)),
+      priceMultiplier: row.priceMultiplier == null ? 1 : row.priceMultiplier,
+    })
+  }
+  return output
+}
+
 export default function ProductBuilder({ initialProducts, models }: Props) {
   const [products, setProducts] = useState<ProductTemplate[]>(initialProducts)
   const [activeId, setActiveId] = useState<string>(initialProducts[0]?.id || '')
@@ -161,7 +183,7 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
     return output.length ? output : defaults
   }, [stockworksPalette])
 
-  const colorOptions = useMemo(() => {
+  const paletteColorOptions = useMemo(() => {
     const activeMaterial = normalizeMaterialName(form.lockedMaterial)
     const palette = stockworksPalette?.materials?.[activeMaterial]
     const combined = [
@@ -179,17 +201,67 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
     }
     return output
   }, [form.lockedMaterial, stockworksPalette])
+  const [customColorOption, setCustomColorOption] = useState('')
+  const selectedColorOptions = useMemo(
+    () => sanitizeColorOptions(form.colorOptions, Math.max(1, Math.round(form.lockedColorCount ?? 1))),
+    [form.colorOptions, form.lockedColorCount],
+  )
+  const selectedColorKeys = useMemo(
+    () => new Set(selectedColorOptions.map((row) => getOptionColor(row).toLowerCase())),
+    [selectedColorOptions],
+  )
 
   const selectProduct = (id: string) => {
     const target = products.find((p) => p.id === id)
     if (!target) return
     setActiveId(id)
     setForm({ ...target })
+    setCustomColorOption('')
     setMessage(null)
     setError(null)
   }
 
   const updateField = (patch: Partial<ProductTemplate>) => setForm((prev) => ({ ...prev, ...patch }))
+
+  const setColorOptions = (rows: OptionRow[]) => {
+    setForm((prev) => {
+      const fallbackCount = Math.max(1, Math.round(prev.lockedColorCount ?? 1))
+      const sanitized = sanitizeColorOptions(rows, fallbackCount)
+      const current = (prev.lockedColor || '').trim()
+      const hasCurrent = current
+        ? sanitized.some((row) => getOptionColor(row).toLowerCase() === current.toLowerCase())
+        : false
+      const nextLockedColor = hasCurrent ? current : (sanitized[0] ? getOptionColor(sanitized[0]) : prev.lockedColor)
+      return {
+        ...prev,
+        colorOptions: sanitized,
+        lockedColor: nextLockedColor || null,
+      }
+    })
+  }
+
+  const toggleColorOption = (color: string, checked: boolean) => {
+    const normalized = color.trim()
+    if (!normalized) return
+    const next = checked
+      ? [...selectedColorOptions, { label: normalized, value: normalized, colorCount: lockedColorCount, priceMultiplier: 1 }]
+      : selectedColorOptions.filter((row) => getOptionColor(row).toLowerCase() !== normalized.toLowerCase())
+    setColorOptions(next)
+  }
+
+  const addCustomColorOption = () => {
+    const normalized = customColorOption.trim()
+    if (!normalized) return
+    if (selectedColorKeys.has(normalized.toLowerCase())) {
+      setCustomColorOption('')
+      return
+    }
+    setColorOptions([
+      ...selectedColorOptions,
+      { label: normalized, value: normalized, colorCount: lockedColorCount, priceMultiplier: 1 },
+    ])
+    setCustomColorOption('')
+  }
 
   const saveProduct = async () => {
     if (!form.title.trim()) {
@@ -215,6 +287,7 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
         priceMultiplier: lockedPriceMultiplier,
       })
 
+      const normalizedColorOptions = sanitizeColorOptions(form.colorOptions, lockedColorCount)
       const payload = {
         title: form.title.trim(),
         description: form.description?.trim() || null,
@@ -237,7 +310,7 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
         lockedFinish: lockedTemplate.finish,
         lockedPriceMultiplier: lockedTemplate.priceMultiplier,
         materialOptions: lockedTemplate.materialOptions,
-        colorOptions: lockedTemplate.colorOptions,
+        colorOptions: normalizedColorOptions.length > 0 ? normalizedColorOptions : lockedTemplate.colorOptions,
         sizeOptions: lockedTemplate.sizeOptions,
         isActive: form.isActive,
       }
@@ -270,6 +343,7 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
   const newTemplate = () => {
     setActiveId('')
     setForm(emptyProduct())
+    setCustomColorOption('')
     setMessage(null)
     setError(null)
   }
@@ -345,7 +419,7 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Product Builder</h1>
-            <p className="text-xs text-slate-400">Set a locked production configuration. Customers can only edit engraving text and quantity.</p>
+            <p className="text-xs text-slate-400">Set production defaults and shopper color choices for a single listing.</p>
           </div>
           <div className="flex gap-2">
             {form.id && (
@@ -424,7 +498,7 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
         <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-4">
           <div>
             <h2 className="text-sm font-semibold">2. Locked Product Configuration</h2>
-            <p className="text-xs text-slate-400">This is the exact config used at checkout. StockWorks sync writes this product into the `models` category.</p>
+            <p className="text-xs text-slate-400">Choose defaults and available color variants. StockWorks sync writes this product into the `models` category.</p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <label className="text-sm space-y-1">
@@ -448,14 +522,17 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
             </label>
 
             <label className="text-sm space-y-1">
-              <span className="text-slate-400">Color from StockWorks</span>
+              <span className="text-slate-400">Default color</span>
               <select
                 className="input"
                 value={form.lockedColor || ''}
                 onChange={(e) => updateField({ lockedColor: e.target.value || null })}
               >
                 <option value="">No color selected...</option>
-                {colorOptions.map((color) => (
+                {(selectedColorOptions.length > 0
+                  ? selectedColorOptions.map((row) => getOptionColor(row))
+                  : paletteColorOptions
+                ).map((color) => (
                   <option key={color} value={color}>{color}</option>
                 ))}
               </select>
@@ -469,9 +546,79 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
                 min={1}
                 max={16}
                 value={lockedColorCount}
-                onChange={(e) => updateField({ lockedColorCount: Math.max(1, Math.round(Number(e.target.value) || 1)) })}
+                onChange={(e) => {
+                  const nextColorCount = Math.max(1, Math.round(Number(e.target.value) || 1))
+                  setForm((prev) => ({
+                    ...prev,
+                    lockedColorCount: nextColorCount,
+                    colorOptions: Array.isArray(prev.colorOptions)
+                      ? prev.colorOptions.map((row) => ({ ...row, colorCount: nextColorCount }))
+                      : prev.colorOptions,
+                  }))
+                }}
               />
             </label>
+
+            <div className="text-sm space-y-2 md:col-span-2">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Available customer colors</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded border border-white/10 hover:border-white/30"
+                    onClick={() => setColorOptions(paletteColorOptions.map((color) => ({ label: color, value: color, colorCount: lockedColorCount, priceMultiplier: 1 })))}
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded border border-white/10 hover:border-white/30"
+                    onClick={() => setColorOptions([])}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-black/25 p-3 space-y-2 max-h-44 overflow-auto">
+                {paletteColorOptions.length === 0 ? (
+                  <p className="text-xs text-slate-500">No StockWorks colors found for this material.</p>
+                ) : (
+                  paletteColorOptions.map((color) => (
+                    <label key={color} className="flex items-center gap-2 text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={selectedColorKeys.has(color.toLowerCase())}
+                        onChange={(e) => toggleColorOption(color, e.target.checked)}
+                      />
+                      <span>{color}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  className="input text-sm"
+                  placeholder="Add custom color name"
+                  value={customColorOption}
+                  onChange={(e) => setCustomColorOption(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter') return
+                    e.preventDefault()
+                    addCustomColorOption()
+                  }}
+                />
+                <button
+                  type="button"
+                  className="text-xs px-3 py-2 rounded border border-white/10 hover:border-white/30"
+                  onClick={addCustomColorOption}
+                >
+                  Add
+                </button>
+              </div>
+              <p className="text-xs text-slate-500">
+                Selected: {selectedColorOptions.length > 0 ? selectedColorOptions.map((row) => row.label || getOptionColor(row)).join(', ') : 'None'}
+              </p>
+            </div>
 
             <label className="text-sm space-y-1">
               <span className="text-slate-400">Finish</span>

@@ -63,10 +63,20 @@ export async function GET(req: NextRequest) {
   }
 
   const headers = { Cookie: sessionCookie }
-  const [materialsRes, inventoryRes] = await Promise.all([
-    fetch(`${baseUrl}/materials`, { headers, cache: 'no-store' }),
-    fetch(`${baseUrl}/inventory`, { headers, cache: 'no-store' }),
-  ])
+  let materialsRes: Response
+  let inventoryRes: Response
+  try {
+    ;[materialsRes, inventoryRes] = await Promise.all([
+      fetch(`${baseUrl}/materials`, { headers, cache: 'no-store' }),
+      fetch(`${baseUrl}/inventory`, { headers, cache: 'no-store' }),
+    ])
+  } catch {
+    return NextResponse.json({
+      enabled: false,
+      materials: {},
+      error: 'StockWorks request failed.',
+    })
+  }
 
   if (!materialsRes.ok || !inventoryRes.ok) {
     return NextResponse.json({
@@ -76,8 +86,20 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  const materials = (await materialsRes.json()) as StockworksMaterial[]
-  const inventory = (await inventoryRes.json()) as StockworksInventoryItem[]
+  let materials: StockworksMaterial[] = []
+  let inventory: StockworksInventoryItem[] = []
+  try {
+    const materialsRaw = await materialsRes.json()
+    const inventoryRaw = await inventoryRes.json()
+    materials = Array.isArray(materialsRaw) ? (materialsRaw as StockworksMaterial[]) : []
+    inventory = Array.isArray(inventoryRaw) ? (inventoryRaw as StockworksInventoryItem[]) : []
+  } catch {
+    return NextResponse.json({
+      enabled: false,
+      materials: {},
+      error: 'StockWorks returned invalid JSON.',
+    })
+  }
   const materialById = new Map<number, StockworksMaterial>()
   for (const material of materials) {
     if (typeof material.id === 'number') {
