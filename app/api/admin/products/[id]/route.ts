@@ -95,8 +95,10 @@ export async function PATCH(req: Request, { params }: RouteContext) {
         lockedScale: true,
         lockedFinish: true,
         lockedPriceMultiplier: true,
+        colorOptions: true,
         stockworksMaterialId: true,
         stockworksInventoryItemId: true,
+        stockworksVariantMap: true,
       },
     })
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -151,13 +153,16 @@ export async function PATCH(req: Request, { params }: RouteContext) {
     })
     let stockworksMaterialIdPatch: number | null | undefined = undefined
     let stockworksInventoryItemIdPatch: number | null | undefined = undefined
+    let stockworksVariantMapPatch: unknown | undefined = undefined
     let stockworksWarning: string | null = null
 
     try {
       const synced = await syncProductTemplateToStockworks({
+        productTemplateId: existing.id,
         title: nextTitle,
         material: nextLockedMaterial,
         color: nextLockedColor,
+        colorOptions: parsed.colorOptions ?? existing.colorOptions,
         category: nextStockworksCategory,
         sku: nextStockworksSku,
         designer: nextStockworksDesigner,
@@ -169,9 +174,11 @@ export async function PATCH(req: Request, { params }: RouteContext) {
         notes: nextStockworksNotes,
         stockworksMaterialId: existing.stockworksMaterialId,
         stockworksInventoryItemId: existing.stockworksInventoryItemId,
+        stockworksVariantMap: existing.stockworksVariantMap,
       })
       stockworksMaterialIdPatch = synced.materialId ?? null
       stockworksInventoryItemIdPatch = synced.inventoryItemId ?? null
+      stockworksVariantMapPatch = synced.variantMap
     } catch (err: any) {
       stockworksWarning = err?.message || 'Failed to sync product with StockWorks inventory models.'
     }
@@ -203,6 +210,7 @@ export async function PATCH(req: Request, { params }: RouteContext) {
         isActive: parsed.isActive ?? undefined,
         stockworksMaterialId: stockworksMaterialIdPatch,
         stockworksInventoryItemId: stockworksInventoryItemIdPatch,
+        stockworksVariantMap: stockworksVariantMapPatch as any,
       },
     })
     const hydrated = await prisma.productTemplate.findUnique({
@@ -234,7 +242,7 @@ export async function DELETE(req: Request, { params }: RouteContext) {
   try {
     const existing = await prisma.productTemplate.findUnique({
       where: { id },
-      select: { stockworksMaterialId: true, stockworksInventoryItemId: true },
+      select: { stockworksMaterialId: true, stockworksInventoryItemId: true, stockworksVariantMap: true },
     })
     await prisma.productTemplate.delete({ where: { id } })
     let stockworksWarning: string | null = null

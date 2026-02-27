@@ -7,7 +7,7 @@ const LazyModelViewer = dynamic(() => import('./ModelViewer'), { ssr: false })
 
 type Part = { id: string; name: string; filePath: string; previewFilePath?: string | null }
 
-type GalleryImage = { id: string; filePath: string; caption?: string | null }
+type GalleryImage = { id: string; filePath: string; caption?: string | null; status?: string | null }
 
 type Props = {
   coverSrc?: string | null
@@ -32,6 +32,7 @@ export default function Gallery({ coverSrc, parts = [], allSrc, allFallbackSrc, 
     if (coverSrc) arr.push({ key: 'image:cover', label: 'Cover', kind: 'image', src: coverSrc })
     if (images.length > 0) {
       images.forEach((img, idx) => {
+        if (img.status && img.status !== 'ready') return
         const src = toPublicHref(img.filePath)
         if (!src) return
         const label = img.caption?.trim() || `Photo ${idx + 1}`

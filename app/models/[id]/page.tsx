@@ -41,7 +41,9 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   const viewerPath = typeof model.viewerFilePath === 'string' ? model.viewerFilePath : null
   const viewerHref = toPublicHref(viewerPath || filePath)
   const viewerFallbackHref = null
-  const coverHref = buildImageSrc(model.coverImagePath, model.updatedAt)
+  const coverHref = model.coverImageStatus === 'ready'
+    ? buildImageSrc(model.coverImagePath, model.updatedAt)
+    : null
   const hasParts = Array.isArray(model.parts) && model.parts.length > 0
   const downloadsEnabled = model.downloadsEnabled !== false
   const partParam = resolvedSearchParams?.part
@@ -75,12 +77,15 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   const canEdit = !!(payload?.sub && (payload.sub === model.userId || me?.isAdmin))
   const canModerateComments = !!me?.isAdmin
   const coverProcessing = model.coverImageStatus === 'processing'
+  const galleryProcessing = Array.isArray(model.images)
+    ? model.images.some((img: any) => img?.status === 'processing')
+    : false
   const previewProcessing = typeof model.previewProcessing === 'boolean'
     ? model.previewProcessing
     : Array.isArray(model.parts)
       ? model.parts.some((part: any) => String(part.filePath || '').toLowerCase().endsWith('.3mf') && !part.previewFilePath)
       : false
-  const isProcessing = coverProcessing || previewProcessing
+  const isProcessing = coverProcessing || galleryProcessing || previewProcessing
   return (
     <div className="max-w-5xl mx-auto min-w-0 space-y-5">
       <div>
@@ -97,7 +102,9 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
               ? 'Cover image and 3MF previews are processing in the background.'
               : coverProcessing
                 ? 'Cover image is processing in the background.'
-                : '3MF previews are processing in the background.'}
+                : galleryProcessing
+                  ? 'Gallery photos are processing in the background.'
+                  : '3MF previews are processing in the background.'}
             {' '}We will email you when everything is ready.
           </p>
         </div>
@@ -107,6 +114,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           modelId={model.id}
           enabled={canEdit}
           initialCoverProcessing={coverProcessing}
+          initialGalleryProcessing={galleryProcessing}
           initialPreviewProcessing={previewProcessing}
         />
       )}

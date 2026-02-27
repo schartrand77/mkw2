@@ -1,4 +1,4 @@
-import { stockworksFetch, stockworksJson } from '@/lib/stockworks-client'
+import { stockworksErrorMessage, stockworksFetch, stockworksJson } from '@/lib/stockworks-client'
 import { prisma } from '@/lib/db'
 import { buildLockedTemplateOptions } from '@/lib/product-template-config'
 
@@ -26,10 +26,40 @@ type StockworksInventoryItem = {
   location?: string | null
 }
 
+type StockworksPrintModel = {
+  id: number
+  name?: string | null
+  category?: string | null
+  sku?: string | null
+  designer?: string | null
+  platform?: string | null
+  file_location?: string | null
+  version?: string | null
+  unit_price?: number | null
+  active?: boolean | null
+  notes?: string | null
+}
+
+type StockworksListResponse<T> = {
+  items?: T[]
+  results?: T[]
+  data?: T[]
+}
+
+export type ProductVariantMapEntry = {
+  key: string
+  color: string
+  materialId: number
+  inventoryItemId: number | null
+  modelId?: number | null
+}
+
 type ProductSyncInput = {
+  productTemplateId?: string | null
   title: string
   material?: string | null
   color?: string | null
+  colorOptions?: unknown
   category?: string | null
   sku?: string | null
   designer?: string | null
@@ -41,6 +71,7 @@ type ProductSyncInput = {
   notes?: string | null
   stockworksMaterialId?: number | null
   stockworksInventoryItemId?: number | null
+  stockworksVariantMap?: unknown
 }
 
 type StockworksSyncSummary = {
@@ -51,6 +82,7 @@ type StockworksSyncSummary = {
 
 const MODELS_CATEGORY = 'models'
 const MODELS_LOCATION = 'models'
+const VARIANT_TAG = 'mwv2:template:'
 
 const normalize = (value?: string | null) => (value || '').trim().toLowerCase()
 const normalizeTitle = (value?: string | null) => (value || '').trim()
@@ -59,7 +91,7 @@ const normalizeCategory = (value?: string | null) => normalizeTitle(value) || 'U
 const normalizeStatus = (value?: string | null) => normalizeTitle(value) || 'Active'
 
 function normalizeStockworksError(path: string, response: Response, body: any) {
-  return Object.assign(new Error((body as any)?.detail || (body as any)?.error || `StockWorks ${path} failed`), {
+  return Object.assign(new Error(stockworksErrorMessage(body, `StockWorks ${path} failed`)), {
     status: response.status,
     payload: body,
   })
@@ -106,13 +138,132 @@ async function deleteStockworks(path: string) {
   throw normalizeStockworksError(path, response, body)
 }
 
+function sanitizeColorOptions(input: unknown): string[] {
+  if (!Array.isArray(input)) return []
+  const output: string[] = []
+  const seen = new Set<string>()
+  for (const entry of input) {
+    const row = entry as any
+    const value = normalizeTitle(typeof row === 'string' ? row : (row?.value || row?.label || ''))
+    if (!value) continue
+    const key = normalize(value)
+    if (seen.has(key)) continue
+    seen.add(key)
+    output.push(value)
+  }
+  return output
+}
+
+function normalizeVariantKey(color: string) {
+  const key = normalize(color)
+  return key || '__default__'
+}
+
+function normalizeVariantMap(input: unknown): ProductVariantMapEntry[] {
+  if (!Array.isArray(input)) return []
+  const output: ProductVariantMapEntry[] = []
+  for (const row of input) {
+    const entry = row as any
+    const key = normalizeTitle(entry?.key)
+    const color = normalizeTitle(entry?.color)
+    const materialId = Number(entry?.materialId)
+    const modelIdRaw = entry?.modelId
+    const modelId = modelIdRaw == null ? Number.NaN : Number(modelIdRaw)
+    const inventoryItemIdRaw = entry?.inventoryItemId
+    const inventoryItemId = inventoryItemIdRaw == null ? Number.NaN : Number(inventoryItemIdRaw)
+    if (!key || !color || !Number.isFinite(materialId) || materialId <= 0) continue
+    output.push({
+      key,
+      color,
+      materialId,
+      inventoryItemId: Number.isFinite(inventoryItemId) && inventoryItemId > 0 ? inventoryItemId : null,
+      modelId: Number.isFinite(modelId) && modelId > 0 ? modelId : null,
+    })
+  }
+  return output
+}
+
+function buildVariantTitle(baseTitle: string, color: string, useSuffix: boolean) {
+  if (!useSuffix || !color) return baseTitle
+  return `${baseTitle} - ${color}`.slice(0, 120)
+}
+
+function buildVariantSku(baseSku: string | null, color: string, fallbackId: string | null, idx: number) {
+  const colorKey = color.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 16) || `C${idx + 1}`
+  if (baseSku) return `${baseSku}-${colorKey}`.slice(0, 80)
+  if (!fallbackId) return null
+  const idKey = fallbackId.replace(/[^a-zA-Z0-9]/g, '').slice(-8) || 'MODEL'
+  return `${idKey}-${colorKey}`.slice(0, 80)
+}
+
+function buildVariantSystemNote(templateId: string | null, colorKey: string) {
+  if (!templateId) return null
+  return `${VARIANT_TAG}${templateId}|color:${colorKey}`
+}
+
+function mergeNotes(userNotes: string | null, systemNote: string | null) {
+  const cleaned = normalizeTitle(userNotes)
+  if (!systemNote) return cleaned || null
+  if (!cleaned) return systemNote
+  const withoutOld = cleaned
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.toLowerCase().startsWith(VARIANT_TAG))
+    .join('\n')
+  return [withoutOld, systemNote].filter(Boolean).join('\n').slice(0, 4000)
+}
+
+function hasManagedVariantTag(notes?: string | null) {
+  return normalizeTitle(notes).toLowerCase().includes(VARIANT_TAG)
+}
+
+function toBoolStatus(value?: string | null) {
+  const normalized = normalize(value)
+  return !['inactive', 'archived', 'disabled', 'draft'].includes(normalized)
+}
+
+async function listStockworksModels() {
+  const output: StockworksPrintModel[] = []
+  let offset = 0
+  const limit = 200
+  for (let i = 0; i < 50; i += 1) {
+    const page = await stockworksJson(`/models?limit=${limit}&offset=${offset}`)
+    const items = toList<StockworksPrintModel>(page)
+    output.push(...items)
+    const total = Number((page as any)?.total)
+    if (!Number.isFinite(total) || output.length >= total || items.length < limit) break
+    offset += limit
+  }
+  return output
+}
+
+function toList<T>(input: unknown): T[] {
+  if (Array.isArray(input)) return input as T[]
+  if (input && typeof input === 'object') {
+    const row = input as StockworksListResponse<T>
+    if (Array.isArray(row.items)) return row.items
+    if (Array.isArray(row.results)) return row.results
+    if (Array.isArray(row.data)) return row.data
+  }
+  return []
+}
+
+function compactPayload<T extends Record<string, unknown>>(payload: T): Partial<T> {
+  const out: Partial<T> = {}
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === null || value === undefined) continue
+    ;(out as any)[key] = value
+  }
+  return out
+}
+
 export async function syncProductTemplateToStockworks(input: ProductSyncInput) {
-  const materials = await stockworksJson('/materials') as StockworksMaterial[]
-  const inventory = await stockworksJson('/inventory') as StockworksInventoryItem[]
+  const materials = toList<StockworksMaterial>(await stockworksJson('/materials'))
+  const inventory = toList<StockworksInventoryItem>(await stockworksJson('/inventory'))
+  const models = await listStockworksModels()
 
   const requestedTitle = normalizeTitle(input.title)
   const requestedMaterial = normalizeMaterialType(input.material)
-  const requestedColor = (input.color || '').trim() || null
   const requestedCategory = normalizeCategory(input.category)
   const requestedStatus = normalizeStatus(input.status)
   const requestedUnitPrice = typeof input.unitPriceUsd === 'number' && Number.isFinite(input.unitPriceUsd)
@@ -124,118 +275,250 @@ export async function syncProductTemplateToStockworks(input: ProductSyncInput) {
   const requestedFileLocation = normalizeTitle(input.fileLocation) || null
   const requestedVersion = normalizeTitle(input.version) || null
   const requestedNotes = normalizeTitle(input.notes) || null
+  const requestedActive = toBoolStatus(input.status)
 
-  const existingMaterial = materials.find((entry) => {
-    if (!entry || typeof entry.id !== 'number') return false
-    if (input.stockworksMaterialId && entry.id === input.stockworksMaterialId) return true
-    return normalize(entry.category) === MODELS_CATEGORY && normalize(entry.name) === normalize(requestedTitle)
-  }) || null
+  const requestedColors = (() => {
+    const fromOptions = sanitizeColorOptions(input.colorOptions)
+    const lockedColor = normalizeTitle(input.color)
+    const output = [...fromOptions]
+    if (lockedColor && !output.some((entry) => normalize(entry) === normalize(lockedColor))) {
+      output.unshift(lockedColor)
+    }
+    if (output.length === 0) output.push(lockedColor || 'Standard')
+    return output.slice(0, 64)
+  })()
 
-  const extendedMaterialPayload = {
-    name: requestedTitle,
-    filament_type: requestedMaterial,
-    category: MODELS_CATEGORY,
-    model_category: requestedCategory,
-    color: requestedColor,
-    sku: requestedSku,
-    listing_id: requestedSku,
-    designer: requestedDesigner,
-    marketplace: requestedMarketplace,
-    file_location: requestedFileLocation,
-    version: requestedVersion,
-    unit_price: requestedUnitPrice,
-    status: requestedStatus,
-    notes: requestedNotes,
-  }
-  const legacyMaterialPayload = {
-    name: requestedTitle,
-    filament_type: requestedMaterial,
-    category: MODELS_CATEGORY,
-    color: requestedColor,
+  const priorVariantMap = normalizeVariantMap(input.stockworksVariantMap)
+  const priorByKey = new Map(priorVariantMap.map((entry) => [normalize(entry.key), entry]))
+
+  const inventoryByMaterial = new Map<number, number>()
+  for (const item of inventory) {
+    if (!item || typeof item.id !== 'number' || typeof item.material_id !== 'number') continue
+    if (normalize(item.location) !== MODELS_LOCATION) continue
+    if (!inventoryByMaterial.has(item.material_id)) inventoryByMaterial.set(item.material_id, item.id)
   }
 
-  let materialId = existingMaterial?.id || null
-  if (!materialId) {
-    let created: { id?: number } | null = null
-    try {
-      created = await postStockworks('/materials', extendedMaterialPayload) as { id?: number }
-    } catch (err: any) {
-      if (err?.status !== 400 && err?.status !== 422) throw err
-      created = await postStockworks('/materials', legacyMaterialPayload) as { id?: number }
-    }
-    if (!created?.id || !Number.isFinite(created.id)) {
-      throw new Error('StockWorks did not return a material id for the product template.')
-    }
-    materialId = created.id
-  } else if (existingMaterial) {
-    const shouldUpdateMaterial =
-      normalize(existingMaterial.name) !== normalize(requestedTitle)
-      || normalize(existingMaterial.filament_type) !== normalize(requestedMaterial)
-      || normalize(existingMaterial.category) !== MODELS_CATEGORY
-      || normalize(existingMaterial.color) !== normalize(requestedColor)
-      || normalize(existingMaterial.model_category) !== normalize(requestedCategory)
-      || normalize(existingMaterial.sku || existingMaterial.listing_id) !== normalize(requestedSku)
-      || normalize(existingMaterial.designer) !== normalize(requestedDesigner)
-      || normalize(existingMaterial.marketplace) !== normalize(requestedMarketplace)
-      || normalize(existingMaterial.file_location) !== normalize(requestedFileLocation)
-      || normalize(existingMaterial.version) !== normalize(requestedVersion)
-      || (typeof existingMaterial.unit_price === 'number' ? Number(existingMaterial.unit_price.toFixed(2)) : null) !== requestedUnitPrice
-      || normalize(existingMaterial.status) !== normalize(requestedStatus)
-      || normalize(existingMaterial.notes) !== normalize(requestedNotes)
-    if (shouldUpdateMaterial) {
+  const useSuffix = requestedColors.length > 1
+  const nextVariantMap: ProductVariantMapEntry[] = []
+
+  for (let idx = 0; idx < requestedColors.length; idx += 1) {
+    const color = requestedColors[idx]
+    const colorKey = normalizeVariantKey(color)
+    const prior = priorByKey.get(colorKey)
+    const variantTitle = buildVariantTitle(requestedTitle, color, useSuffix)
+    const variantSku = buildVariantSku(requestedSku, color, input.productTemplateId || null, idx)
+    const systemNote = buildVariantSystemNote(input.productTemplateId || null, colorKey)
+    const mergedNotes = mergeNotes(requestedNotes, systemNote)
+    const modelSystemNote = `${systemNote}|kind:model`
+    const mergedModelNotes = mergeNotes(requestedNotes, modelSystemNote)
+
+    const existingMaterial = materials.find((entry) => {
+      if (!entry || typeof entry.id !== 'number') return false
+      if (prior?.materialId && entry.id === prior.materialId) return true
+      return normalize(entry.category) === MODELS_CATEGORY
+        && normalize(entry.name) === normalize(variantTitle)
+        && normalize(entry.color) === normalize(color)
+    }) || null
+    const existingModel = models.find((entry) => {
+      if (!entry || typeof entry.id !== 'number') return false
+      if (prior?.modelId && entry.id === prior.modelId) return true
+      if (variantSku && normalize(entry.sku) === normalize(variantSku)) return true
+      return normalize(entry.name) === normalize(variantTitle) && normalize(entry.notes) === normalize(mergedModelNotes)
+    }) || null
+
+    const extendedMaterialPayload = compactPayload({
+      name: variantTitle,
+      filament_type: requestedMaterial,
+      category: MODELS_CATEGORY,
+      model_category: requestedCategory,
+      color,
+      sku: variantSku,
+      listing_id: variantSku,
+      designer: requestedDesigner,
+      marketplace: requestedMarketplace,
+      file_location: requestedFileLocation,
+      version: requestedVersion,
+      unit_price: requestedUnitPrice,
+      status: requestedStatus,
+      notes: mergedNotes,
+    })
+    const legacyMaterialPayload = compactPayload({
+      name: variantTitle,
+      filament_type: requestedMaterial,
+      category: MODELS_CATEGORY,
+      color,
+      notes: mergedNotes,
+    })
+    const modelCreatePayload = compactPayload({
+      name: variantTitle,
+      category: requestedCategory,
+      sku: variantSku,
+      designer: requestedDesigner,
+      platform: requestedMarketplace,
+      file_location: requestedFileLocation,
+      version: requestedVersion,
+      unit_price: requestedUnitPrice ?? 0,
+      active: requestedActive,
+      notes: mergedModelNotes,
+    })
+    const modelUpdatePayload = compactPayload({
+      name: variantTitle,
+      category: requestedCategory,
+      sku: variantSku,
+      designer: requestedDesigner,
+      platform: requestedMarketplace,
+      file_location: requestedFileLocation,
+      version: requestedVersion,
+      unit_price: requestedUnitPrice ?? 0,
+      active: requestedActive,
+      notes: mergedModelNotes,
+    })
+
+    let materialId = existingMaterial?.id || null
+    if (!materialId) {
+      let created: { id?: number } | null = null
       try {
-        await patchStockworks(`/materials/${materialId}`, extendedMaterialPayload)
+        created = await postStockworks('/materials', extendedMaterialPayload) as { id?: number }
       } catch (err: any) {
-        if (err?.status !== 400 && err?.status !== 422) throw err
-        await patchStockworks(`/materials/${materialId}`, legacyMaterialPayload)
+        // Some StockWorks builds reject extended fields with non-4xx parser/runtime errors.
+        // Fall back to minimal payload before failing.
+        if (err?.status === 401 || err?.status === 403) throw err
+        created = await postStockworks('/materials', legacyMaterialPayload) as { id?: number }
+      }
+      if (!created?.id || !Number.isFinite(created.id)) {
+        throw new Error(`StockWorks did not return a material id for product color ${color}.`)
+      }
+      materialId = created.id
+    } else if (existingMaterial) {
+      const shouldUpdateMaterial =
+        normalize(existingMaterial.name) !== normalize(variantTitle)
+        || normalize(existingMaterial.filament_type) !== normalize(requestedMaterial)
+        || normalize(existingMaterial.category) !== MODELS_CATEGORY
+        || normalize(existingMaterial.color) !== normalize(color)
+        || normalize(existingMaterial.model_category) !== normalize(requestedCategory)
+        || normalize(existingMaterial.sku || existingMaterial.listing_id) !== normalize(variantSku)
+        || normalize(existingMaterial.designer) !== normalize(requestedDesigner)
+        || normalize(existingMaterial.marketplace) !== normalize(requestedMarketplace)
+        || normalize(existingMaterial.file_location) !== normalize(requestedFileLocation)
+        || normalize(existingMaterial.version) !== normalize(requestedVersion)
+        || (typeof existingMaterial.unit_price === 'number' ? Number(existingMaterial.unit_price.toFixed(2)) : null) !== requestedUnitPrice
+        || normalize(existingMaterial.status) !== normalize(requestedStatus)
+        || normalize(existingMaterial.notes) !== normalize(mergedNotes)
+      if (shouldUpdateMaterial) {
+        try {
+          await patchStockworks(`/materials/${materialId}`, extendedMaterialPayload)
+        } catch (err: any) {
+          if (err?.status === 401 || err?.status === 403) throw err
+          await patchStockworks(`/materials/${materialId}`, legacyMaterialPayload)
+        }
       }
     }
-  }
 
-  const existingInventory = inventory.find((entry) => {
-    if (!entry || typeof entry.id !== 'number') return false
-    if (input.stockworksInventoryItemId && entry.id === input.stockworksInventoryItemId) return true
-    return entry.material_id === materialId && normalize(entry.location) === MODELS_LOCATION
-  }) || null
-
-  let inventoryItemId = existingInventory?.id || null
-  if (!inventoryItemId && materialId) {
-    const createdInventory = await postStockworks('/inventory', {
-      material_id: materialId,
-      location: MODELS_LOCATION,
-      quantity_grams: 0,
-      reorder_level: 0,
-    }) as { id?: number }
-    if (!createdInventory?.id || !Number.isFinite(createdInventory.id)) {
-      throw new Error('StockWorks did not return an inventory id for the product template.')
+    let inventoryItemId = inventoryByMaterial.get(materialId) || null
+    if (!inventoryItemId) {
+      const createdInventory = await postStockworks('/inventory', {
+        material_id: materialId,
+        location: MODELS_LOCATION,
+        quantity_grams: 0,
+        reorder_level: 0,
+      }) as { id?: number }
+      if (!createdInventory?.id || !Number.isFinite(createdInventory.id)) {
+        throw new Error(`StockWorks did not return an inventory id for product color ${color}.`)
+      }
+      inventoryItemId = createdInventory.id
+      inventoryByMaterial.set(materialId, inventoryItemId)
     }
-    inventoryItemId = createdInventory.id
+    let modelId = existingModel?.id || null
+    if (!modelId) {
+      const createdModel = await postStockworks('/models', modelCreatePayload) as { id?: number }
+      if (!createdModel?.id || !Number.isFinite(createdModel.id)) {
+        throw new Error(`StockWorks did not return a model id for product color ${color}.`)
+      }
+      modelId = createdModel.id
+    } else if (existingModel) {
+      const shouldUpdateModel =
+        normalize(existingModel.name) !== normalize(variantTitle)
+        || normalize(existingModel.category) !== normalize(requestedCategory)
+        || normalize(existingModel.sku) !== normalize(variantSku)
+        || normalize(existingModel.designer) !== normalize(requestedDesigner)
+        || normalize(existingModel.platform) !== normalize(requestedMarketplace)
+        || normalize(existingModel.file_location) !== normalize(requestedFileLocation)
+        || normalize(existingModel.version) !== normalize(requestedVersion)
+        || (typeof existingModel.unit_price === 'number' ? Number(existingModel.unit_price.toFixed(2)) : null) !== (requestedUnitPrice ?? 0)
+        || Boolean(existingModel.active ?? true) !== requestedActive
+        || normalize(existingModel.notes) !== normalize(mergedModelNotes)
+      if (shouldUpdateModel) {
+        await patchStockworks(`/models/${modelId}`, modelUpdatePayload)
+      }
+    }
+
+    nextVariantMap.push({
+      key: colorKey,
+      color,
+      materialId,
+      inventoryItemId,
+      modelId,
+    })
   }
 
-  return { materialId, inventoryItemId }
+  const liveKeys = new Set(nextVariantMap.map((entry) => normalize(entry.key)))
+  for (const entry of priorVariantMap) {
+    if (liveKeys.has(normalize(entry.key))) continue
+    if (entry.inventoryItemId) await deleteStockworks(`/inventory/${entry.inventoryItemId}`)
+    if (entry.materialId) await deleteStockworks(`/materials/${entry.materialId}`)
+    if (entry.modelId) await deleteStockworks(`/models/${entry.modelId}`)
+  }
+
+  const preferredColorKey = normalizeVariantKey(normalizeTitle(input.color) || requestedColors[0])
+  const preferredVariant = nextVariantMap.find((entry) => normalize(entry.key) === normalize(preferredColorKey)) || nextVariantMap[0] || null
+
+  return {
+    materialId: preferredVariant?.materialId ?? null,
+    inventoryItemId: preferredVariant?.inventoryItemId ?? null,
+    variantMap: nextVariantMap,
+  }
 }
 
 export async function unlinkProductTemplateFromStockworks(input: {
   stockworksMaterialId?: number | null
   stockworksInventoryItemId?: number | null
+  stockworksVariantMap?: unknown
 }) {
-  if (input.stockworksInventoryItemId) {
-    await deleteStockworks(`/inventory/${input.stockworksInventoryItemId}`)
+  const variants = normalizeVariantMap(input.stockworksVariantMap)
+  const inventoryIds = new Set<number>()
+  const materialIds = new Set<number>()
+  const modelIds = new Set<number>()
+
+  if (input.stockworksInventoryItemId) inventoryIds.add(input.stockworksInventoryItemId)
+  if (input.stockworksMaterialId) materialIds.add(input.stockworksMaterialId)
+
+  for (const entry of variants) {
+    if (entry.inventoryItemId) inventoryIds.add(entry.inventoryItemId)
+    if (entry.materialId) materialIds.add(entry.materialId)
+    if (entry.modelId) modelIds.add(entry.modelId)
   }
-  if (input.stockworksMaterialId) {
-    await deleteStockworks(`/materials/${input.stockworksMaterialId}`)
+
+  for (const inventoryItemId of inventoryIds) {
+    await deleteStockworks(`/inventory/${inventoryItemId}`)
+  }
+  for (const materialId of materialIds) {
+    await deleteStockworks(`/materials/${materialId}`)
+  }
+  for (const modelId of modelIds) {
+    await deleteStockworks(`/models/${modelId}`)
   }
 }
 
 export async function syncStockworksModelsToProductTemplates(): Promise<StockworksSyncSummary> {
-  const materials = await stockworksJson('/materials') as StockworksMaterial[]
-  const inventory = await stockworksJson('/inventory') as StockworksInventoryItem[]
+  const materials = toList<StockworksMaterial>(await stockworksJson('/materials'))
+  const inventory = toList<StockworksInventoryItem>(await stockworksJson('/inventory'))
 
   const modelMaterials = materials.filter((entry) =>
     entry
     && typeof entry.id === 'number'
     && normalize(entry.category) === MODELS_CATEGORY
-    && Boolean(normalizeTitle(entry.name)),
+    && Boolean(normalizeTitle(entry.name))
+    && !hasManagedVariantTag(entry.notes),
   )
   const materialIds = modelMaterials.map((entry) => entry.id)
   const materialNames = modelMaterials

@@ -20,6 +20,12 @@ type StockworksInventoryItem = {
   location?: string | null
 }
 
+type StockworksListResponse<T> = {
+  items?: T[]
+  results?: T[]
+  data?: T[]
+}
+
 export type MerchVariantMapEntry = {
   key: string
   size: string
@@ -151,6 +157,17 @@ function normalizeVariantMap(input: unknown): MerchVariantMapEntry[] {
   return output
 }
 
+function toList<T>(input: unknown): T[] {
+  if (Array.isArray(input)) return input as T[]
+  if (input && typeof input === 'object') {
+    const row = input as StockworksListResponse<T>
+    if (Array.isArray(row.items)) return row.items
+    if (Array.isArray(row.results)) return row.results
+    if (Array.isArray(row.data)) return row.data
+  }
+  return []
+}
+
 export async function syncMerchItemToStockworks(input: {
   id: string
   title: string
@@ -174,8 +191,8 @@ export async function syncMerchItemToStockworks(input: {
   const priorMap = normalizeVariantMap(input.stockworksVariantMap)
   const priorByKey = new Map(priorMap.map((entry) => [normalize(entry.key), entry]))
 
-  const materials = await stockworksJson('/materials') as StockworksMaterial[]
-  const inventory = await stockworksJson('/inventory') as StockworksInventoryItem[]
+  const materials = toList<StockworksMaterial>(await stockworksJson('/materials'))
+  const inventory = toList<StockworksInventoryItem>(await stockworksJson('/inventory'))
   const inventoryByMaterial = new Map<number, StockworksInventoryItem>()
   for (const row of inventory) {
     if (!row || typeof row.id !== 'number' || typeof row.material_id !== 'number') continue

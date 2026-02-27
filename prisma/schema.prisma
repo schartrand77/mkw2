@@ -310,6 +310,7 @@ model ProductTemplate {
   lockedPriceMultiplier Float @default(1)
   stockworksMaterialId Int?
   stockworksInventoryItemId Int?
+  stockworksVariantMap Json?
   materialOptions Json?
   colorOptions Json?
   sizeOptions  Json?

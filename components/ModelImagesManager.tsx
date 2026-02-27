@@ -21,7 +21,7 @@ function normalizeTurns(value: number) {
   return mod > 2 ? mod - 4 : mod
 }
 
-type ModelImage = { id: string; filePath: string; caption: string | null }
+type ModelImage = { id: string; filePath: string; caption: string | null; status?: string | null; error?: string | null }
 
 type Props = {
   modelId: string
@@ -305,7 +305,8 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
         {galleryImages.length === 0 && <p className="text-sm text-slate-400">No additional gallery images uploaded yet.</p>}
         <div className="grid md:grid-cols-2 gap-4">
           {galleryImages.map((img) => {
-            const publicSrc = toPublicHref(img.filePath)
+            const isReady = !img.status || img.status === 'ready'
+            const publicSrc = isReady ? toPublicHref(img.filePath) : null
             const displaySrc = publicSrc ? `${publicSrc}?v=${cacheBuster}` : null
             const turns = pendingRotations[img.id] || 0
             const savingThis = savingRotationId === img.id
@@ -321,10 +322,18 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
                     />
                   </div>
                 ) : (
-                  <div className="w-full aspect-video bg-slate-900/60 flex items-center justify-center text-slate-500 text-sm">Image unavailable</div>
+                  <div className="w-full aspect-video bg-slate-900/60 flex items-center justify-center text-slate-500 text-sm px-4 text-center">
+                    {img.status === 'processing'
+                      ? 'Image is processing.'
+                      : img.status === 'failed'
+                        ? 'Image processing failed.'
+                        : 'Image unavailable'}
+                  </div>
                 )}
                 <div className="p-3 space-y-2">
                   {coverPath === img.filePath && <span className="text-xs px-2 py-0.5 rounded-full bg-brand-600/20 text-brand-200 border border-brand-500/40">Cover</span>}
+                  {img.status === 'processing' && <p className="text-[11px] text-amber-300">Upload is still processing. The public page will show it when ready.</p>}
+                  {img.status === 'failed' && <p className="text-[11px] text-red-300">{img.error || 'Processing failed for this image.'}</p>}
                   <input
                     className="input"
                     value={captionDrafts[img.id] ?? ''}
@@ -332,7 +341,14 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
                   />
                   <div className="flex gap-2 text-sm">
                     <button type="button" className="btn flex-1" onClick={() => updateCaption(img.id)}>Save caption</button>
-                    <button type="button" className="px-3 py-2 rounded-md border border-white/10 flex-1" onClick={() => setAsCover(img.id)}>Set cover</button>
+                    <button
+                      type="button"
+                      className="px-3 py-2 rounded-md border border-white/10 flex-1 disabled:opacity-50"
+                      disabled={!isReady}
+                      onClick={() => setAsCover(img.id)}
+                    >
+                      Set cover
+                    </button>
                   </div>
                   <div className="flex flex-col gap-2 text-xs">
                     <div className="flex gap-2">

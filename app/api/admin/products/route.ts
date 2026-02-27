@@ -110,9 +110,11 @@ export async function POST(req: Request) {
     })
     try {
       const synced = await syncProductTemplateToStockworks({
+        productTemplateId: created.id,
         title: created.title,
         material: created.lockedMaterial,
         color: created.lockedColor,
+        colorOptions: created.colorOptions,
         category: created.stockworksCategory,
         sku: created.stockworksSku,
         designer: created.stockworksDesigner,
@@ -129,6 +131,7 @@ export async function POST(req: Request) {
         data: {
           stockworksMaterialId: synced.materialId ?? null,
           stockworksInventoryItemId: synced.inventoryItemId ?? null,
+          stockworksVariantMap: synced.variantMap as any,
         },
       })
 
