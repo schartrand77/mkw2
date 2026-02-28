@@ -119,7 +119,26 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
       if (setCover) fd.append('setCover', '1')
       const res = await fetch(collectionEndpoint, { method: 'POST', body: fd })
       if (!res.ok) throw new Error(await readErrorMessage(res))
-      await load()
+      const data = await res.json().catch(() => ({}))
+      const created = data?.image as ModelImage | undefined
+      if (created?.id) {
+        setImages((prev) => {
+          const withoutExisting = prev.filter((img) => img.id !== created.id)
+          return [...withoutExisting, created].sort((a, b) => {
+            const aSort = Number((a as any).sortOrder ?? 0)
+            const bSort = Number((b as any).sortOrder ?? 0)
+            return aSort - bSort
+          })
+        })
+        setCaptionDrafts((prev) => ({ ...prev, [created.id]: created.caption || '' }))
+        if (setCover) {
+          setCoverPath(created.filePath)
+          setCoverStatus('processing')
+        }
+        setCacheBuster(Date.now())
+      } else {
+        await load()
+      }
       resetForm()
       await pushNotify({ type: 'success', title: 'Photo uploaded', message: 'Image added to gallery.' })
     } catch (err: any) {
