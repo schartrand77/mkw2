@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server'
 
 type StockworksSession = { cookie: string; csrfToken?: string | null }
+type StockworksListResponse<T> = {
+  items?: T[]
+  results?: T[]
+  data?: T[]
+  inventory?: T[]
+  materials?: T[]
+}
 
 const STOCKWORKS_TIMEOUT_MS = readPositiveInt(process.env.STOCKWORKS_TIMEOUT_MS, 12000)
 
@@ -229,6 +236,19 @@ export async function stockworksJson(path: string, init?: RequestInit) {
     })
   }
   return body
+}
+
+export function stockworksList<T>(input: unknown): T[] {
+  if (Array.isArray(input)) return input as T[]
+  if (input && typeof input === 'object') {
+    const row = input as StockworksListResponse<T>
+    if (Array.isArray(row.items)) return row.items
+    if (Array.isArray(row.results)) return row.results
+    if (Array.isArray(row.data)) return row.data
+    if (Array.isArray(row.inventory)) return row.inventory
+    if (Array.isArray(row.materials)) return row.materials
+  }
+  return []
 }
 
 export function stockworksDisabledResponse() {

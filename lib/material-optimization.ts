@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db'
 import { estimatePricingDetails } from '@/lib/pricing'
 import { normalizeOrderStatus } from '@/lib/order-status'
-import { stockworksJson } from '@/lib/stockworks-client'
+import { stockworksJson, stockworksList } from '@/lib/stockworks-client'
 
 const MATERIAL_KEY_ALIASES: Record<string, string> = {
   PLA: 'PLA',
@@ -162,6 +162,19 @@ export async function buildWasteReport(days = 30): Promise<WasteMaterialSummary[
 }
 
 type StockworksColor = { name: string; hex?: string | null; brand?: string | null; category?: string | null }
+type StockworksMaterialLike = {
+  filament_type?: string | null
+  color?: string | null
+  color_hex?: string | null
+  color_hex_code?: string | null
+  hex?: string | null
+  brand?: string | null
+  category?: string | null
+}
+type StockworksInventoryLike = {
+  quantity_grams?: number | null
+  material?: StockworksMaterialLike | null
+}
 
 const hexToRgb = (hex?: string | null) => {
   if (!hex) return null
@@ -190,8 +203,8 @@ export type ColorSuggestion = {
 }
 
 export async function buildColorSimilaritySuggestions(): Promise<ColorSuggestion[]> {
-  const data = await stockworksJson('/materials')
-  const inventory = await stockworksJson('/inventory')
+  const data = stockworksList<StockworksMaterialLike>(await stockworksJson('/materials'))
+  const inventory = stockworksList<StockworksInventoryLike>(await stockworksJson('/inventory'))
   const colorsByType = new Map<string, { inStock: StockworksColor[]; orderable: StockworksColor[] }>()
 
   const toColor = (material: any): StockworksColor | null => {
@@ -201,7 +214,7 @@ export async function buildColorSimilaritySuggestions(): Promise<ColorSuggestion
     return { name: name || hex || 'Unknown', hex, brand: material?.brand || null, category: material?.category || null }
   }
 
-  for (const material of Array.isArray(data) ? data : []) {
+  for (const material of data) {
     const typeKey = normalizeMaterialKey(material?.filament_type)
     const color = toColor(material)
     if (!color) continue
@@ -211,7 +224,7 @@ export async function buildColorSimilaritySuggestions(): Promise<ColorSuggestion
     colorsByType.get(typeKey)!.orderable.push(color)
   }
 
-  for (const item of Array.isArray(inventory) ? inventory : []) {
+  for (const item of inventory) {
     const qty = Number(item?.quantity_grams || 0)
     if (qty <= 0) continue
     const material = item?.material || null
@@ -255,9 +268,9 @@ export type AlternateMaterialSuggestion = {
 }
 
 export async function buildAlternateMaterialSuggestions(): Promise<AlternateMaterialSuggestion[]> {
-  const inventory = await stockworksJson('/inventory')
+  const inventory = stockworksList<StockworksInventoryLike>(await stockworksJson('/inventory'))
   const totals = new Map<string, number>()
-  for (const item of Array.isArray(inventory) ? inventory : []) {
+  for (const item of inventory) {
     const qty = Number(item?.quantity_grams || 0)
     const material = item?.material || null
     const typeKey = normalizeMaterialKey(material?.filament_type)

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/app/api/admin/_utils'
 import { prisma } from '@/lib/db'
-import { stockworksJson, stockworksDisabledResponse } from '@/lib/stockworks-client'
+import { stockworksJson, stockworksDisabledResponse, stockworksList } from '@/lib/stockworks-client'
 import { buildConsumptionLinesForOrder, type InventoryItem } from '@/lib/stockworks-consumption'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +25,7 @@ export async function GET() {
   try {
     const [cfg, inventory, orders] = await Promise.all([
       prisma.siteConfig.findUnique({ where: { id: 'main' } }),
-      stockworksJson('/inventory') as Promise<InventoryItem[]>,
+      stockworksJson('/inventory').then((payload) => stockworksList<InventoryItem>(payload)),
       prisma.printOrder.findMany({
         where: { status: { in: Array.from(QUEUE_STATUSES) } },
         include: { items: true },

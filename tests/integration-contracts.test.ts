@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { stockworksFetch, stockworksJson } from '../lib/stockworks-client'
+import { stockworksFetch, stockworksJson, stockworksList } from '../lib/stockworks-client'
 import { fetchBambuPrinters } from '../lib/bambu-view'
 import { prisma } from '../lib/db'
 import { recordOrderWorksJob } from '../lib/orderworks'
@@ -30,23 +30,31 @@ test('StockWorks client authenticates via form login and forwards session cookie
     const requestUrl = String(url)
     calls.push({ url: requestUrl, init })
     if (requestUrl.endsWith('/login')) {
+      if ((init?.method || 'GET').toUpperCase() === 'GET') {
+        return new Response('<form><input type="hidden" name="csrf_token" value="csrf123" /></form>', {
+          status: 200,
+          headers: { 'set-cookie': 'session=prelogin; Path=/; HttpOnly' },
+        })
+      }
       return new Response('', {
         status: 302,
         headers: { 'set-cookie': 'session=abc123; Path=/; HttpOnly' },
       })
     }
-    return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    return new Response(JSON.stringify({ items: [{ id: 1 }], total: 1 }), { status: 200 })
   }) as typeof fetch
 
   try {
     const res = await stockworksFetch('/api/inventory')
     assert.equal(res.status, 200)
-    assert.equal(calls.length, 2)
+    assert.equal(calls.length, 3)
     assert.equal(calls[0]?.url, 'https://stockworks.local/login')
-    assert.match(String(calls[0]?.init?.body || ''), /username=admin/)
-    assert.match(String(calls[0]?.init?.body || ''), /password=secret/)
-    assert.equal(calls[1]?.url, 'https://stockworks.local/api/inventory')
-    const headers = new Headers(calls[1]?.init?.headers)
+    assert.equal(String(calls[0]?.init?.method || 'GET').toUpperCase(), 'GET')
+    assert.equal(calls[1]?.url, 'https://stockworks.local/login')
+    assert.match(String(calls[1]?.init?.body || ''), /username=admin/)
+    assert.match(String(calls[1]?.init?.body || ''), /password=secret/)
+    assert.equal(calls[2]?.url, 'https://stockworks.local/api/inventory')
+    const headers = new Headers(calls[2]?.init?.headers)
     assert.equal(headers.get('Cookie'), 'session=abc123')
   } finally {
     global.fetch = originalFetch
@@ -64,9 +72,15 @@ test('StockWorks JSON helper surfaces status and payload for failed upstream res
   process.env.STOCKWORKS_ADMIN_USERNAME = 'admin'
   process.env.STOCKWORKS_ADMIN_PASSWORD = 'secret'
 
-  global.fetch = (async (url: string | URL | Request) => {
+  global.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     const requestUrl = String(url)
     if (requestUrl.endsWith('/login')) {
+      if ((init?.method || 'GET').toUpperCase() === 'GET') {
+        return new Response('<form><input type="hidden" name="csrf_token" value="csrf123" /></form>', {
+          status: 200,
+          headers: { 'set-cookie': 'session=prelogin; Path=/; HttpOnly' },
+        })
+      }
       return new Response('', {
         status: 302,
         headers: { 'set-cookie': 'session=abc123; Path=/; HttpOnly' },
@@ -84,6 +98,11 @@ test('StockWorks JSON helper surfaces status and payload for failed upstream res
     global.fetch = originalFetch
     restoreEnv(envSnapshot)
   }
+})
+
+test('StockWorks list helper unwraps paginated payloads', () => {
+  const items = stockworksList<{ id: number }>({ items: [{ id: 1 }, { id: 2 }], total: 2 } as any)
+  assert.deepEqual(items, [{ id: 1 }, { id: 2 }])
 })
 
 test('Bambu View client sends configured auth headers', async () => {

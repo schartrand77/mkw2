@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStockworksSession } from '@/lib/stockworks-client'
+import { getStockworksSession, stockworksList } from '@/lib/stockworks-client'
 
 type StockworksMaterial = {
   id: number
@@ -91,8 +91,8 @@ export async function GET(req: NextRequest) {
   try {
     const materialsRaw = await materialsRes.json()
     const inventoryRaw = await inventoryRes.json()
-    materials = Array.isArray(materialsRaw) ? (materialsRaw as StockworksMaterial[]) : []
-    inventory = Array.isArray(inventoryRaw) ? (inventoryRaw as StockworksInventoryItem[]) : []
+    materials = stockworksList<StockworksMaterial>(materialsRaw)
+    inventory = stockworksList<StockworksInventoryItem>(inventoryRaw)
   } catch {
     return NextResponse.json({
       enabled: false,

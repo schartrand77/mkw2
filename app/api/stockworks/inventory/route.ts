@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/app/api/admin/_utils'
-import { stockworksJson, stockworksDisabledResponse } from '@/lib/stockworks-client'
+import { stockworksJson, stockworksDisabledResponse, stockworksList } from '@/lib/stockworks-client'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +10,7 @@ export async function GET() {
   }
 
   try {
-    const inventory = await stockworksJson('/inventory')
+    const inventory = stockworksList(await stockworksJson('/inventory'))
     return NextResponse.json({ enabled: true, inventory })
   } catch (err: any) {
     if (err?.message === 'StockWorks is not configured') return stockworksDisabledResponse()

@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db'
 import { estimatePricingDetails } from '@/lib/pricing'
 import { normalizeOrderStatus } from '@/lib/order-status'
-import { stockworksJson } from '@/lib/stockworks-client'
+import { stockworksJson, stockworksList } from '@/lib/stockworks-client'
 
 const MATERIAL_KEY_ALIASES: Record<string, string> = {
   PLA: 'PLA',
@@ -237,7 +237,7 @@ export async function maybeConsumeStockForOrder(orderId: string, trigger: string
 
   const [cfg, inventory] = await Promise.all([
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
-    stockworksJson('/inventory') as Promise<InventoryItem[]>,
+    stockworksJson('/inventory').then((payload) => stockworksList<InventoryItem>(payload)),
   ])
 
   const reference = order.orderNumber ? `MW-${String(order.orderNumber).padStart(5, '0')}` : order.id

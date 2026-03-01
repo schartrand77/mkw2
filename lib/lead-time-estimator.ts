@@ -1,6 +1,6 @@
 ﻿import { prisma } from '@/lib/db'
 import { getProductionSnapshot } from '@/lib/production'
-import { stockworksFetch } from '@/lib/stockworks-client'
+import { stockworksFetch, stockworksList } from '@/lib/stockworks-client'
 import { normalizeMaterialName } from '@/lib/cartPricing'
 
 export type LeadTimeEstimate = {
@@ -59,11 +59,11 @@ async function resolveMaterialAvailability(material: string): Promise<'in_stock'
     clearTimeout(timeout)
     timeout = null
     if (!response.ok) return 'unknown'
-    const inventory = await response.json() as unknown
-    if (!Array.isArray(inventory)) return 'unknown'
+    const inventory = stockworksList<StockworksInventoryRow>(await response.json() as unknown)
+    if (inventory.length === 0) return 'unknown'
 
     const materialKey = normalizeMaterialKey(material)
-    const matching = (inventory as StockworksInventoryRow[]).filter((entry) => {
+    const matching = inventory.filter((entry) => {
       const type = normalizeMaterialKey(entry.material?.filament_type || '')
       return type === materialKey
     })
