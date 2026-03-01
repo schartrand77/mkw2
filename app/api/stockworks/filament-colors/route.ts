@@ -46,7 +46,12 @@ const MATERIAL_TYPE_TOKENS = ['PETG', 'RESIN', 'NYLON', 'PA12', 'PA6', 'ASA', 'A
 const inferMaterialType = (material?: StockworksMaterial | null) => {
   if (!material) return null
   const direct = normalizeType(material.filament_type)
-  if (direct) return direct
+  if (direct) {
+    for (const token of MATERIAL_TYPE_TOKENS) {
+      if (direct === token || direct.includes(token)) return token
+    }
+    return direct
+  }
   const candidates = [material.category, material.name, material.title]
   for (const candidate of candidates) {
     const upper = normalizeType(candidate)
