@@ -3,7 +3,10 @@ import { getStockworksSession, stockworksList } from '@/lib/stockworks-client'
 
 type StockworksMaterial = {
   id: number
+  name?: string | null
+  title?: string | null
   filament_type?: string | null
+  category?: string | null
 }
 
 type StockworksInventoryItem = {
@@ -16,6 +19,29 @@ type StockworksInventoryItem = {
 const normalizeType = (value?: string | null) => {
   const trimmed = (value || '').trim()
   return trimmed ? trimmed.toUpperCase() : null
+}
+
+const MATERIAL_TYPE_TOKENS = ['PETG', 'RESIN', 'NYLON', 'PA12', 'PA6', 'ASA', 'ABS', 'TPU', 'PLA', 'PC'] as const
+
+const inferMaterialType = (material?: StockworksMaterial | null) => {
+  if (!material) return null
+  const direct = normalizeType(material.filament_type)
+  if (direct) {
+    for (const token of MATERIAL_TYPE_TOKENS) {
+      if (direct === token || direct.includes(token)) return token
+    }
+    return direct
+  }
+  const candidates = [material.category, material.name, material.title]
+  for (const candidate of candidates) {
+    const upper = normalizeType(candidate)
+    if (!upper) continue
+    for (const token of MATERIAL_TYPE_TOKENS) {
+      const pattern = new RegExp(`(^|[^A-Z0-9])${token}([^A-Z0-9]|$)`)
+      if (pattern.test(upper)) return token
+    }
+  }
+  return null
 }
 
 const parseNumber = (value?: string | null, fallback?: number) => {
@@ -111,7 +137,7 @@ export async function GET(req: NextRequest) {
   for (const item of inventory) {
     const qty = typeof item.quantity_grams === 'number' ? item.quantity_grams : 0
     const material = item.material || (typeof item.material_id === 'number' ? materialById.get(item.material_id) : null)
-    const typeKey = normalizeType(material?.filament_type)
+    const typeKey = inferMaterialType(material)
     if (!typeKey) continue
     qtyByType.set(typeKey, (qtyByType.get(typeKey) || 0) + qty)
   }
