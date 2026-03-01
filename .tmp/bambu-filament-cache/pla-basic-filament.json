@@ -1,0 +1,616 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Basic",
+  "description": "PLA is the most common material in 3D printing as it's easy to print and inexpensive. Meanwhile, its stiffness and strength can meet most printing needs. It is worth mentioning that it can biodegrade in some artificial composting conditions. Bambu PLA Basic is designed for high-speed printing. Compared to general PLA, it can easily achieve printing speeds up to 250-300 mm/s and has excellent toughness and Z-layer strength.",
+  "url": "https://ca.store.bambulab.com/products/pla-basic-filament",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8011873091824",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "43115681841392",
+      "image": "https://store.bblcdn.com/s5/default/7970a11e9efd4d7bbf844311b4d762d0/White.jpg",
+      "name": "PLA Basic - Jade White (10100) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43115681841392",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115681874160",
+      "image": "https://store.bblcdn.com/s5/default/a921a98134db4e77ba4c082586134ff7/Orange.jpg",
+      "name": "PLA Basic - Orange (10300) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43115681874160",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115681906928",
+      "image": "https://store.bblcdn.com/s5/default/549c42fa49304aa5ae018edc70de4245.jpg",
+      "name": "PLA Basic - Blue (10601) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43115681906928",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115681939696",
+      "image": "https://store.bblcdn.com/s5/default/309b3d9363564c4e9c4616954e701c84.png",
+      "name": "PLA Basic - Gray (10103) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43115681939696",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115681972464",
+      "image": "https://store.bblcdn.com/s5/default/75cdc1ae23ff485d8beaee878fe5008d/Beige.jpg",
+      "name": "PLA Basic - Beige (10201) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43115681972464",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115682005232",
+      "image": "https://store.bblcdn.com/s5/default/3c765e0b85f343a5acac4bd479df6d8f/Sliver.jpg",
+      "name": "PLA Basic - Silver (10102) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43115682005232",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115682038000",
+      "image": "https://store.bblcdn.com/s5/default/d0058bf2c9514848bd13e01daaf60cf9/Yellow.jpg",
+      "name": "PLA Basic - Yellow (10400) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43115682038000",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115682070768",
+      "image": "https://store.bblcdn.com/s5/default/73432425bbbd452eab3c1999c76d6cff.png",
+      "name": "PLA Basic - Blue Grey (10602) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43115682070768",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115682103536",
+      "image": "https://store.bblcdn.com/s5/default/f77a12ba2c544176ae9efd79c280ca9d/Pink.jpg",
+      "name": "PLA Basic - Pink (10203) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43115682103536",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115682169072",
+      "image": "https://store.bblcdn.com/s5/default/af252a613983445dad5abe80c5677f61.png",
+      "name": "PLA Basic - Brown (10800) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43115682169072",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115682201840",
+      "image": "https://store.bblcdn.com/s5/default/a9c13adb72ec42869bbe50948963cafa/Red.jpg",
+      "name": "PLA Basic - Red (10200) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43115682201840",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43766892298480",
+      "image": "https://store.bblcdn.com/s5/default/31f2cbb9d9bc473894322fa464ea63d2.png",
+      "name": "PLA Basic - Black (10101) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43766892298480",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43886297678064",
+      "image": "https://store.bblcdn.com/s5/default/7970a11e9efd4d7bbf844311b4d762d0/White.jpg",
+      "name": "PLA Basic - Jade White (10100) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43886297678064",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43886297710832",
+      "image": "https://store.bblcdn.com/s5/default/31f2cbb9d9bc473894322fa464ea63d2.png",
+      "name": "PLA Basic - Black (10101) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43886297710832",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43886297776368",
+      "image": "https://store.bblcdn.com/s5/default/a9c13adb72ec42869bbe50948963cafa/Red.jpg",
+      "name": "PLA Basic - Red (10200) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=43886297776368",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44106878583024",
+      "image": "https://store.bblcdn.com/s5/default/549c42fa49304aa5ae018edc70de4245.jpg",
+      "name": "PLA Basic - Blue (10601) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=44106878583024",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44138270228720",
+      "image": "https://store.bblcdn.com/s5/default/7bb5c68af8bf4272a9ac1becb5cd477e/Bambu_Green.jpg",
+      "name": "PLA Basic - Bambu Green (10501) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=44138270228720",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44176652173552",
+      "image": "https://store.bblcdn.com/s5/default/309b3d9363564c4e9c4616954e701c84.png",
+      "name": "PLA Basic - Gray (10103) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=44176652173552",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45421069598960",
+      "image": "https://store.bblcdn.com/s5/default/50d61704a9d64124883c9735354aa14d/Magenta.jpg",
+      "name": "PLA Basic - Magenta (10202) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=45421069598960",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45421183172848",
+      "image": "https://store.bblcdn.com/s5/default/7bb5c68af8bf4272a9ac1becb5cd477e/Bambu_Green.jpg",
+      "name": "PLA Basic - Bambu Green (10501) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=45421183172848",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45421189890288",
+      "image": "https://store.bblcdn.com/s5/default/66f4e06bad1345619420cbb451f4c29e.png",
+      "name": "PLA Basic - Mistletoe Green (10502) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=45421189890288",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45421220069616",
+      "image": "https://store.bblcdn.com/s5/default/cea66355392d4cec875fb6a281d1b23a.png",
+      "name": "PLA Basic - Cyan (10603) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=45421220069616",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45421228327152",
+      "image": "https://store.bblcdn.com/s5/default/a1d67c7010c14c98ab1cedba3b79a55e.jpg",
+      "name": "PLA Basic - Purple (10700) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=45421228327152",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45421234356464",
+      "image": "https://store.bblcdn.com/s5/default/deaa615cc1ea48abbcaf4a9800ea7296/Gold.jpg",
+      "name": "PLA Basic - Gold (10401) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=45421234356464",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45421242122480",
+      "image": "https://store.bblcdn.com/s5/default/4dec5d9b46ec434893d984414bea6785/Bronze.jpg",
+      "name": "PLA Basic - Bronze (10801) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=45421242122480",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46498490810608",
+      "image": "https://store.bblcdn.com/s5/default/dd8fec641daf48aba395f4381854050b.jpg",
+      "name": "PLA Basic - Light Gray (10104) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=46498490810608",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46498490843376",
+      "image": "https://store.bblcdn.com/s5/default/31b905e783b34a61a449a1bccd0cde2b/pla_basic_dark_gray.jpg",
+      "name": "PLA Basic - Dark Gray (10105) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=46498490843376",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46741142012144",
+      "image": "https://store.bblcdn.com/s5/default/2b000e0f1d89409f8590708c5b7ac9d7.jpg",
+      "name": "PLA Basic - Maroon Red (10205) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=46741142012144",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46741144043760",
+      "image": "https://store.bblcdn.com/s5/default/cba0bc5670a54a2ca758f650e0cadef3.jpg",
+      "name": "PLA Basic - Sunflower Yellow (10402) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=46741144043760",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46741145321712",
+      "image": "https://store.bblcdn.com/s5/default/d58beab50fb249329ef1b9c4db157d0a.jpg",
+      "name": "PLA Basic - Turquoise (10605) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=46741145321712",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46741145813232",
+      "image": "https://store.bblcdn.com/s5/default/dba9abb0c0384470ae2ef48fce12ebd3.jpg",
+      "name": "PLA Basic - Indigo Purple (10701) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=46741145813232",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46741147582704",
+      "image": "https://store.bblcdn.com/s5/default/817e47d8902a42ec9614c107eafcd46c.jpg",
+      "name": "PLA Basic - Bright Green (10503) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=46741147582704",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46741149778160",
+      "image": "https://store.bblcdn.com/s5/default/c1819cba3bc6474bb8b91556931896b0.jpg",
+      "name": "PLA Basic - Cocoa Brown (10802) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=46741149778160",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46741151580400",
+      "image": "https://store.bblcdn.com/s5/default/66a39723b543411e977ec8401ed6f12a.jpg",
+      "name": "PLA Basic - Hot Pink (10204) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=46741151580400",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46741152792816",
+      "image": "https://store.bblcdn.com/s5/default/3a08b41d25264b4c909f5ab4b049b44c.jpg",
+      "name": "PLA Basic - Cobalt Blue (10604) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=46741152792816",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46741154332912",
+      "image": "https://store.bblcdn.com/s5/default/02cd259e90ee478a8ad950ebc532a7bb.jpg",
+      "name": "PLA Basic - Pumpkin Orange (10301) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=46741154332912",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "558065616583475201",
+      "image": "https://store.bblcdn.com/s5/default/66f4e06bad1345619420cbb451f4c29e.png",
+      "name": "PLA Basic - Mistletoe Green (10502) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=558065616583475201",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "558065616583475207",
+      "image": "https://store.bblcdn.com/s5/default/cea66355392d4cec875fb6a281d1b23a.png",
+      "name": "PLA Basic - Cyan (10603) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=558065616583475207",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "565675607147048961",
+      "image": "https://store.bblcdn.com/s5/default/cba0bc5670a54a2ca758f650e0cadef3.jpg",
+      "name": "PLA Basic - Sunflower Yellow (10402) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=565675607147048961",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "565675607147048967",
+      "image": "https://store.bblcdn.com/s5/default/02cd259e90ee478a8ad950ebc532a7bb.jpg",
+      "name": "PLA Basic - Pumpkin Orange (10301) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=565675607147048967",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "565675607147048973",
+      "image": "https://store.bblcdn.com/s5/default/66a39723b543411e977ec8401ed6f12a.jpg",
+      "name": "PLA Basic - Hot Pink (10204) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=565675607147048973",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "565675607147048979",
+      "image": "https://store.bblcdn.com/s5/default/dba9abb0c0384470ae2ef48fce12ebd3.jpg",
+      "name": "PLA Basic - Indigo Purple (10701) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=565675607147048979",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "565675607147048985",
+      "image": "https://store.bblcdn.com/s5/default/c1819cba3bc6474bb8b91556931896b0.jpg",
+      "name": "PLA Basic - Cocoa Brown (10802) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-filament?id=565675607147048985",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

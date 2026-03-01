@@ -1,0 +1,154 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Translucent",
+  "description": "",
+  "url": "https://ca.store.bambulab.com/products/pla-translucent",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "594048155616538624",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "594048155633315855",
+      "image": "https://store.bblcdn.com/s5/default/de999706468b4dc789eaa824a1620d41/teal.jpg",
+      "name": "PLA Translucent - Teal (13612) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-translucent?id=594048155633315855",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "594048155633315861",
+      "image": "https://store.bblcdn.com/s5/default/0b2e1841d10641febaabd76ca2a49f05/blue.jpg",
+      "name": "PLA Translucent - Blue (13611) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-translucent?id=594048155633315861",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "594048155633315867",
+      "image": "https://store.bblcdn.com/s5/default/caef5b3b1d944237bb2a560d5a3755aa/purple.jpg",
+      "name": "PLA Translucent - Purple (13710) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-translucent?id=594048155633315867",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "594048155633315873",
+      "image": "https://store.bblcdn.com/s5/default/4dd0599950a144148ddb845464fdc523/orange.jpg",
+      "name": "PLA Translucent - Orange (13301) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-translucent?id=594048155633315873",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "594048155633315879",
+      "image": "https://store.bblcdn.com/s5/default/b97af19b96de46808b70617ef07f1661/red.jpg",
+      "name": "PLA Translucent - Red (13210) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-translucent?id=594048155633315879",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "594048155633315885",
+      "image": "https://store.bblcdn.com/s5/default/bd6e1981756d4390ba3170934f39dd54/Jade_green.jpg",
+      "name": "PLA Translucent - Light Jade (13510) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-translucent?id=594048155633315885",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "594048155633315891",
+      "image": "https://store.bblcdn.com/s5/default/8873b26c250842ef95f31ec753706a1b/mellow_yellow.jpg",
+      "name": "PLA Translucent - Mellow Yellow (13410) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-translucent?id=594048155633315891",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "594048155633315897",
+      "image": "https://store.bblcdn.com/s5/default/58122afc27cd4f138b3b2155f477c033/pink.jpg",
+      "name": "PLA Translucent - Cherry Pink (13211) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-translucent?id=594048155633315897",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "594048155633315903",
+      "image": "https://store.bblcdn.com/s5/default/c7a17dc886ba43ee99f8e23b9edf67cd/light_blue.jpg",
+      "name": "PLA Translucent - Ice Blue (13610) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-translucent?id=594048155633315903",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "594048155633315909",
+      "image": "https://store.bblcdn.com/s5/default/3a9edfa64b0a4a3cb1a1c88d71fbf238/lavender.jpg",
+      "name": "PLA Translucent - Lavender (13711) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-translucent?id=594048155633315909",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

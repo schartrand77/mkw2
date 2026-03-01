@@ -1,0 +1,28 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "ASA-CF",
+  "description": null,
+  "url": "https://ca.store.bambulab.com/products/asa-cf",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "9038354448624",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "46611883360496",
+      "image": "https://store.bblcdn.com/s5/default/390a51b2d4834c34930bc3781a0ed13d.jpg",
+      "name": "ASA-CF - Black (46101) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/asa-cf?id=46611883360496",
+        "priceCurrency": "CAD",
+        "price": 47.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Sparkle",
+  "description": "Unleash your creativity with Bambu PLA Sparkle, a shiny, sparkling PLA. Perfect for adding a touch of glamour to your prints, and stand out from the normal PLA prints.",
+  "url": "https://ca.store.bambulab.com/products/pla-sparkle",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8213301002480",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "43809130086640",
+      "image": "https://store.bblcdn.com/s5/default/8806b580276b46909df6385cff766b82.png",
+      "name": "PLA Sparkle - Alpine Green Sparkle (13501) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-sparkle?id=43809130086640",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43809130119408",
+      "image": "https://store.bblcdn.com/s5/default/faf72eb685014a1b94f4048c2388fe0a.png",
+      "name": "PLA Sparkle - Crimson Red Sparkle (13200) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-sparkle?id=43809130119408",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43809130152176",
+      "image": "https://store.bblcdn.com/s5/default/ab419f89d31f4d9d956bc9d460abf2e0.png",
+      "name": "PLA Sparkle - Onyx Black Sparkle (13101) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-sparkle?id=43809130152176",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44106863935728",
+      "image": "https://store.bblcdn.com/s5/default/c088bfa5936b4a35a3a421b9103c3631.png",
+      "name": "PLA Sparkle - Slate Gray Sparkle (13102) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-sparkle?id=44106863935728",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44106863968496",
+      "image": "https://store.bblcdn.com/s5/default/c2afb75286da4c9f9c299e24f0672984.png",
+      "name": "PLA Sparkle - Royal Purple Sparkle (13700) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-sparkle?id=44106863968496",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46130440372464",
+      "image": "https://store.bblcdn.com/s5/default/45ba44449cfe40498a990f840858ae33.png",
+      "name": "PLA Sparkle - Classic Gold Sparkle (13402) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-sparkle?id=46130440372464",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

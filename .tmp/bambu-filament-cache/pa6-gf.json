@@ -1,0 +1,126 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PA6-GF",
+  "description": "Bambu PA6-GF - Glass Fiber Reinforced Nylon Bambu PA6-GF, also known as Nylon 6 with Glass Fiber, stands at the forefront of high-performance engineering plastics. Engineered to deliver exceptional strength, durability, dimensional stability. The PA6-GF is also more cost effective when compared to other top tier Engineering filaments.",
+  "url": "https://ca.store.bambulab.com/products/pa6-gf",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8573366173936",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "45444547805424",
+      "image": "https://store.bblcdn.com/s5/default/7251e7b0c57849d6a884668235e2c755.jpg",
+      "name": "PA6-GF - Blue (72600) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pa6-gf?id=45444547805424",
+        "priceCurrency": "CAD",
+        "price": 76.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45444547838192",
+      "image": "https://store.bblcdn.com/s5/default/943e919667e4432b83ba53c4e3131732.jpg",
+      "name": "PA6-GF - Orange (72200) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pa6-gf?id=45444547838192",
+        "priceCurrency": "CAD",
+        "price": 76.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45444547870960",
+      "image": "https://store.bblcdn.com/s5/default/5cdd66fb3220432fbe7afb3c5cb118d3.jpg",
+      "name": "PA6-GF - Yellow (72400) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pa6-gf?id=45444547870960",
+        "priceCurrency": "CAD",
+        "price": 76.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45444547903728",
+      "image": "https://store.bblcdn.com/s5/default/a45ca49d1266499c8b271006e9a0a319.jpg",
+      "name": "PA6-GF - Lime (72500) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pa6-gf?id=45444547903728",
+        "priceCurrency": "CAD",
+        "price": 76.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45444547936496",
+      "image": "https://store.bblcdn.com/s5/default/b0d043d7e72849f193f1bfbac25ca32e.jpg",
+      "name": "PA6-GF - Brown (72800) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pa6-gf?id=45444547936496",
+        "priceCurrency": "CAD",
+        "price": 76.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45444547969264",
+      "image": "https://store.bblcdn.com/s5/default/b831c50b9af24d0fbfc861440bf2fd11.jpg",
+      "name": "PA6-GF - White (72102) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pa6-gf?id=45444547969264",
+        "priceCurrency": "CAD",
+        "price": 76.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45444548002032",
+      "image": "https://store.bblcdn.com/s5/default/9be99001191043b5a72da2e47ad25b51.jpg",
+      "name": "PA6-GF - Gray (72103) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pa6-gf?id=45444548002032",
+        "priceCurrency": "CAD",
+        "price": 76.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45444548034800",
+      "image": "https://store.bblcdn.com/s5/default/c0ccfcf3506f4422bb447011137b06ea.jpg",
+      "name": "PA6-GF - Black (72104) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pa6-gf?id=45444548034800",
+        "priceCurrency": "CAD",
+        "price": 76.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "ABS-GF",
+  "description": "Bambu ABS-GF is a glass fiber-reinforced ABS filament, enhanced in both mechanical and aesthetic properties. Compared with regular ABS, ABS-GF outperforms in strength, stiffness, temperature resistance and dimentional stability, while being less prone to deformation and warping. Glass fiber imparts a smooth matte finish with micro-spot gloss, blurring layer line. With the inheritance of water resistance, wear resistance, durability and vibrant colors of regular ABS, ABS-GF is ideal for both mechanical parts and decorations.",
+  "url": "https://ca.store.bambulab.com/products/abs-gf",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8677841797360",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "45758386438384",
+      "image": "https://store.bblcdn.com/s5/default/60c69eb3f4664444ad13f1816c7c74da.png",
+      "name": "ABS-GF - White (41100) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-gf?id=45758386438384",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45758386503920",
+      "image": "https://store.bblcdn.com/s5/default/2408b10ddd994f69982c8506e1d730a8.png",
+      "name": "ABS-GF - Black (41101) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-gf?id=45758386503920",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45758386536688",
+      "image": "https://store.bblcdn.com/s5/default/2ec79ec301114b26a13811f7a1d54208.png",
+      "name": "ABS-GF - Gray (41102) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-gf?id=45758386536688",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45758386569456",
+      "image": "https://store.bblcdn.com/s5/default/3091595109624a5da5d5aac0f4ffc716.png",
+      "name": "ABS-GF - Orange (41300) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-gf?id=45758386569456",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45758386602224",
+      "image": "https://store.bblcdn.com/s5/default/5fab889759e040d6ba560e788d7531c5.png",
+      "name": "ABS-GF - Yellow (41400) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-gf?id=45758386602224",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45758386634992",
+      "image": "https://store.bblcdn.com/s5/default/cdabf4b8ab65424798c99ac4b007245c.png",
+      "name": "ABS-GF - Red (41200) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-gf?id=45758386634992",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45758386667760",
+      "image": "https://store.bblcdn.com/s5/default/61deac40ee24437fad189458a3295569.png",
+      "name": "ABS-GF - Green (41500) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-gf?id=45758386667760",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46010148454640",
+      "image": "https://store.bblcdn.com/s5/default/59e0677eca7649aeae8cbc1fb6791c47.png",
+      "name": "ABS-GF - Blue (41600) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-gf?id=46010148454640",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Galaxy",
+  "description": "PLA Galaxy -- where innovation meets elegance. Experience a new dimension of printing with filament infused with glass microsphere additives. This unique blend creates mesmerizing visual effects, offering dynamic reflections and a glossy, smooth finish. Elevate your prints to new heights as they gleam with unparalleled brilliance from every angle, all while maintaining the ease of printing and exceptional strength and toughness you expect from PLA Basic.",
+  "url": "https://ca.store.bambulab.com/products/pla-galaxy",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8524161941744",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "45164872859888",
+      "image": "https://store.bblcdn.com/s5/default/37f0e6e45d3d4f81991230198009dfd1.jpg",
+      "name": "PLA Galaxy - Brown (13203) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-galaxy?id=45164872859888",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45164872892656",
+      "image": "https://store.bblcdn.com/s5/default/c07ade42987e4d12b8d662e9ac7ca2e8.jpg",
+      "name": "PLA Galaxy - Green (13503) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-galaxy?id=45164872892656",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45164872925424",
+      "image": "https://store.bblcdn.com/s5/default/b9a8183bc6fe466d8237c68c2cd38a04.jpg",
+      "name": "PLA Galaxy - Nebulae (13504) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-galaxy?id=45164872925424",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45164872958192",
+      "image": "https://store.bblcdn.com/s5/default/6b3d4f9560514b32baf0a5520fcaba03.jpg",
+      "name": "PLA Galaxy - Purple (13602) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-galaxy?id=45164872958192",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

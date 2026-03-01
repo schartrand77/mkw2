@@ -1,0 +1,28 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "ASA Aero",
+  "description": "Bambu ASA Aero is a self-foaming material renowned for its exceptional durability and toughness. Its heat-sensitive foaming allows for controlled model density, resulting in feather-light print models. Additionally, it boasts extraordinary resistance to temperature, water, and UV rays. With these unique properties, it is ideal for printing long-lasting outdoor models and weight-sensitive projects, such as RC planes.",
+  "url": "https://ca.store.bambulab.com/products/asa-aero",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8642733867248",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "45647640101104",
+      "image": "https://store.bblcdn.com/s5/default/807083f9279e4ef68649dcbb243eddad.png",
+      "name": "ASA Aero - White (46100) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/asa-aero?id=45647640101104",
+        "priceCurrency": "CAD",
+        "price": 63.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

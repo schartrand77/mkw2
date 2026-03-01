@@ -1,0 +1,154 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Tough+",
+  "description": "",
+  "url": "https://ca.store.bambulab.com/products/pla-tough-upgrade",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "624467991610105856",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "624467991622688768",
+      "image": "https://store.bblcdn.com/s5/default/495f8100d89748a0bd78a3edd1571363/PLA_Tough_new.jpg",
+      "name": "PLA Tough+ - White (12107) / Filament with Spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-tough-upgrade?id=624467991622688768",
+        "priceCurrency": "CAD",
+        "price": 30.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "624467991622688774",
+      "image": "https://store.bblcdn.com/s5/default/12ef1d98dc1e4b3e898f5bbc43dc6bbe/PLA_Tough_(3).jpg",
+      "name": "PLA Tough+ - Yellow (12401) / Filament with Spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-tough-upgrade?id=624467991622688774",
+        "priceCurrency": "CAD",
+        "price": 30.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "624467991622688780",
+      "image": "https://store.bblcdn.com/s5/default/6284216b491247c687bbe0ad54438faa/PLA_Tough_(5).jpg",
+      "name": "PLA Tough+ - Orange (12301) / Filament with Spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-tough-upgrade?id=624467991622688780",
+        "priceCurrency": "CAD",
+        "price": 30.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "624467991622688786",
+      "image": "https://store.bblcdn.com/s5/default/fbcf9bab4663410d95709ceb729d4832/PLA_Tough_(1).jpg",
+      "name": "PLA Tough+ - Gray (12105) / Filament with Spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-tough-upgrade?id=624467991622688786",
+        "priceCurrency": "CAD",
+        "price": 30.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "624467991622688792",
+      "image": "https://store.bblcdn.com/s5/default/020e0eb613d64bb794cfdea8d8b5f8b3/PLA_Tough_(2).jpg",
+      "name": "PLA Tough+ - Silver (12106) / Filament with Spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-tough-upgrade?id=624467991622688792",
+        "priceCurrency": "CAD",
+        "price": 30.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "624467991622688798",
+      "image": "https://store.bblcdn.com/s5/default/5cd2ccae43f2455b93e7df8587236d98/PLA_Tough_(4).jpg",
+      "name": "PLA Tough+ - Cyan (12601) / Filament with Spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-tough-upgrade?id=624467991622688798",
+        "priceCurrency": "CAD",
+        "price": 30.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "624467991622688804",
+      "image": "https://store.bblcdn.com/s5/default/50ca04c59cc0464e8af86ed8293cf2ab/PLA_Tough_(2).jpg",
+      "name": "PLA Tough+ - Black (12104) / Filament with Spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-tough-upgrade?id=624467991622688804",
+        "priceCurrency": "CAD",
+        "price": 30.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "659539854443044866",
+      "image": "https://store.bblcdn.com/s5/default/495f8100d89748a0bd78a3edd1571363/PLA_Tough_new.jpg",
+      "name": "PLA Tough+ - White (12107) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-tough-upgrade?id=659539854443044866",
+        "priceCurrency": "CAD",
+        "price": 26.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "659539854443044872",
+      "image": "https://store.bblcdn.com/s5/default/fbcf9bab4663410d95709ceb729d4832/PLA_Tough_(1).jpg",
+      "name": "PLA Tough+ - Gray (12105) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-tough-upgrade?id=659539854443044872",
+        "priceCurrency": "CAD",
+        "price": 26.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "659539854447239168",
+      "image": "https://store.bblcdn.com/s5/default/50ca04c59cc0464e8af86ed8293cf2ab/PLA_Tough_(2).jpg",
+      "name": "PLA Tough+ - Black (12104) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-tough-upgrade?id=659539854447239168",
+        "priceCurrency": "CAD",
+        "price": 26.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

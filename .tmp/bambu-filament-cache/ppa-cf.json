@@ -1,0 +1,28 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PPA-CF",
+  "description": null,
+  "url": "https://ca.store.bambulab.com/products/ppa-cf",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8988469428464",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "46498167718128",
+      "image": "https://store.bblcdn.com/s5/default/3c2707912a164dbf8d26a1d3b62f0cbc.jpg",
+      "name": "PPA-CF - Black (73100) / Filament with spool / 0.75 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/ppa-cf?id=46498167718128",
+        "priceCurrency": "CAD",
+        "price": 190.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

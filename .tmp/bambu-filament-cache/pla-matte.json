@@ -1,0 +1,448 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Matte",
+  "description": "PLA is the most common material in 3D printing as it's easy to print and inexpensive. Meanwhile, its stiffness and strength can meet most printing needs. It is worth mentioning that it can biodegrade in some artificial composting conditions. Bambu PLA Matte is designed for matte surface, and can be printed in speed up to 250 - 300 mm/s, which is faster than regular PLA. It can also make support removal much easier.",
+  "url": "https://ca.store.bambulab.com/products/pla-matte",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8015673917680",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "43135539839216",
+      "image": "https://store.bblcdn.com/s5/default/40dfc4b889e34f97b06e2980104c6c52/Matte-Ivory-White-.png",
+      "name": "PLA Matte - Matte Ivory White (11100) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43135539839216",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43135539871984",
+      "image": "https://store.bblcdn.com/s5/default/179b30bca747418f9a013cb0a8a17bbc/Matte-Ash-Grey.png",
+      "name": "PLA Matte - Matte Ash Gray (11102) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43135539871984",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43135539904752",
+      "image": "https://store.bblcdn.com/s5/default/2d60cdd7ff1e419ab45fcb5672e88b06/Matte-Mandarin-Orange.png",
+      "name": "PLA Matte - Matte Mandarin Orange (11300) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43135539904752",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43135539937520",
+      "image": "https://store.bblcdn.com/s5/default/4a136256e904463e83d6379496bf770d/Matte-Sakura-Pink.png",
+      "name": "PLA Matte - Matte Sakura Pink (11201) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43135539937520",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43135539970288",
+      "image": "https://store.bblcdn.com/s5/default/0f33185fa699431d935b5b7dfcaa2915/Matte-Lemon-Yellow.png",
+      "name": "PLA Matte - Matte Lemon Yellow (11400) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43135539970288",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43135540003056",
+      "image": "https://store.bblcdn.com/s5/default/a1b596fe17af44feb9b6af51c3b6985d.png",
+      "name": "PLA Matte - Matte Charcoal (11101) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43135540003056",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43135540035824",
+      "image": "https://store.bblcdn.com/s5/default/466a72ae34194f7f91a267770311e78a/Matte-Grass-Green.png",
+      "name": "PLA Matte - Matte Grass Green (11500) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43135540035824",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43135540068592",
+      "image": "https://store.bblcdn.com/s5/default/a91809bf094d446981d81f685543a4b8/Matte-Latte-Brown.png",
+      "name": "PLA Matte - Matte Latte Brown (11800) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43135540068592",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43135540101360",
+      "image": "https://store.bblcdn.com/s5/default/b7693e3cc1d34ad4aa381913334ecd2d/Matte-Scarlet-Red.png",
+      "name": "PLA Matte - Matte Scarlet Red (11200) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43135540101360",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43135540134128",
+      "image": "https://store.bblcdn.com/s5/default/6681ea227f9840dc9e4b683df4aa2948/Matte-Ice-Blue.png",
+      "name": "PLA Matte - Matte Ice Blue (11601) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43135540134128",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43135540166896",
+      "image": "https://store.bblcdn.com/s5/default/7421d5d2a4af459f94b925519f9f9f0d/Matte-Lilac-purple.png",
+      "name": "PLA Matte - Matte Lilac purple (11700) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43135540166896",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43135540199664",
+      "image": "https://store.bblcdn.com/s5/default/61cc94fa86d743bfb20f329fdd2bbd24/Matte-Marine-Blue.png",
+      "name": "PLA Matte - Matte Marine Blue (11600) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43135540199664",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43887138439408",
+      "image": "https://store.bblcdn.com/s5/default/61cc94fa86d743bfb20f329fdd2bbd24/Matte-Marine-Blue.png",
+      "name": "PLA Matte - Matte Marine Blue (11600) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43887138439408",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43887138472176",
+      "image": "https://store.bblcdn.com/s5/default/b7693e3cc1d34ad4aa381913334ecd2d/Matte-Scarlet-Red.png",
+      "name": "PLA Matte - Matte Scarlet Red (11200) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43887138472176",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43887138504944",
+      "image": "https://store.bblcdn.com/s5/default/a1b596fe17af44feb9b6af51c3b6985d.png",
+      "name": "PLA Matte - Matte Charcoal (11101) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43887138504944",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43887138537712",
+      "image": "https://store.bblcdn.com/s5/default/40dfc4b889e34f97b06e2980104c6c52/Matte-Ivory-White-.png",
+      "name": "PLA Matte - Matte Ivory White (11100) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43887138537712",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43887138570480",
+      "image": "https://store.bblcdn.com/s5/default/179b30bca747418f9a013cb0a8a17bbc/Matte-Ash-Grey.png",
+      "name": "PLA Matte - Matte Ash Gray (11102) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=43887138570480",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44142377402608",
+      "image": "https://store.bblcdn.com/s5/default/2d60cdd7ff1e419ab45fcb5672e88b06/Matte-Mandarin-Orange.png",
+      "name": "PLA Matte - Matte Mandarin Orange (11300) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=44142377402608",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45421259915504",
+      "image": "https://store.bblcdn.com/s5/default/be277b5f414d4dfab7db1080684ddfb5/Matte-Dark-Brown.png",
+      "name": "PLA Matte - Matte Dark Brown (11801) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=45421259915504",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45421267878128",
+      "image": "https://store.bblcdn.com/s5/default/32dd07d0d63a4781b1f757cb10b4c54f/Matte-Dark-Red.png",
+      "name": "PLA Matte - Matte Dark Red (11202) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=45421267878128",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45421272989936",
+      "image": "https://store.bblcdn.com/s5/default/153bb3ac156f44729df5b9b5c4d200de/Matte-Dark-Green.png",
+      "name": "PLA Matte - Matte Dark Green (11501) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=45421272989936",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45421360218352",
+      "image": "https://store.bblcdn.com/s5/default/5b6c58d0094c456c9d81ff28908dc4ea/Matte-Dark-Blue.png",
+      "name": "PLA Matte - Matte Dark Blue (11602) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=45421360218352",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45869359038704",
+      "image": "https://store.bblcdn.com/s5/default/27e1b0a7d0f44aa0b741ef2b379272ed/Matte-Desert-Tan.png",
+      "name": "PLA Matte - Matte Desert Tan (11401) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=45869359038704",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "563882858931896329",
+      "image": "https://store.bblcdn.com/s5/default/17f20253468641e09ed65498310e26b2/7.jpg",
+      "name": "PLA Matte - Matte Bone White (11103) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=563882858931896329",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "563882858931896335",
+      "image": "https://store.bblcdn.com/s5/default/0396ee1531694c7199a973e19ad12a21/6.jpg",
+      "name": "PLA Matte - Matte Plum (11204) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=563882858931896335",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "563882858931896341",
+      "image": "https://store.bblcdn.com/s5/default/da2acfb4820042d99bf05b96b1832312/4.jpg",
+      "name": "PLA Matte - Matte Sky Blue (11603) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=563882858931896341",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "563882858931896347",
+      "image": "https://store.bblcdn.com/s5/default/5d7a744633fe4f61a133a86030dee9a3/2.jpg",
+      "name": "PLA Matte - Matte Apple Green (11502) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=563882858931896347",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "563882858931896353",
+      "image": "https://store.bblcdn.com/s5/default/937243c9769645efa11c1e0c539ebf3d/3.jpg",
+      "name": "PLA Matte - Matte Dark Chocolate (11802) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=563882858931896353",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "563882858931896359",
+      "image": "https://store.bblcdn.com/s5/default/23575c1bb53f4eb08a499ec1d5bbddda/8.jpg",
+      "name": "PLA Matte - Matte Caramel (11803) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=563882858931896359",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "563882858931896365",
+      "image": "https://store.bblcdn.com/s5/default/9c5bc08717724172bcc6c9b6f5730559/5.jpg",
+      "name": "PLA Matte - Matte Terracotta (11203) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=563882858931896365",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "563882858931896371",
+      "image": "https://store.bblcdn.com/s5/default/5dd5c23fefdf4dbda7b6dd51dcd1e375/1.jpg",
+      "name": "PLA Matte - Matte Nardo Gray (11104) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-matte?id=563882858931896371",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

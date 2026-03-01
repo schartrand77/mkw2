@@ -1,0 +1,84 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Metal",
+  "description": "Bring a metallic finish to your 3D printing projects with Bambu PLA Metal filament. This premium material has a unique metallic look that will give your objects a professional and high-end finish.",
+  "url": "https://ca.store.bambulab.com/products/pla-metal",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8213299691760",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "43809123172592",
+      "image": "https://store.bblcdn.com/s5/default/14d829a49ad443e59bddde42c8f6563c.png",
+      "name": "PLA Metal - Oxide Green Metallic (13500) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-metal?id=43809123172592",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43809123205360",
+      "image": "https://store.bblcdn.com/s5/default/9887878fdd43434489672eac577a07f3.png",
+      "name": "PLA Metal - Cobalt Blue Metallic (13600) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-metal?id=43809123205360",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43809123238128",
+      "image": "https://store.bblcdn.com/s5/default/168313f3cb3542a0984a00379835a607.png",
+      "name": "PLA Metal - Copper Brown Metallic (13800) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-metal?id=43809123238128",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44106847584496",
+      "image": "https://store.bblcdn.com/s5/default/1fdb0b2166d3450ea180a6c83d4acbc6.png",
+      "name": "PLA Metal - Iron Gray Metallic (13100) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-metal?id=44106847584496",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44106847617264",
+      "image": "https://store.bblcdn.com/s5/default/a75ba62b433f4e80b419963e05ae0559.png",
+      "name": "PLA Metal - Iridium Gold Metallic (13400) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-metal?id=44106847617264",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

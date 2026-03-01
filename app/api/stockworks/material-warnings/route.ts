@@ -21,6 +21,16 @@ const normalizeType = (value?: string | null) => {
   return trimmed ? trimmed.toUpperCase() : null
 }
 
+const parseStockworksNumber = (value: unknown) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const parseStockworksId = (value: unknown) => {
+  const parsed = parseStockworksNumber(value)
+  return parsed != null ? Math.trunc(parsed) : null
+}
+
 const MATERIAL_TYPE_TOKENS = ['PETG', 'RESIN', 'NYLON', 'PA12', 'PA6', 'ASA', 'ABS', 'TPU', 'PLA', 'PC'] as const
 
 const inferMaterialType = (material?: StockworksMaterial | null) => {
@@ -128,15 +138,15 @@ export async function GET(req: NextRequest) {
   }
   const materialById = new Map<number, StockworksMaterial>()
   for (const material of materials) {
-    if (typeof material.id === 'number') {
-      materialById.set(material.id, material)
-    }
+    const materialId = parseStockworksId(material.id)
+    if (materialId != null && materialId > 0) materialById.set(materialId, material)
   }
 
   const qtyByType = new Map<string, number>()
   for (const item of inventory) {
-    const qty = typeof item.quantity_grams === 'number' ? item.quantity_grams : 0
-    const material = item.material || (typeof item.material_id === 'number' ? materialById.get(item.material_id) : null)
+    const qty = parseStockworksNumber(item.quantity_grams) ?? 0
+    const materialId = parseStockworksId(item.material_id)
+    const material = item.material || (materialId != null ? materialById.get(materialId) : null)
     const typeKey = inferMaterialType(material)
     if (!typeKey) continue
     qtyByType.set(typeKey, (qtyByType.get(typeKey) || 0) + qty)

@@ -1,0 +1,28 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PPS-CF",
+  "description": "Bambu Lab CF Reinforced PPS filament: Super heat resistant & flame retardant. Unmatched strength, stiffness, and chemical resistance for industrial use.",
+  "url": "https://ca.store.bambulab.com/products/pps-cf",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8994302755056",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "46512619127024",
+      "image": "https://store.bblcdn.com/s5/default/a6da81c992134feebb407601ce257cb6.png",
+      "name": "PPS-CF - Black (76100) / Filament with spool / 0.75kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pps-cf?id=46512619127024",
+        "priceCurrency": "CAD",
+        "price": 165.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

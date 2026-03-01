@@ -1,0 +1,112 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PETG-CF",
+  "description": null,
+  "url": "https://ca.store.bambulab.com/products/petg-cf",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8231750074608",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "43887125266672",
+      "image": "https://store.bblcdn.com/s5/default/093c156eacd8427d81bdceae6f9e07cc.png",
+      "name": "PETG-CF - Black (31100) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-cf?id=43887125266672",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44180162085104",
+      "image": "https://store.bblcdn.com/s5/default/d4702770b8b24ea796481285ab816c62.png",
+      "name": "PETG-CF - Violet Purple (31700) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-cf?id=44180162085104",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44180162117872",
+      "image": "https://store.bblcdn.com/s5/default/66bb180e5ad84cb3ad3ebad78c293c7d.png",
+      "name": "PETG-CF - Brick Red (31200) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-cf?id=44180162117872",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44180162150640",
+      "image": "https://store.bblcdn.com/s5/default/dd18987197f54eaca8cd318713c76786.png",
+      "name": "PETG-CF - Indigo Blue (31600) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-cf?id=44180162150640",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44180162183408",
+      "image": "https://store.bblcdn.com/s5/default/cefecfa081164b9fb8092bcfa088acfc.png",
+      "name": "PETG-CF - Malachite Green (31500) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-cf?id=44180162183408",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44326019367152",
+      "image": "https://store.bblcdn.com/s5/default/b385924c792c421f87f277db246f70e8.png",
+      "name": "PETG-CF - Titan Gray  (31101) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-cf?id=44326019367152",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46475013193968",
+      "image": "https://store.bblcdn.com/s5/default/093c156eacd8427d81bdceae6f9e07cc.png",
+      "name": "PETG-CF - Black (31100) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-cf?id=46475013193968",
+        "priceCurrency": "CAD",
+        "price": 40.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

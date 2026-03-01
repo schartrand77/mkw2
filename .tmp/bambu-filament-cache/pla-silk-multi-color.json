@@ -1,0 +1,154 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Silk Multi-Color",
+  "description": "Bambu PLA Silk Multi-Color is available in two distinct styles: PLA Silk Dual Color and PLA Silk Gradient.\nPLA Silk Dual Color is crafted by blending two vibrant silk tones into one filament strand. The color of your prints can be changed by rotating the filament to different orientations. PLA Silk Gradient includes 2 to 4 smooth, flowing color transitions per spool, creating elegant, multitone effects in a single print.\nBoth variants offer a silky texture and high-gloss finish, perfect for making your models visually striking and professional.",
+  "url": "https://ca.store.bambulab.com/products/pla-silk-multi-color",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8449099956464",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "44852088176880",
+      "image": "https://store.bblcdn.com/s5/default/3fb0e2cef1d9482fa4156720ea7e87a2.png",
+      "name": "PLA Silk Multi-Color - Gilded Rose (13901) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-multi-color?id=44852088176880",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44852088209648",
+      "image": "https://store.bblcdn.com/s5/default/9e1569bbc0c24d188278222724abc277.png",
+      "name": "PLA Silk Multi-Color - Midnight Blaze (13902) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-multi-color?id=44852088209648",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44852088242416",
+      "image": "https://store.bblcdn.com/s5/default/ed18d828ff054d8faca76bb37f0d6ba3.png",
+      "name": "PLA Silk Multi-Color - Neon City (13903) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-multi-color?id=44852088242416",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44852088275184",
+      "image": "https://store.bblcdn.com/s5/default/f214dc0e30274035bf68151d284eafc6.png",
+      "name": "PLA Silk Multi-Color - Blue Hawaii (13904) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-multi-color?id=44852088275184",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46816416792816",
+      "image": "https://store.bblcdn.com/s5/default/1a4e746a1e2b4ac290422b59df762e5f/Silk_Dual_Color_Black-red.jpg",
+      "name": "PLA Silk Multi-Color - Velvet Eclipse (13905) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-multi-color?id=46816416792816",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "601307620515315716",
+      "image": "https://store.bblcdn.com/s5/default/48bb4b91869a4835b05317e88ebae109/Dawn_Radiance.jpg",
+      "name": "PLA Silk Multi-Color - Dawn Radiance (13912) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-multi-color?id=601307620515315716",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "601307620515315722",
+      "image": "https://store.bblcdn.com/s5/default/43b23563e3aa47fd89b26b74e2add471/Aurora_Purple_(1).jpg",
+      "name": "PLA Silk Multi-Color - Aurora Purple (13909) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-multi-color?id=601307620515315722",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "601307620515315728",
+      "image": "https://store.bblcdn.com/s5/default/f1858c209fc947058c5062c720821f86/South_Beach.jpg",
+      "name": "PLA Silk Multi-Color - South Beach (13906) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-multi-color?id=601307620515315728",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "665320242336288771",
+      "image": "https://store.bblcdn.com/s5/default/d21fe6ca88104f9e9ff326a54a9defc7/Mystic_Magenta.jpg",
+      "name": "PLA Silk Multi-Color - Mystic Magenta (13913) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-multi-color?id=665320242336288771",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "665320242336288777",
+      "image": "https://store.bblcdn.com/s5/default/722ffc6e2d6d4df58e3ce07394d17883/Phantom_Blue.jpg",
+      "name": "PLA Silk Multi-Color - Phantom Blue (13916) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-multi-color?id=665320242336288777",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

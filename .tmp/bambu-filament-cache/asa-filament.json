@@ -1,0 +1,98 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "ASA",
+  "description": "Bambu ASA is a highly durable material that offers exceptional UV, weather, mechanical, and thermal resistance. Its unique combination of properties makes it an ideal material for printing outdoor models (plant signs, mailboxes, wind vanes, etc.) and structural parts that require long-term exposure to challenging outdoor conditions.",
+  "url": "https://ca.store.bambulab.com/products/asa-filament",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8299950178544",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "44173925613808",
+      "image": "https://store.bblcdn.com/s5/default/9b4054cc41a34801be8ec4a8e7602edc.png",
+      "name": "ASA - Red (45200) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/asa-filament?id=44173925613808",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44173925646576",
+      "image": "https://store.bblcdn.com/s5/default/8a16887420444668817786f11d2fbd52.png",
+      "name": "ASA - Green (45500) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/asa-filament?id=44173925646576",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44173925679344",
+      "image": "https://store.bblcdn.com/s5/default/a97e97298dd0402cbed9a33bcc29b397.jpg",
+      "name": "ASA - Blue (45600) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/asa-filament?id=44173925679344",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44173925712112",
+      "image": "https://store.bblcdn.com/s5/default/578073ead4ac45f3aededbecd91cc46e.png",
+      "name": "ASA - Black (45101) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/asa-filament?id=44173925712112",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44173925744880",
+      "image": "https://store.bblcdn.com/s5/default/28d11722c1a1469cb1a51f43ddb41eec.png",
+      "name": "ASA - White (45100) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/asa-filament?id=44173925744880",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44173925777648",
+      "image": "https://store.bblcdn.com/s5/default/f46c0c69f82f4e879b2ee646407a27d1.png",
+      "name": "ASA - Gray (45102) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/asa-filament?id=44173925777648",
+        "priceCurrency": "CAD",
+        "price": 38.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PA6-CF",
+  "description": "Bambu PA6-CF is a carbon fiber reinforced PA6 (Nylon 6) filament. Carbon fiber reinforcement provides significantly high stiffness and strength properties in dry environments and maintains exceptional heat resistance and impact resistance.  Similar to other Bambu CF Filaments, these outstanding mechanical properties combination make it an ideal choice for printing fixtures, clamps, automotive and mechanical components and various structural and engineering parts that used in dry environments.",
+  "url": "https://ca.store.bambulab.com/products/pa6-cf",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8317408805104",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "44217735315696",
+      "image": "https://store.bblcdn.com/s5/default/3f8b8df4ab4f465db6d9b708ef8ecf1d.png",
+      "name": "PA6-CF - Black (72100) / Filament with spool / 0.5kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pa6-cf?id=44217735315696",
+        "priceCurrency": "CAD",
+        "price": 54.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44217735348464",
+      "image": "https://store.bblcdn.com/s5/default/3f8b8df4ab4f465db6d9b708ef8ecf1d.png",
+      "name": "PA6-CF - Black (72100) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pa6-cf?id=44217735348464",
+        "priceCurrency": "CAD",
+        "price": 101.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

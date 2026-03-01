@@ -1,0 +1,42 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PET-CF",
+  "description": "Bambu Lab CF Reinforced PET Filament: Very low moisture absorption, high dimensional stability, exceptional heat resistance. Ideal for durable parts.",
+  "url": "https://ca.store.bambulab.com/products/pet-cf",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8252040544496",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "44029327671536",
+      "image": "https://store.bblcdn.com/s5/default/9afaf33071dc472e8fa3dfcb1d180207.png",
+      "name": "PET-CF - Black (71100) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pet-cf?id=44029327671536",
+        "priceCurrency": "CAD",
+        "price": 108.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44090206290160",
+      "image": "https://store.bblcdn.com/s5/default/9afaf33071dc472e8fa3dfcb1d180207.png",
+      "name": "PET-CF - Black (71100) / Filament with spool / 0.5 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pet-cf?id=44090206290160",
+        "priceCurrency": "CAD",
+        "price": 57.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}
