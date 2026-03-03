@@ -11,15 +11,116 @@ This guide explains how to use MakerWorks end-to-end: browsing, uploading, confi
 
 ## 2. Roles and Access
 
-- Guest (not signed in):
-  - Can browse Discover, Store, Collections, and model details.
-  - Cannot upload, checkout, like, or access customer/admin tools.
-- Signed-in customer:
-  - Can upload, add to cart, checkout, view orders, update profile/account settings.
-- Organization member:
-  - Same as customer, plus organization-aware checkout and org usage views.
-- Admin/staff:
-  - Full customer capabilities plus admin control plane at `/admin` and related pages.
+MakerWorks uses both account-level roles and organization membership roles. A single user can be a normal customer, a creator, and an organization member at the same time.
+
+### 2.1 Guest
+
+Definition:
+- Any visitor who is not signed in.
+
+Can do:
+- Browse `Discover`, `Store`, `Collections`, and public model pages.
+- View pricing context, creator pages, and product details.
+
+Cannot do:
+- Upload models.
+- Add likes.
+- Checkout.
+- Access customer orders, presets, workspaces, organizations, or admin tools.
+
+### 2.2 Signed-in Customer
+
+Definition:
+- Any authenticated non-admin user using MakerWorks for personal ordering.
+
+Can do:
+- Upload models.
+- Configure prints, add to cart, and checkout.
+- Save presets and use customer portal/order pages.
+- Maintain profile, shipping address, and account settings.
+- Comment on models and participate in review flows available to customers.
+
+Cannot do:
+- Access admin/staff-only routes.
+- Change organization policy unless also given a privileged organization role.
+
+### 2.3 Creator
+
+Definition:
+- A signed-in customer who uploads and manages models.
+
+Can do:
+- Everything a signed-in customer can do.
+- Maintain model listings they own.
+- Edit their own model metadata, assets, and creator credit fields.
+- Receive public creator profile visibility through `/u/{slug}`.
+
+Cannot do:
+- Moderate other users' content unless they are also admin/staff.
+- Use production/admin controls unless separately granted admin/staff access.
+
+### 2.4 Organization Member
+
+Definition:
+- A signed-in customer attached to an organization through active membership.
+
+Can do:
+- Everything a signed-in customer can do.
+- Bill eligible orders to an organization.
+- Use project codes and organization-aware checkout flows.
+- View organization usage, procurement settings, and workspaces allowed by their membership role.
+
+Organization-specific permissions are controlled by membership role:
+
+- `Requester`
+  - Default role for members who submit work.
+  - Can place organization-linked orders.
+  - May be forced into quote/approval flow if org policy requires approval.
+  - Cannot change organization settings or manage members.
+
+- `Approver`
+  - Can approve quote-driven organization work.
+  - Can update organization policy/settings.
+  - Can manage members.
+
+- `Finance`
+  - Intended for billing/procurement visibility.
+  - Can participate in organization workflows and billing-linked ordering.
+  - In the current product, finance users do not automatically get full settings control unless separately treated as privileged in that specific surface.
+
+- `Owner`
+  - Highest organization role.
+  - Can manage members, billing settings, department budgets, approval routing, and procurement policy.
+
+### 2.5 Staff / Admin
+
+Definition:
+- Internal MakerWorks operator accounts.
+
+Can do:
+- Full customer and creator workflows.
+- Access the admin control plane under `/admin`.
+- Manage production, orders, users, pricing, analytics, inventory, processing queues, and site configuration.
+- Moderate content and operate fulfillment workflows across customers and organizations.
+
+Should be treated as:
+- Operational roles, not customer-facing organization roles.
+- Users with broad access to storefront and production data.
+
+### 2.6 Role Matrix
+
+| Capability | Guest | Customer | Creator | Org Requester | Org Approver | Org Owner | Staff / Admin |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Browse public catalog | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Upload models | No | Yes | Yes | Yes | Yes | Yes | Yes |
+| Edit own models | No | No | Yes | Yes | Yes | Yes | Yes |
+| Checkout personally | No | Yes | Yes | Yes | Yes | Yes | Yes |
+| Checkout for organization | No | No | No | Yes | Yes | Yes | Yes |
+| Submit quote/approval flow | No | No | No | Yes | Yes | Yes | Yes |
+| Approve organization work | No | No | No | No | Yes | Yes | Yes |
+| Manage org members/settings | No | No | No | No | Yes | Yes | Yes |
+| View workspaces/org usage | No | No | No | Yes | Yes | Yes | Yes |
+| Access admin tools | No | No | No | No | No | No | Yes |
 
 ## 3. Main Navigation
 
