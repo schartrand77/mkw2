@@ -302,6 +302,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       <Link href="/me" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">My Page</Link>
       <Link href="/customer/portal" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Customer Portal</Link>
       <Link href="/customer/orders" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Orders</Link>
+      <Link href="/customer/workspaces" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Workspaces</Link>
       <Link href="/settings/organizations" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Organizations</Link>
       <Link href="/settings/account" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Account</Link>
       <button type="button" role="menuitem" onClick={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))} className="app-sidebar-menu-item w-full text-left">
@@ -330,6 +331,8 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       checkout: '/checkout',
       orders: '/customer/orders',
       portal: '/customer/portal',
+      workspace: '/customer/workspaces',
+      workspaces: '/customer/workspaces',
       profile: '/settings/profile',
       account: '/settings/account',
       orgs: '/settings/organizations',
@@ -347,7 +350,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     }
 
     const preferredNavOrder = [
-      'home', 'discover', 'store', 'upload', 'cart', 'checkout', 'orders', 'portal', 'profile',
+      'home', 'discover', 'store', 'upload', 'cart', 'checkout', 'orders', 'portal', 'workspace', 'workspaces', 'profile',
       'account', 'orgs', 'organizations', 'likes', 'me', 'admin', 'users', 'jobs', 'inventory', 'analytics', 'production',
     ]
     const navTag = preferredNavOrder.find((tag) => navTags.has(tag))
@@ -496,6 +499,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
                 )}
                 <Link href="/me" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">My Page</Link>
                 <Link href="/customer/orders" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Orders</Link>
+                <Link href="/customer/workspaces" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Workspaces</Link>
                 <Link href="/settings/profile" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Edit Profile</Link>
                 <button type="button" role="menuitem" onClick={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))} className="app-sidebar-menu-item w-full text-left">
                   {theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}

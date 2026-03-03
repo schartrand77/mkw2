@@ -8,6 +8,25 @@ type CustomerPreset = {
   data: unknown
   createdAt: string
   updatedAt: string
+  ownedByMe?: boolean
+  ownerName?: string | null
+  organizationName?: string | null
+  scope?: 'personal' | 'organization' | null
+}
+
+function getPresetKindLabel(data: unknown) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return 'Print config'
+  const kind = (data as Record<string, unknown>).kind
+  if (kind === 'discover_filters') return 'Discover'
+  return 'Print config'
+}
+
+function getPresetScopeLabel(preset: CustomerPreset) {
+  if (preset.scope === 'organization') {
+    const owner = preset.ownerName ? ` by ${preset.ownerName}` : ''
+    return `${preset.organizationName || 'Organization'} shared${owner}`
+  }
+  return 'Personal'
 }
 
 export default function CustomerPresetsPanel() {
@@ -66,14 +85,20 @@ export default function CustomerPresetsPanel() {
           {presets.map((preset) => (
             <div key={preset.id} className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm">
               <div className="flex items-center justify-between">
-                <div className="font-semibold">{preset.name}</div>
-                <button
-                  type="button"
-                  className="text-xs text-rose-300 hover:text-rose-200"
-                  onClick={() => removePreset(preset.id)}
-                >
-                  Delete
-                </button>
+                <div>
+                  <div className="font-semibold">{preset.name}</div>
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">{getPresetKindLabel(preset.data)}</div>
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-slate-600 mt-1">{getPresetScopeLabel(preset)}</div>
+                </div>
+                {preset.ownedByMe ? (
+                  <button
+                    type="button"
+                    className="text-xs text-rose-300 hover:text-rose-200"
+                    onClick={() => removePreset(preset.id)}
+                  >
+                    Delete
+                  </button>
+                ) : null}
               </div>
               <div className="text-xs text-slate-400">
                 Updated {new Date(preset.updatedAt).toLocaleDateString()}

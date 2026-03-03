@@ -498,6 +498,11 @@ model ModelComment {
   modelId   String
   userId    String
   body      String
+  partId    String?
+  partName  String?
+  pinX      Float?
+  pinY      Float?
+  pinZ      Float?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   type      String   @default("comment")
@@ -664,6 +669,7 @@ model Organization {
   billingContact           String?
   quoteApprovalRequired    Boolean  @default(true)
   requirePoAboveCents      Int?
+  procurementConfig        Json?
   createdById              String
   createdAt                DateTime @default(now())
   updatedAt                DateTime @default(now()) @updatedAt

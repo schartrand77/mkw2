@@ -8,6 +8,9 @@ export enum DiscoverSort {
   Popular = 'popular',
   PriceAsc = 'price_asc',
   PriceDesc = 'price_desc',
+  BestConfidence = 'best_confidence',
+  FastestToShip = 'fastest_to_ship',
+  LowestFailureRisk = 'lowest_failure_risk',
 }
 
 export enum DiscoverEntityType {
@@ -21,6 +24,7 @@ export type DiscoverModel = {
   entityType?: DiscoverEntityType | null
   href?: string | null
   title: string
+  material?: string | null
   coverImagePath?: string | null
   fileType?: string | null
   partsCount?: number | null
@@ -39,9 +43,16 @@ export type DiscoverModel = {
   likes?: number | null
   downloads?: number | null
   commentsCount?: number | null
+  printabilityScore?: number | null
+  failureRiskScore?: number | null
+  supportLikelihood?: number | null
+  materialAvailability?: 'in_stock' | 'limited' | 'out_of_stock' | 'unknown' | null
+  materialLeadTimeDays?: number | null
   createdAt?: string | Date | null
   updatedAt?: string | Date | null
   defaultColors?: string[] | null
+  recommendationScore?: number | null
+  recommendationReasons?: string[] | null
 }
 
 export type CardInfo = {
@@ -55,11 +66,13 @@ export type CardInfo = {
 export type ModelWithPartsCountAndTags = {
   id: string
   title: string
+  description?: string | null
   coverImagePath: string | null
   sizeXmm: number | null
   sizeYmm: number | null
   sizeZmm: number | null
   fileType: string | null
+  material?: string | null
   priceUsd: number | null
   effectivePriceUsd?: number | null
   salePriceUsd: number | null
@@ -70,6 +83,11 @@ export type ModelWithPartsCountAndTags = {
   allowedColors?: string[] | null
   likes: number
   downloads: number
+  printabilityScore?: number | null
+  failureRiskScore?: number | null
+  supportLikelihood?: number | null
+  materialAvailability?: 'in_stock' | 'limited' | 'out_of_stock' | 'unknown' | null
+  materialLeadTimeDays?: number | null
   createdAt: Date
   updatedAt: Date
   _count: {

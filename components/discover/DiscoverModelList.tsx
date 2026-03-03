@@ -13,6 +13,38 @@ type DiscoverModelListProps = {
 export default function DiscoverModelList({ cards, viewMode, canLike }: DiscoverModelListProps) {
   const hasModels = cards.length > 0
 
+  const renderAvailability = (status?: string | null, leadTimeDays?: number | null) => {
+    if (!status) return null
+    const tone = status === 'in_stock'
+      ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'
+      : status === 'limited'
+        ? 'border-amber-400/40 bg-amber-500/10 text-amber-200'
+        : status === 'out_of_stock'
+          ? 'border-rose-400/40 bg-rose-500/10 text-rose-200'
+          : 'border-white/10 bg-white/5 text-slate-300'
+    const label = status === 'in_stock'
+      ? 'Material in stock'
+      : status === 'limited'
+        ? 'Limited stock'
+        : status === 'out_of_stock'
+          ? `Restock ${leadTimeDays ? `~${leadTimeDays}d` : 'TBD'}`
+          : 'Stock unknown'
+    return <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${tone}`}>{label}</span>
+  }
+
+  const renderRecommendation = (reasons?: string[] | null) => {
+    if (!reasons?.length) return null
+    return (
+      <div className="flex flex-wrap items-center gap-2 text-[10px] text-sky-200">
+        {reasons.map((reason) => (
+          <span key={reason} className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-slate-300">
+            {reason}
+          </span>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <>
       {hasModels ? (
@@ -49,6 +81,7 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                   <div className="text-xs text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
                     {partsLabel && <span>{partsLabel}</span>}
                     <span>{sizeLabel}</span>
+                    {renderAvailability(m.materialAvailability, m.materialLeadTimeDays)}
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300">
                     <div className="flex items-center gap-2">
@@ -85,6 +118,7 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                       <span>Comments: {m.commentsCount ?? 0}</span>
                     </div>
                   )}
+                  {renderRecommendation(m.recommendationReasons)}
                 </div>
               </Link>
               )
@@ -114,6 +148,7 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                   <div className="text-[11px] text-slate-400 flex gap-3">
                     <span>{m.fileType || 'Unknown format'}</span>
                     {partsLabel && <span>{partsLabel}</span>}
+                    {renderAvailability(m.materialAvailability, m.materialLeadTimeDays)}
                   </div>
                   {isModel ? (
                     <div className="flex items-center gap-2">
@@ -151,6 +186,7 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
                       <span>Comments: {m.commentsCount ?? 0}</span>
                     </div>
                   )}
+                  {renderRecommendation(m.recommendationReasons)}
                 </div>
               </Link>
               )

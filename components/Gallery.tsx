@@ -5,7 +5,7 @@ import { toPublicHref } from '@/lib/public-path'
 
 const LazyModelViewer = dynamic(() => import('./ModelViewer'), { ssr: false })
 
-type Part = { id: string; name: string; filePath: string; previewFilePath?: string | null }
+type Part = { id: string; name?: string | null; filePath: string; previewFilePath?: string | null }
 
 type GalleryImage = { id: string; filePath: string; caption?: string | null; status?: string | null }
 
@@ -17,17 +17,42 @@ type Props = {
   images?: GalleryImage[]
   initialKey?: string
   actions?: ReactNode
+  selectedPartPin?: { partKey: string; x: number; y: number; z: number } | null
+  reviewPins?: Array<{ partKey: string; x: number; y: number; z: number; highlighted?: boolean }>
+  onPartSelect?: (partKey: string | null, pin?: { x: number; y: number; z: number } | null) => void
 }
 
-type Item = { key: string; label: string; kind: 'image' | 'three'; src?: string; srcs?: string[]; fallbackSrc?: string; fallbackSrcs?: Array<string | null | undefined> }
+type Item = {
+  key: string
+  label: string
+  kind: 'image' | 'three'
+  src?: string
+  srcs?: string[]
+  fallbackSrc?: string
+  fallbackSrcs?: Array<string | null | undefined>
+  partKey?: string | null
+  partKeys?: string[]
+}
 
-export default function Gallery({ coverSrc, parts = [], allSrc, allFallbackSrc, images = [], initialKey, actions }: Props) {
+export default function Gallery({
+  coverSrc,
+  parts = [],
+  allSrc,
+  allFallbackSrc,
+  images = [],
+  initialKey,
+  actions,
+  selectedPartPin = null,
+  reviewPins = [],
+  onPartSelect,
+}: Props) {
   const items = useMemo<Item[]>(() => {
     const arr: Item[] = []
-    const partSrcs = parts
-      .map((p) => toPublicHref(p.previewFilePath || p.filePath))
-      .filter((src): src is string => !!src)
-    const normalizedAllSrc = allSrc || (partSrcs.length === 1 ? partSrcs[0] : null)
+    const previewParts = parts
+      .map((part, index) => ({ part, index, src: toPublicHref(part.previewFilePath || part.filePath) }))
+      .filter((entry): entry is { part: Part; index: number; src: string } => !!entry.src)
+    const partSrcs = previewParts.map((entry) => entry.src)
+    const normalizedAllSrc = allSrc || (previewParts.length === 1 ? previewParts[0].src : null)
 
     if (coverSrc) arr.push({ key: 'image:cover', label: 'Cover', kind: 'image', src: coverSrc })
     if (images.length > 0) {
@@ -41,17 +66,25 @@ export default function Gallery({ coverSrc, parts = [], allSrc, allFallbackSrc, 
     }
 
     if (normalizedAllSrc) {
-      arr.push({ key: 'three:all', label: '3D View', kind: 'three', src: normalizedAllSrc, fallbackSrc: allFallbackSrc || undefined })
+      arr.push({
+        key: 'three:all',
+        label: '3D View',
+        kind: 'three',
+        src: normalizedAllSrc,
+        fallbackSrc: allFallbackSrc || undefined,
+        partKeys: previewParts.map((entry) => entry.part.id),
+      })
     } else if (partSrcs.length > 0) {
-      arr.push({ key: 'three:all', label: '3D View: All parts', kind: 'three', srcs: partSrcs })
+      arr.push({ key: 'three:all', label: '3D View: All parts', kind: 'three', srcs: partSrcs, partKeys: previewParts.map((entry) => entry.part.id) })
     }
 
-    if (partSrcs.length > 0) {
-      parts.forEach((p, i) => arr.push({
-        key: `three:${i}`,
-        label: p.name,
+    if (previewParts.length > 0) {
+      previewParts.forEach(({ part, index, src }) => arr.push({
+        key: `three:${index}`,
+        label: part.name || `Part ${index + 1}`,
         kind: 'three',
-        src: partSrcs[i],
+        src,
+        partKey: part.id,
       }))
     }
     return arr
@@ -100,6 +133,7 @@ export default function Gallery({ coverSrc, parts = [], allSrc, allFallbackSrc, 
   const handleSelect = (item: Item) => {
     setActive(item.key)
     if (item.kind === 'three') setViewerEnabled(true)
+    if (onPartSelect) onPartSelect(item.kind === 'three' ? (item.partKey ?? null) : null, null)
   }
 
   return (
@@ -110,9 +144,25 @@ export default function Gallery({ coverSrc, parts = [], allSrc, allFallbackSrc, 
             activeItem.kind === 'three' ? (
               viewerEnabled ? (
                 activeItem.srcs ? (
-                  <LazyModelViewer srcs={activeItem.srcs} fallbackSrcs={activeItem.fallbackSrcs} height={540} className="bg-black/30" />
+                  <LazyModelViewer
+                    srcs={activeItem.srcs}
+                    fallbackSrcs={activeItem.fallbackSrcs}
+                    partKeys={activeItem.partKeys}
+                    partPins={[...(reviewPins || []), ...(selectedPartPin ? [{ ...selectedPartPin, highlighted: true }] : [])]}
+                    onPartTap={onPartSelect || undefined}
+                    height={540}
+                    className="bg-black/30"
+                  />
                 ) : (
-                  <LazyModelViewer src={activeItem.src} fallbackSrc={activeItem.fallbackSrc} height={540} className="bg-black/30" />
+                  <LazyModelViewer
+                    src={activeItem.src}
+                    fallbackSrc={activeItem.fallbackSrc}
+                    partKeys={activeItem.partKey ? [activeItem.partKey] : undefined}
+                    partPins={[...(reviewPins || []), ...(selectedPartPin ? [{ ...selectedPartPin, highlighted: true }] : [])]}
+                    onPartTap={onPartSelect || undefined}
+                    height={540}
+                    className="bg-black/30"
+                  />
                 )
               ) : (
                 <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-center px-6">

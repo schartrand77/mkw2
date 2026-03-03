@@ -1,4 +1,3 @@
-import Gallery from '@/components/Gallery'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
@@ -11,6 +10,10 @@ import ModelComments from '@/components/ModelComments'
 import ModelShareButton from '@/components/ModelShareButton'
 import InstantQuoteConfigurator from '@/components/InstantQuoteConfigurator'
 import ModelProcessingNotifier from '@/components/ModelProcessingNotifier'
+import PrintabilityChecksCard from '@/components/PrintabilityChecksCard'
+import ModelReviewWorkspace from '@/components/ModelReviewWorkspace'
+import CreatorQualityCard from '@/components/CreatorQualityCard'
+import ModelLineageCard from '@/components/ModelLineageCard'
 import { CACHE_TAGS, CACHE_TTL_SECONDS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
 
 async function fetchModel(id: string, baseUrl: string) {
@@ -86,6 +89,17 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
       ? model.parts.some((part: any) => String(part.filePath || '').toLowerCase().endsWith('.3mf') && !part.previewFilePath)
       : false
   const isProcessing = coverProcessing || galleryProcessing || previewProcessing
+  const reviewPins = Array.isArray(model.comments)
+    ? model.comments
+        .filter((comment: any) => comment?.partReview?.partId && comment?.partReview?.pin)
+        .map((comment: any) => ({
+          partKey: comment.partReview.partId,
+          x: Number(comment.partReview.pin.x),
+          y: Number(comment.partReview.pin.y),
+          z: Number(comment.partReview.pin.z),
+        }))
+        .filter((pin: any) => [pin.x, pin.y, pin.z].every((value: number) => Number.isFinite(value)))
+    : []
   return (
     <div className="max-w-5xl mx-auto min-w-0 space-y-5">
       <div>
@@ -120,13 +134,24 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
       )}
       <div className="grid lg:grid-cols-2 gap-6 min-w-0">
         <div className="min-w-0">
-          <Gallery
+          <ModelReviewWorkspace
+            modelId={model.id}
             coverSrc={coverHref}
-            parts={hasParts ? model.parts : []}
+            parts={hasParts ? model.parts.map((part: any, index: number) => ({
+              id: part.id,
+              name: part.name,
+              index,
+              filePath: part.filePath,
+              previewFilePath: part.previewFilePath,
+              sizeXmm: part.sizeXmm,
+              sizeYmm: part.sizeYmm,
+              sizeZmm: part.sizeZmm,
+            })) : []}
             allSrc={viewerHref || null}
             allFallbackSrc={viewerFallbackHref}
             images={model.images || []}
             initialKey={initialGalleryKey}
+            reviewPins={reviewPins}
             actions={payload ? (
               <form action={`/api/models/${model.id}/like`} method="post">
                 <button className="px-3 py-2 rounded-md border border-white/10 bg-black/50 text-sm hover:border-white/30" formAction={`/api/models/${model.id}/like`}>Like</button>
@@ -161,6 +186,13 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             </div>
           </div>
         )}
+        {model.creator?.quality ? (
+          <CreatorQualityCard
+            quality={model.creator.quality}
+            profileSlug={model.creator.profileSlug}
+            creatorName={model.creator.name || null}
+          />
+        ) : null}
         <div className="glass rounded-xl p-4 text-slate-300 whitespace-pre-wrap">{model.description || 'No description provided.'}</div>
         {videoEmbedUrl && (
           <div className="glass rounded-xl overflow-hidden">
@@ -187,27 +219,16 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           <div>{model.volumeMm3 ? `${(model.volumeMm3/1000).toFixed(2)} cm^3` : 'N/A'}</div>
         </div>
         {(model.printabilityScore != null || model.failureRiskScore != null || model.supportLikelihood != null) && (
-          <div className="glass rounded-xl p-4 space-y-3 text-sm">
-            <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Model intelligence</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="text-slate-400">Printability score</div>
-              <div>{model.printabilityScore != null ? `${model.printabilityScore}/100` : 'N/A'}</div>
-              <div className="text-slate-400">Failure risk</div>
-              <div>{model.failureRiskScore != null ? `${model.failureRiskScore}%` : 'N/A'}</div>
-              <div className="text-slate-400">Support likelihood</div>
-              <div>{model.supportLikelihood != null ? `${Math.round(model.supportLikelihood * 100)}%` : 'N/A'}</div>
-            </div>
-            {model.orientationSuggestion && (
-              <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-slate-300">
-                {model.orientationSuggestion}
-              </div>
-            )}
-            {model.supportStrategySuggestion && (
-              <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-slate-300">
-                {model.supportStrategySuggestion}
-              </div>
-            )}
-          </div>
+          <PrintabilityChecksCard
+            printabilityScore={model.printabilityScore}
+            failureRiskScore={model.failureRiskScore}
+            supportLikelihood={model.supportLikelihood}
+            orientationSuggestion={model.orientationSuggestion}
+            supportStrategySuggestion={model.supportStrategySuggestion}
+            sizeXmm={model.sizeXmm}
+            sizeYmm={model.sizeYmm}
+            sizeZmm={model.sizeZmm}
+          />
         )}
         <InstantQuoteConfigurator
           modelId={model.id}
@@ -276,6 +297,11 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             }))}
           />
         )}
+        <ModelLineageCard
+          modelId={model.id}
+          lineage={model.lineage || null}
+          revisions={Array.isArray(model.revisions) ? model.revisions : []}
+        />
         {Array.isArray(model.revisions) && model.revisions.length > 0 && (
           <div className="glass rounded-xl p-4 space-y-2">
             <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Revision notes</div>

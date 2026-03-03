@@ -3,6 +3,7 @@ import type { CheckoutLineItem } from '@/types/checkout'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import type { DiscountSummary } from '@/lib/discounts'
 import { DIMENSION_AXES } from '@/lib/cartPricing'
+import QuoteBreakdownCard from '@/components/QuoteBreakdownCard'
 
 type Props = {
   items: CheckoutLineItem[]
@@ -69,6 +70,28 @@ export default function OrderSummary({ items, currency, total, discount, shippin
                 {item.discountPercent ? ` (${item.discountPercent}% off)` : ''}
               </div>
             )}
+            {(typeof item.leadTimeHours === 'number' || typeof item.etaConfidenceScore === 'number') && (
+              <div className="text-xs text-slate-400">
+                Lead time {typeof item.leadTimeHours === 'number' ? `${item.leadTimeHours.toFixed(1)} hrs` : 'Pending'}
+                {item.leadTimeWindowHours ? ` (${item.leadTimeWindowHours.min.toFixed(1)}-${item.leadTimeWindowHours.max.toFixed(1)} hrs)` : ''}
+                {typeof item.etaConfidenceScore === 'number' ? ` | ${Math.round(item.etaConfidenceScore * 100)}% confidence` : ''}
+              </div>
+            )}
+            <QuoteBreakdownCard
+              currency={currency}
+              title="Quote details"
+              pricing={item.pricingBreakdown?.base || null}
+              unitPrice={item.unitPrice}
+              varianceLabel={item.leadTimeWindowHours ? `${item.leadTimeWindowHours.min.toFixed(1)}-${item.leadTimeWindowHours.max.toFixed(1)} hrs` : null}
+              confidenceScore={item.etaConfidenceScore ?? null}
+              adjustments={{
+                batchDiscountPercent: item.pricingBreakdown?.batchDiscountPercent,
+                rush: item.pricingBreakdown?.rush,
+                demandSurgeMultiplier: item.pricingBreakdown?.demandSurgeMultiplier,
+                rushMultiplier: item.pricingBreakdown?.rushMultiplier,
+              }}
+              leadTimeSignals={item.leadTimeSignals ?? null}
+            />
           </div>
         )
       })}

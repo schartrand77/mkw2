@@ -61,8 +61,13 @@ Discover is the main catalog search UI.
 - Sort options:
   - `Latest`
   - `Popular`
+  - `Best confidence`
+  - `Fastest to ship`
+  - `Lowest failure risk`
   - `Price: Low to High`
   - `Price: High to Low`
+- Press `/` anywhere on the page to focus the search box.
+- Save and reapply discover presets when signed in.
 
 ### 5.2 Multi-Catalog Search
 
@@ -85,8 +90,32 @@ Examples:
 - `dragon` -> all catalogs
 - `dragon #models` -> models only
 - `hoodie #merch` -> merch only
+- `gear material:petg tag:functional` -> filtered toward PETG functional models
 
-### 5.4 Result Behavior by Type
+### 5.4 Typed Search Tokens and Recommendation Cues
+
+Use typed filters directly in the query:
+
+- `material:pla`
+- `material:petg`
+- `tag:flex`
+- `tag:robotics`
+- `#models`
+- `#products`
+- `#merch`
+
+Discover cards can also show buyer-facing recommendation reasons, such as:
+
+- `Title match`
+- `Material match`
+- `Tag match`
+
+### 5.5 Ready to Print Mode
+
+- Toggle `Ready to Print` to prioritize lower-risk models with live in-stock material availability.
+- This mode uses inventory-aware filtering, not just static model metadata.
+
+### 5.6 Result Behavior by Type
 
 - Model result:
   - Opens `/models/{id}`
@@ -114,16 +143,21 @@ Model detail is the core product page for printable models.
 - Review tags and jump back to filtered Discover via tag links.
 - View creator credit and source link (if provided).
 - Use Instant Quote configurator to set print parameters.
+- Review creator quality score and profile trust indicators.
+- Review model lineage: upstream source, revisions, and remixes.
 - Add full model or parts to cart.
 - Download model file or full parts zip (if downloads enabled).
 - Like and share model.
 - Read and post comments.
+- Add part-aware review comments with selected-part and pin context.
 
 ### 7.2 Optional/Conditional Sections
 
 - Build video embed.
 - Affiliate/required parts section.
 - Model intelligence (printability/failure/support signals).
+- Print feasibility scorecard.
+- Material recommender suggestions.
 - Revision notes timeline.
 - Processing notices (cover/3MF previews) for model owners/admins.
 
@@ -192,6 +226,7 @@ Cart is a full configuration workstation, not just a quantity list.
 
 - Quantity increment/decrement.
 - Material selection.
+- Tolerance class selection (`Draft`, `Standard`, `Cosmetic`, `Fit-critical`).
 - Color slot editing (AMS-style palette and custom color input).
 - Finish selection.
 - Scale and dimension overrides (with ratio lock mode).
@@ -228,6 +263,7 @@ Checkout supports card and deferred payment modes.
   - Purchase order (PO)
   - Quote request
 - Optional organization billing selection and project code.
+- Optional organization department selection when procurement departments are configured.
 - Optional rush production flag.
 
 ### 12.2 Organization Rules
@@ -236,18 +272,28 @@ When billing to an organization:
 
 - Requester roles may be forced to `quote` mode if approval is required.
 - PO threshold rules can appear as guidance.
+- Department selection can feed budget tracking and approval routing.
 
-### 12.3 Card Checkout
+### 12.3 Checkout Guidance Surfaces
+
+Checkout now includes:
+
+- Persistent mini-summary while editing shipping/payment details.
+- Configuration comparison for multiple items/configs.
+- Quote breakdown with lead-time confidence carried into line items.
+- Material availability warnings when inventory integration is enabled.
+
+### 12.4 Card Checkout
 
 - Uses Stripe Elements when publishable key is configured.
 - On payment success, order finalization runs and confirmation is shown.
 
-### 12.4 Deferred Checkout (Cash/Invoice/PO/Quote)
+### 12.5 Deferred Checkout (Cash/Invoice/PO/Quote)
 
 - Submits a non-card confirmation flow.
 - Generates confirmation ID and order record.
 
-### 12.5 Common Blocks
+### 12.6 Common Blocks
 
 - Missing color selections.
 - Missing shipping address for ship mode.
@@ -263,21 +309,39 @@ Portal combines quick actions:
 
 Use this page for repeat workflows without hopping between routes.
 
-## 14. Orders
+## 14. Workspaces (`/customer/workspaces`)
 
-### 14.1 Orders List (`/customer/orders`)
+Project Workspaces group organization activity by project code.
+
+### 14.1 Workspace Index
+
+- Lists workspaces by organization/project code.
+- Shows order count, revision count, approval count, spend, and recent activity.
+
+### 14.2 Workspace Detail
+
+- Shows recent orders tied to the project.
+- Highlights approvals, revisions, members, and procurement context.
+- Works best when organization checkout uses project codes consistently.
+
+## 15. Orders
+
+### 15.1 Orders List (`/customer/orders`)
 
 - Shows recent orders, totals, status badges, and line summaries.
 - Open each order for full detail and actions.
 
-### 14.2 Order Detail (`/customer/orders/{orderId}`)
+### 15.2 Order Detail (`/customer/orders/{orderId}`)
 
 Includes:
 
 - Itemized order details and configured options.
 - Production progress and ETA confidence.
+- Customer-facing production milestone timeline.
 - Shipping details.
 - Order timeline (messages, approvals, revisions, photos, artifacts).
+- Estimate calibration details when actual slicer stats are available.
+- Failure recovery guidance when an order fails.
 - Actions:
   - Download manufacturability report (when available)
   - Request reprint
@@ -285,7 +349,7 @@ Includes:
   - Message the shop
   - Upload revision files
 
-## 15. Profile and Public Creator Page
+## 16. Profile and Public Creator Page
 
 ### 15.1 Edit Profile (`/settings/profile`)
 
@@ -295,57 +359,60 @@ Includes:
 - Social links.
 - Shipping address used by checkout.
 
-### 15.2 My Page (`/me` -> redirects to `/u/{slug}`)
+### 16.2 My Page (`/me` -> redirects to `/u/{slug}`)
 
 - Public profile page with avatar, bio, badges, contact/social links.
+- Creator quality score and production-trust summary.
 - Paginated list of your published models.
 
-### 15.3 Liked Models (`/likes`)
+### 16.3 Liked Models (`/likes`)
 
 - Lists models you have liked.
 
-## 16. Account Settings (`/settings/account`)
+## 17. Account Settings (`/settings/account`)
 
 - Sign out current device.
 - Sign out all devices.
 - Request email update verification.
 - Change password with strength feedback.
 
-## 17. Organization Settings (`/settings/organizations`)
+## 18. Organization Settings (`/settings/organizations`)
 
 - Create an organization.
 - View organizations you belong to and your role.
 - View billing and approval policy summary.
 - View 90-day usage metrics (orders/spend).
+- Configure department budgets and approval routing thresholds.
+- Track department budget status and procurement routing rules.
 
-## 18. Admin Manual (`/admin` and subpages)
+## 19. Admin Manual (`/admin` and subpages)
 
 All pages below require admin/staff access.
 
-### 18.1 Admin Overview (`/admin`)
+### 19.1 Admin Overview (`/admin`)
 
 - High-level metrics (users, pending jobs, featured count).
 - Quick links to primary tool pages.
 - Backup/restore status snapshot.
 
-### 18.2 Site Config (`/admin/site-config`)
+### 19.2 Site Config (`/admin/site-config`)
 
 - Update runtime storefront and pricing configuration.
 - Run environment checks and review config audit history.
 
-### 18.3 Notifications (`/admin/notifications`)
+### 19.3 Notifications (`/admin/notifications`)
 
 - Manage push notification setup/subscriptions for admin alerting.
 
-### 18.4 Featured Models (`/admin/featured`)
+### 19.4 Featured Models (`/admin/featured`)
 
 - Curate the set/order of featured models used in storefront surfaces.
 
-### 18.5 Home Comments (`/admin/home-comments`)
+### 19.5 Home Comments (`/admin/home-comments`)
 
 - Curate and moderate comments surfaced on the home experience.
 
-### 18.6 Backups and Restore (`/admin/backup-tools`)
+### 19.6 Backups and Restore (`/admin/backup-tools`)
 
 - Create backups.
 - View latest backup metadata.
@@ -370,40 +437,40 @@ All pages below require admin/staff access.
   - `BACKUP_RUN_ON_START=1` runs one backup when scheduler starts.
   - Run scheduler process with `npm run backup:scheduler` (or equivalent process manager/container).
 
-### 18.7 Model Library (`/admin/models`)
+### 19.7 Model Library (`/admin/models`)
 
 - Search and manage model metadata/visibility/admin fields.
 - Open model image management route (`/admin/models/{id}/images`) for cover/gallery control.
 
-### 18.8 Product Builder (`/admin/products`)
+### 19.8 Product Builder (`/admin/products`)
 
 - Create and maintain product templates tied to base models.
 - Set locked print constraints and product configuration defaults.
 
-### 18.9 Catalog Manager (`/admin/catalog`)
+### 19.9 Catalog Manager (`/admin/catalog`)
 
 - Configure storefront labels for model/merch categories.
 - Manage merch catalog entries, pricing, availability, and ordering metadata.
 
-### 18.10 Production Dashboard (`/admin/production`)
+### 19.10 Production Dashboard (`/admin/production`)
 
 - Central production monitoring and execution workspace for active orders.
 
-### 18.11 Job Queue (`/admin/jobs`)
+### 19.11 Job Queue (`/admin/jobs`)
 
 - Monitor and control OrderWorks-style job state and fulfillment transitions.
 
-### 18.12 Processing Queues (`/admin/processing-queues`)
+### 19.12 Processing Queues (`/admin/processing-queues`)
 
 - Observe async processing queues and retry/requeue stuck work.
 
-### 18.13 Users (`/admin/users`)
+### 19.13 Users (`/admin/users`)
 
 - Invite users.
 - Manage roles/badges/account status.
 - Drill into per-user order operations.
 
-### 18.14 User Orders Admin Flow
+### 19.14 User Orders Admin Flow
 
 - `/admin/users/{userId}/orders`:
   - View all user orders with status and linked job controls.
@@ -416,43 +483,44 @@ All pages below require admin/staff access.
 - `/admin/users/{userId}/orders/{orderId}/ticket`:
   - Print-ready job ticket with QR link back to order.
 
-### 18.15 Inventory (`/admin/inventory`)
+### 19.15 Inventory (`/admin/inventory`)
 
 - View and adjust inventory (Stockworks-backed when enabled).
 
-### 18.16 Analytics (`/admin/analytics`)
+### 19.16 Analytics (`/admin/analytics`)
 
 - View KPI snapshots and trend dashboards for order/revenue/operations.
+- Includes estimate calibration metrics for predicted vs actual print time.
 
-### 18.17 Material Optimization (`/admin/material-optimization`)
+### 19.17 Material Optimization (`/admin/material-optimization`)
 
 - Review material planning recommendations and optimization outputs.
 
-### 18.18 Fleet Intelligence (`/admin/fleet-intelligence`)
+### 19.18 Fleet Intelligence (`/admin/fleet-intelligence`)
 
 - Monitor printer health/identity and maintenance-oriented fleet data.
 
-### 18.19 Batch Optimization (`/admin/batch-optimization`)
+### 19.19 Batch Optimization (`/admin/batch-optimization`)
 
 - Review suggested order batching, queue ordering, nesting, and cluster plans.
 
-### 18.20 Failure Photos (`/admin/failure-photos`)
+### 19.20 Failure Photos (`/admin/failure-photos`)
 
 - Upload/classify failure images for print issue analysis.
 
-### 18.21 Demand Forecasting (`/admin/demand-forecasting`)
+### 19.21 Demand Forecasting (`/admin/demand-forecasting`)
 
 - View demand projections from recent order/revenue trends.
 
-## 19. Notifications and Messaging
+## 20. Notifications and Messaging
 
 - Toast/session notifications appear for success/error states (upload, checkout, profile updates, etc.).
 - Order messaging is available on order detail pages.
 - Admin push/Discord hooks may send operational alerts when configured.
 
-## 20. Troubleshooting
+## 21. Troubleshooting
 
-### 20.1 Cannot Checkout
+### 21.1 Cannot Checkout
 
 Check:
 
@@ -460,8 +528,9 @@ Check:
 - Minimum order subtotal is met.
 - Shipping address exists for shipping mode.
 - Stripe key is configured for card mode.
+- If using organization billing, selected department is valid for that organization.
 
-### 20.2 Upload Fails
+### 21.2 Upload Fails
 
 Check:
 
@@ -470,23 +539,24 @@ Check:
 - Network path to upload endpoint is reachable.
 - Error banner text for server-side validation details.
 
-### 20.3 No Admin Access
+### 21.3 No Admin Access
 
 Check:
 
 - Your user is `isAdmin` or role `admin`/`staff`.
 - You are signed in with the intended account.
 
-### 20.4 Missing Inventory/Forecast Data
+### 21.4 Missing Inventory/Forecast Data
 
 - Some admin pages depend on integrations (Stockworks, queue telemetry, historical order volume).
 - If integrations are not configured, sections may appear empty or reduced.
 
-## 21. Recommended First-Time Workflow
+## 22. Recommended First-Time Workflow
 
 1. Register and sign in.
 2. Complete profile and shipping address in `/settings/profile`.
-3. Browse `Discover`, then open a model and use instant quote.
-4. Add items to cart and configure materials/colors.
-5. Complete checkout using preferred payment method.
-6. Track order in `/customer/orders`.
+3. Browse `Discover`, try typed search filters or `Ready to Print`, then open a model.
+4. Use instant quote to review feasibility, material recommendations, and tolerance class.
+5. Add items to cart and configure materials/colors.
+6. Complete checkout using preferred payment method.
+7. Track order in `/customer/orders` or `/customer/workspaces` if using organization project codes.

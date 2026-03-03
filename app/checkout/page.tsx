@@ -6,6 +6,8 @@ import { loadStripe } from '@stripe/stripe-js'
 import CheckoutForm from '@/components/checkout/CheckoutForm'
 import OrderSummary from '@/components/checkout/OrderSummary'
 import TrustBadge from '@/components/checkout/TrustBadge'
+import CheckoutMiniSummary from '@/components/checkout/CheckoutMiniSummary'
+import ConfigurationCompareCard from '@/components/checkout/ConfigurationCompareCard'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 import { useCart } from '@/components/cart/CartProvider'
 import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, CheckoutPaymentMethod, Dimensions, CheckoutOrganization } from '@/types/checkout'
@@ -13,6 +15,7 @@ import type { Appearance, PaymentIntent } from '@stripe/stripe-js'
 import { DIMENSION_AXES, normalizeColors, resolveAxisScale, normalizeMaterialName } from '@/lib/cartPricing'
 import { formatCurrency } from '@/lib/currency'
 import { BRAND_LAB_NAME } from '@/lib/brand'
+import StatusChip from '@/components/StatusChip'
 
 type ProfileResponse = {
   profile: {
@@ -83,6 +86,7 @@ export default function CheckoutPage() {
   const [organizations, setOrganizations] = useState<CheckoutOrganization[]>([])
   const [organizationId, setOrganizationId] = useState('')
   const [projectCode, setProjectCode] = useState('')
+  const [departmentCode, setDepartmentCode] = useState('')
   const normalizedPaymentDetails = useMemo(() => {
     const details: Record<string, string> = {}
     const purchaseOrderNumber = paymentDetails.purchaseOrderNumber.trim()
@@ -142,6 +146,7 @@ export default function CheckoutPage() {
         scaleZ: axisScales.z,
         material: item.options.material || 'PLA',
         colors: normalizeColors(item.options.colors),
+        toleranceClass: item.options.toleranceClass || 'standard',
         finish: item.options.finish || null,
         infillPct: item.options.infillPct ?? null,
         customText: item.options.customText || null,
@@ -219,6 +224,17 @@ export default function CheckoutPage() {
       setPaymentMethod('quote')
     }
   }, [selectedOrganization, paymentMethod])
+
+  useEffect(() => {
+    if (!selectedOrganization) {
+      setDepartmentCode('')
+      return
+    }
+    const departments = selectedOrganization.procurementConfig?.departments || []
+    if (!departments.some((department) => department.code === departmentCode)) {
+      setDepartmentCode('')
+    }
+  }, [selectedOrganization, departmentCode])
 
   useEffect(() => {
     let cancelled = false
@@ -316,6 +332,7 @@ export default function CheckoutPage() {
           paymentDetails: normalizedPaymentDetails,
           organizationId: organizationId || undefined,
           projectCode: projectCode.trim() || undefined,
+          departmentCode: departmentCode.trim().toUpperCase() || undefined,
           commit: false,
         }),
       })
@@ -330,7 +347,7 @@ export default function CheckoutPage() {
     } finally {
       setLoading(false)
     }
-  }, [checkoutItems, hasMissingColors, shippingSelection, shippingAddress, shippingMethod, paymentMethod, rush, normalizedPaymentDetails, organizationId, projectCode])
+  }, [checkoutItems, hasMissingColors, shippingSelection, shippingAddress, shippingMethod, paymentMethod, rush, normalizedPaymentDetails, organizationId, projectCode, departmentCode])
 
   useEffect(() => {
     fetchIntent()
@@ -348,6 +365,7 @@ export default function CheckoutPage() {
         paymentDetails: normalizedPaymentDetails,
         organizationId: organizationId || undefined,
         projectCode: projectCode.trim() || undefined,
+        departmentCode: departmentCode.trim().toUpperCase() || undefined,
         commit: true,
         paymentIntentId,
       }),
@@ -357,7 +375,7 @@ export default function CheckoutPage() {
       throw new Error(body.error || 'Unable to finalize checkout.')
     }
     return res.json() as Promise<CheckoutIntentResponse>
-  }, [checkoutItems, shippingSelection, rush, normalizedPaymentDetails, organizationId, projectCode])
+  }, [checkoutItems, shippingSelection, rush, normalizedPaymentDetails, organizationId, projectCode, departmentCode])
 
   const handleSuccess = useCallback(async (pi: PaymentIntent) => {
     setFinalizingJob(true)
@@ -585,6 +603,27 @@ export default function CheckoutPage() {
                 value={projectCode}
                 onChange={(e) => setProjectCode(e.target.value)}
               />
+              {selectedOrganization.procurementConfig?.departments?.length ? (
+                <>
+                  <select
+                    className="input text-xs mt-2"
+                    value={departmentCode}
+                    onChange={(e) => setDepartmentCode(e.target.value)}
+                  >
+                    <option value="">Department (optional)</option>
+                    {selectedOrganization.procurementConfig.departments.map((department) => (
+                      <option key={department.code} value={department.code}>
+                        {department.code} - {department.name}
+                      </option>
+                    ))}
+                  </select>
+                  {departmentCode ? (
+                    <div className="text-[11px] text-slate-400 mt-1">
+                      Department spend will roll into organization budget tracking and approval routing.
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -798,13 +837,16 @@ export default function CheckoutPage() {
           </div>
         )}
         {(loading || finalizingJob) && (
-          <p className="text-sm text-slate-400">
-            {finalizingJob
-              ? 'Wrapping up your order...'
-              : paymentMethod === 'card' && !isAdminFreeCheckout
-                ? 'Preparing secure payment...'
-                : 'Preparing order...'}
-          </p>
+          <div className="flex flex-wrap gap-2">
+            {loading && (
+              <StatusChip
+                label={paymentMethod === 'card' && !isAdminFreeCheckout ? 'Preparing secure payment' : 'Preparing order'}
+                tone="info"
+                pulse
+              />
+            )}
+            {finalizingJob && <StatusChip label="Finalizing order" tone="warning" pulse />}
+          </div>
         )}
         {error && <p className="text-sm text-amber-300">{error}</p>}
         {!meetsMinimumOrder && minimumOrderSubtotal && (
@@ -832,7 +874,16 @@ export default function CheckoutPage() {
           </div>
         )}
       </div>
-      <div className="glass rounded-2xl border border-white/10 p-6 space-y-4">
+      <div className="glass rounded-2xl border border-white/10 p-6 space-y-4 self-start md:sticky md:top-24">
+        {intent ? (
+          <CheckoutMiniSummary
+            items={intent.lineItems}
+            currency={intent.currency}
+            total={intent.total}
+            shippingAmount={intent.shippingRate?.amount ?? null}
+          />
+        ) : null}
+        {intent ? <ConfigurationCompareCard items={intent.lineItems} currency={intent.currency} /> : null}
         <TrustBadge
           providers={trustBadgeProviders}
           note={trustBadgeNote}

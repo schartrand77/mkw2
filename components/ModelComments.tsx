@@ -1,7 +1,7 @@
 "use client"
 
 import Link from 'next/link'
-import { ChangeEvent, FormEvent, useMemo, useState } from 'react'
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react'
 import { useNotifications } from '@/components/notifications/NotificationsProvider'
 import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
 
@@ -22,6 +22,15 @@ export type Comment = {
   imageWidth: number | null
   imageHeight: number | null
   isVerified: boolean
+  partReview?: {
+    partId: string
+    partName: string
+    pin?: {
+      x: number
+      y: number
+      z: number
+    } | null
+  } | null
   user: CommentUser
 }
 
@@ -40,6 +49,8 @@ export default function ModelComments({ modelId, initialComments = [], currentUs
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deletingIds, setDeletingIds] = useState<string[]>([])
+  const [selectedPartReview, setSelectedPartReview] = useState<{ partId: string; partName: string; pin?: { x: number; y: number; z: number } | null } | null>(null)
+  const [activePartFilter, setActivePartFilter] = useState<string>('all')
   const { notify } = useNotifications()
 
   const dateFormatter = useMemo(() => (
@@ -58,6 +69,44 @@ export default function ModelComments({ modelId, initialComments = [], currentUs
     () => comments.filter((comment) => comment.type === 'make' && !!comment.imageUrl),
     [comments],
   )
+  const reviewedParts = useMemo(() => {
+    const parts = new Map<string, string>()
+    comments.forEach((comment) => {
+      if (comment.partReview?.partId && comment.partReview.partName) {
+        parts.set(comment.partReview.partId, comment.partReview.partName)
+      }
+    })
+    if (selectedPartReview?.partId && selectedPartReview.partName) {
+      parts.set(selectedPartReview.partId, selectedPartReview.partName)
+    }
+    return Array.from(parts.entries()).map(([partId, partName]) => ({ partId, partName }))
+  }, [comments, selectedPartReview])
+  const visibleComments = useMemo(() => (
+    activePartFilter === 'all'
+      ? comments
+      : comments.filter((comment) => comment.partReview?.partId === activePartFilter)
+  ), [activePartFilter, comments])
+
+  useEffect(() => {
+    if (activePartFilter === 'all') return
+    if (reviewedParts.some((entry) => entry.partId === activePartFilter)) return
+    setActivePartFilter('all')
+  }, [activePartFilter, reviewedParts])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handlePartSelection = (event: Event) => {
+      const detail = (event as CustomEvent<{ partId?: string; partName?: string; pin?: { x: number; y: number; z: number } | null }>).detail
+      if (!detail?.partId || !detail.partName) {
+        setSelectedPartReview(null)
+        return
+      }
+      setSelectedPartReview({ partId: detail.partId, partName: detail.partName, pin: detail.pin || null })
+      setActivePartFilter(detail.partId)
+    }
+    window.addEventListener('mwv2:model-part-selection', handlePartSelection as EventListener)
+    return () => window.removeEventListener('mwv2:model-part-selection', handlePartSelection as EventListener)
+  }, [])
 
   const handleTypeChange = (value: Comment['type']) => {
     setCommentType(value)
@@ -94,6 +143,15 @@ export default function ModelComments({ modelId, initialComments = [], currentUs
       const formData = new FormData()
       formData.append('body', trimmed)
       formData.append('type', commentType)
+      if (selectedPartReview?.partId && selectedPartReview.partName) {
+        formData.append('partId', selectedPartReview.partId)
+        formData.append('partName', selectedPartReview.partName)
+        if (selectedPartReview.pin) {
+          formData.append('pinX', String(selectedPartReview.pin.x))
+          formData.append('pinY', String(selectedPartReview.pin.y))
+          formData.append('pinZ', String(selectedPartReview.pin.z))
+        }
+      }
       if (commentType === 'make' && makeImage) {
         formData.append('image', makeImage)
       }
@@ -111,6 +169,7 @@ export default function ModelComments({ modelId, initialComments = [], currentUs
       setBody('')
       setCommentType('comment')
       setMakeImage(null)
+      setSelectedPartReview(null)
       notify({ type: 'success', title: 'Thanks!', message: 'Your comment is live.' })
     } catch (err: any) {
       const msg = err?.message || 'Failed to add comment'
@@ -202,8 +261,34 @@ export default function ModelComments({ modelId, initialComments = [], currentUs
             </div>
           </div>
         )}
+        {reviewedParts.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-slate-200">Part review filters</h3>
+              <button
+                type="button"
+                className="text-xs text-slate-400 hover:text-white"
+                onClick={() => setActivePartFilter('all')}
+              >
+                Show all
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {reviewedParts.map((part) => (
+                <button
+                  key={part.partId}
+                  type="button"
+                  onClick={() => setActivePartFilter(part.partId)}
+                  className={`rounded-full border px-3 py-1 text-xs ${activePartFilter === part.partId ? 'border-sky-400/40 bg-sky-500/10 text-sky-100' : 'border-white/10 text-slate-300 hover:border-white/20'}`}
+                >
+                  {part.partName}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="space-y-4">
-          {comments.map((comment) => {
+          {visibleComments.map((comment) => {
             const isMake = comment.type === 'make'
             return (
               <article key={comment.id} className="border border-white/5 rounded-lg p-3 bg-black/20">
@@ -227,6 +312,20 @@ export default function ModelComments({ modelId, initialComments = [], currentUs
                       {isMake && (
                         <span className="inline-flex items-center rounded-full border border-sky-400/40 bg-sky-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-sky-200">
                           Make
+                        </span>
+                      )}
+                      {comment.partReview && (
+                        <button
+                          type="button"
+                          onClick={() => setActivePartFilter(comment.partReview?.partId || 'all')}
+                          className="inline-flex items-center rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-cyan-100"
+                        >
+                          Part: {comment.partReview.partName}
+                        </button>
+                      )}
+                      {comment.partReview?.pin && (
+                        <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[0.65rem] font-semibold text-amber-100">
+                          Pin {comment.partReview.pin.x.toFixed(1)}, {comment.partReview.pin.y.toFixed(1)}, {comment.partReview.pin.z.toFixed(1)}
                         </span>
                       )}
                       <span className="text-xs text-slate-500">{formatTimestamp(comment.createdAt)}</span>
@@ -268,10 +367,25 @@ export default function ModelComments({ modelId, initialComments = [], currentUs
           })}
         </div>
       </div>
-      <div className="glass rounded-xl p-5">
+      <div id="model-comments-compose" className="glass rounded-xl p-5">
         {currentUserId ? (
           <form onSubmit={submit} className="space-y-3">
             <label className="block text-sm font-medium">Add a comment</label>
+            {selectedPartReview && (
+              <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100 flex items-center justify-between gap-3">
+                <span>
+                  Reviewing part: {selectedPartReview.partName}
+                  {selectedPartReview.pin ? ` · Pin ${selectedPartReview.pin.x.toFixed(1)}, ${selectedPartReview.pin.y.toFixed(1)}, ${selectedPartReview.pin.z.toFixed(1)}` : ''}
+                </span>
+                <button
+                  type="button"
+                  className="text-cyan-50/80 hover:text-cyan-50"
+                  onClick={() => setSelectedPartReview(null)}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2 text-xs">
               <button
                 type="button"

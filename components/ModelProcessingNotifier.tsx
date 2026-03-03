@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useNotifications } from '@/components/notifications/NotificationsProvider'
+import StatusChip from '@/components/StatusChip'
 
 type Props = {
   modelId: string
@@ -48,6 +49,11 @@ export default function ModelProcessingNotifier({
   const { notify } = useNotifications()
   const [active, setActive] = useState(enabled && (initialCoverProcessing || initialGalleryProcessing || initialPreviewProcessing))
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null)
+  const [processingState, setProcessingState] = useState({
+    cover: initialCoverProcessing,
+    gallery: initialGalleryProcessing,
+    preview: initialPreviewProcessing,
+  })
   const stateRef = useRef({
     cover: initialCoverProcessing,
     gallery: initialGalleryProcessing,
@@ -79,7 +85,9 @@ export default function ModelProcessingNotifier({
         if (prev.preview && !previewProcessing) {
           notify({ type: 'success', title: 'Model preview ready', message: 'Your 3MF preview is ready to view.' })
         }
-        stateRef.current = { cover: coverProcessing, gallery: galleryProcessing, preview: previewProcessing }
+        const nextState = { cover: coverProcessing, gallery: galleryProcessing, preview: previewProcessing }
+        stateRef.current = nextState
+        setProcessingState(nextState)
         const hasProcessing = coverProcessing || galleryProcessing || previewProcessing
         const completedProcessing = (prev.cover && !coverProcessing) || (prev.gallery && !galleryProcessing) || (prev.preview && !previewProcessing)
         if (completedProcessing) {
@@ -109,6 +117,11 @@ export default function ModelProcessingNotifier({
       <p className="text-slate-300 mt-1">
         New media is still processing. This page checks again every {Math.round(pollMs / 1000)} seconds and refreshes automatically when ready.
       </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {processingState.cover && <StatusChip label="Cover processing" tone="warning" pulse />}
+        {processingState.gallery && <StatusChip label="Gallery processing" tone="warning" pulse />}
+        {processingState.preview && <StatusChip label="3MF preview processing" tone="warning" pulse />}
+      </div>
       {lastCheckedAt && (
         <p className="text-xs text-slate-400 mt-2">
           Last checked {lastCheckedAt.toLocaleTimeString()}

@@ -227,6 +227,69 @@ This app has heavy interactive surfaces (viewer, configurator, checkout). There 
 
 ---
 
+## Current audit findings (2026-03-03)
+
+These are concrete frontend issues observed during live review of the current app. They are smaller than the roadmap items above, but they materially affect polish, clarity, and buyer confidence.
+
+### 1) Discover cards mixed two different "recommendation" systems
+- Stock availability was shown as a dedicated badge and also repeated as a recommendation chip.
+- Internal recommendation scoring was exposed as a raw `Match 20` label without explanation.
+- Result: cards looked noisy and partly debug-like instead of buyer-facing.
+
+**Status:** Fixed in current code.
+
+**What changed:**
+- Removed the duplicate `Material is in stock` recommendation chip from the discover API output.
+- Removed the raw `Match N` chip from discover cards.
+- Simplified remaining chip copy to plain labels such as `Material match` and `Tag match`.
+
+**Why it matters:**
+- Reduces repeated information on dense cards.
+- Makes discover relevance cues understandable at a glance.
+- Avoids surfacing internal scoring language to buyers.
+
+### 2) 3D preview looked like Bambu Studio edit mode
+- The model preview applied part selection highlighting and isolation behavior that resembled slicer edit boxes.
+- In preview contexts, that made the viewer feel like an editing tool instead of a clean product preview.
+
+**Status:** Fixed in current code.
+
+**What changed:**
+- Removed selection isolation and highlight styling from `ModelViewer`.
+- Kept part tap handling, pin placement, and color overrides intact.
+- Removed the now-unused `selectedPartKey` prop plumbing from viewer callers.
+
+**Why it matters:**
+- Improves visual trust and presentation quality on product/cart previews.
+- Keeps interaction focused on inspection, not editing.
+- Reduces API surface in a heavily reused frontend component.
+
+### 3) Copy and UI behavior drifted apart in part-aware review
+- Review workspace copy still told users to "isolate" parts after the viewer stopped behaving that way.
+- That kind of mismatch creates subtle UX distrust because the interface promises behavior the viewer no longer performs.
+
+**Status:** Fixed in current code.
+
+**What changed:**
+- Updated review workspace copy to describe part targeting, pins, and metadata focus rather than isolation.
+
+**Why it matters:**
+- Preserves consistency between viewer behavior and surrounding guidance.
+- Reduces confusion for review and comment workflows.
+
+---
+
+## Recommended next audit pass
+
+The next frontend audit slice should focus on issues that are visible but not yet fully documented:
+
+1. Discover information hierarchy: price, stock, file type, parts count, dimensions, and relevance cues still compete for attention on compact cards.
+2. Search/filter explainability: clarify which filters are active, why results were included, and which presets meaningfully change ranking.
+3. Viewer fallback states: verify low-power, failed WebGL, and slow-loading cases across model page, cart, and review workspace.
+4. Async status consistency: compare loading, saved, queued, processing, and failed states across discover, upload, checkout, and admin surfaces.
+
+---
+
 ## Closing recommendation
 
 The app already has rare depth for a 3D-printing product frontend. The strategic move is to double down on **confidence UX + manufacturability intelligence + team workflows**. Those three pillars are what transform a good print storefront into the platform customers trust for every critical job.

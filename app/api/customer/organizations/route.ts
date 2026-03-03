@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
+import { parseProcurementConfig } from '@/lib/procurement-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,7 @@ export async function GET() {
           billingContact: true,
           quoteApprovalRequired: true,
           requirePoAboveCents: true,
+          procurementConfig: true,
           createdAt: true,
         },
       },
@@ -46,6 +48,7 @@ export async function GET() {
       billingContact: membership.organization.billingContact,
       quoteApprovalRequired: membership.organization.quoteApprovalRequired,
       requirePoAboveCents: membership.organization.requirePoAboveCents,
+      procurementConfig: parseProcurementConfig(membership.organization.procurementConfig),
       joinedAt: membership.createdAt,
       createdAt: membership.organization.createdAt,
     })),
@@ -78,6 +81,10 @@ export async function POST(req: NextRequest) {
       billingContact: billingContact || null,
       quoteApprovalRequired,
       requirePoAboveCents: Number.isFinite(requirePoAboveCents) && requirePoAboveCents > 0 ? Math.round(requirePoAboveCents) : null,
+      procurementConfig: {
+        departments: [],
+        approvalRouting: [],
+      },
       createdById: userId,
       members: {
         create: {

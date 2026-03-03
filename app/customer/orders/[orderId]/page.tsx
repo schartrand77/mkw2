@@ -70,6 +70,33 @@ function getOrderOrganizationId(metadata: unknown): string | null {
   return typeof orgId === 'string' && orgId.trim().length > 0 ? orgId.trim() : null
 }
 
+function getEstimateFeedback(metadata: unknown) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
+  const feedback = (metadata as Record<string, unknown>).estimateFeedback
+  if (!feedback || typeof feedback !== 'object' || Array.isArray(feedback)) return null
+  const record = feedback as Record<string, unknown>
+  const estimatedPrintHours = Number(record.estimatedPrintHours)
+  const actualPrintHours = Number(record.actualPrintHours)
+  const printHoursDelta = Number(record.printHoursDelta)
+  const actualMaterialGrams = Number(record.actualMaterialGrams)
+  return {
+    estimatedPrintHours: Number.isFinite(estimatedPrintHours) ? estimatedPrintHours : null,
+    actualPrintHours: Number.isFinite(actualPrintHours) ? actualPrintHours : null,
+    printHoursDelta: Number.isFinite(printHoursDelta) ? printHoursDelta : null,
+    actualMaterialGrams: Number.isFinite(actualMaterialGrams) ? actualMaterialGrams : null,
+  }
+}
+
+function getFailureRecovery(metadata: unknown) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
+  const reprintRequestedAt = (metadata as Record<string, unknown>).reprintRequestedAt
+  const reprintSourceOrderId = (metadata as Record<string, unknown>).reprintSourceOrderId
+  return {
+    reprintRequestedAt: typeof reprintRequestedAt === 'string' ? reprintRequestedAt : null,
+    reprintSourceOrderId: typeof reprintSourceOrderId === 'string' ? reprintSourceOrderId : null,
+  }
+}
+
 export default async function CustomerOrderDetail({ params }: CustomerOrderDetailProps) {
   const { orderId } = await params
   const userId = await getUserIdFromCookie()
@@ -81,6 +108,8 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
     id: order.id,
     status: order.status,
     createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    shippingMethod: order.shippingMethod,
     metadata: order.metadata,
     items: order.items,
   })
@@ -88,7 +117,10 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
   const pendingApprovals = order.approvalRequests.filter((request) => request.status === 'pending')
   const reportArtifact = getManufacturabilityReport(order.metadata)
   const orderOrganizationId = getOrderOrganizationId(order.metadata)
+  const estimateFeedback = getEstimateFeedback(order.metadata)
+  const failureRecovery = getFailureRecovery(order.metadata)
   const timeline = buildTimeline(order, reportArtifact)
+  const isFailedOrder = normalizeOrderStatus(order.status) === 'failed' || Boolean(order.failedAt)
 
   return (
     <div className="space-y-6">
@@ -157,15 +189,39 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
                   </div>
                   <div>
                     <p className="text-slate-500">Estimated print hours</p>
-                    <p className="text-sm font-medium">{production ? production.totalHours.toFixed(1) : 'Æ’?"'} hrs</p>
+                    <p className="text-sm font-medium">{production ? production.totalHours.toFixed(1) : 'N/A'} hrs</p>
                   </div>
                   <div>
                     <p className="text-slate-500">Queue position</p>
-                    <p className="text-sm font-medium">{production?.queuePosition ?? 'Æ’?"'}</p>
+                    <p className="text-sm font-medium">{production?.queuePosition ?? 'N/A'}</p>
                   </div>
                 </div>
                 {production?.orderWorksLastError ? (
                   <p className="text-xs text-rose-200">OrderWorks error: {production.orderWorksLastError}</p>
+                ) : null}
+                {production?.milestones && production.milestones.length > 0 ? (
+                  <div className="space-y-2 border-t border-white/10 pt-3">
+                    <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Production milestones</p>
+                    <ul className="space-y-2">
+                      {production.milestones.map((milestone) => {
+                        const tone = milestone.state === 'complete'
+                          ? 'border-emerald-400/30 bg-emerald-500/10'
+                          : milestone.state === 'current'
+                            ? 'border-brand-400/30 bg-brand-500/10'
+                            : 'border-white/10 bg-black/20'
+                        return (
+                          <li key={milestone.key} className={`rounded-lg border p-3 ${tone}`}>
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-medium">{milestone.label}</p>
+                              <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{milestone.state}</span>
+                            </div>
+                            {milestone.detail && <p className="mt-1 text-xs text-slate-300">{milestone.detail}</p>}
+                            {milestone.at && <p className="mt-1 text-[11px] text-slate-500">{formatDate(milestone.at)}</p>}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -202,6 +258,69 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
                 <OrganizationQuoteApproval organizationId={orderOrganizationId} orderId={order.id} />
               ) : null}
             </div>
+            {isFailedOrder ? (
+              <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 space-y-3">
+                <h2 className="text-lg font-semibold text-rose-100">Failure recovery</h2>
+                <p className="text-sm text-rose-50/90">
+                  This job hit a production failure. We surface that here immediately so you can reprint, share revision context, or message the shop without waiting for support follow-up.
+                </p>
+                {order.failureNote ? (
+                  <div className="text-xs text-rose-100/90">
+                    <span className="uppercase tracking-[0.2em] text-rose-200/80">Shop note</span>
+                    <p className="mt-1">{order.failureNote}</p>
+                  </div>
+                ) : null}
+                <div className="grid grid-cols-2 gap-3 text-xs text-rose-50/90">
+                  <div>
+                    <p className="text-rose-200/80">Next recommended action</p>
+                    <p className="mt-1 text-sm font-medium">{order.reprints.length > 0 ? 'Track replacement order' : 'Request reprint or upload revision'}</p>
+                  </div>
+                  <div>
+                    <p className="text-rose-200/80">Recovery status</p>
+                    <p className="mt-1 text-sm font-medium">
+                      {order.reprints.length > 0
+                        ? `Replacement order ${formatOrderNumber(order.reprints[0]?.orderNumber)} in progress`
+                        : failureRecovery?.reprintRequestedAt
+                          ? `Reprint requested ${formatDate(new Date(failureRecovery.reprintRequestedAt))}`
+                          : 'Awaiting your next step'}
+                    </p>
+                  </div>
+                </div>
+                {order.reprints.length > 0 ? (
+                  <Link href={`/customer/orders/${order.reprints[0].id}`} className="inline-flex text-sm text-brand-300 hover:text-brand-200 underline underline-offset-4">
+                    Open replacement order
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+            {estimateFeedback && (
+              <div className="rounded-xl border border-white/10 p-4 bg-black/20 space-y-3">
+                <h2 className="text-lg font-semibold">Estimate calibration</h2>
+                <p className="text-sm text-slate-300">Actual slicer stats from this order are now feeding estimate calibration for future jobs.</p>
+                <div className="grid grid-cols-2 gap-3 text-xs text-slate-300">
+                  <div>
+                    <p className="text-slate-500">Estimated print hours</p>
+                    <p className="text-sm font-medium">{estimateFeedback.estimatedPrintHours?.toFixed(1) ?? 'N/A'} hrs</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Actual print hours</p>
+                    <p className="text-sm font-medium">{estimateFeedback.actualPrintHours?.toFixed(1) ?? 'N/A'} hrs</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Delta</p>
+                    <p className="text-sm font-medium">
+                      {estimateFeedback.printHoursDelta == null
+                        ? 'N/A'
+                        : `${estimateFeedback.printHoursDelta > 0 ? '+' : ''}${estimateFeedback.printHoursDelta.toFixed(1)} hrs`}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Actual material</p>
+                    <p className="text-sm font-medium">{estimateFeedback.actualMaterialGrams?.toFixed(0) ?? 'N/A'} g</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

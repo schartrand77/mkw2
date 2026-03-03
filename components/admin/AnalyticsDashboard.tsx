@@ -104,6 +104,11 @@ export default function AnalyticsDashboard({ initial }: { initial: AnalyticsSnap
           value={`${averageCoverage(snapshot.profitPerJob)}%`}
           helper="Items w/ volume data"
         />
+        <SummaryCard
+          label="Calibration samples"
+          value={String(snapshot.estimateCalibration.samples)}
+          helper={snapshot.estimateCalibration.avgAbsoluteHoursDelta != null ? `${snapshot.estimateCalibration.avgAbsoluteHoursDelta.toFixed(1)} hr avg abs delta` : 'Awaiting slicer feedback'}
+        />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
@@ -224,6 +229,82 @@ export default function AnalyticsDashboard({ initial }: { initial: AnalyticsSnap
           </div>
         </div>
       </div>
+
+      <div className="grid lg:grid-cols-3 gap-4">
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Estimate calibration</h2>
+            <span className="text-xs text-slate-400">{snapshot.estimateCalibration.samples} samples</span>
+          </div>
+          <div className="grid gap-3">
+            <MetricRow
+              label="Average hours delta"
+              value={snapshot.estimateCalibration.avgHoursDelta != null ? `${snapshot.estimateCalibration.avgHoursDelta > 0 ? '+' : ''}${snapshot.estimateCalibration.avgHoursDelta.toFixed(2)} hrs` : '--'}
+            />
+            <MetricRow
+              label="Average absolute delta"
+              value={snapshot.estimateCalibration.avgAbsoluteHoursDelta != null ? `${snapshot.estimateCalibration.avgAbsoluteHoursDelta.toFixed(2)} hrs` : '--'}
+            />
+            <MetricRow
+              label="Average actual material"
+              value={snapshot.estimateCalibration.avgMaterialGrams != null ? `${snapshot.estimateCalibration.avgMaterialGrams.toFixed(0)} g` : '--'}
+            />
+          </div>
+        </div>
+        <div className="lg:col-span-2 rounded-2xl border border-white/10 bg-black/20 p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Recent calibration samples</h2>
+            <span className="text-xs text-slate-400">Estimated vs actual print hours</span>
+          </div>
+          <div className="space-y-2">
+            {snapshot.estimateCalibration.byOrder.map((row) => (
+              <div key={row.id} className="rounded-xl border border-white/10 bg-black/30 p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                    {row.orderNumber ? `MW-${row.orderNumber.toString().padStart(5, '0')}` : 'Draft order'}
+                  </span>
+                  <span className="text-xs text-slate-400">{formatDate(row.createdAt)}</span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-4 text-slate-200">
+                  <span>Est. {row.estimatedPrintHours.toFixed(1)} hrs</span>
+                  <span>Actual {row.actualPrintHours.toFixed(1)} hrs</span>
+                  <span className={row.printHoursDelta > 0 ? 'text-amber-300' : 'text-emerald-300'}>
+                    Delta {row.printHoursDelta > 0 ? '+' : ''}{row.printHoursDelta.toFixed(1)} hrs
+                  </span>
+                  {row.actualMaterialGrams != null && <span className="text-slate-400">{row.actualMaterialGrams.toFixed(0)} g</span>}
+                </div>
+              </div>
+            ))}
+            {snapshot.estimateCalibration.byOrder.length === 0 ? (
+              <p className="text-sm text-slate-400">No slicer feedback recorded in this range.</p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Calibration by material</h2>
+          <span className="text-xs text-slate-400">Average absolute hours delta</span>
+        </div>
+        <div className="space-y-2">
+          {snapshot.estimateCalibration.byMaterial.map((row) => (
+            <div key={row.material} className="rounded-xl border border-white/10 bg-black/30 p-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-medium">{row.material}</span>
+                <span className="text-slate-300">{row.avgAbsoluteHoursDelta.toFixed(2)} hrs</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-3 text-xs text-slate-400">
+                <span>{row.samples} sample{row.samples === 1 ? '' : 's'}</span>
+                <span>{row.avgHoursDelta > 0 ? '+' : ''}{row.avgHoursDelta.toFixed(2)} hrs avg signed delta</span>
+              </div>
+            </div>
+          ))}
+          {snapshot.estimateCalibration.byMaterial.length === 0 ? (
+            <p className="text-sm text-slate-400">No material calibration data yet.</p>
+          ) : null}
+        </div>
+      </div>
     </div>
   )
 }
@@ -256,4 +337,13 @@ function averageCoverage(rows: { coveragePct: number }[]): number {
   if (rows.length === 0) return 0
   const total = rows.reduce((sum, row) => sum + row.coveragePct, 0)
   return Math.round(total / rows.length)
+}
+
+function MetricRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="text-slate-400">{label}</span>
+      <span className="font-medium text-slate-100">{value}</span>
+    </div>
+  )
 }

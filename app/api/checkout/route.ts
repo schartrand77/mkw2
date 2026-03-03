@@ -23,6 +23,7 @@ import { withRequestObservability } from '@/lib/request-observability'
 import { saveBuffer } from '@/lib/storage'
 import { buildManufacturabilitySnapshot, renderManufacturabilityReportPdf, type ManufacturabilityModelInput } from '@/lib/manufacturability-report'
 import { getOrganizationMembership, isPrivilegedOrgRole } from '@/lib/organizations'
+import { estimateLeadTimeHours } from '@/lib/lead-time-estimator'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,6 +59,7 @@ const itemSchema = z.object({
   targetDimensions: dimensionSchema.optional(),
   material: z.string().max(40).optional().default('PLA'),
   colors: z.array(z.string().max(64)).max(MAX_CART_COLORS).optional(),
+  toleranceClass: z.enum(['draft', 'standard', 'cosmetic', 'fit_critical']).optional(),
   finish: z.string().max(40).optional(),
   infillPct: z.number().int().min(0).max(100).optional().nullable(),
   customText: z.string().max(140).optional().nullable(),
@@ -79,6 +81,7 @@ const payloadSchema = z.object({
   }).partial().optional(),
   organizationId: z.string().cuid().optional(),
   projectCode: z.string().max(64).optional(),
+  departmentCode: z.string().max(32).optional(),
 })
 
 function sanitizeBaseUrl(raw?: string | null) {
@@ -137,6 +140,7 @@ async function handlePost(req: NextRequest) {
     const paymentDetails = parsed.data.paymentDetails || undefined
     const organizationId = parsed.data.organizationId || undefined
     const projectCode = typeof parsed.data.projectCode === 'string' ? parsed.data.projectCode.trim() : ''
+    const departmentCode = typeof parsed.data.departmentCode === 'string' ? parsed.data.departmentCode.trim().toUpperCase() : ''
 
     const items = parsed.data.items
     const shipping = parsed.data.shipping as ShippingSelection | undefined
@@ -255,6 +259,15 @@ async function handlePost(req: NextRequest) {
     if (organizationMembership && organizationMembership.status !== 'active') {
       return NextResponse.json({ error: 'Organization membership is not active.' }, { status: 403 })
     }
+    const orgDepartments = Array.isArray((organizationMembership?.organization.procurementConfig as any)?.departments)
+      ? (organizationMembership?.organization.procurementConfig as any).departments
+      : []
+    if (organizationMembership && departmentCode) {
+      const allowedDepartment = orgDepartments.some((entry: any) => String(entry?.code || '').trim().toUpperCase() === departmentCode)
+      if (!allowedDepartment) {
+        return NextResponse.json({ error: 'Selected department is not configured for this organization.' }, { status: 400 })
+      }
+    }
     const orgRole = organizationMembership?.role || null
     const orgRequiresApproval = Boolean(organizationMembership?.organization.quoteApprovalRequired)
     const discountSummary = summarizeDiscount(userForCheckout)
@@ -263,7 +276,7 @@ async function handlePost(req: NextRequest) {
     const publicBaseUrl = resolvePublicBaseUrl(req)
     const checkoutId = randomUUID()
 
-    const lineItems: CheckoutLineItem[] = items.map((entry) => {
+    const lineItems: CheckoutLineItem[] = await Promise.all(items.map(async (entry) => {
       const model = modelMap.get(entry.modelId)!
       const cm3 = model.volumeMm3 ? model.volumeMm3 / 1000 : null
       const materialChoice: MaterialType = normalizeMaterialName(entry.material || model.material || 'PLA')
@@ -366,7 +379,13 @@ async function handlePost(req: NextRequest) {
       const colorMultiplier = model.flatRatePricing ? 1 : getColorMultiplier(colors)
       const optionMultiplier = typeof entry.priceMultiplier === 'number' && Number.isFinite(entry.priceMultiplier)
         ? Math.max(0.1, Math.min(5, entry.priceMultiplier))
-        : 1
+        : entry.toleranceClass === 'draft'
+          ? 0.94
+          : entry.toleranceClass === 'cosmetic'
+            ? 1.08
+            : entry.toleranceClass === 'fit_critical'
+              ? 1.16
+              : 1
       const rawUnitPrice = Number((basePrice * volumeMultiplier * colorMultiplier * optionMultiplier).toFixed(2))
       const batchDiscountPercent = resolveBatchDiscountPercent(entry.qty || 1, pricingAdjustments.batchDiscountTiers)
       const adjusted = applyPricingAdjustments({
@@ -384,6 +403,39 @@ async function handlePost(req: NextRequest) {
       const qty = entry.qty || 1
       const undiscountedLineTotal = Number((adjusted.adjustedUnitPrice * qty).toFixed(2))
       const lineTotal = Number((unitPrice * qty).toFixed(2))
+      const leadTimePricing = pricingDetails || (() => {
+        if (part?.volumeMm3 != null && Number.isFinite(Number(part.volumeMm3))) {
+          return estimatePricingDetails({
+            cm3: Number(part.volumeMm3) / 1000,
+            material: materialChoice,
+            infillPct: entry.infillPct ?? null,
+            finish: finishChoice,
+            supportRatio: part.supportRatio ?? null,
+            colorCount: colorCountForPricing,
+            cfg,
+            applyMinimum: false,
+          })
+        }
+        if (cm3 != null) {
+          return estimatePricingDetails({
+            cm3,
+            material: materialChoice,
+            infillPct: entry.infillPct ?? null,
+            finish: finishChoice,
+            supportRatio: model.supportRatio ?? null,
+            colorCount: colorCountForPricing,
+            cfg,
+            applyMinimum: false,
+          })
+        }
+        return null
+      })()
+      const leadTime = leadTimePricing
+        ? await estimateLeadTimeHours({
+            baseHours: Math.max(0.25, leadTimePricing.hours * qty),
+            material: materialChoice,
+          })
+        : null
       const storagePath = normalizeStoragePath(
         part?.filePath ||
           model.filePath ||
@@ -409,6 +461,7 @@ async function handlePost(req: NextRequest) {
         discountPercent: lineDiscountPercent || undefined,
         material: materialChoice,
         colors,
+        toleranceClass: entry.toleranceClass || 'standard',
         finish: finishChoice || undefined,
         infillPct: entry.infillPct ?? undefined,
         customText: entry.customText || undefined,
@@ -416,7 +469,7 @@ async function handlePost(req: NextRequest) {
         storagePath,
         storageUrl,
         pricingBreakdown: {
-          base: pricingDetails,
+          base: leadTimePricing,
           volumeMultiplier,
           colorMultiplier,
           discountMultiplier: lineDiscountMultiplier,
@@ -428,8 +481,12 @@ async function handlePost(req: NextRequest) {
           demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
           rushMultiplier: pricingAdjustments.rushMultiplier,
         },
+        leadTimeHours: leadTime?.hours ?? null,
+        leadTimeWindowHours: leadTime ? { min: leadTime.minHours, max: leadTime.maxHours } : null,
+        etaConfidenceScore: leadTime?.confidenceScore ?? null,
+        leadTimeSignals: leadTime?.signals ?? null,
       }
-    })
+    }))
 
     const itemsTotal = lineItems.reduce((sum, item) => sum + item.lineTotal, 0)
     if (!isFinite(itemsTotal) || itemsTotal < 0) {
@@ -584,6 +641,7 @@ async function handlePost(req: NextRequest) {
             organizationName: organizationMembership?.organization.name || null,
             organizationRole: orgRole,
             projectCode: projectCode || null,
+            departmentCode: departmentCode || null,
             quoteApprovalRequired: orgRequiresApproval,
             demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
             rushMultiplier: pricingAdjustments.rushMultiplier,
@@ -627,6 +685,7 @@ async function handlePost(req: NextRequest) {
             organizationName: organizationMembership?.organization.name || null,
             organizationRole: orgRole,
             projectCode: projectCode || null,
+            departmentCode: departmentCode || null,
             quoteApprovalRequired: orgRequiresApproval,
             demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
             rushMultiplier: pricingAdjustments.rushMultiplier,

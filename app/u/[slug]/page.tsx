@@ -8,6 +8,8 @@ import { formatPriceLabel } from '@/lib/price-label'
 import { formatCurrency } from '@/lib/currency'
 import { DEFAULT_ACHIEVEMENTS } from '@/lib/achievements'
 import { getBadgeImageSrc } from '@/lib/badge-images'
+import CreatorQualityCard from '@/components/CreatorQualityCard'
+import { getCreatorQualitySnapshot } from '@/lib/creator-quality'
 
 const fallbackAchievements = new Map(DEFAULT_ACHIEVEMENTS.map((ach) => [ach.key, ach]))
 
@@ -98,6 +100,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
   const page = pageParam ? Number.parseInt(pageParam, 10) : 1
   const pageSize = 9
   const { items: models, total: modelCount, pageCount, currentPage } = await getUserModels(profile.userId, page, pageSize)
+  const creatorQuality = await getCreatorQualitySnapshot(profile.userId)
   const cookieStore = await cookies()
   const token = cookieStore.get('mwv2_token')?.value
   const current = token ? verifyToken(token)?.sub : null
@@ -172,6 +175,11 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
           )}
         </div>
       </div>
+      <CreatorQualityCard
+        quality={creatorQuality}
+        profileSlug={profile.slug}
+        creatorName={profile.user.name || profile.user.email}
+      />
       {(contactItems.length > 0 || socials.length > 0) && (
         <div className="glass rounded-xl p-6 space-y-4">
           {contactItems.length > 0 && (

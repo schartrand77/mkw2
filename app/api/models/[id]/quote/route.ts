@@ -29,6 +29,8 @@ const bodySchema = z.object({
   scaleY: z.number().positive().max(5).optional(),
   scaleZ: z.number().positive().max(5).optional(),
   targetDimensions: dimensionSchema.optional(),
+  toleranceClass: z.enum(['draft', 'standard', 'cosmetic', 'fit_critical']).optional(),
+  priceMultiplier: z.number().positive().max(5).optional(),
 })
 
 const DEFAULT_INFILL_PCT = 20
@@ -135,6 +137,7 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
   const infillPct = parsed.data.infillPct ?? null
   const qty = parsed.data.qty ?? 1
   const rush = Boolean(parsed.data.rush)
+  const toleranceClass = parsed.data.toleranceClass || 'standard'
   const colorCountForPricing = model.flatRatePricing ? 1 : colors.length
 
   const { scaleX, scaleY, scaleZ, uniformScale } = resolveScaleFromDimensions({
@@ -159,7 +162,11 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
     applyMinimum: true,
   })
   const colorMultiplier = model.flatRatePricing ? 1 : getColorMultiplier(colors)
-  let basePrice = Number((pricing.price * colorMultiplier).toFixed(2))
+  const toleranceMultiplier = toleranceClass === 'draft' ? 0.94 : toleranceClass === 'cosmetic' ? 1.08 : toleranceClass === 'fit_critical' ? 1.16 : 1
+  const optionMultiplier = typeof parsed.data.priceMultiplier === 'number' && Number.isFinite(parsed.data.priceMultiplier)
+    ? Math.max(0.1, Math.min(5, parsed.data.priceMultiplier))
+    : toleranceMultiplier
+  let basePrice = Number((pricing.price * colorMultiplier * optionMultiplier).toFixed(2))
 
   if (model.salePriceUsd != null && Number.isFinite(Number(model.salePriceUsd)) && Number(model.salePriceUsd) > 0) {
     const baseMaterial = normalizeMaterialName(model.material || 'PLA')
@@ -218,6 +225,7 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
       colors,
       finish,
       infillPct,
+      toleranceClass,
       scale: uniformScale,
       scaleX,
       scaleY,
@@ -236,6 +244,7 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
         rush,
         demandSurgeMultiplier: adjustments.demandSurgeMultiplier,
         rushMultiplier: adjustments.rushMultiplier,
+        toleranceMultiplier: optionMultiplier,
       },
       leadTimeSignals: leadTime.signals,
     },

@@ -48,6 +48,15 @@ type OrderQueueEntry = {
   queuePosition: number | null
   estimatedCompletionAt: Date | null
   etaConfidenceScore: number | null
+  milestones?: ProductionMilestone[]
+}
+
+export type ProductionMilestone = {
+  key: string
+  label: string
+  state: 'complete' | 'current' | 'upcoming'
+  at: Date | null
+  detail?: string | null
 }
 
 type OrderWorksSummary = {
@@ -68,6 +77,158 @@ export type ProductionSnapshot = {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
+}
+
+function asRecord(value: unknown): Record<string, any> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return value as Record<string, any>
+}
+
+function parseDateValue(value: unknown): Date | null {
+  if (!value || typeof value !== 'string') return null
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function extractShippingInfo(metadata: unknown) {
+  const record = asRecord(metadata)
+  const shipping = asRecord(record?.shippingInfo)
+  return {
+    carrier: typeof shipping?.carrier === 'string' ? shipping.carrier : null,
+    service: typeof shipping?.service === 'string' ? shipping.service : null,
+    trackingNumber: typeof shipping?.trackingNumber === 'string' ? shipping.trackingNumber : null,
+    shippedAt: parseDateValue(shipping?.shippedAt),
+    updatedAt: parseDateValue(shipping?.updatedAt),
+  }
+}
+
+function extractPackingProgress(metadata: unknown) {
+  const record = asRecord(metadata)
+  const packing = asRecord(record?.packingChecklist)
+  const items = Array.isArray(packing?.items) ? packing?.items : []
+  const packedCount = items.filter((item) => asRecord(item)?.status === 'packed').length
+  return {
+    total: items.length,
+    packedCount,
+    allPacked: items.length > 0 && packedCount === items.length,
+    updatedAt: parseDateValue(packing?.updatedAt),
+  }
+}
+
+function extractSlicerVerification(metadata: unknown) {
+  const record = asRecord(metadata)
+  const slicerStats = asRecord(record?.slicerStats)
+  return {
+    profileUploadedAt: parseDateValue(record?.slicerProfileUploadedAt),
+    statsUpdatedAt: parseDateValue(slicerStats?.updatedAt),
+    profileName: typeof record?.slicerProfileName === 'string' ? record.slicerProfileName : null,
+  }
+}
+
+function buildMilestones(args: {
+  status: string
+  shippingMethod?: string | null
+  createdAt: Date
+  updatedAt?: Date | null
+  printerAssignedAt?: Date | null
+  metadata?: unknown
+  jobStatus?: string | null
+  fulfilledAt?: Date | null
+}) {
+  const normalized = normalizeOrderStatus(args.status)
+  const shippingMethod = (args.shippingMethod || 'pickup').toLowerCase()
+  const shippingInfo = extractShippingInfo(args.metadata)
+  const packing = extractPackingProgress(args.metadata)
+  const slicer = extractSlicerVerification(args.metadata)
+  const slicerAt = slicer.profileUploadedAt || slicer.statsUpdatedAt
+  const packedAt = packing.allPacked ? (packing.updatedAt || shippingInfo.shippedAt || args.updatedAt || null) : null
+  const shippedAt = shippingMethod === 'ship' ? (shippingInfo.shippedAt || args.fulfilledAt || null) : args.fulfilledAt || null
+
+  const stageIndex = (() => {
+    if (shippingMethod === 'ship' && (normalized === 'shipped' || normalized === 'completed')) return 5
+    if (shippingMethod !== 'ship' && normalized === 'completed') return 5
+    if (packing.allPacked) return 4
+    if (normalized === 'post_process') return 3
+    if (normalized === 'printing') return 2
+    if (slicerAt || (args.jobStatus || '').trim().toLowerCase() === 'sent') return 1
+    return 0
+  })()
+
+  const finalLabel = shippingMethod === 'ship' ? 'Shipped' : normalized === 'completed' ? 'Picked up' : 'Ready for pickup'
+  const finalDetail = shippingMethod === 'ship'
+    ? (shippingInfo.trackingNumber ? `Tracking ${shippingInfo.trackingNumber}` : 'Carrier handoff complete.')
+    : 'Your order is finished and awaiting pickup.'
+
+  const milestones: Array<{ key: string; label: string; completeAt: Date | null; detail?: string | null; forceComplete?: boolean }> = [
+    {
+      key: 'queued',
+      label: 'Queued',
+      completeAt: args.createdAt,
+      detail: 'Order entered the production queue.',
+      forceComplete: true,
+    },
+    {
+      key: 'slicing_verified',
+      label: 'Slicing verified',
+      completeAt: slicerAt,
+      detail: slicer.profileName ? `Profile attached: ${slicer.profileName}` : 'Toolpaths and production settings confirmed.',
+    },
+    {
+      key: 'on_printer',
+      label: 'On printer',
+      completeAt: args.printerAssignedAt || null,
+      detail: args.printerAssignedAt ? 'Printer assigned and production started.' : 'Waiting for printer assignment.',
+    },
+    {
+      key: 'post_process',
+      label: 'Post-process',
+      completeAt: normalized === 'post_process' || stageIndex > 3 ? (args.updatedAt || null) : null,
+      detail: 'Support removal, cleanup, and quality checks.',
+    },
+    {
+      key: 'packed',
+      label: 'Packed',
+      completeAt: packedAt,
+      detail: packing.total > 0 ? `${packing.packedCount}/${packing.total} checklist items packed.` : 'Packing checklist pending.',
+    },
+    {
+      key: shippingMethod === 'ship' ? 'shipped' : 'ready_for_pickup',
+      label: finalLabel,
+      completeAt: shippedAt,
+      detail: finalDetail,
+    },
+  ]
+
+  let currentAssigned = false
+  return milestones.map((milestone, index) => {
+    const complete = Boolean(milestone.forceComplete || milestone.completeAt || stageIndex > index)
+    if (complete) {
+      return {
+        key: milestone.key,
+        label: milestone.label,
+        state: 'complete',
+        at: milestone.completeAt,
+        detail: milestone.detail,
+      } satisfies ProductionMilestone
+    }
+    if (!currentAssigned) {
+      currentAssigned = true
+      return {
+        key: milestone.key,
+        label: milestone.label,
+        state: 'current',
+        at: milestone.completeAt,
+        detail: milestone.detail,
+      } satisfies ProductionMilestone
+    }
+    return {
+      key: milestone.key,
+      label: milestone.label,
+      state: 'upcoming',
+      at: milestone.completeAt,
+      detail: milestone.detail,
+    } satisfies ProductionMilestone
+  })
 }
 
 function estimateEtaConfidenceScore(entry: { status: string; queuePosition: number | null; orderWorksLastError?: string | null }, capacityHoursPerDay: number) {
@@ -361,6 +522,8 @@ export async function getOrderProductionDetail(order: {
   id: string
   status: string
   createdAt?: Date
+  updatedAt?: Date
+  shippingMethod?: string | null
   metadata?: unknown
   items: {
     modelId?: string | null
@@ -377,6 +540,15 @@ export async function getOrderProductionDetail(order: {
     findLinkedJobsForOrder(order.id, order.metadata),
   ])
   const jobForm = linkedJobs[0]
+  const liveOrder = await prisma.printOrder.findUnique({
+    where: { id: order.id },
+    select: {
+      metadata: true,
+      printerAssignedAt: true,
+      shippingMethod: true,
+      updatedAt: true,
+    },
+  })
   const volumeMaps = await loadVolumeMaps(order.items)
   const totalHours = estimateOrderHours(order.items, volumeMaps, cfg)
   const effectiveStatus = resolveOrderStatusFromFulfillment(
@@ -390,7 +562,30 @@ export async function getOrderProductionDetail(order: {
   if (QUEUE_STATUSES.has(order.status)) {
     const snapshot = await getProductionSnapshot()
     const queued = snapshot.orders.find((entry) => entry.id === order.id)
-    if (queued) return queued
+    if (queued) {
+      const liveOrder = await prisma.printOrder.findUnique({
+        where: { id: order.id },
+        select: {
+          metadata: true,
+          printerAssignedAt: true,
+          shippingMethod: true,
+          updatedAt: true,
+        },
+      })
+      return {
+        ...queued,
+        milestones: buildMilestones({
+          status: queued.status,
+          shippingMethod: liveOrder?.shippingMethod || order.shippingMethod,
+          createdAt: order.createdAt ?? queued.createdAt,
+          updatedAt: liveOrder?.updatedAt || order.updatedAt || null,
+          printerAssignedAt: liveOrder?.printerAssignedAt || null,
+          metadata: liveOrder?.metadata || order.metadata,
+          jobStatus: queued.orderWorksStatus ?? null,
+          fulfilledAt: jobForm?.fulfilledAt ?? null,
+        }),
+      }
+    }
   }
 
   return {
@@ -405,5 +600,15 @@ export async function getOrderProductionDetail(order: {
     queuePosition: null,
     estimatedCompletionAt: null,
     etaConfidenceScore: null,
+    milestones: buildMilestones({
+      status: effectiveStatus,
+      shippingMethod: liveOrder?.shippingMethod || order.shippingMethod,
+      createdAt: order.createdAt ?? new Date(),
+      updatedAt: liveOrder?.updatedAt || order.updatedAt || null,
+      printerAssignedAt: liveOrder?.printerAssignedAt || null,
+      metadata: liveOrder?.metadata || order.metadata,
+      jobStatus: jobForm?.status ?? null,
+      fulfilledAt: jobForm?.fulfilledAt ?? null,
+    }),
   }
 }

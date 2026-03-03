@@ -1,6 +1,7 @@
 import type { Currency } from '@/lib/currency'
 import type { MaterialType } from '@/lib/cartPricing'
 import type { DiscountSummary } from '@/lib/discounts'
+import type { LeadTimeEstimate } from '@/lib/lead-time-estimator'
 import type { PricingDetails } from '@/lib/pricing'
 
 export type Dimensions = {
@@ -20,6 +21,7 @@ export type CheckoutItemInput = {
   scaleZ?: number | null
   material: MaterialType
   colors?: string[] | null
+  toleranceClass?: 'draft' | 'standard' | 'cosmetic' | 'fit_critical' | null
   finish?: string | null
   infillPct?: number | null
   customText?: string | null
@@ -62,6 +64,7 @@ export type CheckoutLineItem = {
   discountPercent?: number
   material: MaterialType
   colors?: string[]
+  toleranceClass?: 'draft' | 'standard' | 'cosmetic' | 'fit_critical' | null
   finish?: string
   infillPct?: number
   customText?: string
@@ -81,6 +84,10 @@ export type CheckoutLineItem = {
     demandSurgeMultiplier?: number
     rushMultiplier?: number
   } | null
+  leadTimeHours?: number | null
+  leadTimeWindowHours?: { min: number; max: number } | null
+  etaConfidenceScore?: number | null
+  leadTimeSignals?: LeadTimeEstimate['signals'] | null
 }
 
 export type CheckoutShippingRate = {
@@ -114,4 +121,8 @@ export type CheckoutOrganization = {
   billingContact?: string | null
   quoteApprovalRequired?: boolean
   requirePoAboveCents?: number | null
+  procurementConfig?: {
+    departments: Array<{ code: string; name: string; monthlyBudgetCents?: number | null }>
+    approvalRouting: Array<{ thresholdCents: number; approverRole: string; label?: string | null }>
+  }
 }

@@ -56,8 +56,8 @@ type Props = {
   autoRotate?: boolean
   colorOverrides?: Array<string | null | undefined> | null
   colorOverridesByPartKey?: Record<string, string | null | undefined> | null
-  selectedPartKey?: string | null
-  onPartTap?: (partKey: string) => void
+  partPins?: Array<{ partKey: string; x: number; y: number; z: number; highlighted?: boolean }> | null
+  onPartTap?: (partKey: string, pin?: { x: number; y: number; z: number } | null) => void
 }
 
 function toAbsoluteUrl(url?: string | null) {
@@ -661,7 +661,7 @@ export default function ModelViewer({
   autoRotate = false,
   colorOverrides = null,
   colorOverridesByPartKey = null,
-  selectedPartKey = null,
+  partPins = null,
   onPartTap,
 }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null)
@@ -678,9 +678,9 @@ export default function ModelViewer({
   const colorOverridesRef = useRef<Array<string | null | undefined> | null>(colorOverrides)
   const colorOverridesByPartKeyRef = useRef<Record<string, string | null | undefined> | null>(colorOverridesByPartKey)
   const onPartTapRef = useRef<Props['onPartTap']>(onPartTap)
-  const selectedPartKeyRef = useRef<string | null>(selectedPartKey)
+  const partPinsRef = useRef<Props['partPins']>(partPins)
   const selectableRootsRef = useRef<Map<string, InstanceType<ThreeLib['Object3D']>>>(new Map())
-  const selectedRootRef = useRef<InstanceType<ThreeLib['Object3D']> | null>(null)
+  const pinObjectsRef = useRef<Array<InstanceType<ThreeLib['Object3D']>>>([])
   const has3mfRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [loadedTargetRevision, setLoadedTargetRevision] = useState(0)
@@ -688,7 +688,7 @@ export default function ModelViewer({
   colorOverridesRef.current = colorOverrides
   colorOverridesByPartKeyRef.current = colorOverridesByPartKey
   onPartTapRef.current = onPartTap
-  selectedPartKeyRef.current = selectedPartKey
+  partPinsRef.current = partPins
   const fileEntries = useMemo(() => {
     const list = srcs && srcs.length ? srcs : (src ? [src] : [])
     const fallbacks = fallbackSrcs && fallbackSrcs.length ? fallbackSrcs : (fallbackSrc ? [fallbackSrc] : [])
@@ -825,57 +825,6 @@ export default function ModelViewer({
       }
       fitRef.current = fitToView
 
-      const clearSelectionHighlight = (target: InstanceType<ThreeLib['Object3D']> | null) => {
-        if (!target) return
-        target.traverse((child: any) => {
-          if (!(child instanceof THREE.Mesh)) return
-          const material = child.material
-          const restore = (mat: any) => {
-            if (!mat) return
-            const prev = mat.userData?.__mwv2SelectionPrev
-            if (!prev || !mat.emissive) return
-            mat.emissive.setHex(prev.emissiveHex)
-            if (typeof prev.emissiveIntensity === 'number' && 'emissiveIntensity' in mat) {
-              mat.emissiveIntensity = prev.emissiveIntensity
-            }
-            delete mat.userData.__mwv2SelectionPrev
-            mat.needsUpdate = true
-          }
-          if (Array.isArray(material)) material.forEach((mat) => restore(mat))
-          else restore(material)
-        })
-      }
-
-      const applySelectionHighlight = (target: InstanceType<ThreeLib['Object3D']> | null) => {
-        if (!target) return
-        target.traverse((child: any) => {
-          if (!(child instanceof THREE.Mesh)) return
-          const material = child.material
-          const apply = (mat: any) => {
-            if (!mat || !mat.emissive) return
-            if (!mat.userData.__mwv2SelectionPrev) {
-              mat.userData.__mwv2SelectionPrev = {
-                emissiveHex: mat.emissive.getHex(),
-                emissiveIntensity: typeof mat.emissiveIntensity === 'number' ? mat.emissiveIntensity : undefined,
-              }
-            }
-            mat.emissive.setHex(0x38bdf8)
-            if ('emissiveIntensity' in mat) mat.emissiveIntensity = Math.max(0.45, Number(mat.emissiveIntensity) || 0)
-            mat.needsUpdate = true
-          }
-          if (Array.isArray(material)) material.forEach((mat) => apply(mat))
-          else apply(material)
-        })
-      }
-
-      const syncSelection = () => {
-        const nextRoot = selectedPartKeyRef.current ? (selectableRootsRef.current.get(selectedPartKeyRef.current) || null) : null
-        if (selectedRootRef.current === nextRoot) return
-        clearSelectionHighlight(selectedRootRef.current)
-        selectedRootRef.current = nextRoot
-        applySelectionHighlight(nextRoot)
-      }
-
       const onLoaded = () => {
         group.updateMatrixWorld(true)
         const box = new THREE.Box3().setFromObject(group)
@@ -903,7 +852,6 @@ export default function ModelViewer({
         object.userData.__mwv2PartKey = partKey
         selectableRootsRef.current.set(partKey, object)
         group.add(object)
-        syncSelection()
         setLoadedTargetRevision((prev) => prev + 1)
         loaded++
         if (loaded === files.length) onLoaded()
@@ -982,11 +930,13 @@ export default function ModelViewer({
               if (!res.ok) throw new Error(`Failed to fetch ${file}`)
               const buf = await res.arrayBuffer()
               let obj: InstanceType<ThreeLib['Object3D']> | null = null
-              try {
-                obj = tmfLoader.parse(buf)
-              } catch (parseErr) {
-                obj = await parse3mfSimple(THREE, buf, colorOverridesRef.current)
-                void parseErr
+              obj = await parse3mfSimple(THREE, buf, colorOverridesRef.current)
+              if (!obj) {
+                try {
+                  obj = tmfLoader.parse(buf)
+                } catch (parseErr) {
+                  void parseErr
+                }
               }
               if (!obj) throw new Error('3MF parsing failed')
               const plan = await tryBuildBambuColorPlan(buf, colorOverridesRef.current)
@@ -1112,7 +1062,13 @@ export default function ModelViewer({
         const hit = intersections.find((entry) => findPartKey(entry.object))
         const partKey = hit ? findPartKey(hit.object) : null
         if (partKey) {
-          if (onPartTapRef.current) onPartTapRef.current(partKey)
+          const root = selectableRootsRef.current.get(partKey) || null
+          let pin = null as { x: number; y: number; z: number } | null
+          if (root && hit?.point) {
+            const localPoint = root.worldToLocal(hit.point.clone())
+            pin = { x: localPoint.x, y: localPoint.y, z: localPoint.z }
+          }
+          if (onPartTapRef.current) onPartTapRef.current(partKey, pin)
         }
         pointerDown = null
       }
@@ -1136,9 +1092,12 @@ export default function ModelViewer({
         renderer.domElement.removeEventListener('pointerup', handlePointerUp)
         if (ro) ro.disconnect()
         controls.dispose?.()
-        clearSelectionHighlight(selectedRootRef.current)
-        selectedRootRef.current = null
         selectableRootsRef.current.clear()
+        pinObjectsRef.current.forEach((pin) => {
+          pin.parent?.remove(pin)
+          disposeObject(THREE, pin)
+        })
+        pinObjectsRef.current = []
         disposeObject(THREE, group)
         pivot.clear()
         renderer.dispose()
@@ -1183,106 +1142,42 @@ export default function ModelViewer({
   useEffect(() => {
     const THREE = threeRef.current
     if (!THREE) return
-    const restoreIsolation = (target: InstanceType<ThreeLib['Object3D']> | null) => {
-      if (!target) return
-      target.traverse((child: any) => {
-        if (!(child instanceof THREE.Mesh)) return
-        const material = child.material
-        const restore = (mat: any) => {
-          if (!mat) return
-          const prev = mat.userData?.__mwv2IsolationPrev
-          if (!prev) return
-          if (typeof prev.opacity === 'number') mat.opacity = prev.opacity
-          if (typeof prev.transparent === 'boolean') mat.transparent = prev.transparent
-          if (typeof prev.depthWrite === 'boolean') mat.depthWrite = prev.depthWrite
-          delete mat.userData.__mwv2IsolationPrev
-          mat.needsUpdate = true
-        }
-        if (Array.isArray(material)) material.forEach((mat) => restore(mat))
-        else restore(material)
+    pinObjectsRef.current.forEach((pin) => {
+      pin.parent?.remove(pin)
+      disposeObject(THREE, pin)
+    })
+    pinObjectsRef.current = []
+    const pins = partPinsRef.current || []
+    pins.forEach((pin) => {
+      if (!pin || !pin.partKey) return
+      const root = selectableRootsRef.current.get(pin.partKey)
+      if (!root) return
+      const geometry = new THREE.SphereGeometry(2.4, 18, 18)
+      const material = new THREE.MeshStandardMaterial({
+        color: pin.highlighted ? 0x38bdf8 : 0xf59e0b,
+        emissive: pin.highlighted ? 0x0ea5e9 : 0x7c2d12,
+        emissiveIntensity: pin.highlighted ? 0.9 : 0.55,
+        metalness: 0.1,
+        roughness: 0.2,
       })
-    }
-    const applyIsolation = (target: InstanceType<ThreeLib['Object3D']> | null, isSelected: boolean) => {
-      if (!target) return
-      target.traverse((child: any) => {
-        if (!(child instanceof THREE.Mesh)) return
-        const material = child.material
-        const apply = (mat: any) => {
-          if (!mat) return
-          if (!mat.userData.__mwv2IsolationPrev) {
-            mat.userData.__mwv2IsolationPrev = {
-              opacity: typeof mat.opacity === 'number' ? mat.opacity : 1,
-              transparent: Boolean(mat.transparent),
-              depthWrite: typeof mat.depthWrite === 'boolean' ? mat.depthWrite : true,
-            }
-          }
-          if (isSelected) {
-            mat.opacity = 1
-            mat.transparent = false
-            mat.depthWrite = true
-          } else {
-            mat.opacity = 0.18
-            mat.transparent = true
-            mat.depthWrite = false
-          }
-          mat.needsUpdate = true
-        }
-        if (Array.isArray(material)) material.forEach((mat) => apply(mat))
-        else apply(material)
+      const marker = new THREE.Mesh(geometry, material)
+      marker.position.set(pin.x, pin.y, pin.z)
+      marker.renderOrder = 1000
+      root.add(marker)
+      pinObjectsRef.current.push(marker)
+    })
+    const renderer = rendererRef.current
+    const scene = sceneRef.current
+    const camera = cameraRef.current
+    if (renderer && scene && camera) renderer.render(scene, camera)
+    return () => {
+      pinObjectsRef.current.forEach((pin) => {
+        pin.parent?.remove(pin)
+        disposeObject(THREE, pin)
       })
+      pinObjectsRef.current = []
     }
-    const clearSelectionHighlight = (target: InstanceType<ThreeLib['Object3D']> | null) => {
-      if (!target) return
-      target.traverse((child: any) => {
-        if (!(child instanceof THREE.Mesh)) return
-        const material = child.material
-        const restore = (mat: any) => {
-          if (!mat) return
-          const prev = mat.userData?.__mwv2SelectionPrev
-          if (!prev || !mat.emissive) return
-          mat.emissive.setHex(prev.emissiveHex)
-          if (typeof prev.emissiveIntensity === 'number' && 'emissiveIntensity' in mat) {
-            mat.emissiveIntensity = prev.emissiveIntensity
-          }
-          delete mat.userData.__mwv2SelectionPrev
-          mat.needsUpdate = true
-        }
-        if (Array.isArray(material)) material.forEach((mat) => restore(mat))
-        else restore(material)
-      })
-    }
-    const applySelectionHighlight = (target: InstanceType<ThreeLib['Object3D']> | null) => {
-      if (!target) return
-      target.traverse((child: any) => {
-        if (!(child instanceof THREE.Mesh)) return
-        const material = child.material
-        const apply = (mat: any) => {
-          if (!mat || !mat.emissive) return
-          if (!mat.userData.__mwv2SelectionPrev) {
-            mat.userData.__mwv2SelectionPrev = {
-              emissiveHex: mat.emissive.getHex(),
-              emissiveIntensity: typeof mat.emissiveIntensity === 'number' ? mat.emissiveIntensity : undefined,
-            }
-          }
-          mat.emissive.setHex(0x38bdf8)
-          if ('emissiveIntensity' in mat) mat.emissiveIntensity = Math.max(0.45, Number(mat.emissiveIntensity) || 0)
-          mat.needsUpdate = true
-        }
-        if (Array.isArray(material)) material.forEach((mat) => apply(mat))
-        else apply(material)
-      })
-    }
-    const nextRoot = selectedPartKey ? (selectableRootsRef.current.get(selectedPartKey) || null) : null
-    if (selectedRootRef.current === nextRoot) return
-    const roots = Array.from(selectableRootsRef.current.values())
-    roots.forEach((root) => restoreIsolation(root))
-    if (selectedPartKey && nextRoot) {
-      roots.forEach((root) => applyIsolation(root, root === nextRoot))
-    }
-    clearSelectionHighlight(selectedRootRef.current)
-    selectedRootRef.current = nextRoot
-    applySelectionHighlight(nextRoot)
-  }, [selectedPartKey])
+  }, [loadedTargetRevision, partPins])
 
   useEffect(() => {
     const targets = bambuTargetsRef.current

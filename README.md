@@ -12,14 +12,24 @@ It is built for print labs and shops that need one system for sales, manufacturi
 - Supports admin workflows for production queues, printer assignment, analytics, and backup/restore.
 - Connects optional external systems for payments, inventory, printer telemetry, and notifications.
 
+## Recent Frontend Upgrades
+
+- Discover now supports typed search tokens, shareable presets, relevance reasons, ready-to-print inventory-aware filtering, and explainable risk/ship-speed sorting.
+- Model detail now includes creator quality scoring, printability checks, lineage/remix history, part-aware review comments with pins, and richer quote explainability.
+- Checkout now includes a persistent mini-summary, configuration comparison, organization billing controls, department-aware procurement routing, and lead-time confidence details.
+- Customer order pages expose production milestones, estimate calibration, failure-recovery guidance, approvals, revisions, and timeline history.
+- Organization workflows now include shared discover presets, project workspaces, department budgets, and approval-routing configuration.
+
 ## Core Product Areas
 
 ### Customer Commerce
 - Browse catalog and collections.
 - Upload STL/OBJ/3MF/ZIP files.
 - Configure print options and get instant estimates.
+- Review print feasibility, material recommendations, tolerance class, and quote breakdowns before adding to cart.
 - Checkout with card, cash, invoice, PO, or quote-request modes.
 - Track orders, respond to approvals, and request revisions/reprints.
+- Review project workspaces, pinned part comments, and production progress timelines.
 
 ### Shop Operations
 - Manage models, product templates, featured content, and pricing profiles.
@@ -56,13 +66,21 @@ MakerWorks includes Stockworks integration for filament/material inventory, cons
   - [`app/api/stockworks/filament-colors/route.ts`](app/api/stockworks/filament-colors/route.ts)
   - [`app/api/stockworks/predictions/route.ts`](app/api/stockworks/predictions/route.ts)
 
-## Repo Audit Snapshot (2026-02-20)
+## Repo Audit Snapshot (2026-03-03)
 
 Current quality-check results from this repository:
 
 - `npm run lint`: passes with warnings (no errors).
 - `npm run typecheck`: passes.
 - `npm test`: partially fails in backup tests due to missing `pg_dump` in local environment.
+
+Frontend audit progress now includes:
+
+- Quote explainability and lead-time confidence rendering in configurator, checkout, and order views.
+- Manufacturability and printability guidance, including PDF export and a first-pass feasibility scorecard.
+- Creator trust surfaces (quality score), remix/lineage display, and part-pinned review comments.
+- Discover preset sharing, typed search chips, recommendation reasons, and live inventory-backed ready-to-print filtering.
+- Procurement-grade organization settings with department budgets and approval routing.
 
 Failing tests:
 - [`tests/backup.test.ts`](tests/backup.test.ts) `runBackup writes db.sql and copies storage contents`

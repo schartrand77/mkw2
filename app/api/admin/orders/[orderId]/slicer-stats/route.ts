@@ -46,7 +46,18 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if ((!payload.materials || payload.materials.length === 0) && payload.printHours == null) {
       return NextResponse.json({ error: 'Missing slicer stats data' }, { status: 400 })
     }
-    const order = await prisma.printOrder.findUnique({ where: { id: orderId }, select: { metadata: true } })
+    const order = await prisma.printOrder.findUnique({
+      where: { id: orderId },
+      select: {
+        metadata: true,
+        items: {
+          select: {
+            quantity: true,
+            configuration: true,
+          },
+        },
+      },
+    })
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     const metadata = normalizeMetadata(order.metadata)
     metadata.slicerStats = {
@@ -57,6 +68,22 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         grams: Number(entry.grams),
         colors: Array.isArray(entry.colors) ? entry.colors.map((c) => c.trim()).filter(Boolean) : [],
       })),
+    }
+    const estimatedPrintHours = order.items.reduce((sum, item) => {
+      if (!item.configuration || typeof item.configuration !== 'object' || Array.isArray(item.configuration)) return sum
+      const value = Number((item.configuration as Record<string, unknown>).leadTimeHours)
+      if (!Number.isFinite(value) || value <= 0) return sum
+      return sum + value
+    }, 0)
+    const actualPrintHours = payload.printHours != null && Number.isFinite(Number(payload.printHours)) ? Number(payload.printHours) : null
+    metadata.estimateFeedback = {
+      updatedAt: new Date().toISOString(),
+      estimatedPrintHours: estimatedPrintHours > 0 ? Number(estimatedPrintHours.toFixed(2)) : null,
+      actualPrintHours,
+      printHoursDelta: estimatedPrintHours > 0 && actualPrintHours != null
+        ? Number((actualPrintHours - estimatedPrintHours).toFixed(2))
+        : null,
+      actualMaterialGrams: (payload.materials || []).reduce((sum, entry) => sum + Number(entry.grams || 0), 0),
     }
     await prisma.printOrder.update({
       where: { id: orderId },

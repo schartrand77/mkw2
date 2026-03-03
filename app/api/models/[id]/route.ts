@@ -16,6 +16,8 @@ import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
 import { extract3mfFilamentColors } from '@/lib/model-preview-queue'
 import { enqueueImageProcessing } from '@/lib/processing-jobs'
 import { CACHE_TAGS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
+import { getCreatorQualitySnapshot } from '@/lib/creator-quality'
+import { getModelLineageSummary } from '@/lib/model-lineage'
 
 type ModelRouteContext = { params: Promise<{ id: string }> }
 
@@ -32,6 +34,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
         take: 10,
         include: { user: { select: { id: true, name: true } }, parts: { select: { id: true } } },
       },
+      user: { select: { id: true, name: true, email: true, profile: { select: { slug: true, avatarImagePath: true } } } },
     },
   })
   if (!model) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -106,6 +109,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
           take: 10,
           include: { user: { select: { id: true, name: true } }, parts: { select: { id: true } } },
         },
+        user: { select: { id: true, name: true, email: true, profile: { select: { slug: true, avatarImagePath: true } } } },
       },
     })
     if (!model) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -169,7 +173,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     }
   }
   const tags = model.modelTags.map(mt => ({ id: mt.tag.id, name: mt.tag.name, slug: mt.tag.slug }))
-  const { modelTags, images, comments, revisions, coverImageSourcePath, coverImageError, ...rest } = model as any
+  const { modelTags, images, comments, revisions, user, coverImageSourcePath, coverImageError, ...rest } = model as any
   const pricingSummary = resolveModelPricing(model as any, cfg)
   const effectivePriceUsd = model.effectivePriceUsd != null && Number.isFinite(Number(model.effectivePriceUsd))
     ? Number(model.effectivePriceUsd)
@@ -197,6 +201,10 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
   const totalPriceForParts = pricingSummary.salePriceUsd ?? totalPricing?.price ?? pricingSummary.priceUsd ?? null
   const verifiedComments = await findVerifiedCommentUserIds(model.id, (comments || []).map((c: any) => c.userId))
   const isMultipart = parts.length > 1
+  const [creatorQuality, lineage] = await Promise.all([
+    getCreatorQualitySnapshot(model.userId),
+    getModelLineageSummary(model.id, model.creditUrl ?? null),
+  ])
   return NextResponse.json({
     model: {
       ...rest,
@@ -241,6 +249,15 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
         user: rev.user ? { id: rev.user.id, name: rev.user.name } : null,
         partsCount: Array.isArray(rev.parts) ? rev.parts.length : 0,
       })),
+      creator: user ? {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        profileSlug: user.profile?.slug || null,
+        avatarImagePath: user.profile?.avatarImagePath || null,
+        quality: creatorQuality,
+      } : null,
+      lineage,
     },
   })
 }

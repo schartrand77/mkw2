@@ -878,7 +878,6 @@ export default function CartPage() {
               srcs={selectedMultipartViewerSrcs}
               fallbackSrcs={selectedMultipartViewerFallbacks}
               partKeys={selectedMultipartViewerPartKeys}
-              selectedPartKey={selectedPreviewItem.partId ?? null}
               onPartTap={handlePreviewPartTap}
               height={360}
               className="bg-black/40"
@@ -890,7 +889,6 @@ export default function CartPage() {
               src={selectedViewerSrc}
               fallbackSrc={selectedViewerFallback || undefined}
               partKeys={selectedPreviewItem.partId ? [selectedPreviewItem.partId] : undefined}
-              selectedPartKey={selectedPreviewItem.partId ?? null}
               onPartTap={handlePreviewPartTap}
               height={360}
               className="bg-black/40"

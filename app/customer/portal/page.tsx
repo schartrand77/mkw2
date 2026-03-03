@@ -5,6 +5,7 @@ import { listOrdersForUser } from '@/lib/orders'
 import UploadForm from '@/app/upload/UploadForm'
 import CustomerPresetsPanel from '@/components/customer/CustomerPresetsPanel'
 import { formatCurrency } from '@/lib/currency'
+import { listProjectWorkspacesForUser } from '@/lib/project-workspaces'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,9 +22,10 @@ export default async function CustomerPortalPage() {
     )
   }
 
-  const [cfg, orders] = await Promise.all([
+  const [cfg, orders, workspaces] = await Promise.all([
     prisma.siteConfig.findUnique({ where: { id: 'main' }, select: { directUploadUrl: true } }),
     listOrdersForUser(userId, 6),
+    listProjectWorkspacesForUser(userId),
   ])
   const fallback = process.env.DIRECT_UPLOAD_URL || null
   const directUploadUrl = cfg?.directUploadUrl || fallback
@@ -70,6 +72,36 @@ export default async function CustomerPortalPage() {
                     </div>
                     <div className="text-xs text-slate-400">
                       {formatCurrency(order.totalCents / 100)} · {order.items.length} item{order.items.length === 1 ? '' : 's'}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="glass rounded-2xl border border-white/10 p-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Project workspaces</h2>
+              <Link href="/customer/workspaces" className="text-xs text-brand-300 underline underline-offset-4">Open all</Link>
+            </div>
+            {workspaces.length === 0 ? (
+              <p className="text-sm text-slate-400">Use an organization and project code at checkout to start a workspace.</p>
+            ) : (
+              <div className="space-y-2">
+                {workspaces.slice(0, 3).map((workspace) => (
+                  <Link
+                    key={`${workspace.organizationId}:${workspace.projectCode}`}
+                    href={`/customer/workspaces/${workspace.organizationId}/${encodeURIComponent(workspace.projectCode)}`}
+                    className="block rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm hover:border-white/30"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-semibold">{workspace.projectCode}</div>
+                        <div className="text-xs text-slate-400">{workspace.organizationName}</div>
+                      </div>
+                      <div className="text-right text-xs text-slate-400">
+                        <div>{workspace.orderCount} order{workspace.orderCount === 1 ? '' : 's'}</div>
+                        <div>{formatCurrency(workspace.spendCents / 100)}</div>
+                      </div>
                     </div>
                   </Link>
                 ))}

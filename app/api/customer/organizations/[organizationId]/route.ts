@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { getOrganizationMembership, isPrivilegedOrgRole } from '@/lib/organizations'
+import { parseProcurementConfig } from '@/lib/procurement-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +17,10 @@ export async function GET(_: NextRequest, { params }: Context) {
   if (!membership) return NextResponse.json({ error: 'Organization not found.' }, { status: 404 })
 
   return NextResponse.json({
-    organization: membership.organization,
+    organization: {
+      ...membership.organization,
+      procurementConfig: parseProcurementConfig(membership.organization.procurementConfig),
+    },
     role: membership.role,
   })
 }
@@ -38,6 +42,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   const billingContact = typeof body.billingContact === 'string' ? body.billingContact.trim() : null
   const quoteApprovalRequired = typeof body.quoteApprovalRequired === 'boolean' ? body.quoteApprovalRequired : null
   const requirePoAboveCentsRaw = Number(body.requirePoAboveCents)
+  const procurementConfig = body.procurementConfig
 
   const organization = await prisma.organization.update({
     where: { id: organizationId },
@@ -49,6 +54,9 @@ export async function PATCH(req: NextRequest, { params }: Context) {
       ...(Number.isFinite(requirePoAboveCentsRaw)
         ? { requirePoAboveCents: requirePoAboveCentsRaw > 0 ? Math.round(requirePoAboveCentsRaw) : null }
         : {}),
+      ...(procurementConfig && typeof procurementConfig === 'object' && !Array.isArray(procurementConfig)
+        ? { procurementConfig: parseProcurementConfig(procurementConfig) }
+        : {}),
     },
     select: {
       id: true,
@@ -58,9 +66,10 @@ export async function PATCH(req: NextRequest, { params }: Context) {
       billingContact: true,
       quoteApprovalRequired: true,
       requirePoAboveCents: true,
+      procurementConfig: true,
       updatedAt: true,
     },
   })
 
-  return NextResponse.json({ organization })
+  return NextResponse.json({ organization: { ...organization, procurementConfig: parseProcurementConfig(organization.procurementConfig) } })
 }

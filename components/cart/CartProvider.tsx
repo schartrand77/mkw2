@@ -25,6 +25,7 @@ export type CartOptions = {
   scale: number // 1.0 = 100%
   material: MaterialType
   colors: string[]
+  toleranceClass?: 'draft' | 'standard' | 'cosmetic' | 'fit_critical' | null
   finish?: string | null
   lockedConfig?: boolean
   productTemplateId?: string | null
@@ -106,6 +107,7 @@ function sanitizeOptions(opts?: LegacyCartOptions | null): CartOptions {
     scale: baseScale,
     material: normalizeMaterialName(opts?.material),
     colors: normalizeColors(colorsSource),
+    toleranceClass: typeof opts?.toleranceClass === 'string' ? opts.toleranceClass as CartOptions['toleranceClass'] : 'standard',
     finish: typeof opts?.finish === 'string' ? opts.finish : null,
     lockedConfig,
     productTemplateId: typeof opts?.productTemplateId === 'string' ? opts.productTemplateId : null,
@@ -125,6 +127,7 @@ function mergeOptions(base: CartOptions, patch?: Partial<CartOptions>): CartOpti
     scale: patch.scale != null ? patch.scale : base.scale,
     material: patch.material ?? base.material,
     colors: patch.colors !== undefined ? patch.colors : base.colors,
+    toleranceClass: patch.toleranceClass !== undefined ? patch.toleranceClass : base.toleranceClass,
     finish: patch.finish !== undefined ? patch.finish : base.finish,
     lockedConfig: patch.lockedConfig !== undefined ? patch.lockedConfig : base.lockedConfig,
     productTemplateId: patch.productTemplateId !== undefined ? patch.productTemplateId : base.productTemplateId,

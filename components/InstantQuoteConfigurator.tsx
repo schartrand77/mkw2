@@ -14,6 +14,13 @@ import {
 } from '@/lib/cartPricing'
 import { formatCurrency } from '@/lib/currency'
 import { buildAllowedColorTokenSet, isColorAllowed, normalizeModelColorSlotCount, sanitizeAllowedColors } from '@/lib/color-constraints'
+import type { PricingDetails } from '@/lib/pricing'
+import QuoteBreakdownCard from '@/components/QuoteBreakdownCard'
+import StatusChip from '@/components/StatusChip'
+import FeasibilityScorecard from '@/components/FeasibilityScorecard'
+import MaterialRecommenderCard from '@/components/MaterialRecommenderCard'
+import { buildFeasibilityScorecard } from '@/lib/feasibility-scorecard'
+import { recommendMaterials } from '@/lib/material-recommender'
 
 type QuoteResponse = {
   quote: {
@@ -26,6 +33,22 @@ type QuoteResponse = {
     scaleY: number
     scaleZ: number
     targetDimensions?: { x?: number; y?: number; z?: number } | null
+    pricing?: PricingDetails | null
+    adjustments?: {
+      batchDiscountPercent?: number
+      rush?: boolean
+      demandSurgeMultiplier?: number
+      rushMultiplier?: number
+      toleranceMultiplier?: number
+    }
+    leadTimeSignals?: {
+      baseHours: number
+      queueHours: number
+      queueDelayHours: number
+      capacityHoursPerDay: number
+      printerAvailabilityPercent: number
+      materialAvailability: 'in_stock' | 'limited' | 'out_of_stock' | 'unknown'
+    }
   }
 }
 
@@ -70,6 +93,15 @@ type Props = {
     sizeZmm?: number | null
   }>
 }
+
+type ToleranceClass = 'draft' | 'standard' | 'cosmetic' | 'fit_critical'
+
+const TOLERANCE_OPTIONS: Array<{ value: ToleranceClass; label: string; description: string; multiplier: number }> = [
+  { value: 'draft', label: 'Draft', description: 'Fastest, lowest-cost setup for validation parts.', multiplier: 0.94 },
+  { value: 'standard', label: 'Standard', description: 'Balanced production setup for most parts.', multiplier: 1 },
+  { value: 'cosmetic', label: 'Cosmetic', description: 'Bias toward cleaner visible surfaces and finish quality.', multiplier: 1.08 },
+  { value: 'fit_critical', label: 'Fit-critical', description: 'Tighter process setup for mating or tolerance-sensitive parts.', multiplier: 1.16 },
+]
 
 const SCALE_MIN = 0.1
 const SCALE_MAX = 5
@@ -250,6 +282,7 @@ export default function InstantQuoteConfigurator({
   const [colors, setColors] = useState<string[]>(() => (Array.isArray(defaultColors) ? defaultColors : []))
   const [finish, setFinish] = useState<string>('standard')
   const [infillPct, setInfillPct] = useState<number>(20)
+  const [toleranceClass, setToleranceClass] = useState<ToleranceClass>('standard')
   const [scale, setScale] = useState<number>(1)
   const [rush, setRush] = useState(false)
   const [lockDimensions, setLockDimensions] = useState(true)
@@ -265,6 +298,13 @@ export default function InstantQuoteConfigurator({
   const [gcodeLoading, setGcodeLoading] = useState(false)
   const [activeColorSlot, setActiveColorSlot] = useState<number | null>(null)
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
+  const [materialGoals, setMaterialGoals] = useState({
+    needImpactResistance: false,
+    needHeatResistance: false,
+    needUvResistance: false,
+    needFlexibility: false,
+    budgetSensitive: true,
+  })
   const paletteRef = useRef<HTMLDivElement | null>(null)
   const configuredSlotCount = useMemo(() => normalizeModelColorSlotCount(colorSlotCount), [colorSlotCount])
   const slotLimit = useMemo(() => configuredSlotCount ?? maxColors, [configuredSlotCount, maxColors])
@@ -313,13 +353,36 @@ export default function InstantQuoteConfigurator({
     colors: normalizedColors,
     finish,
     infillPct,
+    toleranceClass,
+    priceMultiplier: TOLERANCE_OPTIONS.find((option) => option.value === toleranceClass)?.multiplier ?? 1,
     rush,
     scale,
     scaleX: axisScale.x,
     scaleY: axisScale.y,
     scaleZ: axisScale.z,
     targetDimensions: targetDimensions || undefined,
-  }), [materialChoice, normalizedColors, finish, infillPct, rush, scale, axisScale, targetDimensions])
+  }), [materialChoice, normalizedColors, finish, infillPct, toleranceClass, rush, scale, axisScale, targetDimensions])
+  const quoteVarianceLabel = useMemo(() => {
+    if (!quote?.leadTimeWindowHours) return null
+    return `${quote.leadTimeWindowHours.min.toFixed(1)}-${quote.leadTimeWindowHours.max.toFixed(1)} hrs`
+  }, [quote])
+  const feasibilityScorecard = useMemo(() => buildFeasibilityScorecard({
+    material: materialChoice,
+    printabilityScore: quote?.pricing ? Math.max(0, Math.min(100, 92 - (quote.pricing.hours * 6))) : 72,
+    failureRiskScore: typeof quote?.etaConfidenceScore === 'number' ? Math.max(0, 100 - Math.round(quote.etaConfidenceScore * 100)) : 32,
+    supportLikelihood: typeof quote?.pricing?.machineCost === 'number' && typeof quote?.pricing?.laborCost === 'number' && typeof quote?.pricing?.price === 'number' && quote.pricing.price > 0
+      ? Math.max(0, Math.min(1, (quote.pricing.machineCost + quote.pricing.laborCost) / quote.pricing.price))
+      : null,
+    sizeXmm: targetDimensions?.x ?? sizeXmm ?? null,
+    sizeYmm: targetDimensions?.y ?? sizeYmm ?? null,
+    sizeZmm: targetDimensions?.z ?? sizeZmm ?? null,
+  }), [materialChoice, quote, sizeXmm, sizeYmm, sizeZmm, targetDimensions])
+  const materialRecommendations = useMemo(() => recommendMaterials({
+    currentMaterial: materialChoice,
+    failureRiskScore: typeof quote?.etaConfidenceScore === 'number' ? Math.max(0, 100 - Math.round(quote.etaConfidenceScore * 100)) : null,
+    printabilityScore: feasibilityScorecard.score,
+    ...materialGoals,
+  }), [materialChoice, quote?.etaConfidenceScore, feasibilityScorecard.score, materialGoals])
 
   const materialOptions = useMemo(() => {
     const normalized = normalizeMaterialName(materialChoice)
@@ -566,8 +629,10 @@ export default function InstantQuoteConfigurator({
       scale: clampScale(scale),
       material: materialChoice,
       colors: normalizedColors,
+      toleranceClass,
       finish,
       infillPct,
+      priceMultiplier: TOLERANCE_OPTIONS.find((option) => option.value === toleranceClass)?.multiplier ?? 1,
       dimensionOverrides: lockDimensions ? null : dimensionOverrides,
       lockDimensions,
     }
@@ -605,7 +670,7 @@ export default function InstantQuoteConfigurator({
       },
       opts,
     )
-  }, [add, hasRequiredColor, modelId, title, priceUsd, quote?.priceUsd, thumbnail, sizeXmm, sizeYmm, sizeZmm, scale, materialChoice, normalizedColors, finish, infillPct, lockDimensions, dimensionOverrides, flatRatePricing, parts, configuredSlotCount, allowedColorList])
+  }, [add, hasRequiredColor, modelId, title, priceUsd, quote?.priceUsd, thumbnail, sizeXmm, sizeYmm, sizeZmm, scale, materialChoice, normalizedColors, toleranceClass, finish, infillPct, lockDimensions, dimensionOverrides, flatRatePricing, parts, configuredSlotCount, allowedColorList])
 
   const uploadGcode = async (file: File) => {
     setGcodeLoading(true)
@@ -690,6 +755,13 @@ export default function InstantQuoteConfigurator({
           Save to cart
         </button>
       </div>
+      {(loading || gcodeLoading || reportLoading) && (
+        <div className="flex flex-wrap gap-2">
+          {loading && <StatusChip label="Refreshing quote" tone="info" pulse />}
+          {gcodeLoading && <StatusChip label="Parsing G-code" tone="info" pulse />}
+          {reportLoading && <StatusChip label="Generating PDF" tone="warning" pulse />}
+        </div>
+      )}
       {error && <div className="text-xs text-amber-300">{error}</div>}
       <div className="grid gap-3 md:grid-cols-2">
         <label className="text-sm space-y-1">
@@ -703,11 +775,19 @@ export default function InstantQuoteConfigurator({
         <label className="text-sm space-y-1">
           <span className="text-slate-400">Finish</span>
           <select className="input" value={finish} onChange={(e) => setFinish(e.target.value)}>
-            {FINISH_OPTIONS.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        </label>
+          {FINISH_OPTIONS.map((option) => (
+            <option key={option} value={option}>{option}</option>
+          ))}
+        </select>
+      </label>
+      <label className="text-sm space-y-1">
+        <span className="text-slate-400">Tolerance class</span>
+        <select className="input" value={toleranceClass} onChange={(e) => setToleranceClass(e.target.value as ToleranceClass)}>
+          {TOLERANCE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </label>
         <label className="text-sm space-y-1">
           <span className="text-slate-400">Infill %</span>
           <input
@@ -741,6 +821,30 @@ export default function InstantQuoteConfigurator({
             {rush ? 'Enabled' : 'Standard'}
           </button>
         </label>
+      </div>
+      <div className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-3">
+        <div>
+          <div className="text-xs uppercase tracking-[0.25em] text-slate-500">Use-case goals</div>
+          <p className="mt-1 text-xs text-slate-400">Drive material recommendations with the actual part constraints.</p>
+        </div>
+        <div className="grid gap-2 md:grid-cols-2 text-sm">
+          {[
+            ['needImpactResistance', 'Impact resistance'],
+            ['needHeatResistance', 'Heat resistance'],
+            ['needUvResistance', 'UV / outdoor'],
+            ['needFlexibility', 'Flexibility'],
+            ['budgetSensitive', 'Budget sensitive'],
+          ].map(([key, label]) => (
+            <label key={key} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+              <span>{label}</span>
+              <input
+                type="checkbox"
+                checked={Boolean(materialGoals[key as keyof typeof materialGoals])}
+                onChange={(e) => setMaterialGoals((prev) => ({ ...prev, [key]: e.target.checked }))}
+              />
+            </label>
+          ))}
+        </div>
       </div>
       {hasDimensions && (
         <div className="space-y-2">
@@ -886,6 +990,7 @@ export default function InstantQuoteConfigurator({
           {targetDimensions
             ? `Size: ${DIMENSION_AXES.map((axis) => targetDimensions?.[axis]).filter(Boolean).join(' x ')} mm`
             : 'Size pending'}
+          <div className="mt-1">{TOLERANCE_OPTIONS.find((option) => option.value === toleranceClass)?.label} tolerance</div>
           <button
             type="button"
             onClick={downloadManufacturabilityReport}
@@ -896,6 +1001,20 @@ export default function InstantQuoteConfigurator({
           </button>
         </div>
       </div>
+      <FeasibilityScorecard scorecard={feasibilityScorecard} />
+      <MaterialRecommenderCard
+        recommendations={materialRecommendations}
+        currentMaterial={materialChoice}
+        onSelect={(nextMaterial) => setMaterialChoice(nextMaterial as MaterialType)}
+      />
+      <QuoteBreakdownCard
+        pricing={quote?.pricing || null}
+        unitPrice={gcodeEstimate?.priceUsd ?? quote?.priceUsd ?? null}
+        varianceLabel={quoteVarianceLabel}
+        confidenceScore={quote?.etaConfidenceScore ?? null}
+        adjustments={quote?.adjustments || null}
+        leadTimeSignals={quote?.leadTimeSignals || null}
+      />
       <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-slate-300 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -921,7 +1040,7 @@ export default function InstantQuoteConfigurator({
             if (file) uploadGcode(file)
           }}
         />
-        {gcodeLoading && <div className="text-slate-400">Parsing G-code...</div>}
+        {gcodeLoading && <StatusChip label="Parsing G-code for tighter timing and material estimates" tone="info" pulse />}
         {gcodeError && <div className="text-amber-300">{gcodeError}</div>}
         {gcodeEstimate && (
           <div className="text-slate-400 space-y-1">

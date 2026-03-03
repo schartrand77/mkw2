@@ -49,6 +49,11 @@ export async function POST(req: NextRequest, { params }: ModelCommentsContext) {
 
   let bodyText = ''
   let type: 'comment' | 'make' = 'comment'
+  let partId: string | null = null
+  let partName: string | null = null
+  let pinX: number | null = null
+  let pinY: number | null = null
+  let pinZ: number | null = null
   let imageFile: File | null = null
   const contentType = req.headers.get('content-type') || ''
 
@@ -57,6 +62,14 @@ export async function POST(req: NextRequest, { params }: ModelCommentsContext) {
     bodyText = normalizeBody(form.get('body'))
     const rawType = ((form.get('type') as string | null) || '').toLowerCase()
     if (rawType === 'make') type = 'make'
+    partId = normalizeBody(form.get('partId')) || null
+    partName = normalizeBody(form.get('partName')) || null
+    const parsedPinX = Number(form.get('pinX'))
+    const parsedPinY = Number(form.get('pinY'))
+    const parsedPinZ = Number(form.get('pinZ'))
+    pinX = Number.isFinite(parsedPinX) ? parsedPinX : null
+    pinY = Number.isFinite(parsedPinY) ? parsedPinY : null
+    pinZ = Number.isFinite(parsedPinZ) ? parsedPinZ : null
     const maybeFile = form.get('image')
     if (maybeFile instanceof File) {
       imageFile = maybeFile
@@ -68,6 +81,11 @@ export async function POST(req: NextRequest, { params }: ModelCommentsContext) {
       if ((payload?.type || '').toLowerCase() === 'make') {
         type = 'make'
       }
+      partId = normalizeBody(payload?.partId) || null
+      partName = normalizeBody(payload?.partName) || null
+      pinX = Number.isFinite(Number(payload?.pinX)) ? Number(payload?.pinX) : null
+      pinY = Number.isFinite(Number(payload?.pinY)) ? Number(payload?.pinY) : null
+      pinZ = Number.isFinite(Number(payload?.pinZ)) ? Number(payload?.pinZ) : null
     } catch {
       bodyText = ''
     }
@@ -126,6 +144,11 @@ export async function POST(req: NextRequest, { params }: ModelCommentsContext) {
       modelId: model.id,
       userId,
       body: bodyText,
+      partId: partId || undefined,
+      partName: partName || undefined,
+      pinX: pinX ?? undefined,
+      pinY: pinY ?? undefined,
+      pinZ: pinZ ?? undefined,
       type,
       imagePath,
       imageStatus: imagePath ? 'processing' : undefined,

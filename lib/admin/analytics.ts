@@ -42,6 +42,27 @@ export type AnalyticsSnapshot = {
     capacityHoursPerDay: number
     days: UtilizationDay[]
   }
+  estimateCalibration: {
+    samples: number
+    avgHoursDelta: number | null
+    avgAbsoluteHoursDelta: number | null
+    avgMaterialGrams: number | null
+    byMaterial: Array<{
+      material: string
+      samples: number
+      avgHoursDelta: number
+      avgAbsoluteHoursDelta: number
+    }>
+    byOrder: Array<{
+      id: string
+      orderNumber: number | null
+      createdAt: string
+      estimatedPrintHours: number
+      actualPrintHours: number
+      printHoursDelta: number
+      actualMaterialGrams: number | null
+    }>
+  }
 }
 
 type ItemEstimate = {
@@ -169,6 +190,7 @@ export async function getAnalyticsSnapshot({ days = 30 }: { days?: number } = {}
   let totalRevenue = 0
   let totalCost = 0
   let totalHours = 0
+  const calibrationRows: Array<AnalyticsSnapshot['estimateCalibration']['byOrder'][number] & { material: string }> = []
 
   const profitPerJob: AnalyticsOrderSummary[] = orders.map((order) => {
     const orderRevenue = Math.max(0, order.totalCents || 0)
@@ -216,6 +238,29 @@ export async function getAnalyticsSnapshot({ days = 30 }: { days?: number } = {}
 
     totalCost += orderCost
     totalHours += orderHours
+
+    if (order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)) {
+      const feedback = (order.metadata as Record<string, unknown>).estimateFeedback
+      if (feedback && typeof feedback === 'object' && !Array.isArray(feedback)) {
+        const estimatedPrintHours = Number((feedback as Record<string, unknown>).estimatedPrintHours)
+        const actualPrintHours = Number((feedback as Record<string, unknown>).actualPrintHours)
+        const printHoursDelta = Number((feedback as Record<string, unknown>).printHoursDelta)
+        const actualMaterialGrams = Number((feedback as Record<string, unknown>).actualMaterialGrams)
+        if (Number.isFinite(estimatedPrintHours) && Number.isFinite(actualPrintHours) && Number.isFinite(printHoursDelta)) {
+          const material = String(order.items[0]?.material || 'UNKNOWN').toUpperCase()
+          calibrationRows.push({
+            id: order.id,
+            orderNumber: order.orderNumber,
+            createdAt: order.createdAt.toISOString(),
+            estimatedPrintHours,
+            actualPrintHours,
+            printHoursDelta,
+            actualMaterialGrams: Number.isFinite(actualMaterialGrams) ? actualMaterialGrams : null,
+            material,
+          })
+        }
+      }
+    }
 
     const dayKey = order.createdAt.toISOString().slice(0, 10)
     utilizationByDay.set(dayKey, (utilizationByDay.get(dayKey) || 0) + orderHours)
@@ -275,6 +320,31 @@ export async function getAnalyticsSnapshot({ days = 30 }: { days?: number } = {}
   const avgUtilization = utilizationDays.length
     ? utilizationDays.reduce((sum, day) => sum + day.utilizationPct, 0) / utilizationDays.length
     : null
+  const avgHoursDelta = calibrationRows.length > 0
+    ? calibrationRows.reduce((sum, row) => sum + row.printHoursDelta, 0) / calibrationRows.length
+    : null
+  const avgAbsoluteHoursDelta = calibrationRows.length > 0
+    ? calibrationRows.reduce((sum, row) => sum + Math.abs(row.printHoursDelta), 0) / calibrationRows.length
+    : null
+  const calibrationMaterialRows = calibrationRows.filter((row) => typeof row.actualMaterialGrams === 'number')
+  const avgMaterialGrams = calibrationMaterialRows.length > 0
+    ? calibrationMaterialRows.reduce((sum, row) => sum + (row.actualMaterialGrams || 0), 0) / calibrationMaterialRows.length
+    : null
+  const calibrationByMaterial = Array.from(calibrationRows.reduce((map, row) => {
+    const current = map.get(row.material) || { material: row.material, samples: 0, totalDelta: 0, totalAbsDelta: 0 }
+    current.samples += 1
+    current.totalDelta += row.printHoursDelta
+    current.totalAbsDelta += Math.abs(row.printHoursDelta)
+    map.set(row.material, current)
+    return map
+  }, new Map<string, { material: string; samples: number; totalDelta: number; totalAbsDelta: number }>() ).values())
+    .map((row) => ({
+      material: row.material,
+      samples: row.samples,
+      avgHoursDelta: Number((row.totalDelta / row.samples).toFixed(2)),
+      avgAbsoluteHoursDelta: Number((row.totalAbsDelta / row.samples).toFixed(2)),
+    }))
+    .sort((a, b) => b.avgAbsoluteHoursDelta - a.avgAbsoluteHoursDelta)
 
   return {
     generatedAt: new Date().toISOString(),
@@ -299,6 +369,17 @@ export async function getAnalyticsSnapshot({ days = 30 }: { days?: number } = {}
     utilization: {
       capacityHoursPerDay: Number(capacityHoursPerDay.toFixed(2)),
       days: utilizationDays,
+    },
+    estimateCalibration: {
+      samples: calibrationRows.length,
+      avgHoursDelta: avgHoursDelta != null ? Number(avgHoursDelta.toFixed(2)) : null,
+      avgAbsoluteHoursDelta: avgAbsoluteHoursDelta != null ? Number(avgAbsoluteHoursDelta.toFixed(2)) : null,
+      avgMaterialGrams: avgMaterialGrams != null ? Number(avgMaterialGrams.toFixed(1)) : null,
+      byMaterial: calibrationByMaterial,
+      byOrder: calibrationRows
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 20)
+        .map(({ material: _material, ...row }) => row),
     },
   }
 }
