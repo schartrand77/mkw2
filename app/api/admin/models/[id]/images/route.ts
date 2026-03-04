@@ -12,6 +12,16 @@ const IMAGE_LIMIT = MODEL_IMAGE_LIMIT
 
 type AdminModelImagesContext = { params: Promise<{ id: string }> }
 
+function getUploadFile(form: FormData): File | null {
+  const entry = form.get('image') ?? form.get('file')
+  if (!entry) return null
+  if (typeof File !== 'undefined' && entry instanceof File) return entry
+  if (entry instanceof Blob) {
+    return new File([entry], 'upload.bin', { type: entry.type || 'application/octet-stream' })
+  }
+  return null
+}
+
 function normalizeFlag(value: FormDataEntryValue | null): boolean {
   if (!value) return false
   const str = String(value).toLowerCase()
@@ -44,8 +54,8 @@ export async function POST(req: NextRequest, { params }: AdminModelImagesContext
   }
 
   const form = await req.formData()
-  const image = form.get('image')
-  if (!(image instanceof File)) return NextResponse.json({ error: 'Image file required' }, { status: 400 })
+  const image = getUploadFile(form)
+  if (!image) return NextResponse.json({ error: 'Image file required' }, { status: 400 })
   const caption = ((form.get('caption') as string | null) || '').slice(0, 160) || null
   const setCover = normalizeFlag(form.get('setCover'))
 
