@@ -9,12 +9,10 @@ import { resolveBaseUrl } from '@/lib/base-url'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { listActiveCollections } from '@/lib/collections'
 import { CACHE_TAGS, CACHE_TTL_SECONDS } from '@/lib/cache-policy'
-import { prisma } from '@/lib/db'
 
 type SearchParams = { [key: string]: string | string[] | undefined }
 
 import DiscoverModelList from '@/components/discover/DiscoverModelList'
-import DiscoverFilters from '@/components/discover/DiscoverFilters'
 import DiscoverPresetBar from '@/components/discover/DiscoverPresetBar'
 
 async function fetchModels(params: URLSearchParams, baseUrl: string) {
@@ -74,31 +72,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   const baseUrl = await resolveBaseUrl()
   const userId = await getUserIdFromCookie()
   const canLike = Boolean(userId)
-  const [collections, materials, topTagCounts] = await Promise.all([
-    listActiveCollections(4),
-    prisma.model.findMany({
-      where: { visibility: 'public', NOT: { material: '' } },
-      distinct: ['material'],
-      select: { material: true },
-      orderBy: { material: 'asc' },
-      take: 8,
-    }),
-    prisma.modelTag.groupBy({
-      by: ['tagId'],
-      _count: { tagId: true },
-      orderBy: { _count: { tagId: 'desc' } },
-      take: 8,
-    }),
-  ])
-  const tags = topTagCounts.length > 0
-    ? await prisma.tag.findMany({
-      where: { id: { in: topTagCounts.map((entry) => entry.tagId) } },
-      select: { name: true, slug: true, id: true },
-    })
-    : []
-  const orderedTags = topTagCounts
-    .map((entry) => tags.find((tag) => tag.id === entry.tagId))
-    .filter((tag): tag is { id: string; name: string; slug: string } => Boolean(tag))
+  const collections = await listActiveCollections(4)
   const data = await fetchModels(fetchParams, baseUrl) as { models?: DiscoverModel[]; total?: number }
   const models: DiscoverModel[] = Array.isArray(data.models) ? data.models : []
   const total = typeof data.total === 'number' ? data.total : 0
@@ -128,15 +102,6 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
     <div className="space-y-6">
       <ViewPreferenceSync viewMode={viewMode} storedView={storedView} />
       <h1 className="page-title text-3xl font-semibold">Discover Models</h1>
-      <DiscoverFilters
-        q={q}
-        sort={sort}
-        pageSize={pageSize}
-        viewMode={viewMode}
-        ready={ready}
-        suggestedMaterials={materials.map((entry) => entry.material).filter((value): value is string => Boolean(value))}
-        suggestedTags={orderedTags.map((tag) => ({ name: tag.name, slug: tag.slug }))}
-      />
       <DiscoverPresetBar canSave={canLike} />
       {ready && (
         <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
