@@ -13,7 +13,6 @@ import { CACHE_TAGS, CACHE_TTL_SECONDS } from '@/lib/cache-policy'
 type SearchParams = { [key: string]: string | string[] | undefined }
 
 import DiscoverModelList from '@/components/discover/DiscoverModelList'
-import DiscoverPresetBar from '@/components/discover/DiscoverPresetBar'
 
 async function fetchModels(params: URLSearchParams, baseUrl: string) {
   const qs = params.toString()
@@ -102,7 +101,6 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
     <div className="space-y-6">
       <ViewPreferenceSync viewMode={viewMode} storedView={storedView} />
       <h1 className="page-title text-3xl font-semibold">Discover Models</h1>
-      <DiscoverPresetBar canSave={canLike} />
       {ready && (
         <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
           Ready to Print now requires lower-risk model scores and live in-stock material availability.
