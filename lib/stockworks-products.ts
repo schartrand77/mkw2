@@ -263,6 +263,8 @@ export async function syncProductTemplateToStockworks(input: ProductSyncInput) {
   const materials = toList<StockworksMaterial>(await stockworksJson('/materials'))
   const inventory = toList<StockworksInventoryItem>(await stockworksJson('/inventory'))
   const models = await listStockworksModels()
+  const priorVariantMap = normalizeVariantMap(input.stockworksVariantMap)
+  const priorByKey = new Map(priorVariantMap.map((entry) => [normalize(entry.key), entry]))
 
   const requestedTitle = normalizeTitle(input.title)
   const requestedMaterial = normalizeMaterialType(input.material)
@@ -283,17 +285,23 @@ export async function syncProductTemplateToStockworks(input: ProductSyncInput) {
 
   const requestedColors = (() => {
     const fromOptions = sanitizeColorOptions(input.colorOptions)
+    const hasExplicitColorOptions = Array.isArray(input.colorOptions)
+    const fromPrior = !hasExplicitColorOptions
+      ? priorVariantMap
+        .map((entry) => normalizeTitle(entry.color))
+        .filter(Boolean)
+      : []
     const lockedColor = normalizeTitle(input.color)
     const output = [...fromOptions]
+    for (const entry of fromPrior) {
+      if (!output.some((value) => normalize(value) === normalize(entry))) output.push(entry)
+    }
     if (lockedColor && !output.some((entry) => normalize(entry) === normalize(lockedColor))) {
       output.unshift(lockedColor)
     }
     if (output.length === 0) output.push(lockedColor || 'Standard')
     return output.slice(0, 64)
   })()
-
-  const priorVariantMap = normalizeVariantMap(input.stockworksVariantMap)
-  const priorByKey = new Map(priorVariantMap.map((entry) => [normalize(entry.key), entry]))
 
   const inventoryByMaterial = new Map<number, number>()
   for (const item of inventory) {
