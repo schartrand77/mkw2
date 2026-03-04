@@ -78,15 +78,26 @@ export async function enqueueImageProcessing(payload: ImageProcessingPayload) {
     })
     return { mode: 'inline' as const, jobId: imageJobId(payload) }
   }
-  const queue = getQueue(IMAGE_PROCESSING_QUEUE)
-  const job = await queue.add('image.process', payload, {
-    jobId: imageJobId(payload),
-    attempts: Number(process.env.PROCESSING_QUEUE_ATTEMPTS || 5),
-    backoff: { type: 'exponential', delay: Number(process.env.PROCESSING_QUEUE_BACKOFF_MS || 5000) },
-    removeOnComplete: 200,
-    removeOnFail: false,
-  })
-  return { mode: 'broker' as const, jobId: String(job.id) }
+  try {
+    const queue = getQueue(IMAGE_PROCESSING_QUEUE)
+    const job = await queue.add('image.process', payload, {
+      jobId: imageJobId(payload),
+      attempts: Number(process.env.PROCESSING_QUEUE_ATTEMPTS || 5),
+      backoff: { type: 'exponential', delay: Number(process.env.PROCESSING_QUEUE_BACKOFF_MS || 5000) },
+      removeOnComplete: 200,
+      removeOnFail: false,
+    })
+    return { mode: 'broker' as const, jobId: String(job.id) }
+  } catch (err) {
+    console.warn('[processing-jobs] queue enqueue failed for image processing; falling back to inline mode', err)
+    const { processPendingImages } = await import('@/lib/image-queue')
+    await processPendingImages(payload.limit || 5, {
+      modelId: payload.modelId,
+      includeAvatars: payload.includeAvatars,
+      includeComments: payload.includeComments,
+    })
+    return { mode: 'inline-fallback' as const, jobId: imageJobId(payload) }
+  }
 }
 
 export async function enqueuePreviewProcessing(payload: PreviewProcessingPayload) {
@@ -95,15 +106,22 @@ export async function enqueuePreviewProcessing(payload: PreviewProcessingPayload
     await processPendingModelPreviews(payload.limit || 3, { modelId: payload.modelId })
     return { mode: 'inline' as const, jobId: previewJobId(payload) }
   }
-  const queue = getQueue(PREVIEW_PROCESSING_QUEUE)
-  const job = await queue.add('preview.process', payload, {
-    jobId: previewJobId(payload),
-    attempts: Number(process.env.PROCESSING_QUEUE_ATTEMPTS || 5),
-    backoff: { type: 'exponential', delay: Number(process.env.PROCESSING_QUEUE_BACKOFF_MS || 5000) },
-    removeOnComplete: 200,
-    removeOnFail: false,
-  })
-  return { mode: 'broker' as const, jobId: String(job.id) }
+  try {
+    const queue = getQueue(PREVIEW_PROCESSING_QUEUE)
+    const job = await queue.add('preview.process', payload, {
+      jobId: previewJobId(payload),
+      attempts: Number(process.env.PROCESSING_QUEUE_ATTEMPTS || 5),
+      backoff: { type: 'exponential', delay: Number(process.env.PROCESSING_QUEUE_BACKOFF_MS || 5000) },
+      removeOnComplete: 200,
+      removeOnFail: false,
+    })
+    return { mode: 'broker' as const, jobId: String(job.id) }
+  } catch (err) {
+    console.warn('[processing-jobs] queue enqueue failed for preview processing; falling back to inline mode', err)
+    const { processPendingModelPreviews } = await import('@/lib/model-preview-queue')
+    await processPendingModelPreviews(payload.limit || 3, { modelId: payload.modelId })
+    return { mode: 'inline-fallback' as const, jobId: previewJobId(payload) }
+  }
 }
 
 export async function enqueueProcessingDeadLetter(payload: DeadLetterPayload) {

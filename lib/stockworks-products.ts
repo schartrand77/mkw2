@@ -15,6 +15,8 @@ type StockworksMaterial = {
   file_location?: string | null
   version?: string | null
   unit_price?: number | null
+  price_per_gram?: number | null
+  spool_weight_grams?: number | null
   status?: string | null
   notes?: string | null
   model_category?: string | null
@@ -269,6 +271,8 @@ export async function syncProductTemplateToStockworks(input: ProductSyncInput) {
   const requestedUnitPrice = typeof input.unitPriceUsd === 'number' && Number.isFinite(input.unitPriceUsd)
     ? Math.max(0, Number(input.unitPriceUsd.toFixed(2)))
     : null
+  const requestedPricePerGram = requestedUnitPrice ?? 0
+  const requestedSpoolWeightGrams = 1
   const requestedSku = normalizeTitle(input.sku) || null
   const requestedDesigner = normalizeTitle(input.designer) || null
   const requestedMarketplace = normalizeTitle(input.marketplace) || null
@@ -339,6 +343,8 @@ export async function syncProductTemplateToStockworks(input: ProductSyncInput) {
       file_location: requestedFileLocation,
       version: requestedVersion,
       unit_price: requestedUnitPrice,
+      price_per_gram: requestedPricePerGram,
+      spool_weight_grams: requestedSpoolWeightGrams,
       status: requestedStatus,
       notes: mergedNotes,
     })
@@ -402,6 +408,8 @@ export async function syncProductTemplateToStockworks(input: ProductSyncInput) {
         || normalize(existingMaterial.file_location) !== normalize(requestedFileLocation)
         || normalize(existingMaterial.version) !== normalize(requestedVersion)
         || (typeof existingMaterial.unit_price === 'number' ? Number(existingMaterial.unit_price.toFixed(2)) : null) !== requestedUnitPrice
+        || (typeof existingMaterial.price_per_gram === 'number' ? Number(existingMaterial.price_per_gram.toFixed(2)) : null) !== requestedPricePerGram
+        || Number(existingMaterial.spool_weight_grams || 0) !== requestedSpoolWeightGrams
         || normalize(existingMaterial.status) !== normalize(requestedStatus)
         || normalize(existingMaterial.notes) !== normalize(mergedNotes)
       if (shouldUpdateMaterial) {
