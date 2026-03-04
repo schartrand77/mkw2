@@ -599,17 +599,15 @@ export async function POST(req: NextRequest) {
       }
     }
     if (coverImageSourceRel) {
-      try {
-        await enqueueImageProcessing({
-          modelId: created.id,
-          includeAvatars: false,
-          includeComments: false,
-          limit: 1,
-          idempotencyKey: `image:model:${created.id}`,
-        })
-      } catch (err) {
+      void enqueueImageProcessing({
+        modelId: created.id,
+        includeAvatars: false,
+        includeComments: false,
+        limit: 1,
+        idempotencyKey: `image:model:${created.id}`,
+      }).catch((err) => {
         console.warn('Failed to process cover image', err)
-      }
+      })
     }
     if (previewJobs.length > 0) {
       try {

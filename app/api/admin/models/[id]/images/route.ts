@@ -74,16 +74,14 @@ export async function POST(req: NextRequest, { params }: AdminModelImagesContext
   if (setCover) {
     await prisma.model.update({ where: { id: model.id }, data: { coverImagePath: publicPath, coverImageStatus: 'processing' } })
   }
-  try {
-    await enqueueImageProcessing({
-      modelId: model.id,
-      includeAvatars: false,
-      includeComments: false,
-      limit: 1,
-      idempotencyKey: `image:model:${model.id}`,
-    })
-  } catch (err) {
+  void enqueueImageProcessing({
+    modelId: model.id,
+    includeAvatars: false,
+    includeComments: false,
+    limit: 1,
+    idempotencyKey: `image:model:${model.id}`,
+  }).catch((err) => {
     console.warn('Failed to process model image (admin)', err)
-  }
+  })
   return NextResponse.json({ image: serializeModelImage(created) })
 }

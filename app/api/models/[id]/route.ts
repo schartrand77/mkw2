@@ -369,17 +369,15 @@ export async function PATCH(req: NextRequest, { params }: ModelRouteContext) {
 
   const updated = await prisma.model.update({ where: { id }, data: updates })
   if (image) {
-    try {
-      await enqueueImageProcessing({
-        modelId: id,
-        includeAvatars: false,
-        includeComments: false,
-        limit: 1,
-        idempotencyKey: `image:model:${id}`,
-      })
-    } catch (err) {
+    void enqueueImageProcessing({
+      modelId: id,
+      includeAvatars: false,
+      includeComments: false,
+      limit: 1,
+      idempotencyKey: `image:model:${id}`,
+    }).catch((err) => {
       console.warn('Failed to process cover image', err)
-    }
+    })
   }
   try {
     revalidatePath(`/models/${id}`)
