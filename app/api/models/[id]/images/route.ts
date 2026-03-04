@@ -30,6 +30,16 @@ async function guardModelEditor(modelId: string) {
 
 type ModelImagesContext = { params: Promise<{ id: string }> }
 
+function getUploadFile(form: FormData): File | null {
+  const entry = form.get('image') ?? form.get('file')
+  if (!entry) return null
+  if (typeof File !== 'undefined' && entry instanceof File) return entry
+  if (entry instanceof Blob) {
+    return new File([entry], 'upload.bin', { type: entry.type || 'application/octet-stream' })
+  }
+  return null
+}
+
 export async function GET(_req: NextRequest, { params }: ModelImagesContext) {
   const { id } = await params
   const guard = await guardModelEditor(id)
@@ -55,8 +65,8 @@ export async function POST(req: NextRequest, { params }: ModelImagesContext) {
   }
 
   const form = await req.formData()
-  const image = form.get('image')
-  if (!(image instanceof File)) return NextResponse.json({ error: 'Image file required' }, { status: 400 })
+  const image = getUploadFile(form)
+  if (!image) return NextResponse.json({ error: 'Image file required' }, { status: 400 })
   const caption = ((form.get('caption') as string | null) || '').slice(0, 160) || null
   const setCover = normalizeFlag(form.get('setCover'))
 
