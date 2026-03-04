@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { DiscoverSort, DiscoverViewMode } from '@/types/discover'
 
@@ -99,27 +99,8 @@ export default function DiscoverFilters({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const inputRef = useRef<HTMLInputElement | null>(null)
   const activeSortDescription = SORT_EXPLAINERS[sort] || SORT_EXPLAINERS[DiscoverSort.Latest]
   const parsedSearch = useMemo(() => parseSearch(q), [q])
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
-      const tag = target?.tagName?.toLowerCase()
-      const typingContext = tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable
-      if (event.key === '/' && !typingContext) {
-        event.preventDefault()
-        inputRef.current?.focus()
-        inputRef.current?.select()
-      }
-      if (event.key === 'Escape' && document.activeElement === inputRef.current) {
-        inputRef.current?.blur()
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
 
   const activeChips = useMemo(() => {
     const chips: Array<{ key: string; label: string; clear: () => void }> = []
@@ -207,26 +188,15 @@ export default function DiscoverFilters({
     <form method="get" className="space-y-3">
       <div className="relative mx-auto w-full max-w-3xl transition-all duration-300">
         <div className="rounded-2xl p-3 transition-all duration-300 discover-search-shell space-y-3">
-          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-slate-500">/ Search</span>
-            <input
-              list="discover-search-suggestions"
-              ref={inputRef}
-              id="discover-q"
-              name="q"
-              defaultValue={q}
-              placeholder="Search models or use material:pla tag:flex #products"
-              className="w-full bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none"
-            />
-            <datalist id="discover-search-suggestions">
-              {suggestedMaterials.map((material) => (
-                <option key={`material-${material}`} value={`material:${material.toLowerCase()}`} />
-              ))}
-              {suggestedTags.map((tag) => (
-                <option key={`tag-${tag.slug}`} value={`tag:${tag.slug}`} />
-              ))}
-            </datalist>
-          </div>
+          <input type="hidden" name="q" value={q} />
+          <datalist id="discover-search-suggestions">
+            {suggestedMaterials.map((material) => (
+              <option key={`material-${material}`} value={`material:${material.toLowerCase()}`} />
+            ))}
+            {suggestedTags.map((tag) => (
+              <option key={`tag-${tag.slug}`} value={`tag:${tag.slug}`} />
+            ))}
+          </datalist>
           <div className="flex flex-wrap items-center gap-2 transition-opacity duration-200">
             <label className="sr-only" htmlFor="discover-sort">Sort</label>
             <select
@@ -264,7 +234,7 @@ export default function DiscoverFilters({
           </div>
           <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
             <p className="text-slate-400">{activeSortDescription}</p>
-            <p className="text-slate-500">Use <span className="text-slate-300">material:</span>, <span className="text-slate-300">tag:</span>, or <span className="text-slate-300">#products</span>. Press <kbd className="rounded border border-white/10 px-1.5 py-0.5 text-[10px]">/</kbd> to focus search.</p>
+            <p className="text-slate-500">Use the top-row search with <span className="text-slate-300">material:</span>, <span className="text-slate-300">tag:</span>, or <span className="text-slate-300">#products</span>.</p>
           </div>
           {(suggestedMaterials.length > 0 || suggestedTags.length > 0) && (
             <div className="flex flex-wrap gap-2 text-[11px]">
