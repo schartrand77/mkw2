@@ -88,8 +88,8 @@ export async function runDependencyChecks() {
   const stockworksBase = (process.env.STOCKWORKS_BASE_URL || '').trim()
   checks.push(stockworksBase ? await checkHttp('stockworks', stockworksBase) : { name: 'stockworks', status: 'skipped', detail: 'STOCKWORKS_BASE_URL not configured' })
 
-  const bambuViewBase = (process.env.BAMBU_VIEW_BASE_URL || '').trim()
-  checks.push(bambuViewBase ? await checkHttp('bambu_view', bambuViewBase) : { name: 'bambu_view', status: 'skipped', detail: 'BAMBU_VIEW_BASE_URL not configured' })
+  const printLabBase = (process.env.PRINTLAB_BASE_URL || process.env.BAMBU_VIEW_BASE_URL || '').trim()
+  checks.push(printLabBase ? await checkHttp('printlab', printLabBase) : { name: 'printlab', status: 'skipped', detail: 'PRINTLAB_BASE_URL not configured' })
 
   const failing = checks.filter((entry) => entry.status === 'fail').length
   const warning = checks.filter((entry) => entry.status === 'warn').length

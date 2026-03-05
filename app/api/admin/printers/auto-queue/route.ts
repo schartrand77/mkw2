@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../../_utils'
-import { fetchBambuStatus } from '@/lib/bambu-view'
+import { fetchPrintLabStatus, isPrintLabConfigured } from '@/lib/printlab'
 
 export const dynamic = 'force-dynamic'
 
 function isBusy(status: any) {
-  const print = status?.print || status?.printer?.print || status || {}
-  const state = String(print.gcode_state || print.gcode_status || '').toLowerCase()
+  const print = status?.job || status?.print || status?.printer?.print || status || {}
+  const state = String(print.state || print.gcode_state || print.gcode_status || '').toLowerCase()
   if (!state) return false
   return ['printing', 'paused', 'running', 'busy'].some((token) => state.includes(token))
 }
@@ -21,9 +21,9 @@ export async function POST() {
     for (const printer of printers) {
       if (printer.status === 'maintenance' || printer.status === 'offline') continue
       if (printer.status === 'printing') continue
-      if (printer.provider === 'bambu-view' && process.env.BAMBU_VIEW_BASE_URL) {
+      if ((printer.provider === 'printlab' || printer.provider === 'bambu-view') && isPrintLabConfigured()) {
         try {
-          const status = await fetchBambuStatus(printer.externalId || printer.id)
+          const status = await fetchPrintLabStatus(printer.externalId || printer.id)
           if (isBusy(status)) continue
         } catch {
           continue

@@ -63,7 +63,7 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
   const [statusSnapshot, setStatusSnapshot] = useState<{ enabled: boolean; statuses: Record<string, any> }>({ enabled: false, statuses: {} })
   const [statusLoading, setStatusLoading] = useState(false)
   const [autoQueueing, setAutoQueueing] = useState(false)
-  const [syncingBambu, setSyncingBambu] = useState(false)
+  const [syncingPrintLab, setSyncingPrintLab] = useState(false)
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null)
 
   const formattedGeneratedAt = useMemo(() => formatDateTime(snapshot.generatedAt), [snapshot.generatedAt])
@@ -180,17 +180,17 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
     }
   }
 
-  const syncBambuView = async () => {
-    if (syncingBambu) return
-    setSyncingBambu(true)
+  const syncPrintLab = async () => {
+    if (syncingPrintLab) return
+    setSyncingPrintLab(true)
     setError(null)
     try {
-      const res = await fetch('/api/admin/printers/sync-bambu-view', { method: 'POST' })
+      const res = await fetch('/api/admin/printers/sync-printlab', { method: 'POST' })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.error || 'Sync failed')
       pushSessionNotification({
         type: 'success',
-        title: 'Bambu View synced',
+        title: 'PrintLab synced',
         message: `Pulled ${Array.isArray(data?.printers) ? data.printers.length : 0} printer(s).`,
       })
       await refresh()
@@ -199,7 +199,7 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
       setError(message)
       pushSessionNotification({ type: 'error', title: 'Sync failed', message })
     } finally {
-      setSyncingBambu(false)
+      setSyncingPrintLab(false)
     }
   }
 
@@ -293,8 +293,8 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
           <button className="btn btn-outline text-sm" type="button" onClick={autoAssignQueue} disabled={autoQueueing}>
             {autoQueueing ? 'Auto-assigning...' : 'Auto-assign queue'}
           </button>
-          <button className="btn btn-outline text-sm" type="button" onClick={syncBambuView} disabled={syncingBambu}>
-            {syncingBambu ? 'Syncing Bambu View...' : 'Sync Bambu View'}
+          <button className="btn btn-outline text-sm" type="button" onClick={syncPrintLab} disabled={syncingPrintLab}>
+            {syncingPrintLab ? 'Syncing PrintLab...' : 'Sync PrintLab'}
           </button>
         </div>
       </div>
@@ -347,7 +347,7 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
                       />
                       {statusSnapshot.enabled ? (
                         <p className="text-xs text-slate-400">
-                          Status: {formatBambuStatus(statusSnapshot.statuses[printer.id])}
+                          Status: {formatPrinterStatus(statusSnapshot.statuses[printer.id])}
                         </p>
                       ) : (
                         <p className="text-xs text-slate-500">{statusLoading ? 'Loading status...' : 'Status feed inactive'}</p>
@@ -560,14 +560,16 @@ function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
-function formatBambuStatus(status: any) {
+function formatPrinterStatus(status: any) {
   if (!status) return 'unknown'
   if (status?.error) return `error: ${status.error}`
-  const print = status?.print || status?.printer?.print || status
-  const rawState = print?.gcode_state || print?.gcode_status || print?.status || ''
+  const print = status?.job || status?.print || status?.printer?.print || status
+  const rawState = print?.state || print?.gcode_state || print?.gcode_status || print?.status || ''
   const state = String(rawState || '').toLowerCase() || 'ready'
-  const progress = typeof print?.progress === 'number'
-    ? print.progress
+  const progress = typeof print?.progress_percent === 'number'
+    ? print.progress_percent
+    : typeof print?.progress === 'number'
+      ? print.progress
     : typeof print?.percentage === 'number'
       ? print.percentage
       : typeof print?.percent === 'number'

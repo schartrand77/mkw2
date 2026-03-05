@@ -143,7 +143,7 @@ Use `.env.example` as source of truth. Key variable groups:
 - Payments: `STRIPE_*`
 - Orderworks bridge: `ORDERWORKS_*`
 - Stockworks inventory: `STOCKWORKS_*`
-- Printer telemetry: `BAMBU_VIEW_*`
+- Printer telemetry: `PRINTLAB_*` (legacy `BAMBU_VIEW_*` still supported)
 - Email/auth: `SMTP_*`, `RECEIPT_*`, auth rate-limit settings
 - Push notifications: `VAPID_*`
 - Branding: `NEXT_PUBLIC_BRAND_*`, `HOLIDAY_THEME`

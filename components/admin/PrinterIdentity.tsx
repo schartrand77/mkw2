@@ -25,7 +25,7 @@ function asString(value: unknown): string | null {
 
 function isBambuProvider(provider?: string | null) {
   const raw = (provider || '').toLowerCase()
-  return raw.includes('bambu')
+  return raw.includes('bambu') || raw.includes('printlab')
 }
 
 function resolveHost(metadata?: unknown): string | null {

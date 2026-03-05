@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { stockworksFetch, stockworksJson, stockworksList } from '../lib/stockworks-client'
-import { fetchBambuPrinters } from '../lib/bambu-view'
+import { fetchPrintLabPrinters } from '../lib/printlab'
 import { prisma } from '../lib/db'
 import { recordOrderWorksJob } from '../lib/orderworks'
 
@@ -105,19 +105,19 @@ test('StockWorks list helper unwraps paginated payloads', () => {
   assert.deepEqual(items, [{ id: 1 }, { id: 2 }])
 })
 
-test('Bambu View client sends configured auth headers', async () => {
+test('PrintLab client sends configured auth headers', async () => {
   const envSnapshot = {
-    BAMBU_VIEW_BASE_URL: process.env.BAMBU_VIEW_BASE_URL,
-    BAMBU_VIEW_SESSION_COOKIE: process.env.BAMBU_VIEW_SESSION_COOKIE,
-    BAMBU_VIEW_AUTH_HEADER: process.env.BAMBU_VIEW_AUTH_HEADER,
-    BAMBU_VIEW_API_KEY: process.env.BAMBU_VIEW_API_KEY,
-    BAMBU_VIEW_API_KEY_HEADER: process.env.BAMBU_VIEW_API_KEY_HEADER,
+    PRINTLAB_BASE_URL: process.env.PRINTLAB_BASE_URL,
+    PRINTLAB_SESSION_COOKIE: process.env.PRINTLAB_SESSION_COOKIE,
+    PRINTLAB_AUTH_HEADER: process.env.PRINTLAB_AUTH_HEADER,
+    PRINTLAB_API_KEY: process.env.PRINTLAB_API_KEY,
+    PRINTLAB_API_KEY_HEADER: process.env.PRINTLAB_API_KEY_HEADER,
   }
-  process.env.BAMBU_VIEW_BASE_URL = 'https://bambu.local'
-  process.env.BAMBU_VIEW_SESSION_COOKIE = 'sid=xyz'
-  process.env.BAMBU_VIEW_AUTH_HEADER = 'Bearer token'
-  process.env.BAMBU_VIEW_API_KEY = 'abc'
-  process.env.BAMBU_VIEW_API_KEY_HEADER = 'X-API-Key'
+  process.env.PRINTLAB_BASE_URL = 'https://printlab.local'
+  process.env.PRINTLAB_SESSION_COOKIE = 'sid=xyz'
+  process.env.PRINTLAB_AUTH_HEADER = 'Bearer token'
+  process.env.PRINTLAB_API_KEY = 'abc'
+  process.env.PRINTLAB_API_KEY_HEADER = 'X-API-Key'
 
   let capturedHeaders: Headers | null = null
   global.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
@@ -126,7 +126,7 @@ test('Bambu View client sends configured auth headers', async () => {
   }) as typeof fetch
 
   try {
-    const printers = await fetchBambuPrinters()
+    const printers = await fetchPrintLabPrinters()
     assert.deepEqual(printers, [])
     if (!capturedHeaders) {
       throw new Error('Expected request headers to be captured')
