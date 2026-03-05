@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 type PhotoMarqueeProps = {
   images: string[]
@@ -16,15 +16,6 @@ export default function PhotoMarquee({ images, altBase }: PhotoMarqueeProps) {
     while (padded.length < 3) padded.push(cleaned[padded.length % cleaned.length])
     return padded
   }, [images])
-  const [offset, setOffset] = useState(0)
-
-  useEffect(() => {
-    if (slides.length <= 1) return
-    const timer = window.setInterval(() => {
-      setOffset((prev) => (prev + 1) % slides.length)
-    }, 2800)
-    return () => window.clearInterval(timer)
-  }, [slides.length])
 
   if (slides.length === 0) {
     return (
@@ -34,7 +25,7 @@ export default function PhotoMarquee({ images, altBase }: PhotoMarqueeProps) {
     )
   }
 
-  const visible = [0, 1, 2].map((idx) => slides[(offset + idx) % slides.length])
+  const visible = slides.slice(0, 3)
 
   return (
     <div className="grid grid-cols-3 gap-2">
