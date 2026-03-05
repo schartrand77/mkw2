@@ -131,12 +131,17 @@ export default async function ProductDetailPage({ params, searchParams }: Params
 
   if (!resolvedProduct) return <div className="max-w-2xl mx-auto text-sm text-slate-300">Product not found.</div>
 
-  const cover = buildImageSrc(resolvedProduct.baseModel?.coverImagePath || null, resolvedProduct.baseModel?.updatedAt || null)
+  const coverPath = String(resolvedProduct.baseModel?.coverImagePath || '').trim()
+  const cover = buildImageSrc(coverPath || null, resolvedProduct.baseModel?.updatedAt || null)
   const baseModelImages = resolvedProduct.baseModel
     ? [
       cover,
       ...(((resolvedProduct.baseModel as any).images || [])
         .filter((img: any) => String(img?.status || 'ready').toLowerCase() === 'ready')
+        .filter((img: any) => {
+          const filePath = String(img?.filePath || '').trim()
+          return filePath && (!coverPath || filePath !== coverPath)
+        })
         .map((img: any) => buildImageSrc(img?.filePath || null, img?.createdAt || null))),
     ].filter((src): src is string => Boolean(src))
     : []
