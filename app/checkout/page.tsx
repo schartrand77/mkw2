@@ -504,7 +504,7 @@ export default function CheckoutPage() {
             </div>
             <div className="divide-y divide-white/10">
               {checkoutItemsState.map((item) => (
-                <div key={`${item.modelId}-${item.partId || 'whole'}`} className="px-4 py-3 flex items-center justify-between text-sm">
+                <div key={item.cartItemId} className="px-4 py-3 flex items-center justify-between text-sm">
                   <div>
                     <div className="font-medium">
                       {item.title}
@@ -529,7 +529,7 @@ export default function CheckoutPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setCheckoutItemsState((prev) => prev.filter((entry) => !(entry.modelId === item.modelId && (entry.partId || null) === (item.partId || null))))}
+                    onClick={() => setCheckoutItemsState((prev) => prev.filter((entry) => entry.cartItemId !== item.cartItemId))}
                     className="text-xs text-amber-300 hover:text-amber-200"
                   >
                     Remove

@@ -48,6 +48,7 @@ export type MinimumOrderRule = {
 }
 
 export type CartItem = {
+  cartItemId: string
   modelId: string
   partId?: string | null
   partName?: string | null
@@ -68,11 +69,11 @@ type CartCtx = {
   maxColors: number
   pricingAdjustments: PricingAdjustments
   minimumOrder: MinimumOrderRule
-  add: (item: Omit<CartItem, 'options'>, opts?: Partial<CartOptions>) => void
-  remove: (modelId: string, partId?: string | null) => void
-  inc: (modelId: string, partId?: string | null) => void
-  dec: (modelId: string, partId?: string | null) => void
-  update: (modelId: string, opts: Partial<CartOptions>, partId?: string | null) => void
+  add: (item: Omit<CartItem, 'options' | 'cartItemId'>, opts?: Partial<CartOptions>) => void
+  remove: (modelId: string, partId?: string | null, cartItemId?: string | null) => void
+  inc: (modelId: string, partId?: string | null, cartItemId?: string | null) => void
+  dec: (modelId: string, partId?: string | null, cartItemId?: string | null) => void
+  update: (modelId: string, opts: Partial<CartOptions>, partId?: string | null, cartItemId?: string | null) => void
   clear: () => void
 }
 
@@ -81,6 +82,13 @@ const Ctx = createContext<CartCtx | null>(null)
 const STORAGE_KEY = 'mwv2:cart'
 
 type LegacyCartOptions = Partial<CartOptions> & { color?: string | null }
+
+function createCartItemId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `cart-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
 
 function sanitizeDimensionOverrides(overrides?: ScaleOverrides | null): ScaleOverrides | null {
   if (!overrides) return null
@@ -140,6 +148,29 @@ function mergeOptions(base: CartOptions, patch?: Partial<CartOptions>): CartOpti
   return sanitizeOptions(merged)
 }
 
+function optionsMergeKey(opts: CartOptions): string {
+  const scopedScale = Number(opts.scale.toFixed(4))
+  const overrides = opts.dimensionOverrides
+    ? DIMENSION_AXES.map((axis) => {
+      const value = opts.dimensionOverrides?.[axis]
+      return value == null ? '' : Number(value).toFixed(4)
+    }).join(':')
+    : ''
+  return JSON.stringify({
+    scale: scopedScale,
+    material: normalizeMaterialName(opts.material),
+    colors: normalizeColors(opts.colors),
+    toleranceClass: opts.toleranceClass ?? 'standard',
+    finish: opts.finish ?? null,
+    lockedConfig: Boolean(opts.lockedConfig),
+    productTemplateId: opts.productTemplateId ?? null,
+    infillPct: opts.infillPct ?? null,
+    lockDimensions: opts.lockDimensions !== false,
+    dimensionOverrides: overrides,
+    priceMultiplier: opts.priceMultiplier == null ? null : Number(opts.priceMultiplier.toFixed(4)),
+  })
+}
+
 function sanitizeItem(item: any): CartItem {
   const colorSlotCount = normalizeModelColorSlotCount(item?.colorSlotCount)
   const allowedColors = sanitizeAllowedColors(item?.allowedColors)
@@ -148,6 +179,9 @@ function sanitizeItem(item: any): CartItem {
   const constrainedColors = normalizeColors(rawOptions.colors, colorSlotCount ?? undefined)
     .filter((color) => isColorAllowed(color, allowedTokens))
   return {
+    cartItemId: typeof item?.cartItemId === 'string' && item.cartItemId.trim()
+      ? item.cartItemId.trim()
+      : createCartItemId(),
     modelId: String(item?.modelId ?? ''),
     partId: item?.partId ? String(item.partId) : null,
     partName: item?.partName ? String(item.partName) : null,
@@ -166,7 +200,10 @@ function sanitizeItem(item: any): CartItem {
   }
 }
 
-function matches(item: CartItem, modelId: string, partId?: string | null) {
+function matches(item: CartItem, modelId: string, partId?: string | null, cartItemId?: string | null) {
+  if (typeof cartItemId === 'string' && cartItemId.trim()) {
+    return item.cartItemId === cartItemId
+  }
   const normalized = partId ?? null
   return item.modelId === modelId && (item.partId ?? null) === normalized
 }
@@ -259,7 +296,16 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   const add: CartCtx['add'] = useCallback((item, opts) => {
     setItems(prev => {
       const normalizedPartId = item.partId ?? null
-      const idx = prev.findIndex(i => matches(i, item.modelId, normalizedPartId))
+      const incomingOptions = sanitizeOptions({
+        ...opts,
+        qty: opts?.qty || 1,
+      })
+      const incomingMergeKey = optionsMergeKey(incomingOptions)
+      const idx = prev.findIndex((existing) => {
+        if (!matches(existing, item.modelId, normalizedPartId)) return false
+        if (!incomingOptions.lockedConfig && !existing.options.lockedConfig) return true
+        return optionsMergeKey(existing.options) === incomingMergeKey
+      })
       if (idx >= 0) {
         const next = [...prev]
         const existing = next[idx]
@@ -272,23 +318,21 @@ export default function CartProvider({ children }: { children: React.ReactNode }
       }
       const newItem: CartItem = {
         ...item,
+        cartItemId: createCartItemId(),
         partId: normalizedPartId,
         partName: item.partName ?? null,
         partIndex: typeof item.partIndex === 'number' ? item.partIndex : null,
-        options: sanitizeOptions({
-          ...opts,
-          qty: opts?.qty || 1,
-        }),
+        options: incomingOptions,
       }
       return [...prev, sanitizeItem(newItem)]
     })
   }, [])
 
-  const remove = useCallback((modelId: string, partId?: string | null) => setItems(prev => prev.filter(i => !matches(i, modelId, partId))), [])
-  const inc = useCallback((modelId: string, partId?: string | null) => setItems(prev => prev.map(i => matches(i, modelId, partId) ? { ...i, options: { ...i.options, qty: i.options.qty + 1 } } : i)), [])
-  const dec = useCallback((modelId: string, partId?: string | null) => setItems(prev => prev.map(i => matches(i, modelId, partId) ? { ...i, options: { ...i.options, qty: Math.max(0, i.options.qty - 1) } } : i).filter(i => i.options.qty > 0)), [])
-  const update = useCallback((modelId: string, opts: Partial<CartOptions>, partId?: string | null) => setItems(prev => prev.map(i => {
-    if (!matches(i, modelId, partId)) return i
+  const remove = useCallback((modelId: string, partId?: string | null, cartItemId?: string | null) => setItems(prev => prev.filter(i => !matches(i, modelId, partId, cartItemId))), [])
+  const inc = useCallback((modelId: string, partId?: string | null, cartItemId?: string | null) => setItems(prev => prev.map(i => matches(i, modelId, partId, cartItemId) ? { ...i, options: { ...i.options, qty: i.options.qty + 1 } } : i)), [])
+  const dec = useCallback((modelId: string, partId?: string | null, cartItemId?: string | null) => setItems(prev => prev.map(i => matches(i, modelId, partId, cartItemId) ? { ...i, options: { ...i.options, qty: Math.max(0, i.options.qty - 1) } } : i).filter(i => i.options.qty > 0)), [])
+  const update = useCallback((modelId: string, opts: Partial<CartOptions>, partId?: string | null, cartItemId?: string | null) => setItems(prev => prev.map(i => {
+    if (!matches(i, modelId, partId, cartItemId)) return i
     return sanitizeItem({ ...i, options: mergeOptions(i.options, opts) })
   })), [])
   const clear = useCallback(() => setItems([]), [])

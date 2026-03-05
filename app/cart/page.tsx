@@ -234,7 +234,7 @@ export default function CartPage() {
   const { items, inc, dec, update, remove, clear, maxColors, pricingAdjustments, minimumOrder } = useCart()
   const [discount, setDiscount] = useState<DiscountSummary | null>(null)
   const [rush, setRush] = useState(false)
-  const [activeColorSlot, setActiveColorSlot] = useState<{ id: string; modelId: string; partId: string | null; index: number } | null>(null)
+  const [activeColorSlot, setActiveColorSlot] = useState<{ id: string; cartItemId: string; modelId: string; partId: string | null; index: number } | null>(null)
   const [activeColorAnchor, setActiveColorAnchor] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
   const [paletteWidth, setPaletteWidth] = useState<number | null>(null)
   const [paletteMaxHeight, setPaletteMaxHeight] = useState<number | null>(null)
@@ -246,7 +246,7 @@ export default function CartPage() {
   const [optimisticPartPreviewHex, setOptimisticPartPreviewHex] = useState<Record<string, string>>({})
   const [dimensionInputs, setDimensionInputs] = useState<Record<string, Record<(typeof DIMENSION_AXES)[number], string>>>({})
   const [activeDimensionInput, setActiveDimensionInput] = useState<{ key: string; axis: (typeof DIMENSION_AXES)[number] } | null>(null)
-  const [selectedPreviewKey, setSelectedPreviewKey] = useState<{ modelId: string; partId: string | null } | null>(null)
+  const [selectedPreviewKey, setSelectedPreviewKey] = useState<{ cartItemId: string } | null>(null)
   const [presets, setPresets] = useState<CustomerPreset[]>([])
   const [presetError, setPresetError] = useState<string | null>(null)
   const [presetNames, setPresetNames] = useState<Record<string, string>>({})
@@ -399,7 +399,7 @@ export default function CartPage() {
   }, [activeColorSlot, activeColorAnchor])
 
   const activeSlotItem = activeColorSlot
-    ? items.find((item) => item.modelId === activeColorSlot.modelId && (item.partId ?? null) === activeColorSlot.partId)
+    ? items.find((item) => item.cartItemId === activeColorSlot.cartItemId)
     : null
   const activeSlotAllowedTokens = useMemo(
     () => buildAllowedColorTokenSet(Array.isArray(activeSlotItem?.allowedColors) ? activeSlotItem.allowedColors : null),
@@ -408,19 +408,19 @@ export default function CartPage() {
   const activeSlotLocked = Boolean(activeSlotItem?.options.lockedConfig)
   const selectedPreviewItem = activeSlotItem
     || (selectedPreviewKey
-      ? items.find((item) => item.modelId === selectedPreviewKey.modelId && (item.partId ?? null) === selectedPreviewKey.partId)
+      ? items.find((item) => item.cartItemId === selectedPreviewKey.cartItemId)
       : null)
     || items[0]
     || null
 
   useEffect(() => {
     if (!activeColorSlot) return
-    setSelectedPreviewKey({ modelId: activeColorSlot.modelId, partId: activeColorSlot.partId })
+    setSelectedPreviewKey({ cartItemId: activeColorSlot.cartItemId })
   }, [activeColorSlot])
 
   useEffect(() => {
     if (!selectedPreviewKey) return
-    const exists = items.some((item) => item.modelId === selectedPreviewKey.modelId && (item.partId ?? null) === selectedPreviewKey.partId)
+    const exists = items.some((item) => item.cartItemId === selectedPreviewKey.cartItemId)
     if (!exists) setSelectedPreviewKey(null)
   }, [items, selectedPreviewKey])
 
@@ -434,7 +434,7 @@ export default function CartPage() {
     const match = items.find((item) => item.modelId === previewModelId && (item.partId ?? '') === previewPartId)
     if (!match) return
     previewParamRef.current = key
-    setSelectedPreviewKey({ modelId: match.modelId, partId: match.partId ?? null })
+    setSelectedPreviewKey({ cartItemId: match.cartItemId })
   }, [items, searchParams])
 
   useEffect(() => {
@@ -718,7 +718,7 @@ export default function CartPage() {
   const handlePreviewPartTap = useCallback((partKey: string) => {
     const tappedItem = selectedModelPartItemMap.get(partKey)
     if (!tappedItem) return
-    setSelectedPreviewKey({ modelId: tappedItem.modelId, partId: tappedItem.partId ?? null })
+    setSelectedPreviewKey({ cartItemId: tappedItem.cartItemId })
   }, [selectedModelPartItemMap])
 
   const discountMultiplier = useMemo(() => getDiscountMultiplier(discount), [discount])
@@ -781,8 +781,8 @@ export default function CartPage() {
   }, [maxColors])
 
   const applyColorToSlot = useCallback(
-    (slot: { modelId: string; partId: string | null; index: number }, nextValue: string) => {
-      const item = items.find((entry) => entry.modelId === slot.modelId && (entry.partId ?? null) === slot.partId)
+    (slot: { cartItemId: string; modelId: string; partId: string | null; index: number }, nextValue: string) => {
+      const item = items.find((entry) => entry.cartItemId === slot.cartItemId)
       if (!item || item.options.lockedConfig) return
       const allowedTokens = buildAllowedColorTokenSet(Array.isArray(item.allowedColors) ? item.allowedColors : null)
       if (nextValue && !isColorAllowed(nextValue, allowedTokens)) return
@@ -799,7 +799,7 @@ export default function CartPage() {
           return out
         })
       }
-      update(slot.modelId, { colors: applyColorRulesForItem(item, next) }, slot.partId)
+      update(slot.modelId, { colors: applyColorRulesForItem(item, next) }, slot.partId, slot.cartItemId)
     },
     [items, update, applyColorRulesForItem, partPreviewKey],
   )
@@ -813,7 +813,7 @@ export default function CartPage() {
       infillPct: typeof data.infillPct === 'number' ? data.infillPct : item.options.infillPct ?? null,
       scale: typeof data.scale === 'number' ? clampScale(data.scale) : item.options.scale,
       priceMultiplier: typeof data.priceMultiplier === 'number' ? data.priceMultiplier : item.options.priceMultiplier ?? null,
-    }, item.partId)
+    }, item.partId, item.cartItemId)
   }
 
   const savePreset = async (itemKey: string, item: (typeof items)[number]) => {
@@ -953,7 +953,7 @@ export default function CartPage() {
         <>
           <div className="glass rounded-xl border border-white/10 divide-y divide-white/10">
             {items.map((item) => {
-              const itemKey = `${item.modelId}-${item.partId || 'whole'}`
+              const itemKey = item.cartItemId
               const isLockedProduct = Boolean(item.options.lockedConfig)
               const modelSlotCount = normalizeModelColorSlotCount(item.colorSlotCount)
               const slotLimit = isLockedProduct
@@ -982,9 +982,9 @@ export default function CartPage() {
                     acc[axis] = nextScale
                     return acc
                   }, {} as Record<(typeof DIMENSION_AXES)[number], number>)
-                  update(item.modelId, { scale: nextScale, dimensionOverrides: overrides }, item.partId)
+                  update(item.modelId, { scale: nextScale, dimensionOverrides: overrides }, item.partId, item.cartItemId)
                 } else {
-                  update(item.modelId, { scale: nextScale, dimensionOverrides: null }, item.partId)
+                  update(item.modelId, { scale: nextScale, dimensionOverrides: null }, item.partId, item.cartItemId)
                 }
                 setDimensionInputs((prev) => {
                   if (!prev[itemKey]) return prev
@@ -1000,12 +1000,12 @@ export default function CartPage() {
                 if (!Number.isFinite(input) || input <= 0) return
                 const nextScale = clampScale(input / baseValue)
                 if (locked) {
-                  update(item.modelId, { scale: nextScale, dimensionOverrides: null }, item.partId)
+                  update(item.modelId, { scale: nextScale, dimensionOverrides: null }, item.partId, item.cartItemId)
                   return
                 }
                 const overrides = { ...(item.options.dimensionOverrides || {}) }
                 overrides[axis] = nextScale
-                update(item.modelId, { dimensionOverrides: overrides }, item.partId)
+                update(item.modelId, { dimensionOverrides: overrides }, item.partId, item.cartItemId)
               }
               const toggleLock = () => {
                 if (isLockedProduct) return
@@ -1014,9 +1014,9 @@ export default function CartPage() {
                     acc[axis] = getAxisScale(axis)
                     return acc
                   }, {} as Record<(typeof DIMENSION_AXES)[number], number>)
-                  update(item.modelId, { lockDimensions: false, dimensionOverrides: overrides }, item.partId)
+                  update(item.modelId, { lockDimensions: false, dimensionOverrides: overrides }, item.partId, item.cartItemId)
                 } else {
-                  update(item.modelId, { lockDimensions: true, scale: uniformScale, dimensionOverrides: null }, item.partId)
+                  update(item.modelId, { lockDimensions: true, scale: uniformScale, dimensionOverrides: null }, item.partId, item.cartItemId)
                 }
                 setDimensionInputs((prev) => {
                   if (!prev[itemKey]) return prev
@@ -1027,7 +1027,7 @@ export default function CartPage() {
               }
               const resetDimensions = () => {
                 if (isLockedProduct) return
-                update(item.modelId, { scale: 1, dimensionOverrides: null, lockDimensions: true }, item.partId)
+                update(item.modelId, { scale: 1, dimensionOverrides: null, lockDimensions: true }, item.partId, item.cartItemId)
                 setDimensionInputs((prev) => {
                   if (!prev[itemKey]) return prev
                   const next = { ...prev }
@@ -1037,7 +1037,7 @@ export default function CartPage() {
               }
 
               return (
-                <div key={`${item.modelId}-${item.partId || 'whole'}`} className="p-4 grid grid-cols-[80px_1fr] gap-3 items-center">
+                <div key={item.cartItemId} className="p-4 grid grid-cols-[80px_1fr] gap-3 items-center">
                   <div>
                     {item.thumbnail ? (
                       <img src={item.thumbnail} className="w-20 h-14 object-cover rounded border border-white/10" alt="" />
@@ -1053,14 +1053,14 @@ export default function CartPage() {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          className={`text-xs ${selectedPreviewItem?.modelId === item.modelId && (selectedPreviewItem?.partId ?? null) === (item.partId ?? null) ? 'text-emerald-300' : 'text-slate-400 hover:text-white'}`}
-                          onClick={() => setSelectedPreviewKey({ modelId: item.modelId, partId: item.partId ?? null })}
+                          className={`text-xs ${selectedPreviewItem?.cartItemId === item.cartItemId ? 'text-emerald-300' : 'text-slate-400 hover:text-white'}`}
+                          onClick={() => setSelectedPreviewKey({ cartItemId: item.cartItemId })}
                         >
-                          {selectedPreviewItem?.modelId === item.modelId && (selectedPreviewItem?.partId ?? null) === (item.partId ?? null)
+                          {selectedPreviewItem?.cartItemId === item.cartItemId
                             ? 'Previewing'
                             : 'Preview'}
                         </button>
-                        <button className="text-xs text-slate-400 hover:text-white" onClick={() => remove(item.modelId, item.partId)}>
+                        <button className="text-xs text-slate-400 hover:text-white" onClick={() => remove(item.modelId, item.partId, item.cartItemId)}>
                           Remove
                         </button>
                       </div>
@@ -1070,9 +1070,9 @@ export default function CartPage() {
                     )}
                     <div className="flex flex-wrap items-center gap-3 text-sm">
                       <div className="flex items-center gap-2">
-                        <button className="px-2 py-1 rounded-md border border-white/10" onClick={() => dec(item.modelId, item.partId)}>-</button>
+                        <button className="px-2 py-1 rounded-md border border-white/10" onClick={() => dec(item.modelId, item.partId, item.cartItemId)}>-</button>
                         <span>{item.options.qty}</span>
-                        <button className="px-2 py-1 rounded-md border border-white/10" onClick={() => inc(item.modelId, item.partId)}>+</button>
+                        <button className="px-2 py-1 rounded-md border border-white/10" onClick={() => inc(item.modelId, item.partId, item.cartItemId)}>+</button>
                       </div>
                       <label className="flex items-center gap-2">
                         <span>Scale</span>
@@ -1097,7 +1097,7 @@ export default function CartPage() {
                           max="100"
                           value={item.options.infillPct ?? 20}
                           disabled={isLockedProduct}
-                          onChange={(e) => update(item.modelId, { infillPct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }, item.partId)}
+                          onChange={(e) => update(item.modelId, { infillPct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }, item.partId, item.cartItemId)}
                         />
                       </label>
                       <label className="flex items-center gap-2">
@@ -1106,7 +1106,7 @@ export default function CartPage() {
                           className="w-32 input"
                           value={normalizeMaterialName(item.options.material)}
                           disabled={isLockedProduct}
-                          onChange={(e) => update(item.modelId, { material: e.target.value as MaterialType }, item.partId)}
+                          onChange={(e) => update(item.modelId, { material: e.target.value as MaterialType }, item.partId, item.cartItemId)}
                         >
                           {(() => {
                             const normalized = normalizeMaterialName(item.options.material)
@@ -1128,7 +1128,7 @@ export default function CartPage() {
                             const baseIndex = unitIdx * 4
                             const slotsInUnit = Math.min(4, Math.max(0, safeSlots - baseIndex))
                             return (
-                              <div key={`${item.modelId}-${item.partId || 'whole'}-ams-${unitIdx}`} className="rounded-lg border border-white/10 bg-slate-900/40 px-2 py-1.5">
+                              <div key={`${item.cartItemId}-ams-${unitIdx}`} className="rounded-lg border border-white/10 bg-slate-900/40 px-2 py-1.5">
                                 <div className="flex items-center justify-between mb-0.5 text-[9px] uppercase tracking-[0.2em] text-slate-500">
                                   <span>AMS #{unitIdx + 1}</span>
                                   <span>Slots {baseIndex + 1}–{baseIndex + slotsInUnit}</span>
@@ -1136,7 +1136,7 @@ export default function CartPage() {
                                 <div className="inline-grid grid-cols-4 gap-1 w-fit">
                                   {Array.from({ length: slotsInUnit }).map((_, slotIdx) => {
                                     const idx = baseIndex + slotIdx
-                                    const slotId = `${item.modelId}-${item.partId || 'whole'}-color-${idx}`
+                                    const slotId = `${item.cartItemId}-color-${idx}`
                                     const value = item.options.colors?.[idx] || ''
                                     const swatch = resolveSwatch(value)
                                     const parsedValue = parseColorString(value)
@@ -1151,7 +1151,7 @@ export default function CartPage() {
                                     const updateColor = (nextValue: string) => {
                                       if (isLockedProduct) return
                                       applyColorToSlot(
-                                        { modelId: item.modelId, partId: item.partId ?? null, index: idx },
+                                        { cartItemId: item.cartItemId, modelId: item.modelId, partId: item.partId ?? null, index: idx },
                                         nextValue,
                                       )
                                     }
@@ -1174,6 +1174,7 @@ export default function CartPage() {
                                             setActiveColorAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
                                             setActiveColorSlot({
                                               id: slotId,
+                                              cartItemId: item.cartItemId,
                                               modelId: item.modelId,
                                               partId: item.partId ?? null,
                                               index: idx,
@@ -1221,7 +1222,7 @@ export default function CartPage() {
                           <input
                             className="w-40 input"
                             value={item.options.customText || ''}
-                            onChange={(e) => update(item.modelId, { customText: e.target.value || null }, item.partId)}
+                            onChange={(e) => update(item.modelId, { customText: e.target.value || null }, item.partId, item.cartItemId)}
                             placeholder="optional engraving"
                           />
                         </label>
