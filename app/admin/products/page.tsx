@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import ProductBuilder from '@/components/admin/ProductBuilder'
 import { syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
+import { filterLinkedVariantTemplates } from '@/lib/product-template-variants'
 
 async function requireAdminServer() {
   const cookieStore = await cookies()
@@ -22,7 +23,7 @@ export default async function AdminProductsPage() {
   if (!adminId) redirect('/login')
   try { await syncStockworksModelsToProductTemplates() } catch {}
 
-  const [products, models] = await Promise.all([
+  const [allProducts, models] = await Promise.all([
     prisma.productTemplate.findMany({
       orderBy: { updatedAt: 'desc' },
       include: { baseModel: { select: { id: true, title: true } } },
@@ -46,6 +47,7 @@ export default async function AdminProductsPage() {
       take: 200,
     }),
   ])
+  const products = filterLinkedVariantTemplates(allProducts)
 
   return <ProductBuilder initialProducts={products as any} models={models as any} />
 }

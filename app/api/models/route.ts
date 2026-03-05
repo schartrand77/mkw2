@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import type { Prisma } from '@prisma/client'
 import { DiscoverEntityType, DiscoverSort, type ModelWithPartsCountAndTags } from '@/types/discover'
 import { getMaterialAvailabilitySnapshot, normalizeAvailabilityMaterialKey } from '@/lib/material-availability'
+import { filterLinkedVariantTemplates } from '@/lib/product-template-variants'
 
 export const dynamic = 'force-dynamic'
 
@@ -295,17 +296,16 @@ export async function GET(req: NextRequest) {
     })
     : Promise.resolve([])
   const fetchModelTotal = scopes.has('models') ? prisma.model.count({ where }) : Promise.resolve(0)
-  const fetchProductTotal = scopes.has('products') ? prisma.productTemplate.count({ where: productWhere }) : Promise.resolve(0)
   const fetchMerchTotal = scopes.has('merch') ? prisma.merchItem.count({ where: merchWhere }) : Promise.resolve(0)
 
-  const [models, products, merch, modelTotal, productTotal, merchTotal] = await Promise.all([
+  const [models, products, merch, modelTotal, merchTotal] = await Promise.all([
     fetchModels,
     fetchProducts,
     fetchMerch,
     fetchModelTotal,
-    fetchProductTotal,
     fetchMerchTotal,
   ])
+  const filteredProducts = filterLinkedVariantTemplates(products)
 
   const materialAvailability = await getMaterialAvailabilitySnapshot(models.map((entry) => entry.material || 'PLA'))
 
@@ -369,7 +369,7 @@ export async function GET(req: NextRequest) {
       recommendationReasons: recommendation.reasons,
     }
   })
-  const mappedProducts = products.map((p) => {
+  const mappedProducts = filteredProducts.map((p) => {
     const baseModelPrice = p.baseModel?.salePriceUsd ?? p.baseModel?.effectivePriceUsd ?? p.baseModel?.priceUsd ?? null
     return {
       id: p.id,
@@ -466,7 +466,7 @@ export async function GET(req: NextRequest) {
     return String(a.title || '').localeCompare(String(b.title || ''))
   })
 
-  const total = modelTotal + productTotal + merchTotal
+  const total = modelTotal + filteredProducts.length + merchTotal
   const paged = combined.slice(skip, skip + pageSize)
   return NextResponse.json({ models: paged, total, page, pageSize })
 }

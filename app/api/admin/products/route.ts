@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { requireAdmin } from '../_utils'
 import { syncProductTemplateToStockworks, syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
 import { buildLockedTemplateOptions } from '@/lib/product-template-config'
+import { filterLinkedVariantTemplates } from '@/lib/product-template-variants'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -43,10 +44,11 @@ const schema = z.object({
 export async function GET() {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   try { await syncStockworksModelsToProductTemplates() } catch {}
-  const products = await prisma.productTemplate.findMany({
+  const allProducts = await prisma.productTemplate.findMany({
     orderBy: { updatedAt: 'desc' },
     include: { baseModel: { select: { id: true, title: true } } },
   })
+  const products = filterLinkedVariantTemplates(allProducts)
   return NextResponse.json({ products })
 }
 

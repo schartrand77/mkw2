@@ -5,6 +5,7 @@ import { formatCurrency } from '@/lib/currency'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { resolveModelPricing } from '@/lib/pricing'
 import { syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
+import { filterLinkedVariantTemplates } from '@/lib/product-template-variants'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +23,7 @@ export default async function ProductsPage() {
     : null
   const isAdminViewer = Boolean(viewer?.isAdmin || viewer?.role === 'admin' || viewer?.role === 'staff')
 
-  const [products, merchItems, config] = await Promise.all([
+  const [allProducts, merchItems, config] = await Promise.all([
     prisma.productTemplate.findMany({
       where: isAdminViewer ? undefined : { isActive: true },
       orderBy: { updatedAt: 'desc' },
@@ -56,6 +57,7 @@ export default async function ProductsPage() {
       },
     }),
   ])
+  const products = filterLinkedVariantTemplates(allProducts)
 
   const modelsLabel = (config.productsModelsLabel || '').trim() || 'Models'
   const merchLabel = (config.productsMerchLabel || '').trim() || 'Merch'
