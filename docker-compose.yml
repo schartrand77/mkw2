@@ -38,6 +38,9 @@ services:
       BASE_URL: ${BASE_URL:-http://localhost:3000}
       # Persist uploads under STORAGE_DIR
       STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
+      # Optional mapped source folder for the bulk upload importer.
+      BULK_UPLOAD_DIR: ${BULK_UPLOAD_DIR:-/app/imports}
+      BULK_UPLOAD_BASE_URL: ${BULK_UPLOAD_BASE_URL:-http://127.0.0.1:3000}
       # Backup destination. Defaults to STORAGE_DIR/backups when empty.
       BACKUP_DIR: ${BACKUP_DIR:-}
       # Backup runtime mode and DB service target for compose exec.
@@ -104,6 +107,8 @@ services:
     volumes:
       # Map host storage folder to container STORAGE_DIR
       - ./storage:/app/storage
+      # Optional source folder for bulk imports
+      - ./imports:/app/imports
     networks:
       - makerworks-net
 

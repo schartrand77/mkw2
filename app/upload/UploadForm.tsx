@@ -22,7 +22,28 @@ function resolveUploadEndpoint(base?: string | null) {
   return `${trimmed.replace(/\/+$/, '')}/api/upload`
 }
 
-export default function UploadForm({ directUploadUrl }: { directUploadUrl?: string | null }) {
+function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let idx = 0
+  let size = value
+  while (size >= 1024 && idx < units.length - 1) {
+    size /= 1024
+    idx += 1
+  }
+  const precision = idx === 0 ? 0 : 1
+  return `${size.toFixed(precision)} ${units[idx]}`
+}
+
+export default function UploadForm({
+  directUploadUrl,
+  maxFileBytes,
+  maxTotalBytes,
+}: {
+  directUploadUrl?: string | null
+  maxFileBytes: number | null
+  maxTotalBytes: number | null
+}) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [creditName, setCreditName] = useState('')
@@ -43,30 +64,28 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
   const uploadEndpoint = resolveUploadEndpoint(directUploadUrl)
   const isDirect = !!directUploadUrl
 
-  const formatBytes = (value: number) => {
-    if (!Number.isFinite(value) || value <= 0) return '0 B'
-    const units = ['B', 'KB', 'MB', 'GB', 'TB']
-    let idx = 0
-    let size = value
-    while (size >= 1024 && idx < units.length - 1) {
-      size /= 1024
-      idx += 1
-    }
-    const precision = idx === 0 ? 0 : 1
-    return `${size.toFixed(precision)} ${units[idx]}`
-  }
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!modelFiles || modelFiles.length === 0) {
       setErrorMsg('Please select one or more 3D model files (STL/OBJ/3MF/ZIP).')
       return
     }
+    const selectedFiles = Array.from(modelFiles)
+    const oversizedFile = maxFileBytes == null ? null : selectedFiles.find((file) => (file?.size || 0) > maxFileBytes)
+    if (oversizedFile) {
+      setErrorMsg(`"${oversizedFile.name}" exceeds the per-file limit of ${formatBytes(maxFileBytes ?? 0)}.`)
+      return
+    }
+    const selectedModelBytes = selectedFiles.reduce((sum, file) => sum + (file?.size || 0), 0)
+    if (maxTotalBytes != null && selectedModelBytes > maxTotalBytes) {
+      setErrorMsg(`Selected model files exceed the total upload limit of ${formatBytes(maxTotalBytes)}.`)
+      return
+    }
     setLoading(true)
     setProgressPct(0)
     setProgressLoaded(0)
     const totalSize =
-      Array.from(modelFiles).reduce((sum, file) => sum + (file?.size || 0), 0)
+      selectedModelBytes
       + (imageFile?.size || 0)
     setProgressTotal(totalSize)
     try {
@@ -81,7 +100,7 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
       if (sizeXmm) fd.append('sizeXmm', sizeXmm)
       if (sizeYmm) fd.append('sizeYmm', sizeYmm)
       if (sizeZmm) fd.append('sizeZmm', sizeZmm)
-      Array.from(modelFiles).forEach((f) => fd.append('files', f))
+      selectedFiles.forEach((f) => fd.append('files', f))
       if (imageFile) fd.append('image', imageFile)
       const data = await new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
@@ -94,13 +113,26 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
           setProgressTotal(event.total)
           setProgressPct(Math.min(100, Math.round((event.loaded / event.total) * 100)))
         }
-        xhr.onerror = () => reject(new Error('Upload failed'))
+        xhr.onerror = () => reject(new Error(
+          isDirect
+            ? 'Upload failed before the server responded. Check the upload host and network path.'
+            : 'Upload failed before the server responded. If you use Cloudflare or a tunnel, configure a Direct upload URL to bypass request size limits.',
+        ))
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             resolve(xhr.response)
             return
           }
-          const message = (xhr.response && xhr.response.error) ? xhr.response.error : 'Upload failed'
+          const responseError = xhr.response && typeof xhr.response === 'object' ? xhr.response.error : null
+          const message =
+            responseError
+            || (xhr.status === 413 && maxFileBytes != null && maxTotalBytes != null
+              ? `Upload too large. Limit is ${formatBytes(maxFileBytes)} per file and ${formatBytes(maxTotalBytes)} total.`
+              : xhr.status === 413
+                ? 'Upload rejected as too large by the server or proxy.'
+              : xhr.status >= 500
+                ? 'Upload failed on the server. Try again, and if this only happens for large files check any reverse proxy size limits.'
+                : 'Upload failed')
           reject(new Error(message))
         }
         xhr.send(fd)
@@ -193,6 +225,11 @@ export default function UploadForm({ directUploadUrl }: { directUploadUrl?: stri
         <div>
           <label className="block text-sm mb-1">Model files (.stl, .obj, .3mf, or .zip)</label>
           <input type="file" multiple accept=".stl,.obj,.3mf,.zip" onChange={(e) => setModelFiles(e.target.files)} />
+          <p className="text-xs text-slate-400 mt-1">
+            {maxFileBytes == null || maxTotalBytes == null
+              ? 'LAN upload mode: no app-enforced size limit. Any remaining limit would come from the upload host, proxy, or available disk space.'
+              : `Limit: ${formatBytes(maxFileBytes)} per file, ${formatBytes(maxTotalBytes)} total for model files.`}
+          </p>
         </div>
         <div>
           <label className="block text-sm mb-1">Cover image (optional)</label>

@@ -21,43 +21,42 @@ import { sendAdminPushNotification } from '@/lib/push'
 import { convert3mfToStl, enqueueModelPreviewJob, extract3mfFilamentColors } from '@/lib/model-preview-queue'
 import { enqueueImageProcessing, enqueuePreviewProcessing } from '@/lib/processing-jobs'
 import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
+import { getAllowedUploadOrigins, isLanRequestHost, readUploadByteEnv } from '@/lib/upload-config'
 
 const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
 
-const MAX_UPLOAD_FILE_BYTES = readByteEnv('UPLOAD_MAX_FILE_BYTES', 100 * 1024 * 1024)
-const MAX_UPLOAD_TOTAL_BYTES = readByteEnv('UPLOAD_MAX_TOTAL_BYTES', 200 * 1024 * 1024)
+type UploadLimits = {
+  fileSize: number | null
+  totalSize: number | null
+}
 
-function normalizeOrigin(url?: string | null) {
-  if (!url) return null
-  try {
-    const parsed = new URL(url)
-    return parsed.origin
-  } catch {
-    return null
+function getUploadLimitsForRequest(req: NextRequest): UploadLimits {
+  const requestHost = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const isLan = isLanRequestHost(requestHost, process.env.LAN_SITE_HOSTS || null)
+  if (isLan) {
+    return {
+      fileSize: readUploadByteEnv('LAN_UPLOAD_MAX_FILE_BYTES', 100 * 1024 * 1024),
+      totalSize: readUploadByteEnv('LAN_UPLOAD_MAX_TOTAL_BYTES', 200 * 1024 * 1024),
+    }
+  }
+  return {
+    fileSize: readUploadByteEnv('UPLOAD_MAX_FILE_BYTES', 100 * 1024 * 1024),
+    totalSize: readUploadByteEnv('UPLOAD_MAX_TOTAL_BYTES', 200 * 1024 * 1024),
   }
 }
 
-function readByteEnv(name: string, fallback: number) {
-  const raw = process.env[name]
-  if (!raw) return fallback
-  const parsed = Number(raw)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
-}
-
-function applyCorsHeaders(req: NextRequest, res: NextResponse, directUploadUrl?: string | null) {
-  const allowedOrigin = normalizeOrigin(directUploadUrl)
+function applyCorsHeaders(req: NextRequest, res: NextResponse, allowedOrigins: string[]) {
   const requestOrigin = req.headers.get('origin')
-  if (allowedOrigin && requestOrigin && requestOrigin === allowedOrigin) {
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
     res.headers.set('Access-Control-Allow-Origin', requestOrigin)
     res.headers.set('Access-Control-Allow-Credentials', 'true')
   }
   return res
 }
 
-function applyPreflightCors(req: NextRequest, res: NextResponse, directUploadUrl?: string | null) {
-  const allowedOrigin = normalizeOrigin(directUploadUrl)
+function applyPreflightCors(req: NextRequest, res: NextResponse, allowedOrigins: string[]) {
   const requestOrigin = req.headers.get('origin')
-  if (allowedOrigin && requestOrigin && requestOrigin === allowedOrigin) {
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
     const requestedHeaders = req.headers.get('access-control-request-headers') || 'content-type'
     res.headers.set('Access-Control-Allow-Origin', requestOrigin)
     res.headers.set('Access-Control-Allow-Credentials', 'true')
@@ -68,9 +67,9 @@ function applyPreflightCors(req: NextRequest, res: NextResponse, directUploadUrl
   return res
 }
 
-function jsonWithCors(req: NextRequest, body: any, init: ResponseInit | undefined, directUploadUrl?: string | null) {
+function jsonWithCors(req: NextRequest, body: any, init: ResponseInit | undefined, allowedOrigins: string[]) {
   const res = NextResponse.json(body, init)
-  return applyCorsHeaders(req, res, directUploadUrl)
+  return applyCorsHeaders(req, res, allowedOrigins)
 }
 
 function uploadError(message: string, status = 400) {
@@ -122,7 +121,7 @@ async function streamToStorage(relPath: string, stream: NodeJS.ReadableStream, o
   return full
 }
 
-async function parseMultipartUpload(req: NextRequest, userId: string) {
+async function parseMultipartUpload(req: NextRequest, userId: string, limits: UploadLimits) {
   const headers: Record<string, string> = {}
   req.headers.forEach((value, key) => {
     headers[key] = value
@@ -130,10 +129,10 @@ async function parseMultipartUpload(req: NextRequest, userId: string) {
   const bb = Busboy({
     headers,
     limits: {
-      fileSize: MAX_UPLOAD_FILE_BYTES,
       files: 25,
       fields: 50,
       parts: 100,
+      ...(limits.fileSize != null ? { fileSize: limits.fileSize } : {}),
     },
   })
   const fields: Record<string, string> = {}
@@ -148,7 +147,7 @@ async function parseMultipartUpload(req: NextRequest, userId: string) {
 
   const trackTotalBytes = (bytes: number) => {
     totalModelBytes += bytes
-    if (totalModelBytes > MAX_UPLOAD_TOTAL_BYTES) {
+    if (limits.totalSize != null && totalModelBytes > limits.totalSize) {
       throw uploadError('Upload exceeds total size limit.', 413)
     }
   }
@@ -217,7 +216,7 @@ async function parseMultipartUpload(req: NextRequest, userId: string) {
             continue
           }
           const entrySize = Number(entry.vars?.uncompressedSize || 0)
-          if (entrySize && entrySize > MAX_UPLOAD_FILE_BYTES) {
+          if (limits.fileSize != null && entrySize && entrySize > limits.fileSize) {
             entry.autodrain()
             throw uploadError(`Zip entry too large: ${entryName}`, 413)
           }
@@ -234,7 +233,7 @@ async function parseMultipartUpload(req: NextRequest, userId: string) {
           modelFiles.push(record)
           await streamToStorage(tempRel, entry, (size) => {
             record.size += size
-            if (record.size > MAX_UPLOAD_FILE_BYTES) {
+            if (limits.fileSize != null && record.size > limits.fileSize) {
               throw uploadError(`Zip entry too large: ${entryName}`, 413)
             }
             trackTotalBytes(size)
@@ -320,8 +319,9 @@ export async function OPTIONS(req: NextRequest) {
   try {
     const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' }, select: { directUploadUrl: true } })
     const directUploadUrl = cfg?.directUploadUrl || process.env.DIRECT_UPLOAD_URL || null
+    const allowedOrigins = getAllowedUploadOrigins([directUploadUrl, process.env.LAN_DIRECT_UPLOAD_URL || null])
     const res = new NextResponse(null, { status: 204 })
-    return applyPreflightCors(req, res, directUploadUrl)
+    return applyPreflightCors(req, res, allowedOrigins)
   } catch {
     return new NextResponse(null, { status: 204 })
   }
@@ -329,12 +329,14 @@ export async function OPTIONS(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   let directUploadUrl: string | null = process.env.DIRECT_UPLOAD_URL || null
+  let allowedOrigins = getAllowedUploadOrigins([directUploadUrl, process.env.LAN_DIRECT_UPLOAD_URL || null])
   let tempFiles: TempModelFile[] = []
   try {
     // Check site config for anonymous upload policy
     const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
     directUploadUrl = cfg?.directUploadUrl || directUploadUrl
-    const json = (body: any, init?: ResponseInit) => jsonWithCors(req, body, init, directUploadUrl)
+    allowedOrigins = getAllowedUploadOrigins([directUploadUrl, process.env.LAN_DIRECT_UPLOAD_URL || null])
+    const json = (body: any, init?: ResponseInit) => jsonWithCors(req, body, init, allowedOrigins)
     const uidFromCookie = await getUserIdFromCookie()
     if (cfg && cfg.allowAnonymousUploads === false && !uidFromCookie) {
       return json({ error: 'Sign in required to upload' }, { status: 401 })
@@ -345,7 +347,7 @@ export async function POST(req: NextRequest) {
       select: { email: true, name: true, profile: { select: { slug: true } } },
     })
 
-    const parsed = await parseMultipartUpload(req, userId)
+    const parsed = await parseMultipartUpload(req, userId, getUploadLimitsForRequest(req))
     tempFiles = parsed.modelFiles
     const title = String(parsed.fields.title || '').slice(0, 200)
     const description = String(parsed.fields.description || '').slice(0, 2000)
@@ -662,7 +664,7 @@ export async function POST(req: NextRequest) {
       await cleanupTempFiles(tempFiles)
     }
     const status = e?.status && Number.isFinite(e.status) ? Number(e.status) : 400
-    return jsonWithCors(req, { error: e.message || 'Upload failed' }, { status }, directUploadUrl)
+    return jsonWithCors(req, { error: e.message || 'Upload failed' }, { status }, allowedOrigins)
   }
 }
 

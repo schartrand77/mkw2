@@ -6,10 +6,13 @@ import UploadForm from '@/app/upload/UploadForm'
 import CustomerPresetsPanel from '@/components/customer/CustomerPresetsPanel'
 import { formatCurrency } from '@/lib/currency'
 import { listProjectWorkspacesForUser } from '@/lib/project-workspaces'
+import { headers } from 'next/headers'
+import { isLanRequestHost, readUploadByteEnv, resolveUploadUrlForRequestHost } from '@/lib/upload-config'
 
 export const dynamic = 'force-dynamic'
 
 export default async function CustomerPortalPage() {
+  const reqHeaders = await headers()
   const userId = await getUserIdFromCookie()
   if (!userId) {
     return (
@@ -28,7 +31,20 @@ export default async function CustomerPortalPage() {
     listProjectWorkspacesForUser(userId),
   ])
   const fallback = process.env.DIRECT_UPLOAD_URL || null
-  const directUploadUrl = cfg?.directUploadUrl || fallback
+  const requestHost = reqHeaders.get('x-forwarded-host') || reqHeaders.get('host')
+  const isLan = isLanRequestHost(requestHost, process.env.LAN_SITE_HOSTS || null)
+  const directUploadUrl = resolveUploadUrlForRequestHost({
+    requestHost,
+    directUploadUrl: cfg?.directUploadUrl || fallback,
+    lanDirectUploadUrl: process.env.LAN_DIRECT_UPLOAD_URL || null,
+    lanSiteHosts: process.env.LAN_SITE_HOSTS || null,
+  })
+  const maxFileBytes = isLan
+    ? readUploadByteEnv('LAN_UPLOAD_MAX_FILE_BYTES', 100 * 1024 * 1024)
+    : readUploadByteEnv('UPLOAD_MAX_FILE_BYTES', 100 * 1024 * 1024)
+  const maxTotalBytes = isLan
+    ? readUploadByteEnv('LAN_UPLOAD_MAX_TOTAL_BYTES', 200 * 1024 * 1024)
+    : readUploadByteEnv('UPLOAD_MAX_TOTAL_BYTES', 200 * 1024 * 1024)
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -45,7 +61,11 @@ export default async function CustomerPortalPage() {
               Upload your model to see an instant estimate and configure materials before checkout.
             </p>
             <div className="mt-4">
-              <UploadForm directUploadUrl={directUploadUrl} />
+              <UploadForm
+                directUploadUrl={directUploadUrl}
+                maxFileBytes={maxFileBytes}
+                maxTotalBytes={maxTotalBytes}
+              />
             </div>
           </div>
         </div>

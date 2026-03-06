@@ -219,6 +219,68 @@ Note: `ls -lah` on the backup root may show `total 0` even when backups are vali
   - backup failed before dump completed; check `npm run backup` logs.
   - verify DB host in `DATABASE_URL` is reachable from the MakerWorks container.
 
+## Bulk Model Import
+
+For self-hosted/operator use, you can bulk upload a mapped folder of model files through the normal upload API.
+
+Supported file types:
+- `.stl`
+- `.obj`
+- `.3mf`
+- `.zip`
+
+Run it with explicit args:
+
+```bash
+npm run bulk:upload-models -- --dir /app/imports/models --base-url http://127.0.0.1:3000 --email admin@example.com --password your-password
+```
+
+### Docker Compose usage
+
+The compose file now includes:
+- a `./imports:/app/imports` volume on the `web` container
+- `BULK_UPLOAD_DIR=/app/imports`
+- `BULK_UPLOAD_BASE_URL=http://127.0.0.1:3000`
+
+Run inside the web container:
+
+```bash
+docker compose exec web npm run bulk:upload-models -- --dir /app/imports --email admin@example.com --password your-password
+```
+
+### Unraid usage
+
+Recommended Unraid setup:
+- Map a host folder to `/app/imports`
+- Set `BULK_UPLOAD_DIR=/app/imports`
+- Leave `BULK_UPLOAD_BASE_URL=http://127.0.0.1:3000`
+
+Then run inside the web container:
+
+```bash
+npm run bulk:upload-models -- --dir /app/imports --email admin@example.com --password your-password
+```
+
+Notes for Unraid:
+- Use the container path, not the host path, when passing `--dir`
+- `http://127.0.0.1:3000` is the right target when running the script inside the MakerWorks container
+- The Unraid template now includes an optional `/app/imports` path mapping for this script
+
+Useful options:
+- `--material PLA`
+- `--tags "batch-import,archive"`
+- `--description "Imported from mapped folder"`
+- `--limit 25`
+- `--dry-run`
+- `--no-cover-match`
+
+Behavior:
+- Recursively scans the target folder.
+- Uploads each supported model file as its own model.
+- If a same-basename image exists beside a model, it will be used as the cover automatically.
+  - examples: `part01.stl` + `part01.jpg`, `part01-cover.png`
+- Uses env fallbacks from `.env.example` under the `BULK_UPLOAD_*` names.
+
 ## Operational Commands
 
 ```bash

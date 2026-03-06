@@ -53,6 +53,8 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
   const [labels, setLabels] = useState<CatalogLabels>(initialLabels)
   const [items, setItems] = useState<MerchItem[]>(initialMerch)
   const [draft, setDraft] = useState<MerchDraft>(emptyDraft())
+  const [sizeOptionsInput, setSizeOptionsInput] = useState('')
+  const [colorOptionsInput, setColorOptionsInput] = useState('')
   const [savingLabels, setSavingLabels] = useState(false)
   const [savingItem, setSavingItem] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -112,6 +114,8 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
   }
 
   const startEdit = (item: MerchItem) => {
+    const sizeOptions = Array.isArray(item.sizeOptions) ? item.sizeOptions : null
+    const colorOptions = Array.isArray(item.colorOptions) ? item.colorOptions : null
     setEditingId(item.id)
     setDraft({
       title: item.title,
@@ -123,12 +127,14 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
       galleryImageUrls: normalizeGalleryImages([...(Array.isArray(item.galleryImageUrls) ? item.galleryImageUrls : []), item.imageUrl || null]),
       externalUrl: item.externalUrl || '',
       ctaLabel: item.ctaLabel || '',
-      sizeOptions: Array.isArray(item.sizeOptions) ? item.sizeOptions : null,
-      colorOptions: Array.isArray(item.colorOptions) ? item.colorOptions : null,
+      sizeOptions,
+      colorOptions,
       isActive: item.isActive,
       sortOrder: item.sortOrder ?? 0,
       updatedAt: item.updatedAt || null,
     })
+    setSizeOptionsInput(sizeOptions?.join(', ') || '')
+    setColorOptionsInput(colorOptions?.join(', ') || '')
     setImageFiles([])
     setMessage(null)
     setError(null)
@@ -137,6 +143,8 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
   const resetEditor = () => {
     setEditingId(null)
     setDraft(emptyDraft())
+    setSizeOptionsInput('')
+    setColorOptionsInput('')
     setImageFiles([])
   }
 
@@ -355,13 +363,17 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
             <span className="text-slate-400">Sizes (comma-separated)</span>
             <input
               className="input"
-              value={Array.isArray(draft.sizeOptions) ? draft.sizeOptions.join(', ') : ''}
-              onChange={(e) => setDraft((prev) => ({
-                ...prev,
-                sizeOptions: e.target.value.trim()
-                  ? Array.from(new Set(e.target.value.split(',').map((entry) => entry.trim()).filter(Boolean)))
-                  : null,
-              }))}
+              value={sizeOptionsInput}
+              onChange={(e) => {
+                const raw = e.target.value
+                setSizeOptionsInput(raw)
+                setDraft((prev) => ({
+                  ...prev,
+                  sizeOptions: raw.trim()
+                    ? Array.from(new Set(raw.split(',').map((entry) => entry.trim()).filter(Boolean)))
+                    : null,
+                }))
+              }}
               placeholder="XS, S, M, L, XL"
             />
           </label>
@@ -369,13 +381,17 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
             <span className="text-slate-400">Colors (comma-separated)</span>
             <input
               className="input"
-              value={Array.isArray(draft.colorOptions) ? draft.colorOptions.join(', ') : ''}
-              onChange={(e) => setDraft((prev) => ({
-                ...prev,
-                colorOptions: e.target.value.trim()
-                  ? Array.from(new Set(e.target.value.split(',').map((entry) => entry.trim()).filter(Boolean)))
-                  : null,
-              }))}
+              value={colorOptionsInput}
+              onChange={(e) => {
+                const raw = e.target.value
+                setColorOptionsInput(raw)
+                setDraft((prev) => ({
+                  ...prev,
+                  colorOptions: raw.trim()
+                    ? Array.from(new Set(raw.split(',').map((entry) => entry.trim()).filter(Boolean)))
+                    : null,
+                }))
+              }}
               placeholder="Black, White, Navy"
             />
           </label>
