@@ -489,6 +489,26 @@ export default function CartPage() {
   }, [])
   const activeMaterialKey = normalizeMaterialName(activeSlotItem?.options.material)
   const stockworksEntry = stockworksPalette?.materials?.[activeMaterialKey]
+  const stockworksColorValueToHex = useMemo(() => {
+    const map = new Map<string, string>()
+    if (!stockworksPalette?.materials) return map
+    for (const material of Object.values(stockworksPalette.materials)) {
+      const entries = [
+        ...(Array.isArray(material?.inStock) ? material.inStock : []),
+        ...(Array.isArray(material?.orderable) ? material.orderable : []),
+      ]
+      for (const entry of entries) {
+        const meta = toColorMeta(entry as any)
+        const hex = normalizeHexColor(meta.hex || '')
+        if (!hex) continue
+        const nameKey = normalizeColorValue(meta.name)
+        if (nameKey && !map.has(nameKey)) map.set(nameKey, hex)
+        const hexKey = normalizeColorValue(hex)
+        if (hexKey && !map.has(hexKey)) map.set(hexKey, hex)
+      }
+    }
+    return map
+  }, [stockworksPalette])
   const materialOptions = useMemo(() => {
     const defaults = MATERIAL_OPTIONS.map((material) => material.toUpperCase())
     const fromStockworks = stockworksPalette?.materialTypes?.length
@@ -577,6 +597,7 @@ export default function CartPage() {
     ? activeSlotValue
     : activeSlotSwatch?.hex
       || activeSlotParsed.hex
+      || stockworksColorValueToHex.get(activeSlotNormalized)
       || paletteValueToHex.get(activeSlotNormalized)
       || COLOR_PICKER_FALLBACK
   const paletteTitle = stockworksEntry ? 'Filament brands' : 'Palette'
@@ -670,18 +691,22 @@ export default function CartPage() {
     : null
   const selectedViewerSrc = selectedPreviewSource ? toPublicHref(selectedPreviewSource) : null
   const selectedViewerFallback = selectedPreviewFallback ? toPublicHref(selectedPreviewFallback) : null
+  const resolvePreviewHexFromValue = useCallback((value?: string | null) => {
+    const parsed = parseColorString(value)
+    const normalized = normalizeColorValue(parsed.name || parsed.hex || value)
+    const swatch = resolveSwatch(value)
+    return resolveColorHex(value)
+      || swatch?.hex
+      || parsed.hex
+      || stockworksColorValueToHex.get(normalized)
+      || paletteValueToHex.get(normalized)
+      || ''
+  }, [paletteValueToHex, stockworksColorValueToHex])
   const resolveItemPreviewHex = useCallback((item: (typeof items)[number] | null | undefined) => {
     if (!item) return PREVIEW_DEFAULT_COLOR
     const primary = item.options.colors?.[0] || ''
-    if (isHexColor(primary)) return primary
-    const parsed = parseColorString(primary)
-    const normalized = normalizeColorValue(parsed.name || parsed.hex || primary)
-    const swatch = resolveSwatch(primary)
-    return swatch?.hex
-      || parsed.hex
-      || paletteValueToHex.get(normalized)
-      || PREVIEW_DEFAULT_COLOR
-  }, [paletteValueToHex])
+    return resolvePreviewHexFromValue(primary) || PREVIEW_DEFAULT_COLOR
+  }, [resolvePreviewHexFromValue])
   const partPreviewKey = useCallback((modelId: string, partId: string | null) => `${modelId}::${partId || ''}`, [])
   const resolveItemPreviewHexWithOptimistic = useCallback((item: (typeof items)[number] | null | undefined) => {
     if (!item) return PREVIEW_DEFAULT_COLOR
@@ -695,18 +720,9 @@ export default function CartPage() {
       return selectedPreviewMultipartSources.map((entry) => resolveItemPreviewHexWithOptimistic(selectedModelPartItemMap.get(entry.partId)))
     }
     if (!selectedPreviewItem) return []
-    const derived = (selectedPreviewItem.options.colors || []).map((value) => {
-      if (isHexColor(value)) return value
-      const parsed = parseColorString(value)
-      const normalized = normalizeColorValue(parsed.name || parsed.hex || value)
-      const swatch = resolveSwatch(value)
-      return swatch?.hex
-        || parsed.hex
-        || paletteValueToHex.get(normalized)
-        || COLOR_PICKER_FALLBACK
-    })
+    const derived = (selectedPreviewItem.options.colors || []).map((value) => resolvePreviewHexFromValue(value) || COLOR_PICKER_FALLBACK)
     return derived.length > 0 ? derived : [PREVIEW_DEFAULT_COLOR]
-  }, [selectedPreviewUsesMultipartViewer, selectedPreviewMultipartSources, selectedModelPartItemMap, selectedPreviewItem, paletteValueToHex, resolveItemPreviewHexWithOptimistic])
+  }, [selectedPreviewUsesMultipartViewer, selectedPreviewMultipartSources, selectedModelPartItemMap, selectedPreviewItem, resolveItemPreviewHexWithOptimistic, resolvePreviewHexFromValue])
   const selectedViewerColorMap = useMemo(() => {
     if (!selectedPreviewUsesMultipartViewer) return null
     const out: Record<string, string> = {}
@@ -790,7 +806,7 @@ export default function CartPage() {
       next[slot.index] = nextValue
       if (slot.partId && slot.index === 0) {
         const key = partPreviewKey(slot.modelId, slot.partId)
-        const optimisticHex = resolveColorHex(nextValue) || PREVIEW_DEFAULT_COLOR
+        const optimisticHex = resolvePreviewHexFromValue(nextValue) || PREVIEW_DEFAULT_COLOR
         setOptimisticPartPreviewHex((prev) => {
           if (nextValue) return { ...prev, [key]: optimisticHex }
           if (!(key in prev)) return prev
@@ -801,7 +817,7 @@ export default function CartPage() {
       }
       update(slot.modelId, { colors: applyColorRulesForItem(item, next) }, slot.partId, slot.cartItemId)
     },
-    [items, update, applyColorRulesForItem, partPreviewKey],
+    [items, update, applyColorRulesForItem, partPreviewKey, resolvePreviewHexFromValue],
   )
 
   const applyPreset = (preset: CustomerPreset, item: (typeof items)[number]) => {
@@ -1145,6 +1161,7 @@ export default function CartPage() {
                                       ? value
                                       : swatch?.hex
                                         || parsedValue.hex
+                                        || stockworksColorValueToHex.get(normalizedValue)
                                         || paletteValueToHex.get(normalizedValue)
                                         || COLOR_PICKER_FALLBACK
                                     const isActive = activeColorSlot?.id === slotId
@@ -1573,7 +1590,7 @@ export default function CartPage() {
                           })}
                         </div>
                         {(() => {
-                          const blendHexes = (activeSlotItem?.options.colors || []).map(resolveColorHex).filter(Boolean)
+                          const blendHexes = (activeSlotItem?.options.colors || []).map(resolvePreviewHexFromValue).filter(Boolean)
                           if (blendHexes.length < 2) return null
                           const blendGradient = buildBlendGradient(blendHexes)
                           const blendPairs = blendHexes.slice(0, -1).map((hex, idx) => ({
