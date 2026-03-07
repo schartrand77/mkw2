@@ -33,8 +33,6 @@ const bodySchema = z.object({
   priceMultiplier: z.number().positive().max(5).optional(),
 })
 
-const DEFAULT_INFILL_PCT = 20
-
 export async function POST(req: NextRequest, { params }: QuoteContext) {
   const { id } = await params
   let body: unknown
@@ -166,31 +164,15 @@ export async function POST(req: NextRequest, { params }: QuoteContext) {
   const optionMultiplier = typeof parsed.data.priceMultiplier === 'number' && Number.isFinite(parsed.data.priceMultiplier)
     ? Math.max(0.1, Math.min(5, parsed.data.priceMultiplier))
     : toleranceMultiplier
-  let basePrice = Number((pricing.price * colorMultiplier * optionMultiplier).toFixed(2))
-
-  if (model.salePriceUsd != null && Number.isFinite(Number(model.salePriceUsd)) && Number(model.salePriceUsd) > 0) {
-    const baseMaterial = normalizeMaterialName(model.material || 'PLA')
-    const basePricing = estimatePricingDetails({
-      cm3: Number(volumeMm3) / 1000,
-      material: baseMaterial,
-      infillPct: DEFAULT_INFILL_PCT,
-      finish: 'standard',
-      supportRatio: supportRatio ?? null,
-      colorCount: 1,
-      cfg,
-      applyMinimum: true,
-    })
-    if (basePricing.price > 0) {
-      basePrice = Number(((pricing.price * colorMultiplier * Number(model.salePriceUsd)) / basePricing.price).toFixed(2))
-    } else {
-      basePrice = Number(model.salePriceUsd)
-    }
-  }
+  const basePrice = model.salePriceUsd != null && Number.isFinite(Number(model.salePriceUsd)) && Number(model.salePriceUsd) > 0
+    ? Number(model.salePriceUsd)
+    : pricing.price
+  const rawUnitPrice = Number((basePrice * colorMultiplier * optionMultiplier).toFixed(2))
 
   const adjustments = getPricingAdjustmentConfig(cfg || undefined)
   const batchDiscountPercent = resolveBatchDiscountPercent(qty, adjustments.batchDiscountTiers)
   const adjusted = applyPricingAdjustments({
-    unitPrice: basePrice,
+    unitPrice: rawUnitPrice,
     qty,
     rush,
     demandSurgeMultiplier: adjustments.demandSurgeMultiplier,
