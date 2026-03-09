@@ -14,7 +14,7 @@ function collectReferencedMaterialIds(value: unknown): number[] {
   return output
 }
 
-export function filterLinkedVariantTemplates<T extends TemplateVariantReference>(templates: T[]): T[] {
+export function buildVariantMaterialOwnerIds<T extends TemplateVariantReference>(templates: T[]) {
   const ownerByMaterialId = new Map<number, Set<string>>()
 
   for (const template of templates) {
@@ -23,6 +23,27 @@ export function filterLinkedVariantTemplates<T extends TemplateVariantReference>
       ownerByMaterialId.get(materialId)!.add(template.id)
     }
   }
+
+  return ownerByMaterialId
+}
+
+export function isSecondaryOwnedVariantMaterial<T extends TemplateVariantReference>(
+  materialId: number,
+  templates: T[],
+) {
+  const normalizedMaterialId = Number(materialId)
+  if (!Number.isFinite(normalizedMaterialId) || normalizedMaterialId <= 0) return false
+
+  const ownerByMaterialId = buildVariantMaterialOwnerIds(templates)
+  const ownerIds = ownerByMaterialId.get(normalizedMaterialId)
+  if (!ownerIds || ownerIds.size === 0) return false
+
+  return !templates.some((template) =>
+    ownerIds.has(template.id) && Number(template.stockworksMaterialId) === normalizedMaterialId)
+}
+
+export function filterLinkedVariantTemplates<T extends TemplateVariantReference>(templates: T[]): T[] {
+  const ownerByMaterialId = buildVariantMaterialOwnerIds(templates)
 
   return templates.filter((template) => {
     const materialId = Number(template.stockworksMaterialId)

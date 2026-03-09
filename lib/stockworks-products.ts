@@ -1,6 +1,7 @@
 import { stockworksErrorMessage, stockworksFetch, stockworksJson } from '@/lib/stockworks-client'
 import { prisma } from '@/lib/db'
 import { buildLockedTemplateOptions } from '@/lib/product-template-config'
+import { isSecondaryOwnedVariantMaterial } from '@/lib/product-template-variants'
 
 type StockworksMaterial = {
   id: number
@@ -560,7 +561,7 @@ export async function syncStockworksModelsToProductTemplates(): Promise<Stockwor
     }),
     prisma.productTemplate.findMany({
       where: { stockworksMaterialId: { not: null } },
-      select: { id: true, stockworksMaterialId: true, stockworksInventoryItemId: true },
+      select: { id: true, stockworksMaterialId: true, stockworksInventoryItemId: true, stockworksVariantMap: true },
     }),
   ])
 
@@ -588,6 +589,7 @@ export async function syncStockworksModelsToProductTemplates(): Promise<Stockwor
 
   for (const material of modelMaterials) {
     const materialId = material.id
+    if (isSecondaryOwnedVariantMaterial(materialId, linkedTemplates)) continue
     const title = normalizeTitle(material.name)
     if (!title) continue
     const inventoryItemId = inventoryByMaterial.get(materialId) ?? null
