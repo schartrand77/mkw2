@@ -39,16 +39,18 @@ It is built for print labs and shops that need one system for sales, manufacturi
 
 ## Integrations
 
-### Orderworks (job orchestration bridge)
-MakerWorks includes Orderworks-compatible job sync surfaces for external production orchestration.
+### PrintLab (printer execution boundary)
+MakerWorks now submits printable order items to PrintLab for staging, queueing, execution, and printer lifecycle state.
 
-- Core client/service: [`lib/orderworks.ts`](lib/orderworks.ts)
-- Sync logic: [`lib/orderworks-sync.ts`](lib/orderworks-sync.ts)
-- Status mapping: [`lib/orderworks-status.ts`](lib/orderworks-status.ts)
+- Core client/service: [`lib/printlab.ts`](lib/printlab.ts)
+- Job orchestration + callback mapping: [`lib/printlab-jobs.ts`](lib/printlab-jobs.ts)
+- Callback endpoint: [`app/api/printlab/jobs/[jobId]/route.ts`](app/api/printlab/jobs/[jobId]/route.ts)
 - Admin endpoints:
-  - [`app/api/admin/orderworks/jobs/route.ts`](app/api/admin/orderworks/jobs/route.ts)
-  - [`app/api/admin/orderworks/jobs/[id]/route.ts`](app/api/admin/orderworks/jobs/[id]/route.ts)
-- Public bridge endpoint: [`app/api/makerworks/jobs/route.ts`](app/api/makerworks/jobs/route.ts)
+  - [`app/api/admin/printlab/jobs/route.ts`](app/api/admin/printlab/jobs/route.ts)
+  - [`app/api/admin/printlab/jobs/[id]/resubmit/route.ts`](app/api/admin/printlab/jobs/[id]/resubmit/route.ts)
+
+### Orderworks (legacy bridge)
+OrderWorks is being phased out. The legacy OrderWorks-compatible surfaces remain in the repo temporarily for compatibility, but they are no longer the execution boundary for new 3D print jobs and should not be used for new integration work.
 
 ### Stockworks (inventory + material intelligence)
 MakerWorks includes Stockworks integration for filament/material inventory, consumption, and warnings.
@@ -131,6 +133,14 @@ npm run bootstrap:admin
 npm run dev
 ```
 
+## PrintLab Migration Notes
+
+- MakerWorks now creates one local `PrintLabJob` per printable order item and submits it to PrintLab after order creation.
+- Configure PrintLab callbacks to `POST /api/printlab/jobs/:jobId` on the MakerWorks base URL.
+- Set `PRINTLAB_BASE_URL` plus one outbound auth option (`PRINTLAB_API_KEY`, `PRINTLAB_SESSION_COOKIE`, or `PRINTLAB_AUTH_HEADER`).
+- Set `PRINTLAB_WEBHOOK_SECRET` in MakerWorks and configure the same secret in PrintLab for callbacks.
+- Existing OrderWorks code remains only as a migration bridge while OrderWorks is phased out. The active printer handoff path is PrintLab-native.
+
 ## Environment Configuration
 
 Use `.env.example` as source of truth. Key variable groups:
@@ -143,7 +153,7 @@ Use `.env.example` as source of truth. Key variable groups:
 - Payments: `STRIPE_*`
 - Orderworks bridge: `ORDERWORKS_*`
 - Stockworks inventory: `STOCKWORKS_*`
-- Printer telemetry: `PRINTLAB_*` (legacy `BAMBU_VIEW_*` still supported)
+- Printer telemetry / execution: `PRINTLAB_*` (legacy `BAMBU_VIEW_*` still supported for compatibility aliases)
 - Email/auth: `SMTP_*`, `RECEIPT_*`, auth rate-limit settings
 - Push notifications: `VAPID_*`
 - Branding: `NEXT_PUBLIC_BRAND_*`, `HOLIDAY_THEME`

@@ -11,6 +11,7 @@ import OrderMessageComposer from '@/components/orders/OrderMessageComposer'
 import OrganizationQuoteApproval from '@/components/orders/OrganizationQuoteApproval'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { normalizeOrderStatus } from '@/lib/order-status'
+import { summarizePrintLabJobs } from '@/lib/printlab-jobs'
 
 function formatOrderNumber(orderNumber?: number | null) {
   if (!orderNumber || orderNumber <= 0) return 'Draft order'
@@ -121,6 +122,7 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
   const failureRecovery = getFailureRecovery(order.metadata)
   const timeline = buildTimeline(order, reportArtifact)
   const isFailedOrder = normalizeOrderStatus(order.status) === 'failed' || Boolean(order.failedAt)
+  const printLab = summarizePrintLabJobs(order.printLabJobs)
 
   return (
     <div className="space-y-6">
@@ -174,8 +176,8 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs text-slate-300">
                   <div>
-                    <p className="text-slate-500">OrderWorks sync</p>
-                    <p className="text-sm font-medium capitalize">{production?.orderWorksStatus || 'pending'}</p>
+                    <p className="text-slate-500">PrintLab status</p>
+                    <p className="text-sm font-medium capitalize">{printLab?.latestStatus || 'pending submission'}</p>
                   </div>
                   <div>
                     <p className="text-slate-500">Estimated completion</p>
@@ -195,9 +197,35 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
                     <p className="text-slate-500">Queue position</p>
                     <p className="text-sm font-medium">{production?.queuePosition ?? 'N/A'}</p>
                   </div>
+                  <div>
+                    <p className="text-slate-500">Linked printer</p>
+                    <p className="text-sm font-medium">{printLab?.latestPrinterName || 'To be assigned'}</p>
+                  </div>
                 </div>
-                {production?.orderWorksLastError ? (
-                  <p className="text-xs text-rose-200">OrderWorks error: {production.orderWorksLastError}</p>
+                {printLab?.latestJobId ? (
+                  <p className="text-xs text-slate-400">PrintLab job: {printLab.latestJobId}</p>
+                ) : null}
+                {printLab?.latestError ? (
+                  <p className="text-xs text-rose-200">PrintLab error: {printLab.latestError}</p>
+                ) : null}
+                {order.printLabJobs.length > 0 ? (
+                  <div className="space-y-2 border-t border-white/10 pt-3">
+                    <p className="text-xs uppercase tracking-[0.25em] text-slate-500">PrintLab jobs</p>
+                    <ul className="space-y-2">
+                      {order.printLabJobs.map((job) => (
+                        <li key={job.id} className="rounded-lg border border-white/10 bg-black/20 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-medium">{job.modelName || job.modelId}</p>
+                            <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{job.status}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-400">
+                            {job.printLabJobId || job.sourceJobId}
+                            {job.printerName ? ` - ${job.printerName}` : ''}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
                 {production?.milestones && production.milestones.length > 0 ? (
                   <div className="space-y-2 border-t border-white/10 pt-3">

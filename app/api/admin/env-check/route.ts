@@ -29,6 +29,7 @@ const OPTIONAL_CHECKS: Array<{ key: string; label: string; required: boolean; al
   { key: 'STOCKWORKS_ADMIN_PASSWORD', label: 'StockWorks admin password', required: false, alt: ['STOCKWORKS_PASSWORD'] },
   { key: 'PRINTLAB_BASE_URL', label: 'PrintLab base URL', required: false, alt: ['BAMBU_VIEW_BASE_URL'] },
   { key: 'PRINTLAB_API_KEY', label: 'PrintLab API key', required: false, alt: ['BAMBU_VIEW_API_KEY'] },
+  { key: 'PRINTLAB_WEBHOOK_SECRET', label: 'PrintLab webhook secret', required: false, alt: ['MAKERWORKS_INBOUND_SECRET'] },
   { key: 'PRINTLAB_SESSION_COOKIE', label: 'PrintLab session cookie', required: false, alt: ['BAMBU_VIEW_SESSION_COOKIE'] },
   { key: 'PRINTLAB_AUTH_HEADER', label: 'PrintLab auth header', required: false, alt: ['BAMBU_VIEW_AUTH_HEADER'] },
   { key: 'VAPID_PUBLIC_KEY', label: 'Push notifications key', required: false, alt: ['NEXT_PUBLIC_VAPID_PUBLIC_KEY'] },

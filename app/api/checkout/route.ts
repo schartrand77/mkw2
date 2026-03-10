@@ -24,6 +24,7 @@ import { saveBuffer } from '@/lib/storage'
 import { buildManufacturabilitySnapshot, renderManufacturabilityReportPdf, type ManufacturabilityModelInput } from '@/lib/manufacturability-report'
 import { getOrganizationMembership, isPrivilegedOrgRole } from '@/lib/organizations'
 import { estimateLeadTimeHours } from '@/lib/lead-time-estimator'
+import { submitPrintLabJobsForOrder } from '@/lib/printlab-jobs'
 
 export const dynamic = 'force-dynamic'
 
@@ -565,6 +566,7 @@ async function handlePost(req: NextRequest) {
     let paymentIntentId: string | null = providedPaymentIntentId || null
     let clientSecret: string | null = null
     let finalizedPaymentStatus: string | null = null
+    let printLabSubmission: { submitted: number; failed: number } | null = null
 
     if (isFreeOrder) {
       if (!commit) {
@@ -748,6 +750,18 @@ async function handlePost(req: NextRequest) {
       } catch (err) {
         console.error('Failed to persist customer order', err)
       }
+      if (order) {
+        try {
+          const result = await submitPrintLabJobsForOrder(order.id)
+          printLabSubmission = {
+            submitted: result.submitted,
+            failed: result.failed,
+          }
+        } catch (err) {
+          console.error('Failed to submit PrintLab jobs', err)
+          printLabSubmission = { submitted: 0, failed: lineItems.length }
+        }
+      }
       try {
         const itemLines = lineItems.slice(0, 4).map((item) => `${item.qty}x ${item.title}${item.partName ? ` (${item.partName})` : ''}`)
         if (lineItems.length > itemLines.length) {
@@ -805,6 +819,7 @@ async function handlePost(req: NextRequest) {
       discount: discountSummary,
       adminFreeCheckout: isAdminFreeCheckout,
       estimatedTotal: Number((estimatedTotalCents / 100).toFixed(2)),
+      printLabSubmission,
     })
   } catch (err: any) {
     if (typeof err?.message === 'string' && (

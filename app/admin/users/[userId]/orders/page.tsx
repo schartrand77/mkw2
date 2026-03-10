@@ -6,9 +6,8 @@ import { verifyToken } from '@/lib/auth'
 import { listOrdersForUser } from '@/lib/orders'
 import OrderStatusBadge from '@/components/orders/OrderStatusBadge'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import UserOrderJobControls from '@/components/admin/UserOrderJobControls'
 import DeleteOrderButton from '@/components/admin/DeleteOrderButton'
-import { normalizePaymentMethod, normalizePaymentStatus } from '@/lib/orderworks-status'
+import { summarizePrintLabJobs } from '@/lib/printlab-jobs'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,12 +30,6 @@ function formatDate(value: Date) {
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(value)
 }
 
-function extractPaymentIntentId(metadata: unknown): string | null {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
-  const raw = (metadata as { paymentIntentId?: unknown }).paymentIntentId
-  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null
-}
-
 type AdminOrdersProps = { params: Promise<{ userId: string }> }
 
 export default async function AdminUserOrdersPage({ params }: AdminOrdersProps) {
@@ -51,27 +44,42 @@ export default async function AdminUserOrdersPage({ params }: AdminOrdersProps) 
   if (!user) return redirect('/admin/users')
 
   const orders = await listOrdersForUser(userId, 50)
-  const paymentIntentIds = Array.from(
-    new Set(
-      orders
-        .map((order) => extractPaymentIntentId(order.metadata))
-        .filter((value): value is string => Boolean(value)),
-    ),
-  )
-  const linkedJobs = paymentIntentIds.length > 0
-    ? await prisma.jobForm.findMany({
-      where: { paymentIntentId: { in: paymentIntentIds } },
+  const orderIds = orders.map((order) => order.id)
+  const linkedJobs = orderIds.length > 0
+    ? await prisma.printLabJob.findMany({
+      where: { orderId: { in: orderIds } },
       select: {
         id: true,
-        paymentIntentId: true,
+        orderId: true,
+        sourceJobId: true,
+        printLabJobId: true,
         status: true,
-        fulfillmentStatus: true,
-        paymentMethod: true,
-        paymentStatus: true,
+        printerId: true,
+        printerName: true,
+        queueItemId: true,
+        modelId: true,
+        modelName: true,
+        fileName: true,
+        filePath: true,
+        lastSubmittedAt: true,
+        lastCallbackAt: true,
+        startedAt: true,
+        completedAt: true,
+        lastError: true,
+        metadata: true,
+        history: true,
+        createdAt: true,
+        updatedAt: true,
       },
+      orderBy: { createdAt: 'asc' },
     })
     : []
-  const jobsByPaymentIntentId = new Map(linkedJobs.map((job) => [job.paymentIntentId, job]))
+  const jobsByOrderId = new Map<string, typeof linkedJobs>()
+  for (const job of linkedJobs) {
+    const current = jobsByOrderId.get(job.orderId) || []
+    current.push(job)
+    jobsByOrderId.set(job.orderId, current)
+  }
 
   return (
     <div className="space-y-6">
@@ -94,8 +102,7 @@ export default async function AdminUserOrdersPage({ params }: AdminOrdersProps) 
       ) : (
         <div className="grid gap-4">
           {orders.map((order) => {
-            const paymentIntentId = extractPaymentIntentId(order.metadata)
-            const linkedJob = paymentIntentId ? jobsByPaymentIntentId.get(paymentIntentId) : undefined
+            const linkedJobSummary = summarizePrintLabJobs(jobsByOrderId.get(order.id) || [])
             return (
               <div
                 key={order.id}
@@ -126,17 +133,15 @@ export default async function AdminUserOrdersPage({ params }: AdminOrdersProps) 
                   </div>
                 </div>
                 <div>
-                  {linkedJob ? (
-                    <UserOrderJobControls
-                      jobId={linkedJob.id}
-                      paymentIntentId={linkedJob.paymentIntentId}
-                      initialStatus={linkedJob.status === 'sent' ? 'sent' : 'pending'}
-                      initialFulfillmentStatus={linkedJob.fulfillmentStatus}
-                      initialPaymentMethod={normalizePaymentMethod(linkedJob.paymentMethod) || ''}
-                      initialPaymentStatus={normalizePaymentStatus(linkedJob.paymentStatus) || ''}
-                    />
+                  {linkedJobSummary ? (
+                    <div className="text-xs text-slate-400 space-y-1">
+                      <p>PrintLab status: <span className="text-slate-200 capitalize">{linkedJobSummary.latestStatus}</span></p>
+                      <p>PrintLab job: <span className="text-slate-200">{linkedJobSummary.latestJobId || 'pending upstream id'}</span></p>
+                      <p>Printer: <span className="text-slate-200">{linkedJobSummary.latestPrinterName || linkedJobSummary.latestPrinterId || 'unassigned'}</span></p>
+                      {linkedJobSummary.latestError ? <p className="text-rose-200">Error: {linkedJobSummary.latestError}</p> : null}
+                    </div>
                   ) : (
-                    <p className="text-xs text-slate-500">No linked OrderWorks job found for this order.</p>
+                    <p className="text-xs text-slate-500">No linked PrintLab job found for this order.</p>
                   )}
                 </div>
               </div>

@@ -657,6 +657,7 @@ model PrintOrder {
   reprints  PrintOrder[]  @relation("ReprintSource")
   failurePhotos FailurePhoto[]
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  printLabJobs PrintLabJob[]
 
   @@index([organizationId])
 }
@@ -749,6 +750,52 @@ model PrintOrderItem {
   createdAt      DateTime @default(now())
 
   order PrintOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  printLabJobs PrintLabJob[]
+}
+
+model PrintLabJob {
+  id                String   @id @default(cuid())
+  orderId           String
+  orderItemId       String?
+  paymentIntentId   String?
+  sourceJobId       String   @unique
+  printLabJobId     String?  @unique
+  idempotencyKey    String   @unique
+  status            String   @default("pending_submission")
+  printerId         String?
+  printerName       String?
+  queueItemId       String?
+  successfulGcodeId String?
+  modelId           String
+  modelName         String?
+  modelUrl          String?
+  downloadUrl       String?
+  filePath          String?
+  fileName          String?
+  plateGcode        String?
+  startAt           DateTime?
+  lastSubmittedAt   DateTime?
+  lastCallbackAt    DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  submitAttempts    Int      @default(0)
+  callbackCount     Int      @default(0)
+  lastError         String?
+  metadata          Json?
+  lastCallbackPayload Json?
+  history           Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  order     PrintOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem PrintOrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([orderItemId])
+  @@index([paymentIntentId])
+  @@index([status])
+  @@index([printerId])
+  @@index([createdAt])
 }
 
 model PrintOrderRevision {
