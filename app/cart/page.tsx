@@ -724,6 +724,28 @@ export default function CartPage() {
     : null
   const selectedViewerSrc = selectedPreviewSource ? toPublicHref(selectedPreviewSource) : null
   const selectedViewerFallback = selectedPreviewFallback ? toPublicHref(selectedPreviewFallback) : null
+  const resolveViewerOverrideValue = useCallback((material: string | null | undefined, value?: string | null) => {
+    const raw = (value || '').trim()
+    if (!raw) return PREVIEW_DEFAULT_COLOR
+    const parsed = parseColorString(raw)
+    const normalized = normalizeColorValue(parsed.name || parsed.hex || raw)
+    const materialKey = normalizeMaterialName(material)
+    const materialPalette = stockworksPalette?.materials?.[materialKey]
+    const paletteEntries = materialPalette
+      ? [
+        ...(Array.isArray(materialPalette.inStock) ? materialPalette.inStock : []),
+        ...(Array.isArray(materialPalette.orderable) ? materialPalette.orderable : []),
+      ]
+      : []
+    for (const entry of paletteEntries) {
+      const meta = toColorMeta(entry as StockworksColor | string)
+      const entryNormalized = normalizeColorValue(meta.name || meta.hex)
+      if (!entryNormalized || entryNormalized !== normalized) continue
+      const parts = [meta.category, meta.name, meta.hex].map((part) => (part || '').trim()).filter(Boolean)
+      return parts.join(' ')
+    }
+    return raw
+  }, [stockworksPalette])
   const resolvePreviewHexFromValue = useCallback((value?: string | null) => {
     const parsed = parseColorString(value)
     const normalized = normalizeColorValue(parsed.name || parsed.hex || value)
@@ -745,17 +767,21 @@ export default function CartPage() {
     if (!item) return PREVIEW_DEFAULT_COLOR
     const key = partPreviewKey(item.modelId, item.partId ?? null)
     const optimistic = optimisticPartPreviewValue[key]
-    if (optimistic) return optimistic
-    return item.options.colors?.[0] || resolveItemPreviewHex(item) || PREVIEW_DEFAULT_COLOR
-  }, [optimisticPartPreviewValue, partPreviewKey, resolveItemPreviewHex])
+    if (optimistic) return resolveViewerOverrideValue(item.options.material, optimistic)
+    return resolveViewerOverrideValue(item.options.material, item.options.colors?.[0])
+      || resolveItemPreviewHex(item)
+      || PREVIEW_DEFAULT_COLOR
+  }, [optimisticPartPreviewValue, partPreviewKey, resolveItemPreviewHex, resolveViewerOverrideValue])
   const selectedViewerColors = useMemo(() => {
     if (selectedPreviewUsesMultipartViewer) {
       return selectedPreviewMultipartSources.map((entry) => resolveItemPreviewValueWithOptimistic(selectedModelPartItemMap.get(entry.partId)))
     }
     if (!selectedPreviewItem) return []
     const derived = normalizeColors(selectedPreviewItem.options.colors)
+      .map((value) => resolveViewerOverrideValue(selectedPreviewItem.options.material, value))
+      .filter(Boolean)
     return derived.length > 0 ? derived : [PREVIEW_DEFAULT_COLOR]
-  }, [selectedPreviewUsesMultipartViewer, selectedPreviewMultipartSources, selectedModelPartItemMap, selectedPreviewItem, resolveItemPreviewValueWithOptimistic])
+  }, [selectedPreviewUsesMultipartViewer, selectedPreviewMultipartSources, selectedModelPartItemMap, selectedPreviewItem, resolveItemPreviewValueWithOptimistic, resolveViewerOverrideValue])
   const selectedViewerColorMap = useMemo(() => {
     if (!selectedPreviewUsesMultipartViewer) return null
     const out: Record<string, string> = {}
