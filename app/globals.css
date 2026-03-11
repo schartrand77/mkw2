@@ -11,6 +11,16 @@
   --muted: #a7b1c2;
   --empire-crimson: #5aa9ff;
   --empire-crimson-rgb: 90 169 255;
+  --app-shell-max-width: 1400px;
+  --app-shell-inline-padding: 1rem;
+  --app-shell-left-edge: max(
+    calc(50vw - (var(--app-shell-max-width) / 2) + var(--app-shell-inline-padding)),
+    max(0.75rem, env(safe-area-inset-left))
+  );
+  --app-shell-right-edge: max(
+    calc(50vw - (var(--app-shell-max-width) / 2) + var(--app-shell-inline-padding)),
+    max(0.75rem, env(safe-area-inset-right))
+  );
 }
 
 html, body {
@@ -87,7 +97,7 @@ body {
 .app-home-shortcut {
   position: fixed;
   top: max(0.75rem, env(safe-area-inset-top));
-  left: calc(max(0.75rem, env(safe-area-inset-left)) + 2.6rem);
+  left: calc(var(--app-shell-left-edge) + 2.6rem);
   z-index: 1265;
   display: inline-flex;
   align-items: center;
@@ -111,7 +121,7 @@ body {
 .app-hamburger-shortcut {
   position: fixed;
   top: max(0.75rem, env(safe-area-inset-top));
-  left: max(0.75rem, env(safe-area-inset-left));
+  left: var(--app-shell-left-edge);
   z-index: 1266;
   width: 2.25rem;
   height: 2.25rem;
@@ -220,15 +230,15 @@ body {
 .app-user-shortcut {
   position: fixed;
   top: max(0.75rem, env(safe-area-inset-top));
-  left: max(0.75rem, env(safe-area-inset-left));
-  right: max(0.75rem, env(safe-area-inset-right));
+  left: var(--app-shell-left-edge);
+  right: var(--app-shell-right-edge);
   z-index: 1260;
   max-width: none;
   transition: right 190ms ease, transform 190ms ease;
   transform: translateX(0);
 }
 .app-user-shortcut.app-user-shortcut-open {
-  right: max(0.75rem, env(safe-area-inset-right));
+  right: var(--app-shell-right-edge);
   transform: translateX(0);
 }
 .app-user-shortcut-row {

@@ -171,7 +171,9 @@ function buildHashedGradient(text: string) {
   const normalized = text.trim().toLowerCase()
   if (!normalized) return []
   const compact = normalized.replace(/[^a-z0-9]+/g, ' ').trim()
-  const preset = NAMED_GRADIENTS[normalized] || NAMED_GRADIENTS[compact]
+  const preset = NAMED_GRADIENTS[normalized]
+    || NAMED_GRADIENTS[compact]
+    || Object.entries(NAMED_GRADIENTS).find(([key]) => normalized.includes(key) || compact.includes(key))?.[1]
   if (preset?.length) return preset
   const hash = hashString(normalized)
   const baseHue = hash % 360
@@ -198,6 +200,7 @@ export function resolveColorStops(input: {
     && (
       Object.prototype.hasOwnProperty.call(NAMED_GRADIENTS, resolvedName.toLowerCase())
       || Object.prototype.hasOwnProperty.call(NAMED_GRADIENTS, normalizedResolvedName)
+      || Object.keys(NAMED_GRADIENTS).some((key) => resolvedName.toLowerCase().includes(key) || normalizedResolvedName.includes(key))
     )
   ) {
     return namedPreset.slice(0, 4)

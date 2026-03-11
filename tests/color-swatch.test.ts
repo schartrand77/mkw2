@@ -59,3 +59,10 @@ test('resolveColorStops matches known stockworks misspellings for gradient names
   })
   assert.deepEqual(stops.slice(0, 4), ['#f59e0b', '#fb7185', '#c084fc', '#2dd4bf'])
 })
+
+test('resolveColorStops matches named presets inside combined preview descriptors', () => {
+  const stops = resolveColorStops({
+    value: 'Multigradient test Dawn Radience #000000',
+  })
+  assert.deepEqual(stops.slice(0, 4), ['#f59e0b', '#fb7185', '#c084fc', '#2dd4bf'])
+})
