@@ -233,7 +233,7 @@ export default function CartPage() {
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
   const [materialWarnings, setMaterialWarnings] = useState<StockworksWarningResponse | null>(null)
   const [modelPreviewCache, setModelPreviewCache] = useState<Record<string, ModelPreviewEntry>>({})
-  const [optimisticPartPreviewHex, setOptimisticPartPreviewHex] = useState<Record<string, string>>({})
+  const [optimisticPartPreviewValue, setOptimisticPartPreviewValue] = useState<Record<string, string>>({})
   const [dimensionInputs, setDimensionInputs] = useState<Record<string, Record<(typeof DIMENSION_AXES)[number], string>>>({})
   const [activeDimensionInput, setActiveDimensionInput] = useState<{ key: string; axis: (typeof DIMENSION_AXES)[number] } | null>(null)
   const [selectedPreviewKey, setSelectedPreviewKey] = useState<{ cartItemId: string } | null>(null)
@@ -741,29 +741,29 @@ export default function CartPage() {
     return resolvePreviewHexFromValue(primary) || PREVIEW_DEFAULT_COLOR
   }, [resolvePreviewHexFromValue])
   const partPreviewKey = useCallback((modelId: string, partId: string | null) => `${modelId}::${partId || ''}`, [])
-  const resolveItemPreviewHexWithOptimistic = useCallback((item: (typeof items)[number] | null | undefined) => {
+  const resolveItemPreviewValueWithOptimistic = useCallback((item: (typeof items)[number] | null | undefined) => {
     if (!item) return PREVIEW_DEFAULT_COLOR
     const key = partPreviewKey(item.modelId, item.partId ?? null)
-    const optimistic = optimisticPartPreviewHex[key]
+    const optimistic = optimisticPartPreviewValue[key]
     if (optimistic) return optimistic
-    return resolveItemPreviewHex(item)
-  }, [optimisticPartPreviewHex, partPreviewKey, resolveItemPreviewHex])
+    return item.options.colors?.[0] || resolveItemPreviewHex(item) || PREVIEW_DEFAULT_COLOR
+  }, [optimisticPartPreviewValue, partPreviewKey, resolveItemPreviewHex])
   const selectedViewerColors = useMemo(() => {
     if (selectedPreviewUsesMultipartViewer) {
-      return selectedPreviewMultipartSources.map((entry) => resolveItemPreviewHexWithOptimistic(selectedModelPartItemMap.get(entry.partId)))
+      return selectedPreviewMultipartSources.map((entry) => resolveItemPreviewValueWithOptimistic(selectedModelPartItemMap.get(entry.partId)))
     }
     if (!selectedPreviewItem) return []
-    const derived = (selectedPreviewItem.options.colors || []).map((value) => resolvePreviewHexFromValue(value) || COLOR_PICKER_FALLBACK)
+    const derived = normalizeColors(selectedPreviewItem.options.colors)
     return derived.length > 0 ? derived : [PREVIEW_DEFAULT_COLOR]
-  }, [selectedPreviewUsesMultipartViewer, selectedPreviewMultipartSources, selectedModelPartItemMap, selectedPreviewItem, resolveItemPreviewHexWithOptimistic, resolvePreviewHexFromValue])
+  }, [selectedPreviewUsesMultipartViewer, selectedPreviewMultipartSources, selectedModelPartItemMap, selectedPreviewItem, resolveItemPreviewValueWithOptimistic])
   const selectedViewerColorMap = useMemo(() => {
     if (!selectedPreviewUsesMultipartViewer) return null
     const out: Record<string, string> = {}
     for (const entry of selectedPreviewMultipartSources) {
-      out[entry.partId] = resolveItemPreviewHexWithOptimistic(selectedModelPartItemMap.get(entry.partId))
+      out[entry.partId] = resolveItemPreviewValueWithOptimistic(selectedModelPartItemMap.get(entry.partId))
     }
     return out
-  }, [selectedPreviewUsesMultipartViewer, selectedPreviewMultipartSources, selectedModelPartItemMap, resolveItemPreviewHexWithOptimistic])
+  }, [selectedPreviewUsesMultipartViewer, selectedPreviewMultipartSources, selectedModelPartItemMap, resolveItemPreviewValueWithOptimistic])
   const handlePreviewPartTap = useCallback((partKey: string) => {
     const tappedItem = selectedModelPartItemMap.get(partKey)
     if (!tappedItem) return
@@ -839,9 +839,8 @@ export default function CartPage() {
       next[slot.index] = nextValue
       if (slot.partId && slot.index === 0) {
         const key = partPreviewKey(slot.modelId, slot.partId)
-        const optimisticHex = resolvePreviewHexFromValue(nextValue) || PREVIEW_DEFAULT_COLOR
-        setOptimisticPartPreviewHex((prev) => {
-          if (nextValue) return { ...prev, [key]: optimisticHex }
+        setOptimisticPartPreviewValue((prev) => {
+          if (nextValue) return { ...prev, [key]: nextValue }
           if (!(key in prev)) return prev
           const out = { ...prev }
           delete out[key]

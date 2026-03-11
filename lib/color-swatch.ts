@@ -1,4 +1,7 @@
 const HEX_COLOR_RE = /^#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})$/i
+const HEX_WITH_HASH_RE = /#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
+const HEX_WITH_0X_RE = /0x([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
+const HEX_BARE_RE = /\b([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})\b/i
 const GRADIENT_SIGNAL_RE = /\b(multigradient|multi[\s-]?gradient|gradient|multi[\s-]?color|multicolor|tri[\s-]?color|dual[\s-]?color|rainbow|sunset|sunrise|aurora|galaxy)\b/i
 
 const COLOR_KEYWORDS: Array<[string, string]> = [
@@ -55,6 +58,29 @@ export function normalizeHexColor(value?: string | null) {
   return ''
 }
 
+export function extractHexColor(value?: string | null) {
+  const trimmed = (value || '').trim()
+  if (!trimmed) return ''
+  const hashMatch = trimmed.match(HEX_WITH_HASH_RE)
+  if (hashMatch) return normalizeHexColor(`#${hashMatch[1]}`)
+  const hexMatch = trimmed.match(HEX_WITH_0X_RE)
+  if (hexMatch) return normalizeHexColor(`#${hexMatch[1]}`)
+  const bareMatch = trimmed.match(HEX_BARE_RE)
+  return bareMatch ? normalizeHexColor(`#${bareMatch[1]}`) : ''
+}
+
+export function parseColorDescriptor(value?: string | null) {
+  const trimmed = (value || '').trim()
+  if (!trimmed) return { name: '', hex: '' }
+  const hex = extractHexColor(trimmed)
+  const name = trimmed
+    .replace(HEX_WITH_HASH_RE, '')
+    .replace(HEX_WITH_0X_RE, '')
+    .replace(HEX_BARE_RE, '')
+    .trim()
+  return { name, hex }
+}
+
 function hexToRgb(hex: string) {
   const normalized = normalizeHexColor(hex)
   if (!normalized || !HEX_COLOR_RE.test(normalized)) return null
@@ -107,15 +133,17 @@ function collectNamedHexes(text: string) {
   return output
 }
 
-export function resolveColorPaint(input: {
+export function resolveColorStops(input: {
+  value?: string | null
   name?: string | null
   hex?: string | null
   category?: string | null
   fallback?: string
 }) {
+  const parsed = parseColorDescriptor(input.value)
   const fallback = normalizeHexColor(input.fallback || '') || '#1f2937'
-  const normalizedHex = normalizeHexColor(input.hex || '')
-  const descriptor = `${input.category || ''} ${input.name || ''}`.trim()
+  const normalizedHex = normalizeHexColor(input.hex || parsed.hex || '')
+  const descriptor = `${input.category || ''} ${input.name || parsed.name || input.value || ''}`.trim()
   const namedHexes = collectNamedHexes(descriptor)
   const gradientHexes = [...namedHexes]
 
@@ -124,18 +152,27 @@ export function resolveColorPaint(input: {
   }
 
   if (gradientHexes.length >= 2) {
-    return buildLinearGradient(gradientHexes.slice(0, 4))
+    return gradientHexes.slice(0, 4)
   }
 
   if (GRADIENT_SIGNAL_RE.test(descriptor)) {
     const anchor = gradientHexes[0] || normalizedHex
     if (anchor) {
-      const lighter = tintHex(anchor, 0.35)
-      const darker = shadeHex(anchor, 0.22)
-      const fallbackGradient = [lighter, anchor, darker].filter(Boolean)
-      return buildLinearGradient(fallbackGradient)
+      return [tintHex(anchor, 0.35), anchor, shadeHex(anchor, 0.22)].filter(Boolean)
     }
   }
 
-  return normalizedHex || gradientHexes[0] || fallback
+  return [normalizedHex || gradientHexes[0] || fallback].filter(Boolean)
+}
+
+export function resolveColorPaint(input: {
+  value?: string | null
+  name?: string | null
+  hex?: string | null
+  category?: string | null
+  fallback?: string
+}) {
+  const stops = resolveColorStops(input)
+  if (stops.length >= 2) return buildLinearGradient(stops)
+  return stops[0] || normalizeHexColor(input.fallback || '') || '#1f2937'
 }

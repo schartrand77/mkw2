@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { resolveColorStops } from '@/lib/color-swatch'
 
 type ThreeLib = typeof import('three')
 type OrbitControlsModule = typeof import('three/examples/jsm/controls/OrbitControls')
@@ -178,6 +179,84 @@ function parseOverrideColors(overrides?: Array<string | null | undefined> | null
   return overrides
     .map((value) => parseColorToHexInt(value ?? null))
     .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+}
+
+function resolveGradientStops(value?: string | null) {
+  return resolveColorStops({ value, fallback: '#d0d0d0' })
+    .map((stop) => parseColorToHexInt(stop))
+    .filter((stop): stop is number => typeof stop === 'number' && Number.isFinite(stop))
+}
+
+function interpolateGradientColor(THREE: ThreeLib, stops: number[], t: number) {
+  const clamped = Math.max(0, Math.min(1, t))
+  if (stops.length === 0) return new THREE.Color(0xd0d0d0)
+  if (stops.length === 1) return new THREE.Color(stops[0])
+  const scaled = clamped * (stops.length - 1)
+  const index = Math.min(stops.length - 2, Math.floor(scaled))
+  const localT = scaled - index
+  const start = new THREE.Color(stops[index])
+  const end = new THREE.Color(stops[index + 1])
+  return start.lerp(end, localT)
+}
+
+function applyGradientToGeometry(THREE: ThreeLib, geometry: any, gradientStops: number[]) {
+  const positionAttr = geometry?.getAttribute?.('position')
+  if (!positionAttr || gradientStops.length < 2) return false
+  if (!geometry.boundingBox) geometry.computeBoundingBox?.()
+  const boundingBox = geometry.boundingBox
+  if (!boundingBox) return false
+  const size = new THREE.Vector3()
+  const center = new THREE.Vector3()
+  boundingBox.getSize(size)
+  boundingBox.getCenter(center)
+  const axisCandidates = [
+    { axis: new THREE.Vector3(1, 0.35, 0.75).normalize(), span: Math.abs(size.x) + Math.abs(size.y) * 0.35 + Math.abs(size.z) * 0.75 },
+    { axis: new THREE.Vector3(0.2, 1, 0.45).normalize(), span: Math.abs(size.x) * 0.2 + Math.abs(size.y) + Math.abs(size.z) * 0.45 },
+    { axis: new THREE.Vector3(0.8, 0.1, 1).normalize(), span: Math.abs(size.x) * 0.8 + Math.abs(size.y) * 0.1 + Math.abs(size.z) },
+  ].sort((left, right) => right.span - left.span)
+  const axis = axisCandidates[0]?.axis || new THREE.Vector3(1, 0, 0)
+  const temp = new THREE.Vector3()
+  let minProjection = Number.POSITIVE_INFINITY
+  let maxProjection = Number.NEGATIVE_INFINITY
+  for (let i = 0; i < positionAttr.count; i++) {
+    temp.set(positionAttr.getX(i) - center.x, positionAttr.getY(i) - center.y, positionAttr.getZ(i) - center.z)
+    const projection = temp.dot(axis)
+    minProjection = Math.min(minProjection, projection)
+    maxProjection = Math.max(maxProjection, projection)
+  }
+  const span = Math.max(0.0001, maxProjection - minProjection)
+  const colors = new Float32Array(positionAttr.count * 3)
+  for (let i = 0; i < positionAttr.count; i++) {
+    temp.set(positionAttr.getX(i) - center.x, positionAttr.getY(i) - center.y, positionAttr.getZ(i) - center.z)
+    const projection = temp.dot(axis)
+    const color = interpolateGradientColor(THREE, gradientStops, (projection - minProjection) / span)
+    const offset = i * 3
+    colors[offset] = color.r
+    colors[offset + 1] = color.g
+    colors[offset + 2] = color.b
+  }
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+  return true
+}
+
+function applyGradientToObject(THREE: ThreeLib, target: InstanceType<ThreeLib['Object3D']>, gradientStops: number[]) {
+  if (gradientStops.length < 2) return false
+  let applied = false
+  target.traverse((child: any) => {
+    if (!(child instanceof THREE.Mesh)) return
+    if (!applyGradientToGeometry(THREE, child.geometry, gradientStops)) return
+    const tuneMaterial = (material: any) => {
+      if (!material) return
+      if ('vertexColors' in material) material.vertexColors = true
+      if ('color' in material && material.color) material.color.setHex(0xffffff)
+      if ('side' in material) material.side = THREE.DoubleSide
+      material.needsUpdate = true
+    }
+    if (Array.isArray(child.material)) child.material.forEach((material: any) => tuneMaterial(material))
+    else tuneMaterial(child.material)
+    applied = true
+  })
+  return applied
 }
 
 async function tryBuildBambuColorPlan(
@@ -1188,7 +1267,14 @@ export default function ModelViewer({
     const overrideKey = `${buildOverrideKey(colorOverrides)}::${buildPartOverrideKey(colorOverridesByPartKey)}`
     const overridePalette = (colorOverrides || []).map((value) => parseColorToHexInt(value ?? null))
     const singleOverride = parseOverrideColors(colorOverrides)[0] ?? null
+    const resolveRawOverride = (overrideIndex: number, partKey: string) => (
+      colorOverridesByPartKey?.[partKey]
+      ?? colorOverrides?.[overrideIndex]
+      ?? colorOverrides?.[0]
+      ?? null
+    )
     const applyPaintOverrides = (target: InstanceType<ThreeLib['Object3D']>) => {
+      const gradientPalette = (colorOverrides || []).map((value) => resolveGradientStops(value ?? null))
       target.traverse((child: any) => {
         if (!(child instanceof THREE.Mesh)) return
         const triColors: Array<number | null> | undefined = child.userData?.paintTriangleColors
@@ -1200,16 +1286,30 @@ export default function ModelViewer({
         const colors = new Float32Array(positionAttr.count * 3)
         for (let i = 0; i < triColors.length; i++) {
           const cidx = triColors[i]
+          const gradientStops = cidx != null
+            ? (gradientPalette[cidx] ?? (cidx > 0 ? gradientPalette[cidx - 1] : null) ?? [])
+            : []
           const colorHex = cidx != null
             ? (overridePalette[cidx] ?? (cidx > 0 ? overridePalette[cidx - 1] : null) ?? singleOverride)
             : singleOverride
-          const color = colorHex != null ? new THREE.Color(colorHex) : new THREE.Color(0xd0d0d0)
           const base = i * 9
           for (let j = 0; j < 3; j++) {
             const offset = base + j * 3
-            colors[offset] = color.r
-            colors[offset + 1] = color.g
-            colors[offset + 2] = color.b
+            if (gradientStops.length >= 2) {
+              const vertexIndex = i * 3 + j
+              const projection = positionAttr.getX(vertexIndex) * 0.72
+                + positionAttr.getY(vertexIndex) * 0.18
+                + positionAttr.getZ(vertexIndex) * 0.54
+              const gradientColor = interpolateGradientColor(THREE, gradientStops, (projection + 100) / 200)
+              colors[offset] = gradientColor.r
+              colors[offset + 1] = gradientColor.g
+              colors[offset + 2] = gradientColor.b
+            } else {
+              const color = colorHex != null ? new THREE.Color(colorHex) : new THREE.Color(0xd0d0d0)
+              colors[offset] = color.r
+              colors[offset + 1] = color.g
+              colors[offset + 2] = color.b
+            }
           }
         }
         geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
@@ -1231,15 +1331,23 @@ export default function ModelViewer({
           planCache.set(overrideKey, plan)
         }
         if (cancelled) continue
-        if (plan) {
+        const rawOverride = resolveRawOverride(0, target.root.userData?.__mwv2PartKey || '')
+        const gradientStops = resolveGradientStops(rawOverride)
+        if (gradientStops.length >= 2) {
+          applyGradientToObject(THREE, target.root, gradientStops)
+        } else if (plan) {
           applyBambuColors(THREE, target.root, plan)
         } else {
           applyPaintOverrides(target.root)
         }
       }
-      if (cancelled) return
-      if (non3mfTargets.length === 0) return
       const paint = (target: InstanceType<ThreeLib['Object3D']>, overrideIndex: number, partKey: string) => {
+        const rawOverride = resolveRawOverride(overrideIndex, partKey)
+        const gradientStops = resolveGradientStops(rawOverride)
+        if (gradientStops.length >= 2) {
+          applyGradientToObject(THREE, target, gradientStops)
+          return
+        }
         const keyedOverride = parseColorToHexInt(colorOverridesByPartKey?.[partKey] ?? null)
         const indexedOverride = overridePalette[overrideIndex] ?? singleOverride ?? null
         const resolvedOverride = keyedOverride ?? indexedOverride
@@ -1262,6 +1370,7 @@ export default function ModelViewer({
           else setMatColor(material)
         })
       }
+      if (cancelled) return
       non3mfTargets.forEach((target) => paint(target.root, target.overrideIndex, target.partKey))
       const renderer = rendererRef.current
       const scene = sceneRef.current

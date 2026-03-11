@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { normalizeHexColor, resolveColorPaint } from '@/lib/color-swatch'
+import { normalizeHexColor, resolveColorPaint, resolveColorStops } from '@/lib/color-swatch'
 
 test('normalizeHexColor normalizes shorthand and alpha-leading hex values', () => {
   assert.equal(normalizeHexColor('#abc'), '#aabbcc')
@@ -25,4 +25,13 @@ test('resolveColorPaint synthesizes a gradient when only the category indicates 
     category: 'Gradient',
   })
   assert.match(paint, /^linear-gradient\(135deg,/)
+})
+
+test('resolveColorStops derives multiple hex stops for multigradient values', () => {
+  const stops = resolveColorStops({
+    value: 'Dawn Radiance #f59e0b',
+    category: 'Multigradient',
+  })
+  assert.ok(stops.length >= 2)
+  assert.ok(stops.includes('#f59e0b'))
 })
