@@ -3,6 +3,12 @@ const HEX_WITH_HASH_RE = /#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
 const HEX_WITH_0X_RE = /0x([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
 const HEX_BARE_RE = /\b([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})\b/i
 const GRADIENT_SIGNAL_RE = /\b(multigradient|multi[\s-]?gradient|gradient|multi[\s-]?color|multicolor|tri[\s-]?color|dual[\s-]?color|rainbow|sunset|sunrise|aurora|galaxy)\b/i
+const NAMED_GRADIENTS: Record<string, string[]> = {
+  'dawn radiance': ['#f59e0b', '#fb7185', '#c084fc', '#2dd4bf'],
+  'dawn radience': ['#f59e0b', '#fb7185', '#c084fc', '#2dd4bf'],
+  'south beach': ['#14b8a6', '#2dd4bf', '#fb7185', '#f472b6'],
+  'velvet eclipse': ['#ef4444', '#7f1d1d', '#111827', '#000000'],
+}
 
 const COLOR_KEYWORDS: Array<[string, string]> = [
   ['light blue', '#7dd3fc'],
@@ -133,6 +139,46 @@ function collectNamedHexes(text: string) {
   return output
 }
 
+function hashString(value: string) {
+  let hash = 0
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0
+  }
+  return Math.abs(hash)
+}
+
+function hslToHex(hue: number, saturation: number, lightness: number) {
+  const s = saturation / 100
+  const l = lightness / 100
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const segment = hue / 60
+  const x = c * (1 - Math.abs((segment % 2) - 1))
+  let r = 0
+  let g = 0
+  let b = 0
+  if (segment >= 0 && segment < 1) [r, g, b] = [c, x, 0]
+  else if (segment < 2) [r, g, b] = [x, c, 0]
+  else if (segment < 3) [r, g, b] = [0, c, x]
+  else if (segment < 4) [r, g, b] = [0, x, c]
+  else if (segment < 5) [r, g, b] = [x, 0, c]
+  else [r, g, b] = [c, 0, x]
+  const m = l - c / 2
+  const toHex = (channel: number) => Math.round((channel + m) * 255).toString(16).padStart(2, '0')
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
+function buildHashedGradient(text: string) {
+  const normalized = text.trim().toLowerCase()
+  if (!normalized) return []
+  const compact = normalized.replace(/[^a-z0-9]+/g, ' ').trim()
+  const preset = NAMED_GRADIENTS[normalized] || NAMED_GRADIENTS[compact]
+  if (preset?.length) return preset
+  const hash = hashString(normalized)
+  const baseHue = hash % 360
+  const offsets = [0, 48, 128]
+  return offsets.map((offset, index) => hslToHex((baseHue + offset) % 360, 78 - index * 6, 60 - index * 4))
+}
+
 export function resolveColorStops(input: {
   value?: string | null
   name?: string | null
@@ -143,7 +189,19 @@ export function resolveColorStops(input: {
   const parsed = parseColorDescriptor(input.value)
   const fallback = normalizeHexColor(input.fallback || '') || '#1f2937'
   const normalizedHex = normalizeHexColor(input.hex || parsed.hex || '')
-  const descriptor = `${input.category || ''} ${input.name || parsed.name || input.value || ''}`.trim()
+  const resolvedName = (input.name || parsed.name || input.value || '').trim()
+  const descriptor = `${input.category || ''} ${resolvedName}`.trim()
+  const namedPreset = buildHashedGradient(resolvedName)
+  const normalizedResolvedName = resolvedName.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  if (
+    namedPreset.length >= 2
+    && (
+      Object.prototype.hasOwnProperty.call(NAMED_GRADIENTS, resolvedName.toLowerCase())
+      || Object.prototype.hasOwnProperty.call(NAMED_GRADIENTS, normalizedResolvedName)
+    )
+  ) {
+    return namedPreset.slice(0, 4)
+  }
   const namedHexes = collectNamedHexes(descriptor)
   const gradientHexes = [...namedHexes]
 
@@ -160,6 +218,8 @@ export function resolveColorStops(input: {
     if (anchor) {
       return [tintHex(anchor, 0.35), anchor, shadeHex(anchor, 0.22)].filter(Boolean)
     }
+    const hashed = buildHashedGradient(resolvedName || descriptor)
+    if (hashed.length >= 2) return hashed
   }
 
   return [normalizedHex || gradientHexes[0] || fallback].filter(Boolean)

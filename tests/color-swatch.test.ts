@@ -35,3 +35,27 @@ test('resolveColorStops derives multiple hex stops for multigradient values', ()
   assert.ok(stops.length >= 2)
   assert.ok(stops.includes('#f59e0b'))
 })
+
+test('resolveColorStops uses named gradient presets when stockworks sends no hex', () => {
+  const stops = resolveColorStops({
+    value: 'Dawn Radiance',
+    category: 'Multigradient',
+  })
+  assert.deepEqual(stops.slice(0, 4), ['#f59e0b', '#fb7185', '#c084fc', '#2dd4bf'])
+})
+
+test('resolveColorStops prefers named multigradient presets over a misleading single hex anchor', () => {
+  const stops = resolveColorStops({
+    value: 'Dawn Radiance #000000',
+    category: 'Multigradient test',
+  })
+  assert.deepEqual(stops.slice(0, 4), ['#f59e0b', '#fb7185', '#c084fc', '#2dd4bf'])
+})
+
+test('resolveColorStops matches known stockworks misspellings for gradient names', () => {
+  const stops = resolveColorStops({
+    value: 'Dawn Radience #000000',
+    category: 'Multigradient test',
+  })
+  assert.deepEqual(stops.slice(0, 4), ['#f59e0b', '#fb7185', '#c084fc', '#2dd4bf'])
+})
