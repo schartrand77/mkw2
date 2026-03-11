@@ -20,7 +20,12 @@ export const metadata = {
   title: BRAND_FULL_NAME,
   description: '3D printing model hosting & cost estimation',
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent' },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: BRAND_FULL_NAME,
+    startupImage: ['/apple-touch-icon.png'],
+  },
   other: { 'mobile-web-app-capable': 'yes' },
   icons: { icon: '/favicon.svg', apple: '/favicon.svg' },
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { normalizeServiceBaseUrl } from '@/lib/service-base-url'
 
 export type PrintLabPrinter = {
   id: string
@@ -111,7 +112,7 @@ function resolveEnv(primary: string, legacy?: string) {
 }
 
 function getConfig(): PrintLabConfig | null {
-  const baseUrl = resolveEnv('PRINTLAB_BASE_URL', 'BAMBU_VIEW_BASE_URL').replace(/\/+$/, '')
+  const baseUrl = normalizeServiceBaseUrl(resolveEnv('PRINTLAB_BASE_URL', 'BAMBU_VIEW_BASE_URL'))
   if (!baseUrl) return null
   const sessionCookie = resolveEnv('PRINTLAB_SESSION_COOKIE', 'BAMBU_VIEW_SESSION_COOKIE')
   const authHeader = resolveEnv('PRINTLAB_AUTH_HEADER', 'BAMBU_VIEW_AUTH_HEADER')

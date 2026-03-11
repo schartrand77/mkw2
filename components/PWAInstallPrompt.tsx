@@ -19,12 +19,27 @@ function resolveBrandName() {
 export default function PWAInstallPrompt() {
   const [event, setEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [dismissed, setDismissed] = useState(false)
+  const [showIosPrompt, setShowIosPrompt] = useState(false)
   const dismissedRef = useRef(false)
   const brandName = useMemo(() => resolveBrandName(), [])
+
+  const isIosLikeDevice = () => {
+    if (typeof window === 'undefined') return false
+    const ua = window.navigator.userAgent
+    const platform = window.navigator.platform
+    const touchPoints = window.navigator.maxTouchPoints || 0
+    return /iPad|iPhone|iPod/.test(ua) || (platform === 'MacIntel' && touchPoints > 1)
+  }
+
+  const isStandalone = () => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  }
 
   const persistDismissed = () => {
     setDismissed(true)
     dismissedRef.current = true
+    setShowIosPrompt(false)
     try { localStorage.setItem(STORAGE_KEY, '1') } catch {}
   }
 
@@ -49,7 +64,14 @@ export default function PWAInstallPrompt() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (window.matchMedia('(display-mode: standalone)').matches) return
+    if (isStandalone()) return
+
+    if (isIosLikeDevice()) {
+      if (!dismissedRef.current) {
+        setShowIosPrompt(true)
+      }
+      return
+    }
 
     const onBeforeInstall = (e: Event) => {
       if (dismissedRef.current) return
@@ -78,22 +100,38 @@ export default function PWAInstallPrompt() {
     persistDismissed()
   }
 
-  if (!event || dismissed) return null
+  if (dismissed) return null
+  if (!event && !showIosPrompt) return null
 
   return (
     <div className="fixed bottom-6 right-6 z-[1100] w-[92vw] max-w-xs glass border border-white/15 rounded-2xl bg-black/70 backdrop-blur p-4 shadow-[0_10px_35px_rgba(0,0,0,0.55)]">
       <div className="text-sm space-y-2">
         <div className="font-semibold text-base">Install {brandName}?</div>
-        <p className="text-slate-300 leading-relaxed">
-          Add the app to your home screen for fullscreen access and offline-ready caching.
-        </p>
+        {showIosPrompt ? (
+          <p className="text-slate-300 leading-relaxed">
+            On iPad Safari, open Share and choose Add to Home Screen for a fullscreen install sized for large displays.
+          </p>
+        ) : (
+          <p className="text-slate-300 leading-relaxed">
+            Add the app to your home screen for fullscreen access and offline-ready caching.
+          </p>
+        )}
         <div className="flex gap-2 pt-1">
-          <button
-            className="flex-1 rounded-md bg-brand-500/90 hover:bg-brand-500 text-sm font-semibold py-2 transition"
-            onClick={handleInstall}
-          >
-            Install
-          </button>
+          {showIosPrompt ? (
+            <button
+              className="flex-1 rounded-md bg-brand-500/90 hover:bg-brand-500 text-sm font-semibold py-2 transition"
+              onClick={handleDismiss}
+            >
+              I’ll do it
+            </button>
+          ) : (
+            <button
+              className="flex-1 rounded-md bg-brand-500/90 hover:bg-brand-500 text-sm font-semibold py-2 transition"
+              onClick={handleInstall}
+            >
+              Install
+            </button>
+          )}
           <button
             className="px-3 text-xs text-slate-400 hover:text-white"
             onClick={handleDismiss}

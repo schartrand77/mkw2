@@ -3,6 +3,7 @@ import path from 'path'
 import { prisma } from '@/lib/db'
 import { getInMemoryMetricsSnapshot } from '@/lib/observability-metrics'
 import { storageRoot } from '@/lib/storage'
+import { normalizeServiceBaseUrl } from '@/lib/service-base-url'
 
 type DependencyStatus = 'ok' | 'warn' | 'fail' | 'skipped'
 
@@ -82,13 +83,13 @@ export async function runDependencyChecks() {
     checks.push({ name: 'stripe_api', status: 'skipped', detail: 'STRIPE_SECRET_KEY not configured' })
   }
 
-  const orderworksBase = (process.env.ORDERWORKS_BASE_URL || '').trim()
+  const orderworksBase = normalizeServiceBaseUrl(process.env.ORDERWORKS_BASE_URL)
   checks.push(orderworksBase ? await checkHttp('orderworks', orderworksBase) : { name: 'orderworks', status: 'skipped', detail: 'ORDERWORKS_BASE_URL not configured' })
 
-  const stockworksBase = (process.env.STOCKWORKS_BASE_URL || '').trim()
+  const stockworksBase = normalizeServiceBaseUrl(process.env.STOCKWORKS_BASE_URL)
   checks.push(stockworksBase ? await checkHttp('stockworks', stockworksBase) : { name: 'stockworks', status: 'skipped', detail: 'STOCKWORKS_BASE_URL not configured' })
 
-  const printLabBase = (process.env.PRINTLAB_BASE_URL || process.env.BAMBU_VIEW_BASE_URL || '').trim()
+  const printLabBase = normalizeServiceBaseUrl(process.env.PRINTLAB_BASE_URL || process.env.BAMBU_VIEW_BASE_URL || '')
   checks.push(printLabBase ? await checkHttp('printlab', printLabBase) : { name: 'printlab', status: 'skipped', detail: 'PRINTLAB_BASE_URL not configured' })
 
   const failing = checks.filter((entry) => entry.status === 'fail').length

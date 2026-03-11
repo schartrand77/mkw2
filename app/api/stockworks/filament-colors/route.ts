@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { normalizeServiceBaseUrl } from '@/lib/service-base-url'
 import { getStockworksSession } from '@/lib/stockworks-client'
 
 type StockworksMaterial = {
@@ -189,7 +190,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const baseUrl = process.env.STOCKWORKS_BASE_URL?.replace(/\/+$/, '') || ''
+    const baseUrl = normalizeServiceBaseUrl(process.env.STOCKWORKS_BASE_URL)
     const username = process.env.STOCKWORKS_ADMIN_USERNAME || process.env.STOCKWORKS_USERNAME || ''
     const password = process.env.STOCKWORKS_ADMIN_PASSWORD || process.env.STOCKWORKS_PASSWORD || ''
 

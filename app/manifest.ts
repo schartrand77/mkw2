@@ -10,10 +10,12 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    orientation: 'portrait-primary',
+    display_override: ['window-controls-overlay', 'standalone', 'minimal-ui', 'browser'],
+    orientation: 'any',
     background_color: '#000000',
     theme_color: '#000000',
     lang: 'en',
+    prefer_related_applications: false,
     categories: ['productivity', 'shopping', 'utilities'],
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

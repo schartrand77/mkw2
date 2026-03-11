@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { useCart } from '@/components/cart/CartProvider'
 import { formatCurrency } from '@/lib/currency'
 import { toPublicHref } from '@/lib/public-path'
+import { normalizeHexColor, resolveColorPaint } from '@/lib/color-swatch'
 import {
   clampScale,
   DIMENSION_AXES,
@@ -104,6 +105,7 @@ type StockworksColor = {
 type SwatchOption = {
   name: string
   hex: string
+  paint: string
   inStock?: boolean
   brand?: string
   category?: string
@@ -177,18 +179,6 @@ const resolveSwatch = (value?: string | null) => {
   if (paletteMatch) return paletteMatch
   if (parsed.hex) return { name: parsed.name || parsed.hex, hex: parsed.hex }
   return parsed.name ? { name: parsed.name, hex: '' } : null
-}
-
-const normalizeHexColor = (value: string) => {
-  const trimmed = value.trim().toLowerCase()
-  if (!trimmed.startsWith('#')) return ''
-  const hex = trimmed.slice(1)
-  if (hex.length === 3) {
-    return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`
-  }
-  if (hex.length === 6) return `#${hex}`
-  if (hex.length === 8) return `#${hex.slice(2)}`
-  return ''
 }
 
 const hexToRgb = (hex: string) => {
@@ -509,6 +499,30 @@ export default function CartPage() {
     }
     return map
   }, [stockworksPalette])
+  const stockworksColorValueToPaint = useMemo(() => {
+    const map = new Map<string, string>()
+    if (!stockworksPalette?.materials) return map
+    for (const material of Object.values(stockworksPalette.materials)) {
+      const entries = [
+        ...(Array.isArray(material?.inStock) ? material.inStock : []),
+        ...(Array.isArray(material?.orderable) ? material.orderable : []),
+      ]
+      for (const entry of entries) {
+        const meta = toColorMeta(entry as any)
+        const paint = resolveColorPaint({
+          name: meta.name,
+          hex: meta.hex,
+          category: meta.category,
+          fallback: COLOR_PICKER_FALLBACK,
+        })
+        const nameKey = normalizeColorValue(meta.name)
+        if (nameKey && !map.has(nameKey)) map.set(nameKey, paint)
+        const hexKey = normalizeColorValue(normalizeHexColor(meta.hex || ''))
+        if (hexKey && !map.has(hexKey)) map.set(hexKey, paint)
+      }
+    }
+    return map
+  }, [stockworksPalette])
   const materialOptions = useMemo(() => {
     const defaults = MATERIAL_OPTIONS.map((material) => material.toUpperCase())
     const fromStockworks = stockworksPalette?.materialTypes?.length
@@ -526,7 +540,11 @@ export default function CartPage() {
   }, [stockworksPalette])
   const paletteOptions = useMemo<SwatchOption[]>(() => {
     if (!stockworksEntry || (stockworksEntry.inStock.length === 0 && stockworksEntry.orderable.length === 0)) {
-      const basePalette = COLOR_PALETTE.map((swatch) => ({ ...swatch, brand: '' }))
+      const basePalette = COLOR_PALETTE.map((swatch) => ({
+        ...swatch,
+        brand: '',
+        paint: swatch.hex,
+      }))
       return activeSlotAllowedTokens
         ? basePalette.filter((swatch) => isColorAllowed(`${swatch.name} ${swatch.hex}`, activeSlotAllowedTokens))
         : basePalette
@@ -546,9 +564,16 @@ export default function CartPage() {
       seen.add(uniqueKey)
       const swatch = paletteLookup.get(normalized)
       const hex = colorMeta.hex || swatch?.hex || (isHexColor(colorMeta.name) ? colorMeta.name : COLOR_PICKER_FALLBACK)
+      const paint = resolveColorPaint({
+        name: colorMeta.name || swatch?.name || colorMeta.hex || 'Unknown',
+        hex,
+        category: colorMeta.category || '',
+        fallback: COLOR_PICKER_FALLBACK,
+      })
       output.push({
         name: colorMeta.name || swatch?.name || colorMeta.hex || 'Unknown',
         hex,
+        paint,
         inStock: inStockSet.has(uniqueKey),
         brand: colorMeta.brand || '',
         category: colorMeta.category || '',
@@ -563,6 +588,14 @@ export default function CartPage() {
     for (const swatch of paletteOptions) {
       if (swatch.name) map.set(normalizeColorValue(swatch.name), swatch.hex)
       if (swatch.hex) map.set(normalizeColorValue(swatch.hex), swatch.hex)
+    }
+    return map
+  }, [paletteOptions])
+  const paletteValueToPaint = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const swatch of paletteOptions) {
+      if (swatch.name) map.set(normalizeColorValue(swatch.name), swatch.paint)
+      if (swatch.hex) map.set(normalizeColorValue(swatch.hex), swatch.paint)
     }
     return map
   }, [paletteOptions])
@@ -1161,9 +1194,15 @@ export default function CartPage() {
                                       ? value
                                       : swatch?.hex
                                         || parsedValue.hex
-                                        || stockworksColorValueToHex.get(normalizedValue)
                                         || paletteValueToHex.get(normalizedValue)
                                         || COLOR_PICKER_FALLBACK
+                                    const paintValue = stockworksColorValueToPaint.get(normalizedValue)
+                                      || paletteValueToPaint.get(normalizedValue)
+                                      || resolveColorPaint({
+                                        name: parsedValue.name || swatch?.name || value,
+                                        hex: hexValue,
+                                        fallback: COLOR_PICKER_FALLBACK,
+                                      })
                                     const isActive = activeColorSlot?.id === slotId
                                     const updateColor = (nextValue: string) => {
                                       if (isLockedProduct) return
@@ -1179,7 +1218,7 @@ export default function CartPage() {
                                           type="button"
                                           data-color-slot={slotId}
                                           className={`relative rounded-md border border-white/20 h-8 w-8 flex items-center justify-center transition-all ${isActive ? 'ring-2 ring-amber-400' : ''}`}
-                                          style={{ background: hexValue }}
+                                          style={{ background: paintValue }}
                                           disabled={isLockedProduct}
                                           onClick={(event) => {
                                             if (isLockedProduct) return
@@ -1566,7 +1605,7 @@ export default function CartPage() {
                                     : `${swatchOption.name} (${swatchOption.hex})`
                                 }
                                 className={`relative h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${ringCls}`}
-                                style={{ background: swatchOption.hex }}
+                                style={{ background: swatchOption.paint }}
                                 aria-label={`Select ${swatchOption.name}`}
                                 onClick={() => {
                                   if (activeSlotLocked) return
