@@ -15,6 +15,7 @@ import {
 import { formatCurrency } from '@/lib/currency'
 import { buildAllowedColorTokenSet, isColorAllowed, normalizeModelColorSlotCount, sanitizeAllowedColors } from '@/lib/color-constraints'
 import type { PricingDetails } from '@/lib/pricing'
+import { normalizeHexColor, resolveColorPaint } from '@/lib/color-swatch'
 import QuoteBreakdownCard from '@/components/QuoteBreakdownCard'
 import StatusChip from '@/components/StatusChip'
 import FeasibilityScorecard from '@/components/FeasibilityScorecard'
@@ -166,6 +167,7 @@ type StockworksColor = {
 type SwatchOption = {
   name: string
   hex: string
+  paint: string
   inStock?: boolean
   brand?: string
   category?: string
@@ -216,18 +218,6 @@ const resolveSwatch = (value?: string | null) => {
   if (paletteMatch) return paletteMatch
   if (parsed.hex) return { name: parsed.name || parsed.hex, hex: parsed.hex }
   return parsed.name ? { name: parsed.name, hex: '' } : null
-}
-
-const normalizeHexColor = (value: string) => {
-  const trimmed = value.trim().toLowerCase()
-  if (!trimmed.startsWith('#')) return ''
-  const hex = trimmed.slice(1)
-  if (hex.length === 3) {
-    return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`
-  }
-  if (hex.length === 6) return `#${hex}`
-  if (hex.length === 8) return `#${hex.slice(2)}`
-  return ''
 }
 
 const hexToRgb = (hex: string) => {
@@ -402,7 +392,7 @@ export default function InstantQuoteConfigurator({
   const stockworksEntry = stockworksPalette?.materials?.[activeMaterialKey]
   const paletteOptions = useMemo<SwatchOption[]>(() => {
     if (!stockworksEntry || (stockworksEntry.inStock.length === 0 && stockworksEntry.orderable.length === 0)) {
-      const basePalette = COLOR_PALETTE.map((swatch) => ({ ...swatch, brand: '' }))
+      const basePalette = COLOR_PALETTE.map((swatch) => ({ ...swatch, brand: '', paint: swatch.hex }))
       return allowedColorTokens
         ? basePalette.filter((swatch) => isColorAllowed(`${swatch.name} ${swatch.hex}`, allowedColorTokens))
         : basePalette
@@ -422,9 +412,16 @@ export default function InstantQuoteConfigurator({
       seen.add(uniqueKey)
       const swatch = paletteLookup.get(normalized)
       const hex = colorMeta.hex || swatch?.hex || (isHexColor(colorMeta.name) ? colorMeta.name : COLOR_PICKER_FALLBACK)
+      const paint = resolveColorPaint({
+        name: colorMeta.name || swatch?.name || colorMeta.hex || 'Unknown',
+        hex,
+        category: colorMeta.category || '',
+        fallback: COLOR_PICKER_FALLBACK,
+      })
       output.push({
         name: colorMeta.name || swatch?.name || colorMeta.hex || 'Unknown',
         hex,
+        paint,
         inStock: inStockSet.has(uniqueKey),
         brand: colorMeta.brand || '',
         category: colorMeta.category || '',
@@ -439,6 +436,14 @@ export default function InstantQuoteConfigurator({
     for (const swatch of paletteOptions) {
       if (swatch.name) map.set(normalizeColorValue(swatch.name), swatch.hex)
       if (swatch.hex) map.set(normalizeColorValue(swatch.hex), swatch.hex)
+    }
+    return map
+  }, [paletteOptions])
+  const paletteValueToPaint = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const swatch of paletteOptions) {
+      if (swatch.name) map.set(normalizeColorValue(swatch.name), swatch.paint)
+      if (swatch.hex) map.set(normalizeColorValue(swatch.hex), swatch.paint)
     }
     return map
   }, [paletteOptions])
@@ -917,6 +922,12 @@ export default function InstantQuoteConfigurator({
                 || parsedValue.hex
                 || paletteValueToHex.get(normalizedValue)
                 || COLOR_PICKER_FALLBACK
+            const paintValue = paletteValueToPaint.get(normalizedValue)
+              || resolveColorPaint({
+                name: parsedValue.name || swatch?.name || color,
+                hex: hexValue,
+                fallback: COLOR_PICKER_FALLBACK,
+              })
             const isActive = activeColorSlot === idx
             return (
               <div key={`${modelId}-color-${idx}`} className="flex items-center gap-2">
@@ -924,7 +935,7 @@ export default function InstantQuoteConfigurator({
                   type="button"
                   data-color-slot={slotId}
                   className={`relative h-12 w-12 rounded-xl border border-white/20 flex items-center justify-center transition-all ${isActive ? 'ring-2 ring-amber-400' : ''}`}
-                  style={{ background: hexValue }}
+                  style={{ background: paintValue }}
                   onClick={() => setActiveColorSlot((prev) => (prev === idx ? null : idx))}
                 >
                   {!color && <span className="text-[9px] uppercase tracking-wide text-white/70">Pick</span>}
@@ -1115,7 +1126,7 @@ export default function InstantQuoteConfigurator({
                                     : `${swatchOption.name} (${swatchOption.hex})`
                                 }
                                 className={`relative h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${ringCls}`}
-                                style={{ background: swatchOption.hex }}
+                                style={{ background: swatchOption.paint }}
                                 aria-label={`Select ${swatchOption.name}`}
                                 onClick={() => {
                                   const nextValue = swatchOption.name && swatchOption.hex
