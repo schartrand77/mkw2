@@ -15,6 +15,7 @@ import ModelReviewWorkspace from '@/components/ModelReviewWorkspace'
 import CreatorQualityCard from '@/components/CreatorQualityCard'
 import ModelLineageCard from '@/components/ModelLineageCard'
 import { CACHE_TAGS, CACHE_TTL_SECONDS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
+import { needsModelPreviewConversion } from '@/lib/model-files'
 
 async function fetchModel(id: string, baseUrl: string) {
   const res = await fetch(`${baseUrl}/api/models/${id}`, {
@@ -86,7 +87,11 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   const previewProcessing = typeof model.previewProcessing === 'boolean'
     ? model.previewProcessing
     : Array.isArray(model.parts)
-      ? model.parts.some((part: any) => String(part.filePath || '').toLowerCase().endsWith('.3mf') && !part.previewFilePath)
+      ? model.parts.some((part: any) => {
+          const filePath = String(part.filePath || '').toLowerCase()
+          const ext = filePath.includes('.') ? `.${filePath.split('.').pop()}` : ''
+          return needsModelPreviewConversion(ext) && !part.previewFilePath
+        })
       : false
   const isProcessing = coverProcessing || galleryProcessing || previewProcessing
   const reviewPins = Array.isArray(model.comments)
@@ -113,12 +118,12 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           <div className="font-semibold text-amber-200">Processing uploads</div>
           <p className="text-slate-300 mt-1">
             {coverProcessing && previewProcessing
-              ? 'Cover image and 3MF previews are processing in the background.'
+              ? 'Cover image and model previews are processing in the background.'
               : coverProcessing
                 ? 'Cover image is processing in the background.'
                 : galleryProcessing
                   ? 'Gallery photos are processing in the background.'
-                  : '3MF previews are processing in the background.'}
+                  : 'Model previews are processing in the background.'}
             {' '}We will email you when everything is ready.
           </p>
         </div>

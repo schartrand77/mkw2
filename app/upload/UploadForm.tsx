@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
+import { MODEL_ACCEPT_ATTRIBUTE, MODEL_FILE_LABEL } from '@/lib/model-files'
 import { MATERIAL_OPTIONS, normalizeMaterialName } from '@/lib/cartPricing'
 
 async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
@@ -67,7 +68,7 @@ export default function UploadForm({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!modelFiles || modelFiles.length === 0) {
-      setErrorMsg('Please select one or more 3D model files (STL/OBJ/3MF/ZIP).')
+      setErrorMsg(`Please select one or more 3D model files (${MODEL_FILE_LABEL.toUpperCase()}).`)
       return
     }
     const selectedFiles = Array.from(modelFiles)
@@ -223,8 +224,8 @@ export default function UploadForm({
           <p className="text-xs text-slate-400 mt-1">Use this if the model needs scaling for estimates. Applies to single-file uploads.</p>
         </div>
         <div>
-          <label className="block text-sm mb-1">Model files (.stl, .obj, .3mf, or .zip)</label>
-          <input type="file" multiple accept=".stl,.obj,.3mf,.zip" onChange={(e) => setModelFiles(e.target.files)} />
+          <label className="block text-sm mb-1">Model files ({MODEL_FILE_LABEL})</label>
+          <input type="file" multiple accept={MODEL_ACCEPT_ATTRIBUTE} onChange={(e) => setModelFiles(e.target.files)} />
           <p className="text-xs text-slate-400 mt-1">
             {maxFileBytes == null || maxTotalBytes == null
               ? 'LAN upload mode: no app-enforced size limit. Any remaining limit would come from the upload host, proxy, or available disk space.'

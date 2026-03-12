@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { readFile, readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
+import { MODEL_FILE_EXTENSIONS } from '../lib/model-files'
 
 type Options = {
   dir: string
@@ -24,7 +25,6 @@ type UploadTarget = {
   coverPath?: string
 }
 
-const MODEL_EXTENSIONS = new Set(['.stl', '.obj', '.3mf', '.zip'])
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic'])
 
 function usage() {
@@ -150,7 +150,7 @@ async function walkModels(rootDir: string) {
         continue
       }
       const ext = path.extname(entry.name).toLowerCase()
-      if (MODEL_EXTENSIONS.has(ext)) {
+      if (MODEL_FILE_EXTENSIONS.has(ext)) {
         output.push(full)
       }
     }

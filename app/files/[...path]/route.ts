@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { createReadStream } from 'fs'
 import { stat } from 'fs/promises'
 import path from 'path'
+import { getModelMimeType } from '@/lib/model-files'
 import { filesPublicBaseUrl, storageRoot } from '@/lib/storage'
 
 type FileRouteContext = { params: Promise<{ path: string[] }> }
@@ -35,10 +36,7 @@ function mimeFromExt(ext: string) {
     case '.jpg':
     case '.jpeg': return 'image/jpeg'
     case '.webp': return 'image/webp'
-    case '.stl': return 'model/stl'
-    case '.obj': return 'text/plain'
-    case '.3mf': return 'model/3mf'
     case '.pdf': return 'application/pdf'
-    default: return 'application/octet-stream'
+    default: return getModelMimeType(ext)
   }
 }

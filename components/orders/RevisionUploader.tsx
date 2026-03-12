@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
+import { MODEL_ACCEPT_ATTRIBUTE, MODEL_FILE_LABEL } from '@/lib/model-files'
 
 export default function RevisionUploader({ orderId }: { orderId: string }) {
   const [file, setFile] = useState<File | null>(null)
@@ -42,11 +43,11 @@ export default function RevisionUploader({ orderId }: { orderId: string }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div>
-        <label className="block text-sm text-slate-300 mb-1" htmlFor={`revision-file-${orderId}`}>Upload new revision (STL/ZIP)</label>
+        <label className="block text-sm text-slate-300 mb-1" htmlFor={`revision-file-${orderId}`}>Upload new revision ({MODEL_FILE_LABEL})</label>
         <input
           id={`revision-file-${orderId}`}
           type="file"
-          accept=".stl,.obj,.3mf,.zip"
+          accept={MODEL_ACCEPT_ATTRIBUTE}
           onChange={(e) => setFile(e.target.files?.[0] || null)}
           disabled={uploading}
         />

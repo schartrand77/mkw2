@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useNotifications } from '@/components/notifications/NotificationsProvider'
 import StatusChip from '@/components/StatusChip'
+import { needsModelPreviewConversion } from '@/lib/model-files'
 
 type Props = {
   modelId: string
@@ -33,7 +34,8 @@ function computePreviewProcessing(model?: ModelResponse['model']) {
   if (!model?.parts || model.parts.length === 0) return false
   return model.parts.some((part) => {
     const filePath = String(part.filePath || '').toLowerCase()
-    return filePath.endsWith('.3mf') && !part.previewFilePath
+    const ext = filePath.includes('.') ? `.${filePath.split('.').pop()}` : ''
+    return needsModelPreviewConversion(ext) && !part.previewFilePath
   })
 }
 
@@ -83,7 +85,7 @@ export default function ModelProcessingNotifier({
           notify({ type: 'success', title: 'Gallery photos ready', message: 'Your new photos finished processing.' })
         }
         if (prev.preview && !previewProcessing) {
-          notify({ type: 'success', title: 'Model preview ready', message: 'Your 3MF preview is ready to view.' })
+          notify({ type: 'success', title: 'Model preview ready', message: 'Your model preview is ready to view.' })
         }
         const nextState = { cover: coverProcessing, gallery: galleryProcessing, preview: previewProcessing }
         stateRef.current = nextState
@@ -120,7 +122,7 @@ export default function ModelProcessingNotifier({
       <div className="mt-3 flex flex-wrap gap-2">
         {processingState.cover && <StatusChip label="Cover processing" tone="warning" pulse />}
         {processingState.gallery && <StatusChip label="Gallery processing" tone="warning" pulse />}
-        {processingState.preview && <StatusChip label="3MF preview processing" tone="warning" pulse />}
+        {processingState.preview && <StatusChip label="Model preview processing" tone="warning" pulse />}
       </div>
       {lastCheckedAt && (
         <p className="text-xs text-slate-400 mt-2">

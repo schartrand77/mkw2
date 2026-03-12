@@ -16,9 +16,9 @@ export type AssemblyGroup = {
 const SIDE_TOKENS = ['left', 'right', 'front', 'rear', 'back', 'top', 'bottom', 'upper', 'lower']
 
 function normalizeName(name: string) {
-  const cleaned = name
-    .toLowerCase()
-    .replace(/\.(stl|obj|3mf)$/i, '')
+  const lower = name.toLowerCase()
+  const ext = Array.from(MODEL_FILE_EXTENSIONS).find((candidate) => lower.endsWith(candidate))
+  const cleaned = (ext ? lower.slice(0, -ext.length) : lower)
     .replace(/[_\-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -85,3 +85,4 @@ export function buildAssemblyGroups(parts: PartLike[]): AssemblyGroup[] {
   groups.sort((a, b) => b.parts.length - a.parts.length || b.confidence - a.confidence || a.label.localeCompare(b.label))
   return groups
 }
+import { MODEL_FILE_EXTENSIONS } from '@/lib/model-files'

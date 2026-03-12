@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from 'react'
+import { MODEL_ACCEPT_ATTRIBUTE, MODEL_FILE_LABEL } from '@/lib/model-files'
 
 type RevisionEntry = {
   id: string
@@ -76,8 +77,8 @@ export default function ModelRevisionsManager({ modelId }: { modelId: string }) 
           />
         </div>
         <div>
-          <label className="block text-sm mb-1">Model files (.stl, .obj, .3mf, or .zip)</label>
-          <input type="file" multiple accept=".stl,.obj,.3mf,.zip" onChange={(e) => setFiles(e.target.files)} />
+          <label className="block text-sm mb-1">Model files ({MODEL_FILE_LABEL})</label>
+          <input type="file" multiple accept={MODEL_ACCEPT_ATTRIBUTE} onChange={(e) => setFiles(e.target.files)} />
         </div>
         <button className="btn" disabled={loading}>{loading ? 'Uploading...' : 'Upload revision'}</button>
       </form>

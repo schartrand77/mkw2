@@ -18,12 +18,11 @@ import { refreshUserAchievements } from '@/lib/achievements'
 import { isSupportedImageFile } from '@/lib/images'
 import { sendAdminDiscordNotification } from '@/lib/discord'
 import { sendAdminPushNotification } from '@/lib/push'
-import { convert3mfToStl, enqueueModelPreviewJob, extract3mfFilamentColors } from '@/lib/model-preview-queue'
+import { convertModelToStlPreview, enqueueModelPreviewJob, extract3mfFilamentColors } from '@/lib/model-preview-queue'
 import { enqueueImageProcessing, enqueuePreviewProcessing } from '@/lib/processing-jobs'
 import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
+import { isSupportedModelFile, needsModelPreviewConversion } from '@/lib/model-files'
 import { getAllowedUploadOrigins, isLanRequestHost, readUploadByteEnv } from '@/lib/upload-config'
-
-const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
 
 type UploadLimits = {
   fileSize: number | null
@@ -211,7 +210,7 @@ async function parseMultipartUpload(req: NextRequest, userId: string, limits: Up
             continue
           }
           const entryName = path.basename(entry.path)
-          if (!isAllowedModel(entryName)) {
+          if (!isSupportedModelFile(entryName) || entryName.toLowerCase().endsWith('.zip')) {
             entry.autodrain()
             continue
           }
@@ -245,7 +244,7 @@ async function parseMultipartUpload(req: NextRequest, userId: string, limits: Up
       return
     }
 
-    if (!isAllowedModel(lower)) {
+    if (!isSupportedModelFile(lower) || lower.endsWith('.zip')) {
       file.resume()
       return
     }
@@ -402,7 +401,7 @@ export async function POST(req: NextRequest) {
       const storedExt = f.ext
       let queuedPreviewPath: string | null = null
       let previewRel: string | null = null
-      if (storedExt === '.3mf') {
+      if (needsModelPreviewConversion(storedExt)) {
         previewRel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}-preview.stl`)
         queuedPreviewPath = `/${previewRel.replace(/\\/g, '/')}`
       }
@@ -415,7 +414,7 @@ export async function POST(req: NextRequest) {
       let previewPath: string | null = storedExt === '.stl' ? storedPath : null
       let statsBuf: Buffer | null = null
       let storedBuf: Buffer | null = null
-      if (storedExt === '.stl' || storedExt === '.3mf') {
+      if (storedExt === '.stl' || storedExt === '.3mf' || needsModelPreviewConversion(storedExt)) {
         storedBuf = await readFile(storedFull)
       }
       if (storedExt === '.3mf' && storedBuf) {
@@ -434,16 +433,16 @@ export async function POST(req: NextRequest) {
       if (storedExt === '.stl' && storedBuf) {
         statsBuf = storedBuf
       }
-      if (storedExt === '.3mf' && storedBuf && previewRel) {
+      if (needsModelPreviewConversion(storedExt) && storedBuf && previewRel) {
         try {
-          const converted = await convert3mfToStl(storedBuf)
+          const converted = await convertModelToStlPreview(storedBuf, storedExt)
           if (converted) {
             await saveBuffer(previewRel, converted.buf)
             previewPath = `/${previewRel.replace(/\\/g, '/')}`
             statsBuf = converted.statsBuf || converted.buf
           }
         } catch (err) {
-          console.warn('Inline 3MF conversion failed, deferring to queue', err)
+          console.warn('Inline model preview conversion failed, deferring to queue', err)
         }
       }
       const viewerPath = previewPath || storedPath
@@ -493,7 +492,7 @@ export async function POST(req: NextRequest) {
         supportRatio: supportRatio ?? undefined,
         priceUsd: p || undefined
       })
-      if (storedExt === '.3mf' && queuedPreviewPath && !previewPath) {
+      if (needsModelPreviewConversion(storedExt) && queuedPreviewPath && !previewPath) {
         previewJobs.push({ sourcePath: storedPath, previewPath: queuedPreviewPath, partIndex: i })
       }
     }
@@ -597,7 +596,7 @@ export async function POST(req: NextRequest) {
           })
         }
       } catch (err) {
-        console.warn('Failed to queue 3MF preview job', err)
+        console.warn('Failed to queue preview job', err)
       }
     }
     if (coverImageSourceRel) {
@@ -619,7 +618,7 @@ export async function POST(req: NextRequest) {
           idempotencyKey: `preview:model:${created.id}`,
         })
       } catch (err) {
-        console.warn('Failed to process 3MF previews', err)
+        console.warn('Failed to process model previews', err)
       }
     }
     try { await refreshUserAchievements(prisma, userId) } catch {}

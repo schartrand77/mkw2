@@ -2,7 +2,14 @@ import path from 'path'
 import { readFile, stat } from 'fs/promises'
 import JSZip from 'jszip'
 import { XMLParser } from 'fast-xml-parser'
+import { BufferGeometry, LoadingManager, Matrix4, Mesh, Object3D, Vector3 } from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
+import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js'
+import { USDZLoader } from 'three/examples/jsm/loaders/USDZLoader.js'
+import { VRMLLoader } from 'three/examples/jsm/loaders/VRMLLoader.js'
 import { prisma } from '@/lib/db'
+import { needsModelPreviewConversion } from '@/lib/model-files'
 import { saveBuffer, storageRoot } from '@/lib/storage'
 import { computeStlStatsMm } from '@/lib/stl'
 import { BRAND_NAME } from '@/lib/brand'
@@ -15,8 +22,8 @@ const STATUS_PROCESSING = 'processing'
 const STATUS_READY = 'ready'
 const STATUS_FAILED = 'failed'
 
-const MAX_3MF_CONVERT_BYTES = readByteEnv('UPLOAD_MAX_3MF_CONVERT_BYTES', 25 * 1024 * 1024)
-const MAX_3MF_TRIANGLES = readCountEnv('UPLOAD_MAX_3MF_TRIANGLES', 1200000)
+const MAX_MODEL_CONVERT_BYTES = readByteEnv('UPLOAD_MAX_MODEL_CONVERT_BYTES', readByteEnv('UPLOAD_MAX_3MF_CONVERT_BYTES', 25 * 1024 * 1024))
+const MAX_MODEL_CONVERT_TRIANGLES = readCountEnv('UPLOAD_MAX_MODEL_CONVERT_TRIANGLES', readCountEnv('UPLOAD_MAX_3MF_TRIANGLES', 1200000))
 
 const xmlParser = new XMLParser({
   ignoreAttributes: false,
@@ -100,9 +107,12 @@ async function maybeNotifyPreviewReady(modelId: string) {
     select: { filePath: true, previewFilePath: true },
   })
   if (parts.length === 0) return
-  const has3mf = parts.some((part) => String(part.filePath || '').toLowerCase().endsWith('.3mf'))
-  if (!has3mf) return
-  const missingPreview = parts.some((part) => String(part.filePath || '').toLowerCase().endsWith('.3mf') && !part.previewFilePath)
+  const hasConvertible = parts.some((part) => needsModelPreviewConversion(path.extname(String(part.filePath || '')).toLowerCase()))
+  if (!hasConvertible) return
+  const missingPreview = parts.some((part) => {
+    const ext = path.extname(String(part.filePath || '')).toLowerCase()
+    return needsModelPreviewConversion(ext) && !part.previewFilePath
+  })
   if (missingPreview) return
   const model = await prisma.model.findUnique({
     where: { id: modelId },
@@ -381,7 +391,7 @@ function getZipEntrySize(entry: JSZip.JSZipObject): number | null {
 
 export async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, statsBuf?: Buffer, triangles: number } | null> {
   try {
-    if (buffer.length > MAX_3MF_CONVERT_BYTES) {
+    if (buffer.length > MAX_MODEL_CONVERT_BYTES) {
       console.warn('3MF conversion skipped due to size limit', { bytes: buffer.length })
       return null
     }
@@ -389,7 +399,7 @@ export async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, st
     const embeddedStl = Object.values(zip.files).find(entry => !entry.dir && entry.name.toLowerCase().endsWith('.stl'))
     if (embeddedStl) {
       const embeddedSize = getZipEntrySize(embeddedStl)
-      if (embeddedSize && embeddedSize > MAX_3MF_CONVERT_BYTES) {
+      if (embeddedSize && embeddedSize > MAX_MODEL_CONVERT_BYTES) {
         console.warn('3MF conversion: embedded STL too large', { bytes: embeddedSize })
         return null
       }
@@ -441,7 +451,7 @@ export async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, st
             const v3 = vertices[toNumber(indices[2])]
             if (v1 && v2 && v3) {
               meshTriangles.push([{ ...v1 }, { ...v2 }, { ...v3 }])
-              if (meshTriangles.length > MAX_3MF_TRIANGLES) {
+              if (meshTriangles.length > MAX_MODEL_CONVERT_TRIANGLES) {
                 throw new Error('3MF conversion exceeded triangle cap.')
               }
             }
@@ -520,7 +530,7 @@ export async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, st
             const childTris = cache.get(comp.key) || []
             const transformed = transformTriangles(childTris, comp.transform)
             triList = triList.concat(transformed)
-            if (triList.length > MAX_3MF_TRIANGLES) {
+            if (triList.length > MAX_MODEL_CONVERT_TRIANGLES) {
               throw new Error('3MF conversion exceeded triangle cap.')
             }
           }
@@ -545,13 +555,13 @@ export async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, st
       const normalized = transformTriangles(localTris, normalizedItemTransform)
       for (const tri of transformed) {
         triangles.push(tri)
-        if (triangles.length > MAX_3MF_TRIANGLES) {
+        if (triangles.length > MAX_MODEL_CONVERT_TRIANGLES) {
           throw new Error('3MF conversion exceeded triangle cap.')
         }
       }
       for (const tri of normalized) {
         normalizedTriangles.push(tri)
-        if (normalizedTriangles.length > MAX_3MF_TRIANGLES) {
+        if (normalizedTriangles.length > MAX_MODEL_CONVERT_TRIANGLES) {
           throw new Error('3MF conversion exceeded triangle cap.')
         }
       }
@@ -567,6 +577,157 @@ export async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, st
     console.warn('3MF conversion failed', err)
     return null
   }
+}
+
+function ensureConvertibleSize(buffer: Buffer, label: string) {
+  if (buffer.length > MAX_MODEL_CONVERT_BYTES) {
+    throw new Error(`${label} exceeds conversion size limit.`)
+  }
+}
+
+function assertTriangleCap(count: number, label: string) {
+  if (count > MAX_MODEL_CONVERT_TRIANGLES) {
+    throw new Error(`${label} exceeded triangle cap.`)
+  }
+}
+
+function wrapGeometry(geometry: BufferGeometry) {
+  return new Mesh(geometry)
+}
+
+function collectTrianglesFromObject(root: Object3D, label: string): Vec3[][] {
+  const triangles: Vec3[][] = []
+  const a = new Vector3()
+  const b = new Vector3()
+  const c = new Vector3()
+  root.updateMatrixWorld(true)
+  root.traverse((node: any) => {
+    if (!node?.isMesh || !node.geometry) return
+    const geometry = node.geometry as BufferGeometry
+    const flattened = geometry.index ? geometry.toNonIndexed() : geometry
+    const position = flattened.getAttribute('position')
+    if (!position || position.itemSize < 3) return
+    const matrix = node.matrixWorld instanceof Matrix4 ? node.matrixWorld : new Matrix4()
+    for (let i = 0; i + 2 < position.count; i += 3) {
+      a.fromBufferAttribute(position, i).applyMatrix4(matrix)
+      b.fromBufferAttribute(position, i + 1).applyMatrix4(matrix)
+      c.fromBufferAttribute(position, i + 2).applyMatrix4(matrix)
+      triangles.push([
+        { x: a.x, y: a.y, z: a.z },
+        { x: b.x, y: b.y, z: b.z },
+        { x: c.x, y: c.y, z: c.z },
+      ])
+      assertTriangleCap(triangles.length, label)
+    }
+    if (flattened !== geometry) flattened.dispose()
+  })
+  return triangles
+}
+
+function asBufferLikeInput(buffer: Buffer) {
+  return Uint8Array.from(buffer).buffer
+}
+
+async function convertObjectLikeToStl(object: Object3D, label: string) {
+  const triangles = collectTrianglesFromObject(object, label)
+  if (triangles.length === 0) return null
+  const stl = buildBinaryStl(triangles)
+  return { buf: stl, statsBuf: stl, triangles: triangles.length }
+}
+
+async function convertObjToStl(buffer: Buffer) {
+  ensureConvertibleSize(buffer, 'OBJ source')
+  const loader = new OBJLoader(new LoadingManager())
+  const object = loader.parse(buffer.toString('utf8'))
+  return convertObjectLikeToStl(object, 'OBJ conversion')
+}
+
+async function convertPlyToStl(buffer: Buffer) {
+  ensureConvertibleSize(buffer, 'PLY source')
+  const loader = new PLYLoader(new LoadingManager())
+  const geometry = loader.parse(asBufferLikeInput(buffer))
+  return convertObjectLikeToStl(wrapGeometry(geometry), 'PLY conversion')
+}
+
+async function convertVrmlToStl(buffer: Buffer) {
+  ensureConvertibleSize(buffer, 'VRML source')
+  const loader = new VRMLLoader(new LoadingManager())
+  const object = loader.parse(buffer.toString('utf8'), '')
+  return convertObjectLikeToStl(object, 'VRML conversion')
+}
+
+async function convertGltfToStl(buffer: Buffer, ext: string) {
+  ensureConvertibleSize(buffer, 'glTF source')
+  const loader = new GLTFLoader(new LoadingManager())
+  const input = ext === '.gltf' ? buffer.toString('utf8') : asBufferLikeInput(buffer)
+  const gltf = await loader.parseAsync(input as any, '')
+  return convertObjectLikeToStl(gltf.scene, 'glTF conversion')
+}
+
+async function convertUsdzToStl(buffer: Buffer) {
+  ensureConvertibleSize(buffer, 'USDZ source')
+  const loader = new USDZLoader(new LoadingManager())
+  const object = loader.parse(asBufferLikeInput(buffer))
+  return convertObjectLikeToStl(object, 'USDZ conversion')
+}
+
+async function convertUsdLikeToStl(buffer: Buffer, ext: string) {
+  ensureConvertibleSize(buffer, 'USD source')
+  const zip = new JSZip()
+  zip.file(`model${ext}`, buffer)
+  const archive = await zip.generateAsync({ type: 'nodebuffer', compression: 'STORE' })
+  return convertUsdzToStl(archive)
+}
+
+async function convertAmfToStl(buffer: Buffer) {
+  ensureConvertibleSize(buffer, 'AMF source')
+  const data = xmlParser.parse(buffer.toString('utf8'))
+  const amf = data?.amf || data?.AMF
+  const objects = asArray(amf?.object || amf?.Object)
+  const triangles: Vec3[][] = []
+  for (const object of objects) {
+    const mesh = object?.mesh || object?.Mesh
+    const verticesRaw = asArray(mesh?.vertices?.vertex || mesh?.vertices?.Vertex)
+    const vertices = verticesRaw.map((vertex: any) => {
+      const coords = vertex?.coordinates || vertex?.Coordinates || {}
+      return {
+        x: toNumber(coords.x ?? coords.X),
+        y: toNumber(coords.y ?? coords.Y),
+        z: toNumber(coords.z ?? coords.Z),
+      }
+    })
+    const volumes = asArray(mesh?.volume || mesh?.Volume)
+    for (const volume of volumes) {
+      const tris = asArray(volume?.triangle || volume?.Triangle)
+      for (const tri of tris) {
+        const v1 = vertices[toNumber(tri?.v1 ?? tri?.V1)]
+        const v2 = vertices[toNumber(tri?.v2 ?? tri?.V2)]
+        const v3 = vertices[toNumber(tri?.v3 ?? tri?.V3)]
+        if (!v1 || !v2 || !v3) continue
+        triangles.push([{ ...v1 }, { ...v2 }, { ...v3 }])
+        assertTriangleCap(triangles.length, 'AMF conversion')
+      }
+    }
+  }
+  if (triangles.length === 0) return null
+  const stl = buildBinaryStl(triangles)
+  return { buf: stl, statsBuf: stl, triangles: triangles.length }
+}
+
+export async function convertModelToStlPreview(buffer: Buffer, ext: string): Promise<{ buf: Buffer, statsBuf?: Buffer, triangles: number } | null> {
+  const normalized = ext.toLowerCase()
+  if (normalized === '.stl') {
+    return { buf: Buffer.from(buffer), statsBuf: Buffer.from(buffer), triangles: -1 }
+  }
+  if (normalized === '.3mf') return convert3mfToStl(buffer)
+  if (normalized === '.obj') return convertObjToStl(buffer)
+  if (normalized === '.amf') return convertAmfToStl(buffer)
+  if (normalized === '.ply') return convertPlyToStl(buffer)
+  if (normalized === '.wrl' || normalized === '.vrml') return convertVrmlToStl(buffer)
+  if (normalized === '.glb' || normalized === '.gltf') return convertGltfToStl(buffer, normalized)
+  if (normalized === '.usd' || normalized === '.usda') return convertUsdLikeToStl(buffer, normalized)
+  if (normalized === '.usdz') return convertUsdzToStl(buffer)
+  return null
 }
 
 export async function enqueueModelPreviewJob(input: PreviewJobInput) {
@@ -606,13 +767,14 @@ export async function processPendingModelPreviews(limit = 3, options: PreviewQue
       })
       const sourceDiskPath = resolveStoragePath(job.sourcePath)
       const info = await stat(sourceDiskPath)
-      if (info.size > MAX_3MF_CONVERT_BYTES) {
-        throw new Error('3MF source exceeds conversion limit.')
+      if (info.size > MAX_MODEL_CONVERT_BYTES) {
+        throw new Error('Model source exceeds conversion limit.')
       }
       const buffer = await readFile(sourceDiskPath)
-      const converted = await convert3mfToStl(buffer)
+      const sourceExt = path.extname(job.sourcePath).toLowerCase()
+      const converted = await convertModelToStlPreview(buffer, sourceExt)
       if (!converted) {
-        throw new Error('3MF conversion failed.')
+        throw new Error(`Preview conversion failed for ${sourceExt || 'source file'}.`)
       }
       const previewRel = normalizeStoredPath(job.previewPath)
       await saveBuffer(previewRel, converted.buf)

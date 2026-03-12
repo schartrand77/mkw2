@@ -24,7 +24,7 @@ It is built for print labs and shops that need one system for sales, manufacturi
 
 ### Customer Commerce
 - Browse catalog and collections.
-- Upload STL/OBJ/3MF/ZIP files.
+- Upload STL/OBJ/3MF/AMF/PLY/WRL/VRML/GLB/GLTF/USD/USDZ/USDA/USDC/ZIP files.
 - Configure print options and get instant estimates.
 - Review print feasibility, material recommendations, tolerance class, and quote breakdowns before adding to cart.
 - Checkout with card, cash, invoice, PO, or quote-request modes.

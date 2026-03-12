@@ -25,7 +25,7 @@ function buildCopy(kind: NotificationKind) {
   }
   return {
     title: 'Model preview ready',
-    summary: 'Your 3MF preview is ready to view.',
+    summary: 'Your model preview is ready to view.',
   }
 }
 

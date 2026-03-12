@@ -297,7 +297,7 @@ Open any card to see product detail/configuration.
 
 ## 10. Upload Workflow (`/upload`)
 
-Upload supports `.stl`, `.obj`, `.3mf`, `.zip`.
+Upload supports `.stl`, `.obj`, `.3mf`, `.amf`, `.ply`, `.wrl`, `.vrml`, `.glb`, `.gltf`, `.usd`, `.usda`, `.usdc`, `.usdz`, `.zip`.
 
 ### 10.1 Required Fields
 

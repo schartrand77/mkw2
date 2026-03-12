@@ -13,6 +13,7 @@ import { computeStlStatsMm } from '@/lib/stl'
 import { updateModelPricingForModel } from '@/lib/model-pricing'
 import { computeModelIntelligence } from '@/lib/model-intelligence'
 import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
+import { needsModelPreviewConversion } from '@/lib/model-files'
 import { extract3mfFilamentColors } from '@/lib/model-preview-queue'
 import { enqueueImageProcessing } from '@/lib/processing-jobs'
 import { CACHE_TAGS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
@@ -116,8 +117,8 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     parts = await prisma.modelPart.findMany({ where: { modelId: id }, orderBy: { index: 'asc' } })
     cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
   }
-  const has3mf = parts.some((part) => String(part.filePath || '').toLowerCase().endsWith('.3mf'))
-  const previewJobsPending = has3mf
+  const hasConvertiblePreview = parts.some((part) => needsModelPreviewConversion(path.extname(String(part.filePath || '')).toLowerCase()))
+  const previewJobsPending = hasConvertiblePreview
     ? await prisma.modelPreviewJob.count({
         where: { modelId: id, status: { in: ['pending', 'processing'] } },
       })
@@ -209,7 +210,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     model: {
       ...rest,
       downloadsEnabled: cfg?.allowModelDownloads !== false,
-      previewProcessing: has3mf ? previewJobsPending > 0 : false,
+      previewProcessing: hasConvertiblePreview ? previewJobsPending > 0 : false,
       priceUsd: displayPriceUsd,
       basePriceUsd: pricingSummary.basePriceUsd,
       salePriceUsd: pricingSummary.salePriceUsd,

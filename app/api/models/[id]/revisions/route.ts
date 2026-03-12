@@ -7,14 +7,13 @@ import { saveBuffer } from '@/lib/storage'
 import { computeStlStatsMm } from '@/lib/stl'
 import { estimatePriceUSD, resolveModelPricing } from '@/lib/pricing'
 import { computeModelIntelligence } from '@/lib/model-intelligence'
-import { enqueueModelPreviewJob, extract3mfFilamentColors } from '@/lib/model-preview-queue'
+import { isSupportedModelFile, needsModelPreviewConversion } from '@/lib/model-files'
+import { convertModelToStlPreview, enqueueModelPreviewJob, extract3mfFilamentColors } from '@/lib/model-preview-queue'
 import { enqueuePreviewProcessing } from '@/lib/processing-jobs'
 
 export const dynamic = 'force-dynamic'
 
 type ModelRevisionContext = { params: Promise<{ id: string }> }
-
-const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
 
 const MAX_UPLOAD_FILE_BYTES = readByteEnv('UPLOAD_MAX_FILE_BYTES', 100 * 1024 * 1024)
 const MAX_UPLOAD_TOTAL_BYTES = readByteEnv('UPLOAD_MAX_TOTAL_BYTES', 200 * 1024 * 1024)
@@ -95,7 +94,7 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
       for (const entry of entries) {
         if (entry.dir) continue
         const ename = entry.name
-        if (!isAllowedModel(ename)) continue
+        if (!isSupportedModelFile(ename) || ename.toLowerCase().endsWith('.zip')) continue
         const entrySize = getZipEntrySize(entry)
         if (entrySize && entrySize > MAX_UPLOAD_FILE_BYTES) {
           return NextResponse.json({ error: `Zip entry too large: ${path.basename(ename)}` }, { status: 413 })
@@ -107,7 +106,7 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
         }
         modelFiles.push({ name: path.basename(ename), buf: ebuf })
       }
-    } else if (isAllowedModel(lower)) {
+    } else if (isSupportedModelFile(lower) && !lower.endsWith('.zip')) {
       extractedBytes += buf.length
       if (extractedBytes > MAX_UPLOAD_TOTAL_BYTES) {
         return NextResponse.json({ error: 'Upload exceeds total size limit.' }, { status: 413 })
@@ -154,11 +153,22 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
       }
     }
     let previewBuf: Buffer | null = null
+    let previewStatsBuf: Buffer | null = null
     let previewExt: string | null = null
     let queuedPreviewPath: string | null = null
-    if (storedExt === '.3mf') {
+    if (needsModelPreviewConversion(storedExt)) {
       const previewRel = path.join(guard.userId, 'models', `${now}-${i + 1}-preview.stl`)
       queuedPreviewPath = `/${previewRel.replace(/\\/g, '/')}`
+      try {
+        const converted = await convertModelToStlPreview(storedBuf, storedExt)
+        if (converted) {
+          previewBuf = converted.buf
+          previewStatsBuf = converted.statsBuf || converted.buf
+          previewExt = '.stl'
+        }
+      } catch (err) {
+        console.warn('Inline revision preview conversion failed, deferring to queue', err)
+      }
     }
 
     const rel = path.join(guard.userId, 'models', `${now}-${f.name.replace(/[^a-z0-9_.-]+/gi, '-')}-${i + 1}${storedExt}`)
@@ -177,7 +187,7 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
     let volMm3: number | null = null
     let sizeXmm: number | undefined, sizeYmm: number | undefined, sizeZmm: number | undefined
     let supportRatio: number | null = null
-    const statsBuf = previewBuf || (storedExt === '.stl' ? storedBuf : null)
+    const statsBuf = previewStatsBuf || previewBuf || (storedExt === '.stl' ? storedBuf : null)
     if (statsBuf) {
       const stats = computeStlStatsMm(statsBuf)
       volMm3 = stats.volumeMm3
@@ -210,7 +220,7 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
       supportRatio: supportRatio ?? undefined,
       priceUsd: p || undefined,
     })
-    if (storedExt === '.3mf' && queuedPreviewPath) {
+    if (needsModelPreviewConversion(storedExt) && queuedPreviewPath && !previewPath) {
       previewJobs.push({ sourcePath: storedPath, previewPath: queuedPreviewPath, partIndex: i })
     }
   }
@@ -337,7 +347,7 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
         })
       }
     } catch (err) {
-      console.warn('Failed to queue 3MF preview job', err)
+      console.warn('Failed to queue preview job', err)
     }
     try {
       await enqueuePreviewProcessing({
@@ -346,7 +356,7 @@ export async function POST(req: NextRequest, { params }: ModelRevisionContext) {
         idempotencyKey: `preview:model:${id}`,
       })
     } catch (err) {
-      console.warn('Failed to process 3MF previews', err)
+      console.warn('Failed to process model previews', err)
     }
   }
 
