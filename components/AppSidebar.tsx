@@ -20,6 +20,8 @@ type AdminNavItem = {
   matchPrefixes?: string[]
 }
 
+type ThemeMode = 'light' | 'dark' | 'oled'
+
 const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin', label: 'Overview' },
   { href: '/admin/site-config', label: 'Site config' },
@@ -42,6 +44,19 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin/failure-photos', label: 'Failure photos' },
   { href: '/admin/demand-forecasting', label: 'Demand forecasting' },
 ]
+
+const THEME_SEQUENCE: ThemeMode[] = ['dark', 'light', 'oled']
+
+function getNextTheme(current: ThemeMode): ThemeMode {
+  const index = THEME_SEQUENCE.indexOf(current)
+  return THEME_SEQUENCE[(index + 1) % THEME_SEQUENCE.length]
+}
+
+function getThemeToggleLabel(theme: ThemeMode): string {
+  if (theme === 'dark') return 'Switch to light theme'
+  if (theme === 'light') return 'Switch to OLED black theme'
+  return 'Switch to dark theme'
+}
 
 function isActivePath(pathname: string, href: string): boolean {
   if (href === '/') return pathname === '/'
@@ -201,11 +216,11 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [desktopSidebarOpen, isMobileViewport])
 
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark')
+  const [theme, setTheme] = useState<ThemeMode>('dark')
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const saved = localStorage.getItem('mwv2:theme') as 'light' | 'dark' | null
-    if (saved === 'light') setTheme('light')
+    const saved = localStorage.getItem('mwv2:theme') as ThemeMode | null
+    if (saved === 'light' || saved === 'dark' || saved === 'oled') setTheme(saved)
   }, [])
 
   useEffect(() => {
@@ -226,17 +241,11 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     if (typeof document === 'undefined') return
     const root = document.documentElement
     const body = document.body
-    if (theme === 'light') {
-      root.classList.add('theme-light')
-      body?.classList.add('theme-light')
-      root.classList.remove('theme-dark')
-      body?.classList.remove('theme-dark')
-    } else {
-      root.classList.add('theme-dark')
-      body?.classList.add('theme-dark')
-      root.classList.remove('theme-light')
-      body?.classList.remove('theme-light')
-    }
+    const themeClasses = ['theme-light', 'theme-dark', 'theme-oled']
+    root.classList.remove(...themeClasses)
+    body?.classList.remove(...themeClasses)
+    root.classList.add(`theme-${theme}`)
+    body?.classList.add(`theme-${theme}`)
     try {
       localStorage.setItem('mwv2:theme', theme)
     } catch {}
@@ -305,8 +314,8 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       <Link href="/customer/workspaces" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Workspaces</Link>
       <Link href="/settings/organizations" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Organizations</Link>
       <Link href="/settings/account" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Account</Link>
-      <button type="button" role="menuitem" onClick={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))} className="app-sidebar-menu-item w-full text-left">
-        {theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+      <button type="button" role="menuitem" onClick={() => setTheme((current) => getNextTheme(current))} className="app-sidebar-menu-item w-full text-left">
+        {getThemeToggleLabel(theme)}
       </button>
       <button role="menuitem" onClick={logout} className="app-sidebar-menu-item w-full text-left">Sign out</button>
     </div>
@@ -501,8 +510,8 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
                 <Link href="/customer/orders" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Orders</Link>
                 <Link href="/customer/workspaces" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Workspaces</Link>
                 <Link href="/settings/profile" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Edit Profile</Link>
-                <button type="button" role="menuitem" onClick={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))} className="app-sidebar-menu-item w-full text-left">
-                  {theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+                <button type="button" role="menuitem" onClick={() => setTheme((current) => getNextTheme(current))} className="app-sidebar-menu-item w-full text-left">
+                  {getThemeToggleLabel(theme)}
                 </button>
                 <button type="button" role="menuitem" onClick={logout} className="app-sidebar-menu-item w-full text-left">Sign out</button>
               </>

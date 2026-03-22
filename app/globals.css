@@ -747,6 +747,119 @@ html.theme-light .btn {
   box-shadow: 0 18px 35px rgba(var(--empire-crimson-rgb) / 0.35);
 }
 
+/* OLED black theme overrides */
+html.theme-oled body {
+  background:
+    radial-gradient(1100px 620px at 88% -18%, rgba(96, 165, 250, 0.12), transparent),
+    radial-gradient(900px 520px at 10% -20%, rgba(56, 189, 248, 0.08), transparent),
+    repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.035), rgba(148, 163, 184, 0.035) 1px, transparent 1px, transparent 18px),
+    linear-gradient(160deg, #000000 0%, #000000 62%, #03060b 100%);
+  color: #f8fafc;
+}
+html.theme-oled .glass {
+  background: linear-gradient(160deg, rgba(0, 0, 0, 0.98), rgba(4, 7, 12, 0.9));
+  border: 1px solid rgba(var(--empire-crimson-rgb) / 0.2);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.82), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+html.theme-oled .header-shell {
+  border-bottom: 1px solid rgba(var(--empire-crimson-rgb) / 0.18);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.96), rgba(3, 6, 10, 0.88));
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.78);
+}
+html.theme-oled .app-sidebar-inner {
+  border-color: rgba(var(--empire-crimson-rgb) / 0.18);
+  background: linear-gradient(170deg, rgba(0, 0, 0, 0.98), rgba(3, 6, 10, 0.92));
+  box-shadow: 0 24px 55px rgba(0, 0, 0, 0.84);
+}
+html.theme-oled .app-sidebar-link {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+html.theme-oled .app-sidebar-link:hover,
+html.theme-oled .app-sidebar-sub-link:hover,
+html.theme-oled .app-sidebar-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+html.theme-oled .app-sidebar-link-active,
+html.theme-oled .app-sidebar-sub-link-active {
+  border-color: rgba(var(--empire-crimson-rgb) / 0.52);
+  background: rgba(var(--empire-crimson-rgb) / 0.18);
+}
+html.theme-oled .app-sidebar-admin-list {
+  border-left-color: rgba(255, 255, 255, 0.1);
+}
+html.theme-oled .app-sidebar-menu {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(170deg, rgba(0, 0, 0, 0.98), rgba(3, 6, 10, 0.94));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.7);
+}
+html.theme-oled .app-home-shortcut,
+html.theme-oled .app-hamburger-shortcut,
+html.theme-oled .app-user-shortcut-link,
+html.theme-oled .app-user-search-input {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.9);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.52);
+}
+html.theme-oled .app-home-shortcut:hover,
+html.theme-oled .app-hamburger-shortcut:hover,
+html.theme-oled .app-user-shortcut-link:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(3, 6, 10, 0.96);
+}
+html.theme-oled .app-user-search-input::placeholder {
+  color: rgba(148, 163, 184, 0.82);
+}
+html.theme-oled .app-sidebar-handle {
+  background: linear-gradient(180deg, rgba(var(--empire-crimson-rgb) / 0.28), rgba(0, 0, 0, 0.98));
+  box-shadow: 0 0 0 1px rgba(var(--empire-crimson-rgb) / 0.22), 0 10px 22px rgba(0, 0, 0, 0.68);
+}
+html.theme-oled .footer-shell {
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.86), rgba(0, 0, 0, 0.98));
+}
+html.theme-oled .input {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.78);
+  color: #f8fafc;
+}
+html.theme-oled .discover-search-backdrop {
+  background: rgba(0, 0, 0, 0.7);
+}
+html.theme-oled .discover-search-shell {
+  background: linear-gradient(170deg, rgba(0, 0, 0, 0.98), rgba(2, 5, 9, 0.92));
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.72);
+}
+html.theme-oled .discover-filter-chip {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.72);
+}
+html.theme-oled .discover-filter-chip:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+html.theme-oled .marquee-fade-left {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.98), rgba(0, 0, 0, 0));
+}
+html.theme-oled .marquee-fade-right {
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.98), rgba(0, 0, 0, 0));
+}
+html.theme-oled .marquee-control {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.82);
+}
+html.theme-oled body.holiday-valentines {
+  background:
+    radial-gradient(900px 520px at 82% -15%, rgba(244, 63, 94, 0.18), transparent),
+    radial-gradient(700px 420px at 12% -10%, rgba(190, 24, 93, 0.16), transparent),
+    linear-gradient(155deg, #000000 0%, #080109 48%, #11030d 100%);
+}
+html.theme-oled body.holiday-maythefourth {
+  background:
+    radial-gradient(1200px 700px at 50% -30%, rgba(59, 130, 246, 0.14), transparent),
+    radial-gradient(700px 420px at 0% 0%, rgba(148, 163, 184, 0.05), transparent),
+    linear-gradient(160deg, #000000 0%, #01040a 52%, #07101c 100%);
+}
+
 /* Light theme text utilities tweak to keep contrast on bright surfaces */
 html.theme-light .text-white,
 html.theme-light .text-slate-50,
