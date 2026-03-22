@@ -165,7 +165,7 @@ export default function ModelManager() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">Model manager</h2>
-          <p className="text-sm text-slate-400">Find a model, then open it to edit details.</p>
+          <p className="text-sm text-slate-400">Find a model, then open it to edit details or launch the full model editor.</p>
         </div>
         {activeModel && (
           <button className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20 text-sm" onClick={() => setActiveId(null)}>
@@ -396,9 +396,16 @@ export default function ModelManager() {
                 onChange={(e) => updateModel(activeModel.id, { videoUrl: e.target.value })}
               />
               <Link
+                href={`/models/${activeModel.id}/edit`}
+                prefetch={false}
+                className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20"
+              >
+                Open full editor
+              </Link>
+              <Link
                 href={`/admin/models/${activeModel.id}/images`}
                 prefetch={false}
-                className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20 md:col-span-2"
+                className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20"
               >
                 Manage images
               </Link>
