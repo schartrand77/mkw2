@@ -45,17 +45,10 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin/demand-forecasting', label: 'Demand forecasting' },
 ]
 
-const THEME_SEQUENCE: ThemeMode[] = ['dark', 'light', 'oled']
-
-function getNextTheme(current: ThemeMode): ThemeMode {
-  const index = THEME_SEQUENCE.indexOf(current)
-  return THEME_SEQUENCE[(index + 1) % THEME_SEQUENCE.length]
-}
-
-function getThemeToggleLabel(theme: ThemeMode): string {
-  if (theme === 'dark') return 'Switch to light theme'
-  if (theme === 'light') return 'Switch to OLED black theme'
-  return 'Switch to dark theme'
+function getThemeLabel(theme: ThemeMode): string {
+  if (theme === 'light') return 'Light'
+  if (theme === 'dark') return 'Dark'
+  return 'OLED black'
 }
 
 function isActivePath(pathname: string, href: string): boolean {
@@ -87,6 +80,8 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   const [desktopCollapsed, setDesktopCollapsed] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
   const [mobileAdminOpen, setMobileAdminOpen] = useState(false)
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false)
+  const [mobileThemeMenuOpen, setMobileThemeMenuOpen] = useState(false)
   const [quickMenuOpen, setQuickMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
@@ -302,7 +297,33 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     setQuickMenuOpen(false)
     setMobileNavOpen(false)
     setMobileAdminOpen(false)
+    setThemeMenuOpen(false)
+    setMobileThemeMenuOpen(false)
   }
+
+  const renderThemeChoices = (mobile = false) => (
+    <div className="border-t border-white/10 py-1">
+      {(['light', 'dark', 'oled'] as ThemeMode[]).map((option) => {
+        const active = theme === option
+        return (
+          <button
+            key={option}
+            type="button"
+            role="menuitemradio"
+            aria-checked={active}
+            onClick={() => {
+              setTheme(option)
+              if (mobile) setMobileThemeMenuOpen(false)
+              else setThemeMenuOpen(false)
+            }}
+            className={`app-sidebar-menu-item w-full text-left ${active ? 'app-sidebar-sub-link-active' : ''}`}
+          >
+            {active ? '✓ ' : ''}{getThemeLabel(option)}
+          </button>
+        )
+      })}
+    </div>
+  )
 
   const renderAccountMenu = (className: string) => (
     <div role="menu" className={className}>
@@ -314,9 +335,16 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       <Link href="/customer/workspaces" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Workspaces</Link>
       <Link href="/settings/organizations" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Organizations</Link>
       <Link href="/settings/account" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Account</Link>
-      <button type="button" role="menuitem" onClick={() => setTheme((current) => getNextTheme(current))} className="app-sidebar-menu-item w-full text-left">
-        {getThemeToggleLabel(theme)}
+      <button
+        type="button"
+        role="menuitem"
+        aria-expanded={themeMenuOpen}
+        onClick={() => setThemeMenuOpen((open) => !open)}
+        className="app-sidebar-menu-item w-full text-left"
+      >
+        Theme: {getThemeLabel(theme)} {themeMenuOpen ? '▾' : '▸'}
       </button>
+      {themeMenuOpen && renderThemeChoices()}
       <button role="menuitem" onClick={logout} className="app-sidebar-menu-item w-full text-left">Sign out</button>
     </div>
   )
@@ -510,9 +538,16 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
                 <Link href="/customer/orders" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Orders</Link>
                 <Link href="/customer/workspaces" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Workspaces</Link>
                 <Link href="/settings/profile" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Edit Profile</Link>
-                <button type="button" role="menuitem" onClick={() => setTheme((current) => getNextTheme(current))} className="app-sidebar-menu-item w-full text-left">
-                  {getThemeToggleLabel(theme)}
+                <button
+                  type="button"
+                  role="menuitem"
+                  aria-expanded={mobileThemeMenuOpen}
+                  onClick={() => setMobileThemeMenuOpen((open) => !open)}
+                  className="app-sidebar-menu-item w-full text-left"
+                >
+                  Theme: {getThemeLabel(theme)} {mobileThemeMenuOpen ? '▾' : '▸'}
                 </button>
+                {mobileThemeMenuOpen && renderThemeChoices(true)}
                 <button type="button" role="menuitem" onClick={logout} className="app-sidebar-menu-item w-full text-left">Sign out</button>
               </>
             ) : (
