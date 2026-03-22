@@ -324,3 +324,5 @@ Issues: `https://github.com/schartrand77/mkw2/issues`
 ## Documentation
 
 - User Manual: [`docs/user-manual.md`](docs/user-manual.md)
+- Wiki Index: [`docs/wiki/README.md`](docs/wiki/README.md)
+- Wiki Home: [`docs/wiki/Home.md`](docs/wiki/Home.md)
