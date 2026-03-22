@@ -91,6 +91,10 @@ Failing tests:
 Root cause observed:
 - Backup tests require PostgreSQL client tooling (`pg_dump`) or a Docker-backed DB utility path.
 
+## Upgrade Planning
+
+- See [`UPGRADE_RECOMMENDATIONS.md`](UPGRADE_RECOMMENDATIONS.md) for a prioritized backlog covering PostgreSQL, Node.js, and dependency migration waves.
+
 ## Quick Start
 
 ### Docker (recommended)
