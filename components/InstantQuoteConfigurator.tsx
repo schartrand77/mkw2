@@ -271,7 +271,7 @@ export default function InstantQuoteConfigurator({
   const [materialChoice, setMaterialChoice] = useState<MaterialType>(normalizeMaterialName(material))
   const [colors, setColors] = useState<string[]>(() => (Array.isArray(defaultColors) ? defaultColors : []))
   const [finish, setFinish] = useState<string>('standard')
-  const [infillPct, setInfillPct] = useState<number>(20)
+  const [infillPct, setInfillPct] = useState<number | null>(null)
   const [toleranceClass, setToleranceClass] = useState<ToleranceClass>('standard')
   const [scale, setScale] = useState<number>(1)
   const [rush, setRush] = useState(false)
@@ -800,8 +800,16 @@ export default function InstantQuoteConfigurator({
             type="number"
             min={0}
             max={100}
-            value={infillPct}
-            onChange={(e) => setInfillPct(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+            value={infillPct ?? ''}
+            placeholder="Site default"
+            onChange={(e) => {
+              const nextValue = e.target.value
+              if (nextValue === '') {
+                setInfillPct(null)
+                return
+              }
+              setInfillPct(Math.max(0, Math.min(100, Number(nextValue) || 0)))
+            }}
           />
         </label>
         <label className="text-sm space-y-1">
