@@ -16,6 +16,7 @@ type Props = {
   allFallbackSrc?: string | null
   images?: GalleryImage[]
   initialKey?: string
+  height?: number | string
   actions?: ReactNode
   selectedPartPin?: { partKey: string; x: number; y: number; z: number } | null
   reviewPins?: Array<{ partKey: string; x: number; y: number; z: number; highlighted?: boolean }>
@@ -41,6 +42,7 @@ export default function Gallery({
   allFallbackSrc,
   images = [],
   initialKey,
+  height = 'clamp(320px, 52vw, 680px)',
   actions,
   selectedPartPin = null,
   reviewPins = [],
@@ -92,6 +94,8 @@ export default function Gallery({
 
   const initialActiveKey = useMemo(() => {
     if (initialKey && items.some(i => i.key === initialKey)) return initialKey
+    const defaultThreeKey = items.find((item) => item.kind === 'three')?.key
+    if (defaultThreeKey) return defaultThreeKey
     return items[0]?.key
   }, [initialKey, items])
 
@@ -150,7 +154,7 @@ export default function Gallery({
                     partKeys={activeItem.partKeys}
                     partPins={[...(reviewPins || []), ...(selectedPartPin ? [{ ...selectedPartPin, highlighted: true }] : [])]}
                     onPartTap={onPartSelect || undefined}
-                    height={540}
+                    height={height}
                     className="bg-black/30"
                   />
                 ) : (
@@ -160,12 +164,12 @@ export default function Gallery({
                     partKeys={activeItem.partKey ? [activeItem.partKey] : undefined}
                     partPins={[...(reviewPins || []), ...(selectedPartPin ? [{ ...selectedPartPin, highlighted: true }] : [])]}
                     onPartTap={onPartSelect || undefined}
-                    height={540}
+                    height={height}
                     className="bg-black/30"
                   />
                 )
               ) : (
-                <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-center px-6">
+                <div className="w-full bg-slate-900/60 flex items-center justify-center text-center px-6" style={{ height }}>
                   <button
                     type="button"
                     className="btn"
@@ -179,15 +183,16 @@ export default function Gallery({
               <img
                 src={activeItem.src}
                 alt={activeItem.label}
-                className="w-full aspect-video object-cover"
+                className="w-full object-cover"
+                style={{ height }}
                 loading="lazy"
                 decoding="async"
               />
             ) : (
-              <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No preview</div>
+              <div className="w-full bg-slate-900/60 flex items-center justify-center text-slate-400" style={{ height }}>No preview</div>
             )
           ) : (
-            <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No preview</div>
+            <div className="w-full bg-slate-900/60 flex items-center justify-center text-slate-400" style={{ height }}>No preview</div>
           )}
           {activeItem && (
             <div className="absolute top-3 left-3 text-xs px-2 py-1 rounded-md border border-white/10 bg-black/40">{activeItem.kind === 'three' ? '3D' : 'Image'}</div>

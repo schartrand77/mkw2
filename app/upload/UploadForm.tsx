@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from 'react'
+import Image from 'next/image'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
 import { MODEL_ACCEPT_ATTRIBUTE, MODEL_FILE_LABEL } from '@/lib/model-files'
@@ -53,8 +54,9 @@ export default function UploadForm({
   const [sizeXmm, setSizeXmm] = useState('')
   const [sizeYmm, setSizeYmm] = useState('')
   const [sizeZmm, setSizeZmm] = useState('')
-  const [modelFiles, setModelFiles] = useState<FileList | null>(null)
+  const [modelFiles, setModelFiles] = useState<File[]>([])
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [tags, setTags] = useState('')
   const [loading, setLoading] = useState(false)
   const [progressPct, setProgressPct] = useState(0)
@@ -65,19 +67,28 @@ export default function UploadForm({
   const uploadEndpoint = resolveUploadEndpoint(directUploadUrl)
   const isDirect = !!directUploadUrl
 
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreviewUrl(null)
+      return
+    }
+    const nextUrl = URL.createObjectURL(imageFile)
+    setImagePreviewUrl(nextUrl)
+    return () => URL.revokeObjectURL(nextUrl)
+  }, [imageFile])
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!modelFiles || modelFiles.length === 0) {
+    if (modelFiles.length === 0) {
       setErrorMsg(`Please select one or more 3D model files (${MODEL_FILE_LABEL.toUpperCase()}).`)
       return
     }
-    const selectedFiles = Array.from(modelFiles)
-    const oversizedFile = maxFileBytes == null ? null : selectedFiles.find((file) => (file?.size || 0) > maxFileBytes)
+    const oversizedFile = maxFileBytes == null ? null : modelFiles.find((file) => (file?.size || 0) > maxFileBytes)
     if (oversizedFile) {
       setErrorMsg(`"${oversizedFile.name}" exceeds the per-file limit of ${formatBytes(maxFileBytes ?? 0)}.`)
       return
     }
-    const selectedModelBytes = selectedFiles.reduce((sum, file) => sum + (file?.size || 0), 0)
+    const selectedModelBytes = modelFiles.reduce((sum, file) => sum + (file?.size || 0), 0)
     if (maxTotalBytes != null && selectedModelBytes > maxTotalBytes) {
       setErrorMsg(`Selected model files exceed the total upload limit of ${formatBytes(maxTotalBytes)}.`)
       return
@@ -101,7 +112,7 @@ export default function UploadForm({
       if (sizeXmm) fd.append('sizeXmm', sizeXmm)
       if (sizeYmm) fd.append('sizeYmm', sizeYmm)
       if (sizeZmm) fd.append('sizeZmm', sizeZmm)
-      selectedFiles.forEach((f) => fd.append('files', f))
+      modelFiles.forEach((f) => fd.append('files', f))
       if (imageFile) fd.append('image', imageFile)
       const data = await new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
@@ -225,16 +236,54 @@ export default function UploadForm({
         </div>
         <div>
           <label className="block text-sm mb-1">Model files ({MODEL_FILE_LABEL})</label>
-          <input type="file" multiple accept={MODEL_ACCEPT_ATTRIBUTE} onChange={(e) => setModelFiles(e.target.files)} />
+          <input
+            type="file"
+            multiple
+            accept={MODEL_ACCEPT_ATTRIBUTE}
+            onChange={(e) => setModelFiles(Array.from(e.target.files || []))}
+          />
+          {modelFiles.length > 0 && (
+            <div className="mt-2 rounded-lg border border-white/10 bg-black/10 px-3 py-2">
+              <p className="text-xs text-slate-300">
+                {modelFiles.length} file{modelFiles.length === 1 ? '' : 's'} selected
+              </p>
+              <div className="mt-2 space-y-1">
+                {modelFiles.map((file) => (
+                  <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-3 text-xs text-slate-400">
+                    <span className="truncate">{file.name}</span>
+                    <span className="shrink-0">{formatBytes(file.size)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <p className="text-xs text-slate-400 mt-1">
             {maxFileBytes == null || maxTotalBytes == null
               ? 'LAN upload mode: no app-enforced size limit. Any remaining limit would come from the upload host, proxy, or available disk space.'
               : `Limit: ${formatBytes(maxFileBytes)} per file, ${formatBytes(maxTotalBytes)} total for model files.`}
           </p>
+          <p className="text-xs text-slate-400 mt-1">You can choose and upload multiple model files in one submission.</p>
         </div>
         <div>
           <label className="block text-sm mb-1">Cover image (optional)</label>
           <input type="file" accept={IMAGE_ACCEPT_ATTRIBUTE} onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
+          {imagePreviewUrl && imageFile && (
+            <div className="mt-2 flex items-center gap-3 rounded-lg border border-white/10 bg-black/10 p-2">
+              <div className="relative h-14 w-14 overflow-hidden rounded-md border border-white/10 bg-white/5">
+                <Image
+                  src={imagePreviewUrl}
+                  alt={`Preview of ${imageFile.name}`}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+              <div className="min-w-0 text-xs text-slate-400">
+                <p className="truncate text-slate-200">{imageFile.name}</p>
+                <p>{formatBytes(imageFile.size)}</p>
+              </div>
+            </div>
+          )}
         </div>
         <button className="btn" disabled={loading}>{loading ? 'Uploading...' : 'Upload'}</button>
         {loading && (

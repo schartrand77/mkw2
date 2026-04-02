@@ -55,7 +55,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   const partIndex = partIndexRaw != null ? Number.parseInt(String(partIndexRaw), 10) : NaN
   const initialGalleryKey = Number.isFinite(partIndex) && partIndex >= 0 && partIndex < (hasParts ? model.parts.length : 0)
     ? `three:${partIndex}`
-    : undefined
+    : 'three:all'
   const videoEmbedUrl = model.videoEmbedId ? buildYouTubeEmbedUrl(model.videoEmbedId) : null
   const affiliateHost = model.affiliateUrl ? (() => {
     try {
@@ -106,7 +106,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
         .filter((pin: any) => [pin.x, pin.y, pin.z].every((value: number) => Number.isFinite(value)))
     : []
   return (
-    <div className="max-w-5xl mx-auto min-w-0 space-y-5">
+    <div className="max-w-[1500px] mx-auto min-w-0 space-y-5 px-4 sm:px-6">
       <div>
         <Link href="/discover" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white">
           <span aria-hidden="true">&larr;</span>
@@ -137,8 +137,8 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           initialPreviewProcessing={previewProcessing}
         />
       )}
-      <div className="grid lg:grid-cols-2 gap-6 min-w-0">
-        <div className="min-w-0">
+      <div className="grid lg:grid-cols-[minmax(0,1.3fr)_minmax(360px,440px)] gap-6 min-w-0 items-start">
+        <div className="min-w-0 xl:sticky xl:top-24">
           <ModelReviewWorkspace
             modelId={model.id}
             coverSrc={coverHref}

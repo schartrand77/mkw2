@@ -53,7 +53,7 @@ type Props = {
   fallbackSrc?: string | null
   fallbackSrcs?: Array<string | null | undefined>
   className?: string
-  height?: number
+  height?: number | string
   autoRotate?: boolean
   colorOverrides?: Array<string | null | undefined> | null
   colorOverridesByPartKey?: Record<string, string | null | undefined> | null
@@ -763,6 +763,12 @@ export default function ModelViewer({
   const has3mfRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [loadedTargetRevision, setLoadedTargetRevision] = useState(0)
+  const resolveHeight = (element?: HTMLDivElement | null) => Math.max(
+    1,
+    typeof height === 'number'
+      ? height
+      : (element?.clientHeight || element?.offsetHeight || 540),
+  )
   // Keep async loader callbacks synchronized with the latest props immediately.
   colorOverridesRef.current = colorOverrides
   colorOverridesByPartKeyRef.current = colorOverridesByPartKey
@@ -806,7 +812,7 @@ export default function ModelViewer({
       if (disposed || !mountRef.current) return
 
       const width = Math.max(1, container.clientWidth || container.offsetWidth || 1)
-      const h = height
+      const h = resolveHeight(container)
       const scene = new THREE.Scene()
       scene.background = new THREE.Color('#000000')
       const camera = new THREE.PerspectiveCamera(45, width / h, 0.001, 5000)
@@ -1087,7 +1093,7 @@ export default function ModelViewer({
       const onResize = () => {
         if (!mountRef.current) return
         const w = Math.max(1, mountRef.current.clientWidth || mountRef.current.offsetWidth || 1)
-        const hh = h
+        const hh = resolveHeight(mountRef.current)
         renderer.setSize(w, hh)
         camera.aspect = w / hh
         camera.updateProjectionMatrix()
