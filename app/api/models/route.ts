@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { DiscoverEntityType, DiscoverSort, type ModelWithPartsCountAndTags } from '@/types/discover'
 import { getMaterialAvailabilitySnapshot, normalizeAvailabilityMaterialKey } from '@/lib/material-availability'
 import { filterLinkedVariantTemplates } from '@/lib/product-template-variants'
+import { resolveModelPricing } from '@/lib/pricing'
 
 export const dynamic = 'force-dynamic'
 
@@ -211,12 +212,14 @@ export async function GET(req: NextRequest) {
     sizeXmm: true,
     sizeYmm: true,
     sizeZmm: true,
+    volumeMm3: true,
     fileType: true,
     priceUsd: true,
     effectivePriceUsd: true,
     salePriceUsd: true,
     salePriceIsFrom: true,
     salePriceUnit: true,
+    supportRatio: true,
     flatRatePricing: true,
     colorSlotCount: true,
     allowedColors: true,
@@ -298,23 +301,34 @@ export async function GET(req: NextRequest) {
   const fetchModelTotal = scopes.has('models') ? prisma.model.count({ where }) : Promise.resolve(0)
   const fetchMerchTotal = scopes.has('merch') ? prisma.merchItem.count({ where: merchWhere }) : Promise.resolve(0)
 
-  const [models, products, merch, modelTotal, merchTotal] = await Promise.all([
+  const [models, products, merch, modelTotal, merchTotal, cfg] = await Promise.all([
     fetchModels,
     fetchProducts,
     fetchMerch,
     fetchModelTotal,
     fetchMerchTotal,
+    prisma.siteConfig.findUnique({ where: { id: 'main' } }),
   ])
   const filteredProducts = filterLinkedVariantTemplates(products)
 
   const materialAvailability = await getMaterialAvailabilitySnapshot(models.map((entry) => entry.material || 'PLA'))
 
   const mappedModels = models.map((m) => {
-    const basePriceUsd = m.priceUsd != null && Number.isFinite(Number(m.priceUsd)) ? Number(m.priceUsd) : null
-    const salePriceUsd = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd)) ? Number(m.salePriceUsd) : null
-    const effectivePriceUsd = m.effectivePriceUsd != null && Number.isFinite(Number(m.effectivePriceUsd)) ? Number(m.effectivePriceUsd) : null
-    const priceUsd = salePriceUsd ?? effectivePriceUsd ?? basePriceUsd
-    const saleActive = salePriceUsd != null && basePriceUsd != null ? salePriceUsd < basePriceUsd : false
+    const modelEntry = m as typeof m & { volumeMm3?: number | null; supportRatio?: number | null }
+    const pricingSummary = resolveModelPricing({
+      volumeMm3: modelEntry.volumeMm3 ?? null,
+      material: m.material,
+      supportRatio: modelEntry.supportRatio ?? null,
+      priceUsd: m.priceUsd,
+      salePriceUsd: m.salePriceUsd,
+    }, cfg)
+    const fallbackEffectivePriceUsd = m.effectivePriceUsd != null && Number.isFinite(Number(m.effectivePriceUsd))
+      ? Number(m.effectivePriceUsd)
+      : null
+    const basePriceUsd = pricingSummary.basePriceUsd ?? fallbackEffectivePriceUsd
+    const salePriceUsd = pricingSummary.salePriceUsd
+    const priceUsd = pricingSummary.priceUsd ?? fallbackEffectivePriceUsd ?? basePriceUsd
+    const saleActive = Boolean(pricingSummary.saleActive)
     const availabilityKey = normalizeAvailabilityMaterialKey(m.material || 'PLA')
     const availability = materialAvailability.materials[availabilityKey]
     const recommendation = recommendationScoreForModel({
@@ -370,7 +384,16 @@ export async function GET(req: NextRequest) {
     }
   })
   const mappedProducts = filteredProducts.map((p) => {
-    const baseModelPrice = p.baseModel?.salePriceUsd ?? p.baseModel?.effectivePriceUsd ?? p.baseModel?.priceUsd ?? null
+    const baseModelSummary = p.baseModel ? resolveModelPricing({
+      volumeMm3: null,
+      material: null,
+      priceUsd: p.baseModel.priceUsd,
+      salePriceUsd: p.baseModel.salePriceUsd,
+    }, cfg) : null
+    const baseModelPrice = baseModelSummary?.priceUsd
+      ?? p.baseModel?.effectivePriceUsd
+      ?? p.baseModel?.priceUsd
+      ?? null
     return {
       id: p.id,
       entityType: DiscoverEntityType.Product,
