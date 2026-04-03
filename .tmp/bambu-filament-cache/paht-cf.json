@@ -1,0 +1,42 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PAHT-CF",
+  "description": "Bambu PAHT-CF is a high-temperature engineering-grade carbon-fiber reinforced aromatic nylon that is designed for applications where high strength, stiffness, and temperature resistance are required. It is easy to print, has enhanced Z-bonding, a high-degree of dimensional stability, and has been optimized to retain excellent mechanical properties when wet. Suggested uses are: functional prototypes, machining fixtures, injection molds, jigs, and low-volume production parts.",
+  "url": "https://ca.store.bambulab.com/products/paht-cf",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8213123334384",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "43808720716016",
+      "image": "https://store.bblcdn.com/s5/default/da8ee1568bb047c8ba323aba59c84bc0.png",
+      "name": "PAHT-CF - Black (70100) / Filament with spool / 0.5 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/paht-cf?id=43808720716016",
+        "priceCurrency": "CAD",
+        "price": 63.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43808720748784",
+      "image": "https://store.bblcdn.com/s5/default/da8ee1568bb047c8ba323aba59c84bc0.png",
+      "name": "PAHT-CF - Black (70100) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/paht-cf?id=43808720748784",
+        "priceCurrency": "CAD",
+        "price": 120.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

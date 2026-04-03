@@ -12,9 +12,16 @@ model User {
   email        String   @unique
   name         String?
   passwordHash String
+  registrationSource String @default("self_signup")
+  registrationIp String?
+  registrationUserAgent String?
+  lastLoginAt DateTime?
+  lastLoginIp String?
+  lastLoginUserAgent String?
   emailVerified Boolean  @default(false)
   isSuspended  Boolean  @default(false)
   isAdmin      Boolean  @default(false)
+  role         UserRole @default(customer)
   discountPercent        Float   @default(0)
   isFriendsAndFamily     Boolean @default(false)
   friendsAndFamilyPercent Float   @default(0)
@@ -22,12 +29,25 @@ model User {
   comments     ModelComment[]
   likes        Like[]
   verificationTokens VerificationToken[]
+  pushSubscriptions PushSubscription[]
   createdAt    DateTime @default(now())
   profile      Profile?
   badges       UserAchievement[]
   jobForms     JobForm[]
   orders       PrintOrder[]
   orderRevisions PrintOrderRevision[]
+  orderMessages PrintOrderMessage[] @relation("OrderMessageUser")
+  orderApprovalRequests PrintOrderApprovalRequest[] @relation("OrderApprovalRequestedBy")
+  downloadReceipts ModelDownload[]
+  modelRevisions ModelRevision[]
+  configChanges ConfigChangeLog[]
+  adminAuditEvents AdminAuditEvent[]
+  presets CustomerPreset[]
+  failurePhotos FailurePhoto[]
+  organizationsCreated Organization[] @relation("OrganizationCreatedBy")
+  organizationMemberships OrganizationMember[]
+
+  @@index([lastLoginAt])
 }
 
 model Model {
@@ -39,6 +59,9 @@ model Model {
   filePath       String
   viewerFilePath String?
   coverImagePath String?
+  coverImageStatus String @default("ready")
+  coverImageSourcePath String?
+  coverImageError String?
   fileType       String
   unit           String   @default("mm")
   material       String   @default("PLA")
@@ -46,13 +69,27 @@ model Model {
   sizeXmm        Float?
   sizeYmm        Float?
   sizeZmm        Float?
+  supportRatio   Float?
   priceUsd       Float?
+  effectivePriceUsd Float?
+  effectivePriceUpdatedAt DateTime?
   salePriceUsd   Float?
+  disableCustomerDiscounts Boolean? @default(false)
+  flatRatePricing Boolean? @default(false)
+  defaultColors  Json?
+  colorSlotCount Int?
+  allowedColors  Json?
   salePriceIsFrom Boolean  @default(false)
   salePriceUnit   String?
   visibility     String   @default("public")
   downloads      Int      @default(0)
   likes          Int      @default(0)
+  printabilityScore Float?
+  supportLikelihood Float?
+  failureRiskScore Float?
+  orientationSuggestion String?
+  supportStrategySuggestion String?
+  intelligenceUpdatedAt DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   affiliateTitle String?
@@ -68,12 +105,64 @@ model Model {
   featured  FeaturedModel?
   parts     ModelPart[]
   comments  ModelComment[]
+  downloadReceipts ModelDownload[]
+  revisions ModelRevision[]
+  collectionEntries CollectionModel[]
+  previewJobs ModelPreviewJob[]
+  productTemplates ProductTemplate[]
+  failurePhotos FailurePhoto[]
+
+  @@index([effectivePriceUsd])
+  @@index([visibility])
+  @@index([createdAt])
+  @@index([likes])
+  @@index([downloads])
+  @@index([material])
+}
+
+model Collection {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  description   String?
+  kind          String   @default("curated")
+  materialKey   String?
+  heroImagePath String?
+  position      Int      @default(0)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  models CollectionModel[]
+
+  @@index([isActive])
+  @@index([kind])
+  @@index([materialKey])
+  @@index([position])
+}
+
+model CollectionModel {
+  collectionId String
+  modelId      String
+  position     Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  model      Model      @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, modelId])
+  @@index([collectionId, position])
 }
 
 model ModelImage {
   id        String   @id @default(cuid())
   modelId   String
   filePath  String
+  sourcePath String?
+  status    String   @default("ready")
+  error     String?
   caption   String?
   sortOrder BigInt   @default(0)
   createdAt DateTime @default(now())
@@ -88,6 +177,8 @@ model Tag {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   modelTags ModelTag[]
+
+  @@index([slug])
 }
 
 model ModelTag {
@@ -96,6 +187,7 @@ model ModelTag {
   model   Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
   tag     Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
   @@id([modelId, tagId])
+  @@index([tagId])
 }
 
 model Like {
@@ -124,6 +216,9 @@ model Profile {
   slug             String   @unique
   bio              String?
   avatarImagePath  String?
+  avatarImageStatus String  @default("ready")
+  avatarImageSourcePath String?
+  avatarImageError String?
   contactEmail     String?
   contactPhone     String?
   websiteUrl       String?
@@ -157,18 +252,167 @@ model FeaturedModel {
 model SiteConfig {
   id                       String   @id
   allowAnonymousUploads    Boolean? @default(true)
+  allowModelDownloads      Boolean? @default(true)
   directUploadUrl          String?
-  printSpeedCm3PerHour     Float?
+  favoriteShopLinkIds      Json?
+  showApplePayBadge        Boolean? @default(false)
+    showGooglePayBadge       Boolean? @default(false)
+    printSpeedCm3PerHour     Float?
   energyUsdPerHour         Float?
+  machineUsdPerHour        Float?
+  laborUsdPerHour          Float?
   minimumPriceUsd          Float?
+  minimumOrderSubtotalUsd  Float?
+  minimumOrderNotes        String?
+  printTimeCorrectionFactor Float?
   extraHourlyUsdAfterFirst Float?
   plaPricePerKgUsd         Float?
   petgPricePerKgUsd        Float?
+  absPricePerKgUsd         Float?
+  asaPricePerKgUsd         Float?
+  tpuPricePerKgUsd         Float?
+  pa6PricePerKgUsd         Float?
+  pa12PricePerKgUsd        Float?
+  nylonPricePerKgUsd       Float?
+  pcPricePerKgUsd          Float?
+  resinPricePerKgUsd       Float?
   fillFactor               Float?
   printerProfileKey        String?
   printerProfileOverrides  Json?
+  productsModelsLabel      String?
+  productsMerchLabel       String?
+  demandSurgeMultiplier    Float?
+  rushMultiplier           Float?
+  batchDiscountTiers       Json?
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
+}
+
+model ProductTemplate {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  baseModelId  String?
+  stockworksCategory String? @default("models")
+  stockworksSku String?
+  stockworksDesigner String?
+  stockworksMarketplace String?
+  stockworksFileLocation String?
+  stockworksVersion String?
+  stockworksUnitPriceUsd Float?
+  stockworksStatus String? @default("Active")
+  stockworksNotes String?
+  lockedMaterial String? @default("PLA")
+  lockedColor   String?
+  lockedColorCount Int   @default(1)
+  lockedScale   Float    @default(1)
+  lockedFinish  String?  @default("standard")
+  lockedPriceMultiplier Float @default(1)
+  stockworksMaterialId Int?
+  stockworksInventoryItemId Int?
+  stockworksVariantMap Json?
+  materialOptions Json?
+  colorOptions Json?
+  sizeOptions  Json?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  baseModel Model? @relation(fields: [baseModelId], references: [id], onDelete: SetNull)
+
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model MerchItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String   @default("Merch")
+  availability String  @default("in_stock")
+  priceUsd    Float?
+  sizeOptions Json?
+  colorOptions Json?
+  galleryImageUrls Json?
+  stockworksCategory String? @default("merch")
+  stockworksStatus String? @default("Active")
+  stockworksNotes String?
+  stockworksVariantMap Json?
+  imageUrl    String?
+  externalUrl String?
+  ctaLabel    String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  notifyRequests MerchNotifyRequest[]
+
+  @@index([isActive])
+  @@index([category])
+  @@index([sortOrder])
+}
+
+model MerchNotifyRequest {
+  id          String    @id @default(cuid())
+  merchItemId String
+  email       String
+  name        String?
+  notifiedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  merchItem MerchItem @relation(fields: [merchItemId], references: [id], onDelete: Cascade)
+
+  @@unique([merchItemId, email])
+  @@index([merchItemId, notifiedAt])
+  @@index([createdAt])
+}
+
+model CustomerPreset {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model PricingProfile {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  data        Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Printer {
+  id                 String   @id @default(cuid())
+  name               String
+  provider           String   @default("local")
+  externalId         String?
+  status             String   @default("available")
+  active             Boolean  @default(true)
+  dailyCapacityHours Float    @default(8)
+  notes              String?
+  lastMaintenanceAt  DateTime?
+  maintenanceIntervalHours Float?
+  maintenanceNotes   String?
+  metadata           Json?
+  lastSeenAt         DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  orders             PrintOrder[]
+  failurePhotos      FailurePhoto[]
+
+  @@index([status])
+  @@index([active])
 }
 
 model ModelPart {
@@ -182,10 +426,71 @@ model ModelPart {
   sizeXmm    Float?
   sizeYmm    Float?
   sizeZmm    Float?
+  supportRatio Float?
   priceUsd   Float?
   createdAt  DateTime @default(now())
 
   model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  previewJobs ModelPreviewJob[]
+}
+
+model ModelPreviewJob {
+  id         String   @id @default(cuid())
+  modelId    String
+  partId     String?
+  sourcePath String
+  previewPath String
+  status     String   @default("pending")
+  attempts   Int      @default(0)
+  lastError  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  part  ModelPart? @relation(fields: [partId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([modelId])
+}
+
+model ModelRevision {
+  id            String   @id @default(cuid())
+  modelId       String
+  userId        String?
+  label         String?
+  note          String?
+  filePath      String
+  viewerFilePath String?
+  fileType      String
+  version       Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  parts ModelRevisionPart[]
+
+  @@index([modelId])
+  @@index([createdAt])
+}
+
+model ModelRevisionPart {
+  id         String   @id @default(cuid())
+  revisionId String
+  name       String
+  index      Int      @default(0)
+  filePath   String
+  previewFilePath String?
+  volumeMm3  Float?
+  sizeXmm    Float?
+  sizeYmm    Float?
+  sizeZmm    Float?
+  createdAt  DateTime @default(now())
+
+  revision ModelRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+
+  @@index([revisionId])
 }
 
 model ModelComment {
@@ -193,13 +498,40 @@ model ModelComment {
   modelId   String
   userId    String
   body      String
+  partId    String?
+  partName  String?
+  pinX      Float?
+  pinY      Float?
+  pinZ      Float?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  type      String   @default("comment")
+  isHomeCurated Boolean @default(false)
+  imagePath String?
+  imageStatus String @default("ready")
+  imageSourcePath String?
+  imageError String?
+  imageWidth Int?
+  imageHeight Int?
 
   model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([modelId])
+  @@index([userId])
+  @@index([isHomeCurated, createdAt])
+}
+
+model ModelDownload {
+  id        String   @id @default(cuid())
+  modelId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([modelId, userId])
   @@index([userId])
 }
 
@@ -249,11 +581,44 @@ model JobForm {
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
 
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId])
+}
+
+model RateLimit {
+  key          String   @id
+  count        Int      @default(0)
+  resetAt      DateTime
+  blockedUntil DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([resetAt])
+  @@index([blockedUntil])
+}
+
 enum FulfillmentStatus {
   pending
   ready
   picked_up
   shipped
+}
+
+enum UserRole {
+  admin
+  staff
+  customer
 }
 
 model PrintOrder {
@@ -272,15 +637,96 @@ model PrintOrder {
   currency        String   @default("USD")
   notes           String?
   metadata        Json?
+  printerId       String?
+  printerAssignedAt DateTime?
+  printerAssignedBy String?
+  failedAt        DateTime?
+  failureNote     String?
   reprintOfId     String?
+  organizationId  String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  printer   Printer?     @relation(fields: [printerId], references: [id], onDelete: SetNull)
   items     PrintOrderItem[]
   revisions PrintOrderRevision[]
+  messages PrintOrderMessage[]
+  approvalRequests PrintOrderApprovalRequest[]
   reprintOf PrintOrder?   @relation("ReprintSource", fields: [reprintOfId], references: [id])
   reprints  PrintOrder[]  @relation("ReprintSource")
+  failurePhotos FailurePhoto[]
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  printLabJobs PrintLabJob[]
+
+  @@index([organizationId])
+}
+
+model Organization {
+  id                       String   @id @default(cuid())
+  name                     String
+  slug                     String   @unique
+  billingEmail             String?
+  billingContact           String?
+  quoteApprovalRequired    Boolean  @default(true)
+  requirePoAboveCents      Int?
+  procurementConfig        Json?
+  createdById              String
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @default(now()) @updatedAt
+
+  createdBy User @relation("OrganizationCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  members OrganizationMember[]
+  orders  PrintOrder[]
+
+  @@index([createdById])
+  @@index([name])
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String   @default("requester")
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId, role])
+}
+
+model FailurePhoto {
+  id           String   @id @default(cuid())
+  filePath     String
+  originalName String?
+  label        String
+  confidence   Float?
+  signals      Json?
+  note         String?
+  sizeBytes    Int?
+  width        Int?
+  height       Int?
+  orderId      String?
+  printerId    String?
+  modelId      String?
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  order      PrintOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  printer    Printer?    @relation(fields: [printerId], references: [id], onDelete: SetNull)
+  model      Model?      @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  uploadedBy User?       @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([label])
+  @@index([createdAt])
+  @@index([orderId])
+  @@index([printerId])
+  @@index([modelId])
 }
 
 model PrintOrderItem {
@@ -304,6 +750,52 @@ model PrintOrderItem {
   createdAt      DateTime @default(now())
 
   order PrintOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  printLabJobs PrintLabJob[]
+}
+
+model PrintLabJob {
+  id                String   @id @default(cuid())
+  orderId           String
+  orderItemId       String?
+  paymentIntentId   String?
+  sourceJobId       String   @unique
+  printLabJobId     String?  @unique
+  idempotencyKey    String   @unique
+  status            String   @default("pending_submission")
+  printerId         String?
+  printerName       String?
+  queueItemId       String?
+  successfulGcodeId String?
+  modelId           String
+  modelName         String?
+  modelUrl          String?
+  downloadUrl       String?
+  filePath          String?
+  fileName          String?
+  plateGcode        String?
+  startAt           DateTime?
+  lastSubmittedAt   DateTime?
+  lastCallbackAt    DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  submitAttempts    Int      @default(0)
+  callbackCount     Int      @default(0)
+  lastError         String?
+  metadata          Json?
+  lastCallbackPayload Json?
+  history           Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  order     PrintOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem PrintOrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([orderItemId])
+  @@index([paymentIntentId])
+  @@index([status])
+  @@index([printerId])
+  @@index([createdAt])
 }
 
 model PrintOrderRevision {
@@ -318,4 +810,75 @@ model PrintOrderRevision {
 
   order PrintOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   user  User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model PrintOrderMessage {
+  id         String   @id @default(cuid())
+  orderId    String
+  userId     String?
+  senderRole String   @default("shop")
+  body       String
+  createdAt  DateTime @default(now())
+
+  order PrintOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User?      @relation("OrderMessageUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model PrintOrderApprovalRequest {
+  id            String   @id @default(cuid())
+  orderId       String
+  requestedById String?
+  status        String   @default("pending")
+  message       String
+  responseNote  String?
+  respondedAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  order       PrintOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy User?      @relation("OrderApprovalRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ConfigChangeLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  section   String
+  changes   Json
+  createdAt DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([createdAt])
+  @@index([section])
+}
+
+model AdminAuditEvent {
+  id            String   @id @default(cuid())
+  adminId       String?
+  adminEmail    String?
+  adminName     String?
+  action        String
+  targetType    String?
+  targetId      String?
+  requestMethod String
+  requestPath   String
+  requestIp     String?
+  userAgent     String?
+  metadata      Json?
+  prevHash      String?
+  eventHash     String   @unique
+  createdAt     DateTime @default(now())
+
+  admin User? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
 }

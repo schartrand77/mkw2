@@ -12,6 +12,10 @@ type Model = {
   salePriceUsd?: number | null
   salePriceIsFrom?: boolean | null
   salePriceUnit?: string | null
+  disableCustomerDiscounts?: boolean | null
+  flatRatePricing?: boolean | null
+  colorSlotCount?: number | null
+  allowedColors?: string[] | null
   tags: string[]
   affiliateTitle?: string | null
   affiliateUrl?: string | null
@@ -79,6 +83,10 @@ export default function ModelManager() {
             ...m,
             salePriceIsFrom: Boolean((m as any).salePriceIsFrom),
             salePriceUnit: (m as any).salePriceUnit ?? null,
+            disableCustomerDiscounts: Boolean((m as any).disableCustomerDiscounts),
+            flatRatePricing: Boolean((m as any).flatRatePricing),
+            colorSlotCount: typeof (m as any).colorSlotCount === 'number' ? (m as any).colorSlotCount : null,
+            allowedColors: Array.isArray((m as any).allowedColors) ? (m as any).allowedColors : null,
             videoUrl: m.videoEmbedId ? `https://youtu.be/${m.videoEmbedId}` : ''
           }))
           setItems(normalized)
@@ -115,6 +123,10 @@ export default function ModelManager() {
           salePriceUsd: (m as any).salePriceUsd ?? null,
           salePriceIsFrom: Boolean(m.salePriceIsFrom),
           salePriceUnit: m.salePriceUnit || '',
+          disableCustomerDiscounts: Boolean(m.disableCustomerDiscounts),
+          flatRatePricing: Boolean(m.flatRatePricing),
+          colorSlotCount: m.colorSlotCount ?? null,
+          allowedColors: Array.isArray(m.allowedColors) ? m.allowedColors : null,
         })
       })
       if (!res.ok) alert('Failed to save model: ' + (await res.text()))
@@ -153,7 +165,7 @@ export default function ModelManager() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">Model manager</h2>
-          <p className="text-sm text-slate-400">Find a model, then open it to edit details.</p>
+          <p className="text-sm text-slate-400">Find a model, then open it to edit details or launch the full model editor.</p>
         </div>
         {activeModel && (
           <button className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20 text-sm" onClick={() => setActiveId(null)}>
@@ -292,6 +304,62 @@ export default function ModelManager() {
                   <option value="complete">complete</option>
                 </select>
               </div>
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <input
+                  id={`model-discount-off-${activeModel.id}`}
+                  type="checkbox"
+                  checked={!!activeModel.disableCustomerDiscounts}
+                  onChange={(e) => updateModel(activeModel.id, { disableCustomerDiscounts: e.target.checked })}
+                />
+                <label htmlFor={`model-discount-off-${activeModel.id}`}>
+                  Disable customer discounts for this model
+                </label>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <input
+                  id={`model-flat-rate-${activeModel.id}`}
+                  type="checkbox"
+                  checked={!!activeModel.flatRatePricing}
+                  onChange={(e) => updateModel(activeModel.id, { flatRatePricing: e.target.checked })}
+                />
+                <label htmlFor={`model-flat-rate-${activeModel.id}`}>
+                  Flat rate: no color-count or custom-text surcharge
+                </label>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Color slot count (optional)</label>
+                <input
+                  className="input"
+                  type="number"
+                  min={1}
+                  max={16}
+                  value={activeModel.colorSlotCount ?? ''}
+                  placeholder="Blank = global default"
+                  onChange={(e) => updateModel(activeModel.id, {
+                    colorSlotCount: e.target.value === ''
+                      ? null
+                      : Math.max(1, Math.min(16, Math.round(Number(e.target.value) || 1))),
+                  })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Allowed colors (comma-separated)</label>
+                <input
+                  className="input"
+                  value={Array.isArray(activeModel.allowedColors) ? activeModel.allowedColors.join(', ') : ''}
+                  placeholder="Blank, all, or * = allow all"
+                  onChange={(e) => {
+                    const raw = e.target.value.trim()
+                    if (!raw || /^(all|\*)$/i.test(raw)) {
+                      updateModel(activeModel.id, { allowedColors: null })
+                      return
+                    }
+                    updateModel(activeModel.id, {
+                      allowedColors: Array.from(new Set(raw.split(',').map((part) => part.trim()).filter(Boolean))),
+                    })
+                  }}
+                />
+              </div>
             </div>
             <div className="md:col-span-3">
               <input className="input" value={activeModel.tags.join(', ')} onChange={(e) => updateModel(activeModel.id, { tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
@@ -317,7 +385,7 @@ export default function ModelManager() {
               />
               <input
                 className="input"
-                placeholder="Amazon.ca link (dp/ASIN)"
+                placeholder="Affiliate URL"
                 value={activeModel.affiliateUrl || ''}
                 onChange={(e) => updateModel(activeModel.id, { affiliateUrl: e.target.value })}
               />
@@ -327,7 +395,18 @@ export default function ModelManager() {
                 value={activeModel.videoUrl || ''}
                 onChange={(e) => updateModel(activeModel.id, { videoUrl: e.target.value })}
               />
-              <Link href={`/admin/models/${activeModel.id}/images`} className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20 md:col-span-2">
+              <Link
+                href={`/models/${activeModel.id}/edit`}
+                prefetch={false}
+                className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20"
+              >
+                Open full editor
+              </Link>
+              <Link
+                href={`/admin/models/${activeModel.id}/images`}
+                prefetch={false}
+                className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20"
+              >
                 Manage images
               </Link>
             </div>

@@ -6,11 +6,13 @@ type Props = {
   initialSuspended: boolean
   initialEmailVerified: boolean
   isAdmin: boolean
+  initialRole?: string | null
 }
 
-export default function UserAdminActions({ userId, initialSuspended, initialEmailVerified, isAdmin }: Props) {
+export default function UserAdminActions({ userId, initialSuspended, initialEmailVerified, isAdmin, initialRole }: Props) {
   const [suspended, setSuspended] = useState(initialSuspended)
   const [emailVerified, setEmailVerified] = useState(initialEmailVerified)
+  const [role, setRole] = useState(initialRole || (isAdmin ? 'admin' : 'customer'))
   const [pending, setPending] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -47,6 +49,25 @@ export default function UserAdminActions({ userId, initialSuspended, initialEmai
       if (!res.ok) throw new Error(data?.error || 'Failed to verify email')
       setEmailVerified(data?.user?.emailVerified ?? true)
       setMessage('Email marked as verified')
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const updateRole = async (nextRole: string) => {
+    setPending(true); setMessage(null); setError(null)
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: nextRole })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Failed to update role')
+      setRole(data?.user?.role || nextRole)
+      setMessage(`Role updated to ${data?.user?.role || nextRole}`)
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -108,6 +129,19 @@ export default function UserAdminActions({ userId, initialSuspended, initialEmai
         >
           {emailVerified ? 'Verified' : 'Confirm email'}
         </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-slate-400">Role</span>
+        <select
+          className="rounded-md border border-white/10 bg-black/40 px-2 py-1 text-xs text-white"
+          value={role}
+          onChange={(e) => updateRole(e.target.value)}
+          disabled={pending}
+        >
+          <option value="admin">Admin</option>
+          <option value="staff">Staff</option>
+          <option value="customer">Customer</option>
+        </select>
       </div>
       {error && <div className="text-xs text-amber-400">{error}</div>}
       {message && <div className="text-xs text-emerald-300">{message}</div>}

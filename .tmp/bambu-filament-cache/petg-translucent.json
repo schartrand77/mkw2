@@ -1,0 +1,182 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PETG Translucent",
+  "description": "Bambu PETG Translucent stands out with its exceptional printing characteristics, setting it apart from standard PETG materials. This specially tuned filament minimizes common issues like nozzle sticking, leakage, and clumping during the printing process, providing a hassle-free experience compared to ordinary PETG materials. The filament also exhibits water resistance, UV resistance, and resistance to temperature changes, making it an excellent choice for outdoor applications. Create with Light, Shadow and a Wide Range of Colors Bambu PETG Translucent offers 8 vibrant colors for you to choose from. Elevate your prints by seamlessly blending different colors and experimenting with various thicknesses of layers and walls. ",
+  "url": "https://ca.store.bambulab.com/products/petg-translucent",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8451619389680",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "44862523146480",
+      "image": "https://store.bblcdn.com/s5/default/2e8d7b9c2a4147da979f544f73f85fb5.jpg",
+      "name": "PETG Translucent - Translucent Light Blue (32600) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-translucent?id=44862523146480",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44862523244784",
+      "image": "https://store.bblcdn.com/s5/default/ffa37db2ff474b71b142f6f3225c7ded.jpg",
+      "name": "PETG Translucent - Translucent Teal (32501) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-translucent?id=44862523244784",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "45840017457392",
+      "image": "https://store.bblcdn.com/s5/default/1a74ea492a6f4b8ea23c7d84b145d316.png",
+      "name": "PETG Translucent - Clear (32101) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-translucent?id=45840017457392",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46081462337776",
+      "image": "https://store.bblcdn.com/s5/default/1a74ea492a6f4b8ea23c7d84b145d316.png",
+      "name": "PETG Translucent - Clear (32101) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-translucent?id=46081462337776",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46311960183024",
+      "image": "https://store.bblcdn.com/s5/default/2e8d7b9c2a4147da979f544f73f85fb5.jpg",
+      "name": "PETG Translucent - Translucent Light Blue (32600) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-translucent?id=46311960183024",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46311961067760",
+      "image": "https://store.bblcdn.com/s5/default/ffa37db2ff474b71b142f6f3225c7ded.jpg",
+      "name": "PETG Translucent - Translucent Teal (32501) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-translucent?id=46311961067760",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46311964246256",
+      "image": "https://store.bblcdn.com/s5/default/6415b5d6fb1a473490a0eb605d9d59b0.jpg",
+      "name": "PETG Translucent - Translucent Orange (32300) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-translucent?id=46311964246256",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46311965098224",
+      "image": "https://store.bblcdn.com/s5/default/d437c0bf73fa4bbdadf3b3a8f139e8b0.jpg",
+      "name": "PETG Translucent - Translucent Purple (32700) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-translucent?id=46311965098224",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46311967850736",
+      "image": "https://store.bblcdn.com/s5/default/3c06d1d78c3c40239fc582a8bd5a5261.jpg",
+      "name": "PETG Translucent - Translucent Pink (32200) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-translucent?id=46311967850736",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46334027956464",
+      "image": "https://store.bblcdn.com/s5/default/8534fe998fa145aeb6599bf16827cf58.jpg",
+      "name": "PETG Translucent - Translucent Olive (32500) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-translucent?id=46334027956464",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46352469885168",
+      "image": "https://store.bblcdn.com/s5/default/2c6abde5b9bd4184a9a1ecf31be06500.jpg",
+      "name": "PETG Translucent - Translucent Brown (32800) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-translucent?id=46352469885168",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46471168164080",
+      "image": "https://store.bblcdn.com/s5/default/18fb283d551c418f9246a22beec492ce.jpg",
+      "name": "PETG Translucent - Translucent Gray (32100) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-translucent?id=46471168164080",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

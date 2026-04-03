@@ -10,6 +10,8 @@ RUN if [ -f package-lock.json ]; then \
 
 FROM node:20-slim AS builder
 WORKDIR /app
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
+ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -31,10 +33,11 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/lib ./lib
 COPY package.json ./package.json
+COPY tsconfig.json ./tsconfig.json
 COPY prisma ./prisma
 COPY scripts ./scripts
-# Storage directory; will be mounted by docker-compose
-RUN mkdir -p /app/storage && chown -R nextjs:nodejs /app
+# Storage, backup, and import directories; can be mounted by docker-compose/unraid
+RUN mkdir -p /app/storage /app/backups /app/imports && chown -R nextjs:nodejs /app
 USER nextjs
 EXPOSE 3000
 CMD ["sh", "-c", "node scripts/restore.js && npx prisma migrate deploy && node scripts/bootstrap-admin.js && npm run start"]

@@ -1,5 +1,5 @@
 // Basic offline-first service worker
-const CACHE_NAME = 'mwv2-cache-v2';
+const CACHE_NAME = 'mwv2-cache-v3';
 const CORE_ASSETS = [
   '/',
   '/favicon.svg',
@@ -69,3 +69,44 @@ async function cacheFirst(req) {
     throw err;
   }
 }
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch {
+      data = { body: event.data.text() };
+    }
+  }
+  const title = data.title || 'MakerWorks';
+  const options = {
+    body: data.body || data.message || '',
+    icon: data.icon || '/favicon.svg',
+    badge: data.badge || '/favicon.svg',
+    tag: data.tag || undefined,
+    data: {
+      url: data.url || '/',
+      ...(data.data || {}),
+    },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification?.data?.url || '/';
+  event.waitUntil((async () => {
+    const origin = self.location.origin;
+    const absoluteUrl = new URL(targetUrl, origin).href;
+    const clientsArr = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of clientsArr) {
+      if (client.url === absoluteUrl && 'focus' in client) {
+        return client.focus();
+      }
+    }
+    if (clients.openWindow) {
+      return clients.openWindow(absoluteUrl);
+    }
+  })());
+});

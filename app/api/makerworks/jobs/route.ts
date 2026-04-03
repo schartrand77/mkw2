@@ -5,6 +5,17 @@ import { prisma } from '@/lib/db'
 import type { Prisma } from '@prisma/client'
 import { FulfillmentStatus } from '@prisma/client'
 import { serializeJob, type JobWithUser } from '@/app/api/admin/orderworks/jobs/_helpers'
+import { sendAdminPushNotification } from '@/lib/push'
+import { syncOrderStatusFromFulfillment } from '@/lib/orderworks-sync'
+import { createOrderFromJobForm } from '@/lib/orders'
+import {
+  isPaidPaymentStatus,
+  isPaymentPromise,
+  normalizePaymentMethod,
+  normalizePaymentStatus,
+} from '@/lib/orderworks-status'
+import { incrementMetric } from '@/lib/observability-metrics'
+import { withRequestObservability } from '@/lib/request-observability'
 
 const webhookPayloadSchema = z.object({
   paymentIntentId: z.string().min(4).max(200),
@@ -37,7 +48,7 @@ function timingSafeEqual(a: string, b: string) {
 }
 
 function getSecret(): string | null {
-  return process.env.MAKERWORKS_INBOUND_SECRET || process.env.ORDERWORKS_WEBHOOK_SECRET || null
+  return process.env['MAKERWORKS_INBOUND_SECRET'] || null
 }
 
 function verifyBearerSecret(req: NextRequest, secret: string) {
@@ -87,38 +98,35 @@ function normalizeFulfilledAt(value: unknown): Date | null | undefined {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-function normalizeString(input: string | null | undefined): string | null | undefined {
-  if (input === undefined) return undefined
-  if (input === null) return null
-  const trimmed = input.trim()
-  return trimmed.length === 0 ? null : trimmed
-}
-
 export const dynamic = 'force-dynamic'
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const secret = getSecret()
   if (!secret) {
+    incrementMetric('job_webhook_failure_total', 1, { reason: 'secret_missing' })
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
   }
   const rawBody = await req.text()
   const hasValidSecret = verifyBearerSecret(req, secret) || verifySignatureHeaders(req, rawBody, secret)
   if (!hasValidSecret) {
+    incrementMetric('job_webhook_failure_total', 1, { reason: 'invalid_signature' })
     return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
   }
   let parsedJson: unknown
   try {
     parsedJson = JSON.parse(rawBody)
   } catch (err: any) {
+    incrementMetric('job_webhook_failure_total', 1, { reason: 'invalid_json' })
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
   }
   const parsed = webhookPayloadSchema.safeParse(parsedJson)
   if (!parsed.success) {
+    incrementMetric('job_webhook_failure_total', 1, { reason: 'validation_failed' })
     return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 422 })
   }
   const data = parsed.data
-  const paymentMethod = normalizeString(data.paymentMethod ?? data.payment?.method)
-  const paymentStatus = normalizeString(data.paymentStatus ?? data.payment?.status)
+  const paymentMethod = normalizePaymentMethod(data.paymentMethod ?? data.payment?.method)
+  const paymentStatus = normalizePaymentStatus(data.paymentStatus ?? data.payment?.status)
   const fulfillmentStatus = data.fulfillmentStatus
   const fulfilledAt = normalizeFulfilledAt(data.fulfilledAt)
 
@@ -139,6 +147,9 @@ export async function POST(req: NextRequest) {
     where: { paymentIntentId: data.paymentIntentId },
     include: { user: { select: { id: true, name: true, email: true } } },
   })
+  const previousPaymentStatus = job?.paymentStatus ?? null
+  const previousPaymentMethod = job?.paymentMethod ?? null
+  let created = false
 
   if (!job) {
     if (
@@ -166,6 +177,7 @@ export async function POST(req: NextRequest) {
       },
       include: { user: { select: { id: true, name: true, email: true } } },
     })) as JobWithUser
+    created = true
   } else if (Object.keys(updatePayload).length > 0) {
     job = (await prisma.jobForm.update({
       where: { paymentIntentId: data.paymentIntentId },
@@ -174,5 +186,35 @@ export async function POST(req: NextRequest) {
     })) as JobWithUser
   }
 
+  try {
+    if (job && job.fulfillmentStatus) {
+      await syncOrderStatusFromFulfillment(job.paymentIntentId, job.fulfillmentStatus)
+    }
+    if (job && isPaidPaymentStatus(job.paymentStatus)) {
+      await createOrderFromJobForm(job)
+    }
+    if (job) {
+      const paymentStatusChanged = paymentStatus !== undefined && job.paymentStatus !== previousPaymentStatus
+      const paymentMethodChanged = paymentMethod !== undefined && job.paymentMethod !== previousPaymentMethod
+      if (created || paymentStatusChanged || paymentMethodChanged) {
+        const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+        const isPromise = isPaymentPromise(job.paymentMethod, job.paymentStatus)
+        const label = isPromise ? 'Payment promise received' : (created ? 'Payment received' : 'Payment updated')
+        await sendAdminPushNotification({
+          title: label,
+          body: `Intent ${job.paymentIntentId} - ${job.paymentMethod || 'unknown'} ${job.paymentStatus ? `(${job.paymentStatus})` : ''}`.trim(),
+          url: `${baseUrl}/admin/jobs`,
+          tag: `payment:${job.paymentIntentId}`,
+          data: { paymentIntentId: job.paymentIntentId, paymentMethod: job.paymentMethod, paymentStatus: job.paymentStatus || undefined },
+        })
+      }
+    }
+  } catch (notifyErr) {
+    console.error('Admin push notification failed for webhook job:', notifyErr)
+  }
+
+  incrementMetric('job_webhook_success_total')
   return NextResponse.json({ ok: true, job: serializeJob(job as JobWithUser) })
 }
+
+export const POST = withRequestObservability(handlePost, { routeName: '/api/makerworks/jobs' })

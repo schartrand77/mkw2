@@ -1,0 +1,126 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "TPU for AMS",
+  "description": null,
+  "url": "https://ca.store.bambulab.com/products/tpu-for-ams",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "9097068216560",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "46779647295728",
+      "image": "https://store.bblcdn.com/s5/default/a71f20c06c6941359cc1f8cb008b8474.jpg",
+      "name": "TPU for AMS - Red (53200) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-for-ams?id=46779647295728",
+        "priceCurrency": "CAD",
+        "price": 49.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46779647328496",
+      "image": "https://store.bblcdn.com/s5/default/44f427a876f244cfa6fa9379cecb9b92.jpg",
+      "name": "TPU for AMS - Yellow (53400) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-for-ams?id=46779647328496",
+        "priceCurrency": "CAD",
+        "price": 49.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46779647361264",
+      "image": "https://store.bblcdn.com/s5/default/d4fb1dd751904e1ea09d142c68d7ec36.jpg",
+      "name": "TPU for AMS - Blue (53600) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-for-ams?id=46779647361264",
+        "priceCurrency": "CAD",
+        "price": 49.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46779647394032",
+      "image": "https://store.bblcdn.com/s5/default/e5506620dbeb4aa7b9e1c81c08d20d64.jpg",
+      "name": "TPU for AMS - Neon Green (53500) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-for-ams?id=46779647394032",
+        "priceCurrency": "CAD",
+        "price": 49.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46779647426800",
+      "image": "https://store.bblcdn.com/s5/default/2f9b5bd40c774fc0bc6e48885acd7e30.jpg",
+      "name": "TPU for AMS - White (53100) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-for-ams?id=46779647426800",
+        "priceCurrency": "CAD",
+        "price": 49.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46779647459568",
+      "image": "https://store.bblcdn.com/s5/default/f5462676e1b7452db52b095a08421c65.jpg",
+      "name": "TPU for AMS - Gray (53102) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-for-ams?id=46779647459568",
+        "priceCurrency": "CAD",
+        "price": 49.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46779647492336",
+      "image": "https://store.bblcdn.com/s5/default/f0d51ead90a849b69aff4c607379d8ed.jpg",
+      "name": "TPU for AMS - Black (53101) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-for-ams?id=46779647492336",
+        "priceCurrency": "CAD",
+        "price": 49.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "669699832674201600",
+      "image": "https://store.bblcdn.com/s5/default/f0d51ead90a849b69aff4c607379d8ed.jpg",
+      "name": "TPU for AMS - Black (53101) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-for-ams?id=669699832674201600",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

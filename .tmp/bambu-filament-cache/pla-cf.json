@@ -1,0 +1,140 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA-CF",
+  "description": "Bambu PLA-CF is a custom-blended tough PLA with carbon fibers added to improve the hardness and bending modulus while still retaining the easy printing and dimensional stability of normal PLA. The resulting prints have a matte finish with almost invisible layer lines, making them ideal for prototypes of components that have to have a premium non-glossy look.",
+  "url": "https://ca.store.bambulab.com/products/pla-cf",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8221474455792",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "43845906235632",
+      "image": "https://store.bblcdn.com/s5/default/d2e469d4f653454c810ac76aca6c4cf6.jpg",
+      "name": "PLA-CF - Black (14100) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-cf?id=43845906235632",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44083777536240",
+      "image": "https://store.bblcdn.com/s5/default/15b97e3be198436e8ba8f7c7bf6ec910.png",
+      "name": "PLA-CF - Burgundy Red (14200) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-cf?id=44083777536240",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44083777569008",
+      "image": "https://store.bblcdn.com/s5/default/5f2ba769905f4acb9670e708ed025839.png",
+      "name": "PLA-CF - Jeans Blue (14600) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-cf?id=44083777569008",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44083777601776",
+      "image": "https://store.bblcdn.com/s5/default/5b745a9c346e4205842ef99960dec7b2.png",
+      "name": "PLA-CF - Lava Gray (14101) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-cf?id=44083777601776",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44148855570672",
+      "image": "https://store.bblcdn.com/s5/default/1fe4624c3f0a4149a2aaf60ca3642554.png",
+      "name": "PLA-CF - Matcha Green (14500) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-cf?id=44148855570672",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44235357094128",
+      "image": "https://store.bblcdn.com/s5/default/d279be5472374d4b89a9cbe04be1f397/20250710-180051.jpg",
+      "name": "PLA-CF - Royal Blue (14601) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-cf?id=44235357094128",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44235357126896",
+      "image": "https://store.bblcdn.com/s5/default/3473d73b325f40c484cee7dd573f6734.png",
+      "name": "PLA-CF - Iris Purple (14700) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-cf?id=44235357126896",
+        "priceCurrency": "CAD",
+        "price": 44.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46474926129392",
+      "image": "https://store.bblcdn.com/s5/default/d2e469d4f653454c810ac76aca6c4cf6.jpg",
+      "name": "PLA-CF - Black (14100) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-cf?id=46474926129392",
+        "priceCurrency": "CAD",
+        "price": 40.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46474926555376",
+      "image": "https://store.bblcdn.com/s5/default/5b745a9c346e4205842ef99960dec7b2.png",
+      "name": "PLA-CF - Lava Gray (14101) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-cf?id=46474926555376",
+        "priceCurrency": "CAD",
+        "price": 40.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

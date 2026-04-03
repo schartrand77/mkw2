@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import path from 'path'
-import sharp from 'sharp'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer } from '@/lib/storage'
 import { MODEL_IMAGE_LIMIT, serializeModelImage, serializeModelImages } from '@/lib/model-images'
-import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
+import { enqueueImageProcessing } from '@/lib/processing-jobs'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +18,7 @@ async function guardModelEditor(modelId: string) {
   const userId = await getUserIdFromCookie()
   if (!userId) return { response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   const [model, me] = await Promise.all([
-    prisma.model.findUnique({ where: { id: modelId }, select: { id: true, userId: true, coverImagePath: true } }),
+    prisma.model.findUnique({ where: { id: modelId }, select: { id: true, userId: true, coverImagePath: true, coverImageStatus: true } }),
     prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } }),
   ])
   if (!model) return { response: NextResponse.json({ error: 'Model not found' }, { status: 404 }) }
@@ -31,6 +30,16 @@ async function guardModelEditor(modelId: string) {
 
 type ModelImagesContext = { params: Promise<{ id: string }> }
 
+function getUploadFile(form: FormData): File | null {
+  const entry = form.get('image') ?? form.get('file')
+  if (!entry) return null
+  if (typeof File !== 'undefined' && entry instanceof File) return entry
+  if (entry instanceof Blob) {
+    return new File([entry], 'upload.bin', { type: entry.type || 'application/octet-stream' })
+  }
+  return null
+}
+
 export async function GET(_req: NextRequest, { params }: ModelImagesContext) {
   const { id } = await params
   const guard = await guardModelEditor(id)
@@ -41,6 +50,7 @@ export async function GET(_req: NextRequest, { params }: ModelImagesContext) {
   return NextResponse.json({
     images: serializeModelImages(images),
     coverImagePath: guard.model.coverImagePath || null,
+    coverImageStatus: guard.model.coverImageStatus || null,
   })
 }
 
@@ -55,25 +65,34 @@ export async function POST(req: NextRequest, { params }: ModelImagesContext) {
   }
 
   const form = await req.formData()
-  const image = form.get('image')
-  if (!(image instanceof File)) return NextResponse.json({ error: 'Image file required' }, { status: 400 })
+  const image = getUploadFile(form)
+  if (!image) return NextResponse.json({ error: 'Image file required' }, { status: 400 })
   const caption = ((form.get('caption') as string | null) || '').slice(0, 160) || null
   const setCover = normalizeFlag(form.get('setCover'))
 
   const buf = Buffer.from(await image.arrayBuffer())
-  const prepared = await ensureProcessableImageBuffer(buf, { filename: image.name, mimeType: image.type })
-  const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
-  const processed = await pipeline.resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
+  if (buf.length === 0) return NextResponse.json({ error: 'Image upload failed' }, { status: 400 })
+  const ext = path.extname(image.name) || '.bin'
+  const sourceRel = path.join(guard.model.userId, 'gallery', 'raw', `${guard.model.id}-${Date.now()}${ext}`)
+  await saveBuffer(sourceRel, buf)
   const rel = path.join(guard.model.userId, 'gallery', `${guard.model.id}-${Date.now()}.webp`)
-  await saveBuffer(rel, processed)
   const publicPath = `/${rel.replace(/\\/g, '/')}`
 
   const sortOrder = BigInt(Date.now())
   const created = await prisma.modelImage.create({
-    data: { modelId: guard.model.id, filePath: publicPath, caption, sortOrder },
+    data: { modelId: guard.model.id, filePath: publicPath, caption, sortOrder, sourcePath: `/${sourceRel.replace(/\\/g, '/')}`, status: 'processing' },
   })
   if (setCover) {
-    await prisma.model.update({ where: { id: guard.model.id }, data: { coverImagePath: publicPath } })
+    await prisma.model.update({ where: { id: guard.model.id }, data: { coverImagePath: publicPath, coverImageStatus: 'processing' } })
   }
+  void enqueueImageProcessing({
+    modelId: guard.model.id,
+    includeAvatars: false,
+    includeComments: false,
+    limit: 1,
+    idempotencyKey: `image:model:${guard.model.id}`,
+  }).catch((err) => {
+    console.warn('Failed to process model image', err)
+  })
   return NextResponse.json({ image: serializeModelImage(created) })
 }

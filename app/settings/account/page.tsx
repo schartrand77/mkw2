@@ -36,6 +36,11 @@ export default function AccountSettingsPage() {
     try {
       const res = await fetch('/api/account/password', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword, newPassword }) })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to update password')
+      const body = await res.json().catch(() => ({} as any))
+      if (body?.requiresReauth) {
+        window.location.href = '/login'
+        return
+      }
       setPassMsg('Password updated successfully.')
       setCurrentPassword(''); setNewPassword('')
       setScore(null)
@@ -62,6 +67,11 @@ export default function AccountSettingsPage() {
         <h2 className="font-semibold">Sign out</h2>
         <p className="text-slate-400 text-sm">Sign out of your account on this device.</p>
         <button className="px-4 py-2 rounded-md border border-white/10 hover:border-white/20" formAction="/api/logout">Sign out</button>
+      </form>
+      <form action="/api/account/sessions/logout-all" method="post" className="glass p-6 rounded-xl space-y-3">
+        <h2 className="font-semibold">Sign out all devices</h2>
+        <p className="text-slate-400 text-sm">Immediately invalidate active sessions everywhere.</p>
+        <button className="px-4 py-2 rounded-md border border-white/10 hover:border-white/20" formAction="/api/account/sessions/logout-all">Logout all sessions</button>
       </form>
       <form onSubmit={updateEmail} className="glass p-6 rounded-xl space-y-3">
         <h2 className="font-semibold">Update Email</h2>

@@ -42,13 +42,49 @@ export function computeStlVolumeMm3(buf: Buffer): number | null {
   }
 }
 
-// Compute volume (mm^3) and bounding-box size (mm) for STL
-export function computeStlStatsMm(buf: Buffer): { volumeMm3: number | null, sizeXmm?: number, sizeYmm?: number, sizeZmm?: number } {
+function resolveSupportAngleDegrees(): number {
+  const raw = process.env.SUPPORT_OVERHANG_ANGLE_DEG
+  const parsed = raw != null ? Number(raw) : NaN
+  if (Number.isFinite(parsed) && parsed > 0 && parsed < 89) return parsed
+  return 45
+}
+
+// Compute volume (mm^3), bounding-box size (mm), and support area ratio for STL
+export function computeStlStatsMm(buf: Buffer): {
+  volumeMm3: number | null
+  sizeXmm?: number
+  sizeYmm?: number
+  sizeZmm?: number
+  supportAreaRatio?: number
+} {
   let minX = Number.POSITIVE_INFINITY, minY = Number.POSITIVE_INFINITY, minZ = Number.POSITIVE_INFINITY
   let maxX = Number.NEGATIVE_INFINITY, maxY = Number.NEGATIVE_INFINITY, maxZ = Number.NEGATIVE_INFINITY
   const acc = (x: number, y: number, z: number) => {
     if (x < minX) minX = x; if (y < minY) minY = y; if (z < minZ) minZ = z
     if (x > maxX) maxX = x; if (y > maxY) maxY = y; if (z > maxZ) maxZ = z
+  }
+  const supportAngle = resolveSupportAngleDegrees()
+  const supportCos = Math.cos((supportAngle * Math.PI) / 180)
+  let totalArea = 0
+  let supportArea = 0
+  const trackSupportArea = (ax: number, ay: number, az: number, bx: number, by: number, bz: number, cx: number, cy: number, cz: number) => {
+    const abx = bx - ax
+    const aby = by - ay
+    const abz = bz - az
+    const acx = cx - ax
+    const acy = cy - ay
+    const acz = cz - az
+    const crossX = aby * acz - abz * acy
+    const crossY = abz * acx - abx * acz
+    const crossZ = abx * acy - aby * acx
+    const doubleArea = Math.hypot(crossX, crossY, crossZ)
+    if (!Number.isFinite(doubleArea) || doubleArea <= 0) return
+    const area = doubleArea / 2
+    totalArea += area
+    const nz = crossZ / doubleArea
+    if (nz < -supportCos) {
+      supportArea += area
+    }
   }
   // Try binary
   if (buf.length >= 84) {
@@ -67,11 +103,13 @@ export function computeStlStatsMm(buf: Buffer): { volumeMm3: number | null, size
         const cy = buf.readFloatLE(i + 40)
         const cz = buf.readFloatLE(i + 44)
         acc(ax, ay, az); acc(bx, by, bz); acc(cx, cy, cz)
+        trackSupportArea(ax, ay, az, bx, by, bz, cx, cy, cz)
         volume += signedTetraVolume(ax, ay, az, bx, by, bz, cx, cy, cz)
       }
       const vol = Math.abs(volume)
       const sx = (maxX - minX), sy = (maxY - minY), sz = (maxZ - minZ)
-      return { volumeMm3: vol, sizeXmm: sx, sizeYmm: sy, sizeZmm: sz }
+      const supportAreaRatio = totalArea > 0 ? Math.max(0, Math.min(1, supportArea / totalArea)) : undefined
+      return { volumeMm3: vol, sizeXmm: sx, sizeYmm: sy, sizeZmm: sz, supportAreaRatio }
     }
   }
   // ASCII fallback
@@ -86,11 +124,19 @@ export function computeStlStatsMm(buf: Buffer): { volumeMm3: number | null, size
       const bx = parseFloat(m[4]); const by = parseFloat(m[5]); const bz = parseFloat(m[6])
       const cx = parseFloat(m[7]); const cy = parseFloat(m[8]); const cz = parseFloat(m[9])
       acc(ax, ay, az); acc(bx, by, bz); acc(cx, cy, cz)
+      trackSupportArea(ax, ay, az, bx, by, bz, cx, cy, cz)
       volume += signedTetraVolume(ax, ay, az, bx, by, bz, cx, cy, cz)
     }
     const vol = Math.abs(volume)
     const sx = (maxX - minX), sy = (maxY - minY), sz = (maxZ - minZ)
-    return { volumeMm3: vol, sizeXmm: isFinite(sx) ? sx : undefined, sizeYmm: isFinite(sy) ? sy : undefined, sizeZmm: isFinite(sz) ? sz : undefined }
+    const supportAreaRatio = totalArea > 0 ? Math.max(0, Math.min(1, supportArea / totalArea)) : undefined
+    return {
+      volumeMm3: vol,
+      sizeXmm: isFinite(sx) ? sx : undefined,
+      sizeYmm: isFinite(sy) ? sy : undefined,
+      sizeZmm: isFinite(sz) ? sz : undefined,
+      supportAreaRatio,
+    }
   } catch {
     return { volumeMm3: null }
   }

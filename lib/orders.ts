@@ -1,21 +1,13 @@
 import path from 'path'
 import { randomUUID } from 'crypto'
-import type { Prisma, PrintOrder, PrintOrderItem, PrintOrderRevision } from '@prisma/client'
+import type { Prisma, PrintOrder, PrintOrderApprovalRequest, PrintOrderItem, PrintOrderMessage, PrintOrderRevision } from '@prisma/client'
+import type { JobForm } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import type { CheckoutLineItem, ShippingSelection, CheckoutPaymentMethod } from '@/types/checkout'
 import { saveBuffer } from '@/lib/storage'
-
-export const ORDER_STATUSES = [
-  { key: 'awaiting_review', label: 'Awaiting review' },
-  { key: 'awaiting_payment', label: 'Awaiting payment' },
-  { key: 'in_production', label: 'In production' },
-  { key: 'ready', label: 'Ready for pickup' },
-  { key: 'shipped', label: 'Shipped' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'cancelled', label: 'Cancelled' },
-] as const
-
-export type OrderStatus = (typeof ORDER_STATUSES)[number]['key']
+import type { OrderStatus } from '@/lib/order-status'
+import { normalizePaymentMethod as normalizeOrderWorksPaymentMethod } from '@/lib/orderworks-status'
+import { listOrganizationIdsForUser } from '@/lib/organizations'
 
 type PersistOrderPayload = {
   paymentIntentId: string
@@ -28,12 +20,37 @@ type PersistOrderPayload = {
   customerEmail?: string | null
   customerName?: string | null
   discountPercent?: number | null
+  organizationId?: string | null
   metadata?: Prisma.InputJsonValue
 }
 
 function normalizeCurrency(code: string) {
   if (!code) return 'USD'
   return code.toUpperCase()
+}
+
+function normalizeShippingSelection(raw: unknown): ShippingSelection {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { method: 'pickup' }
+  }
+  const value = raw as ShippingSelection
+  if (value.method === 'ship') {
+    return { method: 'ship', address: value.address || undefined }
+  }
+  return { method: 'pickup' }
+}
+
+function normalizePaymentMethod(raw?: string | null): CheckoutPaymentMethod {
+  const normalized = normalizeOrderWorksPaymentMethod(raw)
+  if (normalized === 'cash' || normalized === 'invoice' || normalized === 'po' || normalized === 'quote') {
+    return normalized
+  }
+  return 'card'
+}
+
+function coerceLineItems(raw: unknown): CheckoutLineItem[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((item) => item && typeof item === 'object') as CheckoutLineItem[]
 }
 
 export async function recordCustomerOrder(payload: PersistOrderPayload) {
@@ -43,11 +60,15 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
   }, 0)
   const subtotalCents = Math.max(0, Math.round((subtotal > 0 ? subtotal : payload.amountCents / 100) * 100))
   const shippingData = payload.shipping || { method: 'pickup' }
+  const isQuote = payload.paymentMethod === 'quote'
+  const isDeferred = payload.paymentMethod === 'cash' || payload.paymentMethod === 'invoice' || payload.paymentMethod === 'po'
   const status: OrderStatus = payload.amountCents <= 0
-    ? 'awaiting_review'
-    : payload.paymentMethod === 'cash'
-      ? 'awaiting_payment'
-      : 'awaiting_review'
+    ? 'queued'
+    : isQuote
+      ? 'awaiting_review'
+      : isDeferred
+        ? 'awaiting_payment'
+        : 'queued'
   const itemsData: Prisma.PrintOrderItemCreateWithoutOrderInput[] = payload.lineItems.map((item) => ({
     modelId: item.modelId,
     modelTitle: item.title,
@@ -56,16 +77,23 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
     material: item.material,
     colors: item.colors && item.colors.length > 0 ? item.colors : undefined,
     infillPct: item.infillPct ?? undefined,
-    finish: undefined,
+    finish: item.finish ?? undefined,
     customNotes: item.customText || undefined,
     quantity: item.qty,
     unitPriceCents: Math.max(0, Math.round(item.unitPrice * 100)),
     totalCents: Math.max(0, Math.round(item.lineTotal * 100)),
     configuration: {
+      productTemplateId: item.productTemplateId,
       scale: item.scale,
       colors: item.colors,
+      toleranceClass: item.toleranceClass ?? 'standard',
       infillPct: item.infillPct,
+      finish: item.finish,
       customText: item.customText,
+      leadTimeHours: item.leadTimeHours ?? null,
+      leadTimeWindowHours: item.leadTimeWindowHours ?? null,
+      etaConfidenceScore: item.etaConfidenceScore ?? null,
+      priceMultiplier: item.pricingBreakdown?.priceMultiplier,
       storagePath: item.storagePath,
       storageUrl: item.storageUrl,
     },
@@ -86,6 +114,9 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
     }
     return { paymentIntentId: payload.paymentIntentId }
   })()
+  const metadataRecord = metadataPayload as Record<string, unknown>
+  const organizationRole = typeof metadataRecord.organizationRole === 'string' ? metadataRecord.organizationRole : null
+  const orgRequiresApproval = metadataRecord.quoteApprovalRequired === true
 
   return prisma.printOrder.create({
     data: {
@@ -98,22 +129,92 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
       totalCents: payload.amountCents,
       currency: normalizeCurrency(payload.currency),
       metadata: metadataPayload,
+      organizationId: payload.organizationId || undefined,
       userId: payload.userId || undefined,
       customerEmail: payload.customerEmail || undefined,
       customerName: payload.customerName || undefined,
       items: {
         create: itemsData,
       },
+      ...(isQuote
+        ? {
+          approvalRequests: {
+            create: {
+              message: organizationRole === 'requester' || orgRequiresApproval
+                ? 'Requester submitted quote. Approver review is required before production.'
+                : 'Please approve this quote to move your order into production.',
+            },
+          },
+        }
+        : {}),
     },
   })
 }
 
 export type OrderListEntry = PrintOrder & { items: Pick<PrintOrderItem, 'id' | 'modelTitle' | 'quantity' | 'totalCents' | 'thumbnailPath'>[] }
 
+type OrderWorksLink = {
+  paymentIntentId: string | null
+  jobFormId: string | null
+}
+
+function extractOrderWorksLink(metadata: unknown): OrderWorksLink | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
+  const record = metadata as Record<string, unknown>
+  const source = typeof record.source === 'string' ? record.source.trim().toLowerCase() : null
+  const paymentIntentId = typeof record.paymentIntentId === 'string' && record.paymentIntentId.trim().length > 0
+    ? record.paymentIntentId.trim()
+    : null
+  const jobFormId = typeof record.jobFormId === 'string' && record.jobFormId.trim().length > 0
+    ? record.jobFormId.trim()
+    : null
+
+  if (source !== 'orderworks' && !jobFormId) return null
+  return { paymentIntentId, jobFormId }
+}
+
+async function filterVisibleOrdersForUser<T extends { id: string; metadata: unknown }>(orders: T[]): Promise<T[]> {
+  if (orders.length === 0) return orders
+
+  const linked = orders
+    .map((order) => ({ orderId: order.id, link: extractOrderWorksLink(order.metadata) }))
+    .filter((entry): entry is { orderId: string; link: OrderWorksLink } => Boolean(entry.link))
+
+  if (linked.length === 0) return orders
+
+  const paymentIntentIds = Array.from(new Set(linked.map((entry) => entry.link.paymentIntentId).filter((v): v is string => Boolean(v))))
+  const jobFormIds = Array.from(new Set(linked.map((entry) => entry.link.jobFormId).filter((v): v is string => Boolean(v))))
+  const jobWhere: Prisma.JobFormWhereInput[] = []
+  if (paymentIntentIds.length > 0) jobWhere.push({ paymentIntentId: { in: paymentIntentIds } })
+  if (jobFormIds.length > 0) jobWhere.push({ id: { in: jobFormIds } })
+  if (jobWhere.length === 0) return orders
+
+  const jobs = await prisma.jobForm.findMany({
+    where: { OR: jobWhere },
+    select: { id: true, paymentIntentId: true },
+  })
+  const jobIds = new Set(jobs.map((job) => job.id))
+  const paymentIds = new Set(jobs.map((job) => job.paymentIntentId))
+
+  return orders.filter((order) => {
+    const link = extractOrderWorksLink(order.metadata)
+    if (!link) return true
+    if (link.jobFormId && jobIds.has(link.jobFormId)) return true
+    if (link.paymentIntentId && paymentIds.has(link.paymentIntentId)) return true
+    return false
+  })
+}
+
 export async function listOrdersForUser(userId: string, limit = 20): Promise<OrderListEntry[]> {
   if (!userId) return []
-  return prisma.printOrder.findMany({
-    where: { userId },
+  const orgIds = await listOrganizationIdsForUser(userId)
+  const orders = await prisma.printOrder.findMany({
+    where: {
+      OR: [
+        { userId },
+        ...(orgIds.length > 0 ? [{ organizationId: { in: orgIds } }] : []),
+      ],
+    },
     orderBy: { createdAt: 'desc' },
     take: limit,
     include: {
@@ -128,31 +229,140 @@ export async function listOrdersForUser(userId: string, limit = 20): Promise<Ord
       },
     },
   })
+  return filterVisibleOrdersForUser(orders)
 }
 
 export type OrderDetail = PrintOrder & {
   items: PrintOrderItem[]
+  printLabJobs: {
+    id: string
+    sourceJobId: string
+    printLabJobId: string | null
+    status: string
+    printerId: string | null
+    printerName: string | null
+    queueItemId: string | null
+    modelId: string
+    modelName: string | null
+    fileName: string | null
+    filePath: string | null
+    lastSubmittedAt: Date | null
+    lastCallbackAt: Date | null
+    startedAt: Date | null
+    completedAt: Date | null
+    lastError: string | null
+    metadata: unknown
+    history: unknown
+    createdAt: Date
+    updatedAt: Date
+  }[]
   revisions: (PrintOrderRevision & { user?: { id: string; name: string | null; email: string } | null })[]
+  messages: (PrintOrderMessage & { user?: { id: string; name: string | null; email: string } | null })[]
+  approvalRequests: (PrintOrderApprovalRequest & { requestedBy?: { id: string; name: string | null; email: string } | null })[]
+  failurePhotos: { id: string; filePath: string; label: string; confidence: number | null; note: string | null; createdAt: Date }[]
   reprintOf: { id: string; orderNumber: number | null } | null
   reprints: { id: string; orderNumber: number | null; status: string; createdAt: Date }[]
 }
 
+export async function createOrderFromJobForm(job: JobForm & { user?: { id: string; name: string | null; email: string | null } | null }) {
+  if (!job?.paymentIntentId) return null
+  const existing = await prisma.printOrder.findFirst({
+    where: {
+      metadata: {
+        path: ['paymentIntentId'],
+        equals: job.paymentIntentId,
+      },
+    },
+  })
+  if (existing) return existing
+
+  const lineItems = coerceLineItems(job.lineItems)
+  if (lineItems.length === 0) return null
+  const shipping = normalizeShippingSelection(job.shipping)
+  const paymentMethod = normalizePaymentMethod(job.paymentMethod)
+
+  return recordCustomerOrder({
+    paymentIntentId: job.paymentIntentId,
+    amountCents: job.totalCents,
+    currency: normalizeCurrency(job.currency),
+    lineItems,
+    shipping,
+    paymentMethod,
+    userId: job.userId || undefined,
+    customerEmail: job.customerEmail || job.user?.email || undefined,
+    customerName: job.user?.name || undefined,
+    metadata: {
+      source: 'orderworks',
+      jobFormId: job.id,
+      shipping: job.shipping,
+      ...(job.metadata && typeof job.metadata === 'object' && !Array.isArray(job.metadata) ? job.metadata : {}),
+    },
+  })
+}
+
 export async function getOrderForUser(orderId: string, userId: string): Promise<OrderDetail | null> {
   if (!userId) return null
-  return prisma.printOrder.findFirst({
-    where: { id: orderId, userId },
+  const orgIds = await listOrganizationIdsForUser(userId)
+  const order = await prisma.printOrder.findFirst({
+    where: {
+      id: orderId,
+      OR: [
+        { userId },
+        ...(orgIds.length > 0 ? [{ organizationId: { in: orgIds } }] : []),
+      ],
+    },
     include: {
       items: true,
+      printLabJobs: {
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true,
+          sourceJobId: true,
+          printLabJobId: true,
+          status: true,
+          printerId: true,
+          printerName: true,
+          queueItemId: true,
+          modelId: true,
+          modelName: true,
+          fileName: true,
+          filePath: true,
+          lastSubmittedAt: true,
+          lastCallbackAt: true,
+          startedAt: true,
+          completedAt: true,
+          lastError: true,
+          metadata: true,
+          history: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
       revisions: {
         orderBy: { createdAt: 'desc' },
         include: {
           user: { select: { id: true, name: true, email: true } },
         },
       },
+      messages: {
+        orderBy: { createdAt: 'asc' },
+        include: { user: { select: { id: true, name: true, email: true } } },
+      },
+      approvalRequests: {
+        orderBy: { createdAt: 'asc' },
+        include: { requestedBy: { select: { id: true, name: true, email: true } } },
+      },
+      failurePhotos: {
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, filePath: true, label: true, confidence: true, note: true, createdAt: true },
+      },
       reprintOf: { select: { id: true, orderNumber: true } },
       reprints: { select: { id: true, orderNumber: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' } },
     },
   })
+  if (!order) return null
+  const visible = await filterVisibleOrdersForUser([order])
+  return visible.length > 0 ? order : null
 }
 
 export async function createReprintOrder(orderId: string, userId: string) {
@@ -175,7 +385,7 @@ export async function createReprintOrder(orderId: string, userId: string) {
       paymentMethod: source.paymentMethod,
       shippingMethod: source.shippingMethod,
       shippingAddress: source.shippingAddress ?? undefined,
-      status: 'awaiting_review',
+      status: 'queued',
       subtotalCents: source.subtotalCents,
       discountPercent: source.discountPercent,
       totalCents: source.totalCents,

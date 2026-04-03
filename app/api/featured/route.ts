@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { resolveModelPricing } from '@/lib/pricing'
-export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const [items, cfg] = await Promise.all([

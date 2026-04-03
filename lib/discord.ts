@@ -20,6 +20,10 @@ export function adminDiscordEnabled() {
   return Boolean(ADMIN_CHANNEL_ID && ADMIN_BOT_TOKEN)
 }
 
+export function discordBotEnabled() {
+  return Boolean(ADMIN_BOT_TOKEN)
+}
+
 export async function sendAdminDiscordNotification(payload: AdminDiscordPayload) {
   if (!ADMIN_CHANNEL_ID || !ADMIN_BOT_TOKEN) {
     if (!warnedMissingConfig) {
@@ -63,6 +67,53 @@ export async function sendAdminDiscordNotification(payload: AdminDiscordPayload)
     return true
   } catch (err) {
     console.error('Admin Discord notification error', err)
+    return false
+  }
+}
+
+export async function sendDiscordDirectMessage(userId: string, content: string) {
+  if (!ADMIN_BOT_TOKEN) {
+    if (!warnedMissingConfig) {
+      console.warn('Discord bot is disabled (missing DISCORD_ADMIN_BOT_TOKEN or DISCORD_BOT_TOKEN)')
+      warnedMissingConfig = true
+    }
+    return false
+  }
+  try {
+    const channelRes = await fetch('https://discord.com/api/v10/users/@me/channels', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bot ${ADMIN_BOT_TOKEN}`,
+      },
+      body: JSON.stringify({ recipient_id: userId }),
+    })
+    if (!channelRes.ok) {
+      const errText = await channelRes.text().catch(() => '')
+      console.error('Failed to create Discord DM channel', channelRes.status, errText)
+      return false
+    }
+    const channel = await channelRes.json().catch(() => null) as { id?: string } | null
+    if (!channel?.id) {
+      console.error('Discord DM channel missing id')
+      return false
+    }
+    const msgRes = await fetch(`https://discord.com/api/v10/channels/${channel.id}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bot ${ADMIN_BOT_TOKEN}`,
+      },
+      body: JSON.stringify({ content: trimContent(content) }),
+    })
+    if (!msgRes.ok) {
+      const errText = await msgRes.text().catch(() => '')
+      console.error('Failed to send Discord DM', msgRes.status, errText)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('Discord DM error', err)
     return false
   }
 }

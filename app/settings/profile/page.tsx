@@ -40,6 +40,7 @@ export default function EditProfilePage() {
   const [bio, setBio] = useState('')
   const [avatar, setAvatar] = useState<File | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
   const [contactEmail, setContactEmail] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
@@ -93,6 +94,18 @@ export default function EditProfilePage() {
     }
     run()
   }, [])
+
+  useEffect(() => {
+    if (!avatar) {
+      setAvatarPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(avatar)
+    setAvatarPreviewUrl(url)
+    return () => {
+      URL.revokeObjectURL(url)
+    }
+  }, [avatar])
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -163,8 +176,8 @@ export default function EditProfilePage() {
           <div className="glass p-6 rounded-xl space-y-4">
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-full overflow-hidden border border-white/10 bg-slate-900/40">
-                {avatar ? (
-                  <img className="w-full h-full object-cover" src={URL.createObjectURL(avatar)} />
+                {avatarPreviewUrl ? (
+                  <img className="w-full h-full object-cover" src={avatarPreviewUrl} />
                 ) : avatarUrl ? (
                   <img className="w-full h-full object-cover" src={avatarUrl} />
                 ) : (

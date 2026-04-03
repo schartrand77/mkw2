@@ -8,25 +8,51 @@ export enum DiscoverSort {
   Popular = 'popular',
   PriceAsc = 'price_asc',
   PriceDesc = 'price_desc',
+  BestConfidence = 'best_confidence',
+  FastestToShip = 'fastest_to_ship',
+  LowestFailureRisk = 'lowest_failure_risk',
+}
+
+export enum DiscoverEntityType {
+  Model = 'model',
+  Product = 'product',
+  Merch = 'merch',
 }
 
 export type DiscoverModel = {
   id: string
+  entityType?: DiscoverEntityType | null
+  href?: string | null
   title: string
+  material?: string | null
   coverImagePath?: string | null
-  updatedAt?: string | null
   fileType?: string | null
   partsCount?: number | null
   priceUsd?: number | null
   basePriceUsd?: number | null
+  salePriceUsd?: number | null
   saleActive?: boolean | null
   salePriceIsFrom?: boolean | null
   salePriceUnit?: string | null
+  flatRatePricing?: boolean | null
+  colorSlotCount?: number | null
+  allowedColors?: string[] | null
   sizeXmm?: number | null
   sizeYmm?: number | null
   sizeZmm?: number | null
   likes?: number | null
   downloads?: number | null
+  commentsCount?: number | null
+  printabilityScore?: number | null
+  failureRiskScore?: number | null
+  supportLikelihood?: number | null
+  materialAvailability?: 'in_stock' | 'limited' | 'out_of_stock' | 'unknown' | null
+  materialLeadTimeDays?: number | null
+  createdAt?: string | Date | null
+  updatedAt?: string | Date | null
+  defaultColors?: string[] | null
+  recommendationScore?: number | null
+  recommendationReasons?: string[] | null
 }
 
 export type CardInfo = {
@@ -40,23 +66,33 @@ export type CardInfo = {
 export type ModelWithPartsCountAndTags = {
   id: string
   title: string
+  description?: string | null
   coverImagePath: string | null
   sizeXmm: number | null
   sizeYmm: number | null
   sizeZmm: number | null
   fileType: string | null
+  material?: string | null
   priceUsd: number | null
+  effectivePriceUsd?: number | null
   salePriceUsd: number | null
   salePriceIsFrom: boolean
   salePriceUnit: string | null
-  volumeMm3: number | null
-  material: string
+  flatRatePricing?: boolean | null
+  colorSlotCount?: number | null
+  allowedColors?: string[] | null
   likes: number
   downloads: number
+  printabilityScore?: number | null
+  failureRiskScore?: number | null
+  supportLikelihood?: number | null
+  materialAvailability?: 'in_stock' | 'limited' | 'out_of_stock' | 'unknown' | null
+  materialLeadTimeDays?: number | null
   createdAt: Date
   updatedAt: Date
   _count: {
     parts: number
+    comments: number
   }
   modelTags: {
     tag: {

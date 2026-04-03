@@ -4,12 +4,11 @@ import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { saveBuffer } from '@/lib/storage'
 import { refreshUserAchievements } from '@/lib/achievements'
-import sharp from 'sharp'
 import { unlink } from 'fs/promises'
 import path from 'path'
 import { ensureUserPage, slugify } from '@/lib/userpage'
 import { isSupportedImageFile } from '@/lib/images'
-import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
+import { isSameOriginRequest } from '@/lib/csrf'
 
 export async function GET() {
   const userId = await getUserIdFromCookie()
@@ -20,6 +19,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  if (!isSameOriginRequest(req)) return NextResponse.json({ error: 'Invalid CSRF origin' }, { status: 403 })
   const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -96,18 +96,21 @@ export async function PATCH(req: NextRequest) {
 
   if (avatarFile && isSupportedImageFile(avatarFile.name, avatarFile.type)) {
     const buf = Buffer.from(await avatarFile.arrayBuffer())
-    const prepared = await ensureProcessableImageBuffer(buf, { filename: avatarFile.name, mimeType: avatarFile.type })
-    // Process avatar to 512x512 webp, center-crop
-    const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
-    const out = await pipeline.resize(512, 512, { fit: 'cover' }).webp({ quality: 90 }).toBuffer()
+    if (buf.length === 0) {
+      return NextResponse.json({ error: 'Image upload failed' }, { status: 400 })
+    }
     // Store avatars under {userId}/avatars/{timestamp}.webp for per-user organization
     const rel = path.join(userId, 'avatars', `${Date.now()}.webp`)
+    const ext = path.extname(avatarFile.name) || '.bin'
+    const sourceRel = path.join(userId, 'avatars', 'raw', `${Date.now()}${ext}`)
     // Cleanup old avatar if any
     if (current.avatarImagePath) {
       try { await unlink(path.join(process.env.STORAGE_DIR || process.cwd() + '/storage', current.avatarImagePath.replace(/^\//, ''))) } catch {}
     }
-    await saveBuffer(rel, out)
+    await saveBuffer(sourceRel, buf)
     updatesProfile.avatarImagePath = `/${rel.replace(/\\/g, '/')}`
+    updatesProfile.avatarImageStatus = 'processing'
+    updatesProfile.avatarImageSourcePath = `/${sourceRel.replace(/\\/g, '/')}`
   }
 
   for (const [key, raw] of Object.entries(extraFields)) {

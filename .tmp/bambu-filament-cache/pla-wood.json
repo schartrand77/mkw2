@@ -1,0 +1,98 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Wood",
+  "description": null,
+  "url": "https://ca.store.bambulab.com/products/pla-wood",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "9100481954032",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "46788372824304",
+      "image": "https://store.bblcdn.com/s5/default/a651dc64a2e14f1c8e85d6149bc7bdb3/4.jpg",
+      "name": "PLA Wood - Black Walnut (13107) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-wood?id=46788372824304",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46788372857072",
+      "image": "https://store.bblcdn.com/s5/default/6dc2ca14c2624f1bb182986aa6375687.jpg",
+      "name": "PLA Wood - Rosewood (13204) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-wood?id=46788372857072",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46788372889840",
+      "image": "https://store.bblcdn.com/s5/default/1375e942e3d04f87a542c520368badff.jpg",
+      "name": "PLA Wood - Clay Brown (13801) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-wood?id=46788372889840",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46788372922608",
+      "image": "https://store.bblcdn.com/s5/default/864fe622e7974d069131b6629eda7e62.jpg",
+      "name": "PLA Wood - Classic Birch (13505) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-wood?id=46788372922608",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46788372955376",
+      "image": "https://store.bblcdn.com/s5/default/cd1e7de8960046d0a67173cb37407b4e.jpg",
+      "name": "PLA Wood - White Oak (13106) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-wood?id=46788372955376",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46788372988144",
+      "image": "https://store.bblcdn.com/s5/default/32535a441fc84096a39671ef7f6eb851.jpg",
+      "name": "PLA Wood - Ochre Yellow (13403) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-wood?id=46788372988144",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

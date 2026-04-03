@@ -1,0 +1,126 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Basic Gradient",
+  "description": null,
+  "url": "https://ca.store.bambulab.com/products/pla-basic-gradient",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8295337230576",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "44159419810032",
+      "image": "https://store.bblcdn.com/s5/default/140159e159274822b3299cf9cf7bfe1c.png",
+      "name": "PLA Basic Gradient - Arctic Whisper (10900) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-gradient?id=44159419810032",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44159419842800",
+      "image": "https://store.bblcdn.com/s5/default/64ab0bb38a4a41e48c79d3b60463e8b5.png",
+      "name": "PLA Basic Gradient - Solar Breeze (10901) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-gradient?id=44159419842800",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44159419875568",
+      "image": "https://store.bblcdn.com/s5/default/878d72da5fee4e3296223db1ff2fa4e1.png",
+      "name": "PLA Basic Gradient - Ocean to Meadow (10902) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-gradient?id=44159419875568",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "545401327678750725",
+      "image": "https://store.bblcdn.com/s5/default/8d9986037d04400098975045192b1034/bluebuble.jpg",
+      "name": "PLA Basic Gradient - Blueberry Bubblegum (10905) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-gradient?id=545401327678750725",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "545401327678750731",
+      "image": "https://store.bblcdn.com/s5/default/79a2bacb10694741afcb424a3ca4ca3c/pink_blue.jpg",
+      "name": "PLA Basic Gradient - Cotton Candy Cloud (10907) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-gradient?id=545401327678750731",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "545401327678750737",
+      "image": "https://store.bblcdn.com/s5/default/8444baddd48343b986c22239d571a22a/pink_gradient.jpg",
+      "name": "PLA Basic Gradient - Pink Citrus (10903) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-gradient?id=545401327678750737",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "545401327678750743",
+      "image": "https://store.bblcdn.com/s5/default/8c10cd9963b1430591cec5e49d32a042/gradient_green.jpg",
+      "name": "PLA Basic Gradient - Mint Lime (10904) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-gradient?id=545401327678750743",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "548991610414206978",
+      "image": "https://store.bblcdn.com/s5/default/ca4bd4a34b4c46a4860bd6dd75b29f31/sunset_orange.jpg",
+      "name": "PLA Basic Gradient - Dusk Glare (10906) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-basic-gradient?id=548991610414206978",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

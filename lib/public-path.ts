@@ -10,6 +10,14 @@ export function toPublicHref(p: string | null | undefined): string | null {
   else if (s.startsWith('/app/storage/')) s = s.slice('/app/storage/'.length)
   else if (s.startsWith('storage/')) s = s.slice('storage/'.length)
   if (!s.startsWith('/')) s = '/' + s
+  const base = (
+    process.env.NEXT_PUBLIC_FILES_BASE_URL
+    || process.env.NEXT_PUBLIC_FILES_CDN_BASE_URL
+    || process.env.FILES_BASE_URL
+    || process.env.FILES_CDN_BASE_URL
+    || ''
+  ).replace(/\/+$/, '')
+  if (base) return `${base}${s}`
   return '/files' + s
 }
 

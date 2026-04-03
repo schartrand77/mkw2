@@ -1,17 +1,20 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { resolveColorStops } from '@/lib/color-swatch'
 
 type ThreeLib = typeof import('three')
 type OrbitControlsModule = typeof import('three/examples/jsm/controls/OrbitControls')
 type STLLoaderModule = typeof import('three/examples/jsm/loaders/STLLoader')
 type OBJLoaderModule = typeof import('three/examples/jsm/loaders/OBJLoader.js')
 type ThreeMFLoaderModule = typeof import('three/examples/jsm/loaders/3MFLoader.js')
+type FflateModule = typeof import('three/examples/jsm/libs/fflate.module.js')
 
 let threePromise: Promise<ThreeLib> | null = null
 let orbitPromise: Promise<OrbitControlsModule> | null = null
 let stlPromise: Promise<STLLoaderModule> | null = null
 let objPromise: Promise<OBJLoaderModule> | null = null
 let threeMfPromise: Promise<ThreeMFLoaderModule> | null = null
+let fflatePromise: Promise<FflateModule> | null = null
 
 function loadThree() {
   if (!threePromise) threePromise = import('three')
@@ -38,12 +41,24 @@ function loadThreeMf() {
   return threeMfPromise
 }
 
+function loadFflate() {
+  if (!fflatePromise) fflatePromise = import('three/examples/jsm/libs/fflate.module.js')
+  return fflatePromise
+}
+
 type Props = {
   src?: string
   srcs?: string[]
+  partKeys?: Array<string | null | undefined>
+  fallbackSrc?: string | null
+  fallbackSrcs?: Array<string | null | undefined>
   className?: string
-  height?: number
+  height?: number | string
   autoRotate?: boolean
+  colorOverrides?: Array<string | null | undefined> | null
+  colorOverridesByPartKey?: Record<string, string | null | undefined> | null
+  partPins?: Array<{ partKey: string; x: number; y: number; z: number; highlighted?: boolean }> | null
+  onPartTap?: (partKey: string, pin?: { x: number; y: number; z: number } | null) => void
 }
 
 function toAbsoluteUrl(url?: string | null) {
@@ -83,17 +98,693 @@ function disposeObject(THREE: ThreeLib, object: InstanceType<ThreeLib['Object3D'
   }
 }
 
-export default function ModelViewer({ src, srcs, className, height = 480, autoRotate = false }: Props) {
+type BambuColorPlan = {
+  buildItems: Array<{
+    objectId: string
+    componentIds: string[]
+    componentColors: Array<number | null>
+    objectColor: number | null
+    modifierIndices: Set<number>
+  }>
+}
+
+const HEX_COLOR_RE = /#?([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
+function parseColorToHexInt(value?: string | null) {
+  if (!value) return null
+  const match = String(value).trim().match(HEX_COLOR_RE)
+  if (!match) return null
+  let hex = match[1].toLowerCase()
+  if (hex.length === 3) {
+    hex = hex.split('').map((c) => c + c).join('')
+  } else if (hex.length === 8) {
+    hex = hex.slice(-6)
+  }
+  const parsed = Number.parseInt(hex.slice(0, 6), 16)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+
+function parseXml(text: string) {
+  return new DOMParser().parseFromString(text, 'application/xml')
+}
+
+function getMetadataValue(node: Element, key: string) {
+  const meta = Array.from(node.children).find((m) => m.tagName === 'metadata' && m.getAttribute('key') === key)
+  return meta?.getAttribute('value') || null
+}
+
+function hasEmbeddedModelColors(text: string) {
+  return /<(?:colorgroup|color|basematerials|texture2d|texture2dgroup|texture2dref)\b/i.test(text)
+}
+
+function parseProjectPalette(text: string) {
+  try {
+    const parsed: {
+      filament_colour?: unknown
+      filament_multi_colour?: unknown
+      filament_colour_type?: unknown
+    } = JSON.parse(text)
+    const basePalette = Array.isArray(parsed?.filament_colour) ? parsed.filament_colour : null
+    const multiPalette = Array.isArray(parsed?.filament_multi_colour) ? parsed.filament_multi_colour : null
+    const colorType = Array.isArray(parsed?.filament_colour_type) ? parsed.filament_colour_type : null
+    if (!basePalette && !multiPalette) return null
+    const resolved = (basePalette || multiPalette || []).map((val: any, idx: number) => {
+      const typeFlag = colorType?.[idx]
+      const wantsMulti = String(typeFlag ?? '') === '1'
+      const source = wantsMulti && multiPalette?.[idx] ? multiPalette[idx] : (basePalette?.[idx] ?? multiPalette?.[idx])
+      return parseColorToHexInt(String(source)) ?? null
+    })
+    return resolved.length > 0 ? resolved : null
+  } catch {
+    return null
+  }
+}
+
+function buildOverrideKey(overrides?: Array<string | null | undefined> | null) {
+  if (!overrides || overrides.length === 0) return ''
+  return overrides.map((value) => (value == null ? '' : String(value))).join('|')
+}
+
+function buildPartOverrideKey(overrides?: Record<string, string | null | undefined> | null) {
+  if (!overrides || typeof overrides !== 'object') return ''
+  const pairs = Object.entries(overrides)
+    .filter(([key]) => Boolean(key))
+    .sort(([a], [b]) => a.localeCompare(b))
+  if (pairs.length === 0) return ''
+  return pairs.map(([key, value]) => `${key}:${value == null ? '' : String(value)}`).join('|')
+}
+
+function parseOverrideColors(overrides?: Array<string | null | undefined> | null) {
+  if (!overrides || overrides.length === 0) return []
+  return overrides
+    .map((value) => parseColorToHexInt(value ?? null))
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+}
+
+function resolveGradientStops(value?: string | null) {
+  return resolveColorStops({ value, fallback: '#d0d0d0' })
+    .map((stop) => parseColorToHexInt(stop))
+    .filter((stop): stop is number => typeof stop === 'number' && Number.isFinite(stop))
+}
+
+function interpolateGradientColor(THREE: ThreeLib, stops: number[], t: number) {
+  const clamped = Math.max(0, Math.min(1, t))
+  if (stops.length === 0) return new THREE.Color(0xd0d0d0)
+  if (stops.length === 1) return new THREE.Color(stops[0])
+  const scaled = clamped * (stops.length - 1)
+  const index = Math.min(stops.length - 2, Math.floor(scaled))
+  const localT = scaled - index
+  const start = new THREE.Color(stops[index])
+  const end = new THREE.Color(stops[index + 1])
+  return start.lerp(end, localT)
+}
+
+function applyGradientToGeometry(THREE: ThreeLib, geometry: any, gradientStops: number[]) {
+  const positionAttr = geometry?.getAttribute?.('position')
+  if (!positionAttr || gradientStops.length < 2) return false
+  if (!geometry.boundingBox) geometry.computeBoundingBox?.()
+  const boundingBox = geometry.boundingBox
+  if (!boundingBox) return false
+  const size = new THREE.Vector3()
+  const center = new THREE.Vector3()
+  boundingBox.getSize(size)
+  boundingBox.getCenter(center)
+  const axisCandidates = [
+    { axis: new THREE.Vector3(1, 0.35, 0.75).normalize(), span: Math.abs(size.x) + Math.abs(size.y) * 0.35 + Math.abs(size.z) * 0.75 },
+    { axis: new THREE.Vector3(0.2, 1, 0.45).normalize(), span: Math.abs(size.x) * 0.2 + Math.abs(size.y) + Math.abs(size.z) * 0.45 },
+    { axis: new THREE.Vector3(0.8, 0.1, 1).normalize(), span: Math.abs(size.x) * 0.8 + Math.abs(size.y) * 0.1 + Math.abs(size.z) },
+  ].sort((left, right) => right.span - left.span)
+  const axis = axisCandidates[0]?.axis || new THREE.Vector3(1, 0, 0)
+  const temp = new THREE.Vector3()
+  let minProjection = Number.POSITIVE_INFINITY
+  let maxProjection = Number.NEGATIVE_INFINITY
+  for (let i = 0; i < positionAttr.count; i++) {
+    temp.set(positionAttr.getX(i) - center.x, positionAttr.getY(i) - center.y, positionAttr.getZ(i) - center.z)
+    const projection = temp.dot(axis)
+    minProjection = Math.min(minProjection, projection)
+    maxProjection = Math.max(maxProjection, projection)
+  }
+  const span = Math.max(0.0001, maxProjection - minProjection)
+  const colors = new Float32Array(positionAttr.count * 3)
+  for (let i = 0; i < positionAttr.count; i++) {
+    temp.set(positionAttr.getX(i) - center.x, positionAttr.getY(i) - center.y, positionAttr.getZ(i) - center.z)
+    const projection = temp.dot(axis)
+    const color = interpolateGradientColor(THREE, gradientStops, (projection - minProjection) / span)
+    const offset = i * 3
+    colors[offset] = color.r
+    colors[offset + 1] = color.g
+    colors[offset + 2] = color.b
+  }
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+  return true
+}
+
+function applyGradientToObject(THREE: ThreeLib, target: InstanceType<ThreeLib['Object3D']>, gradientStops: number[]) {
+  if (gradientStops.length < 2) return false
+  let applied = false
+  target.traverse((child: any) => {
+    if (!(child instanceof THREE.Mesh)) return
+    if (!applyGradientToGeometry(THREE, child.geometry, gradientStops)) return
+    const tuneMaterial = (material: any) => {
+      if (!material) return
+      if ('vertexColors' in material) material.vertexColors = true
+      if ('color' in material && material.color) material.color.setHex(0xffffff)
+      if ('side' in material) material.side = THREE.DoubleSide
+      material.needsUpdate = true
+    }
+    if (Array.isArray(child.material)) child.material.forEach((material: any) => tuneMaterial(material))
+    else tuneMaterial(child.material)
+    applied = true
+  })
+  return applied
+}
+
+async function tryBuildBambuColorPlan(
+  buffer: ArrayBuffer,
+  overrides?: Array<string | null | undefined> | null,
+): Promise<BambuColorPlan | null> {
+  const fflate = await loadFflate()
+  let zip: Record<string, Uint8Array>
+  try {
+    zip = fflate.unzipSync(new Uint8Array(buffer))
+  } catch {
+    return null
+  }
+
+  const decoder = new TextDecoder()
+  const getText = (path: string) => {
+    const data = zip[path]
+    if (!data) return null
+    return decoder.decode(data)
+  }
+
+  const modelSettings = getText('Metadata/model_settings.config')
+  const sliceInfo = getText('Metadata/slice_info.config')
+  const projectSettings = getText('Metadata/project_settings.config')
+  const mainModel = getText('3D/3dmodel.model')
+  if (!modelSettings || !sliceInfo || !mainModel) return null
+
+  for (const name of Object.keys(zip)) {
+    if (name.toLowerCase().endsWith('.model')) {
+      const content = decoder.decode(zip[name])
+      if (hasEmbeddedModelColors(content)) return null
+    }
+  }
+
+  const sliceDoc = parseXml(sliceInfo)
+  const filamentNodes = Array.from(sliceDoc.getElementsByTagName('filament'))
+  const extruderColors = new Map<string, number>()
+  for (const fil of filamentNodes) {
+    const id = fil.getAttribute('id')
+    const color = fil.getAttribute('color')
+    if (!id || !color) continue
+    const hex = color.trim().replace('#', '')
+    if (hex.length < 6) continue
+    const value = Number.parseInt(hex.slice(0, 6), 16)
+    if (Number.isFinite(value)) extruderColors.set(id, value)
+  }
+  if (extruderColors.size === 0 && projectSettings) {
+    const palette = parseProjectPalette(projectSettings)
+    if (palette && palette.length > 0) {
+      for (let i = 0; i < palette.length; i++) {
+        const color = palette[i]
+        if (color == null) continue
+        extruderColors.set(String(i + 1), color)
+      }
+    }
+  }
+  if (extruderColors.size === 0) return null
+
+  const settingsDoc = parseXml(modelSettings)
+  const objectNodes = Array.from(settingsDoc.getElementsByTagName('object'))
+  const objectExtruders = new Map<string, string>()
+  const partIndexExtruders = new Map<string, Map<number, string>>()
+  const partIndexModifiers = new Map<string, Set<number>>()
+  const usedExtruders = new Set<string>()
+  for (const obj of objectNodes) {
+    const objId = obj.getAttribute('id')
+    const objectExtruder = getMetadataValue(obj, 'extruder')
+    if (objId && objectExtruder) {
+      objectExtruders.set(objId, objectExtruder)
+      usedExtruders.add(objectExtruder)
+    }
+    const parts = Array.from(obj.getElementsByTagName('part'))
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      const partExtruder = getMetadataValue(part, 'extruder') || objectExtruder
+      if (objId && partExtruder) {
+        if (!partIndexExtruders.has(objId)) partIndexExtruders.set(objId, new Map())
+        partIndexExtruders.get(objId)!.set(i, partExtruder)
+        usedExtruders.add(partExtruder)
+      }
+      const subtype = part.getAttribute('subtype')
+      if (objId && subtype === 'modifier_part') {
+        if (!partIndexModifiers.has(objId)) partIndexModifiers.set(objId, new Set())
+        partIndexModifiers.get(objId)!.add(i)
+      }
+    }
+  }
+  if (objectExtruders.size === 0 && partIndexExtruders.size === 0) return null
+
+  if (overrides && overrides.length > 0) {
+    const parsedOverrides = parseOverrideColors(overrides)
+    if (parsedOverrides.length === 0) {
+      // No parseable overrides, keep original palette.
+    } else {
+      const singleOverride = parsedOverrides.length === 1 ? parsedOverrides[0] : null
+      if (singleOverride != null) {
+        const targets = usedExtruders.size > 0
+          ? Array.from(usedExtruders).filter(Boolean)
+          : Array.from(extruderColors.keys())
+        for (const extruderId of targets) {
+          extruderColors.set(extruderId, singleOverride)
+        }
+      }
+    }
+    const extruderOrder = Array.from(usedExtruders)
+      .filter(Boolean)
+      .sort((a, b) => Number(a) - Number(b))
+    const fallbackOrder = extruderOrder.length > 0
+      ? extruderOrder
+      : Array.from(extruderColors.keys()).sort((a, b) => Number(a) - Number(b))
+    for (let i = 0; i < Math.min(fallbackOrder.length, overrides.length); i++) {
+      const color = parseColorToHexInt(overrides[i] ?? null)
+      if (color == null) continue
+      extruderColors.set(fallbackOrder[i], color)
+    }
+  }
+
+  const modelDoc = parseXml(mainModel)
+  const objectMap = new Map<string, string[]>()
+  const modelObjects = Array.from(modelDoc.getElementsByTagName('object'))
+  for (const obj of modelObjects) {
+    const objectId = obj.getAttribute('id')
+    if (!objectId) continue
+    const componentsNode = obj.getElementsByTagName('components')[0]
+    if (!componentsNode) continue
+    const componentIds = Array.from(componentsNode.getElementsByTagName('component'))
+      .map((comp) => comp.getAttribute('objectid'))
+      .filter((id): id is string => !!id)
+    objectMap.set(objectId, componentIds)
+  }
+
+  const buildNode = modelDoc.getElementsByTagName('build')[0]
+  if (!buildNode) return null
+  const items = Array.from(buildNode.getElementsByTagName('item'))
+  const buildItems: BambuColorPlan['buildItems'] = []
+  for (const item of items) {
+    const objectId = item.getAttribute('objectid')
+    if (!objectId) continue
+    const components = objectMap.get(objectId)
+    const componentIds = components && components.length > 0 ? components : []
+    const partMap = partIndexExtruders.get(objectId)
+    const modifierSet = partIndexModifiers.get(objectId) || new Set<number>()
+    const componentColors: Array<number | null> = []
+    if (componentIds.length > 0) {
+      for (let i = 0; i < componentIds.length; i++) {
+        const extruderId = partMap?.get(i) || objectExtruders.get(objectId) || null
+        const color = extruderId ? extruderColors.get(extruderId) ?? null : null
+        componentColors.push(color ?? null)
+      }
+    }
+    const objectExtruder = objectExtruders.get(objectId) || null
+    const objectColor = objectExtruder ? extruderColors.get(objectExtruder) ?? null : null
+    buildItems.push({ objectId, componentIds, componentColors, objectColor, modifierIndices: modifierSet })
+  }
+  if (buildItems.length === 0) return null
+
+  const hasAnyColor = buildItems.some((item) => item.objectColor != null || item.componentColors.some((c) => c != null))
+  if (!hasAnyColor) return null
+
+  return { buildItems }
+}
+
+function applyBambuColors(THREE: ThreeLib, root: InstanceType<ThreeLib['Object3D']>, plan: BambuColorPlan) {
+  const { buildItems } = plan
+  const buildChildren = root.children || []
+
+  const applyColorTo = (obj: InstanceType<ThreeLib['Object3D']>, color: number) => {
+    obj.traverse((child: any) => {
+      if (!(child instanceof THREE.Mesh)) return
+      const material = child.material
+      const setMatColor = (mat: any) => {
+        if (!mat || !mat.color) return
+        mat.color.setHex(color)
+        mat.needsUpdate = true
+      }
+      if (Array.isArray(material)) material.forEach((m) => setMatColor(m))
+      else setMatColor(material)
+    })
+  }
+
+  for (let i = 0; i < Math.min(buildChildren.length, buildItems.length); i++) {
+    const buildChild = buildChildren[i]
+    const item = buildItems[i]
+    const componentIds = item.componentIds
+    if (!componentIds || componentIds.length === 0) {
+      if (item.objectColor != null) applyColorTo(buildChild, item.objectColor)
+      continue
+    }
+
+    const componentChildren = buildChild.children || []
+    if (componentChildren.length > 0) {
+      for (let j = 0; j < Math.min(componentChildren.length, componentIds.length); j++) {
+        if (item.modifierIndices.has(j)) {
+          componentChildren[j].visible = false
+          continue
+        }
+        const color = item.componentColors[j]
+        if (color != null) applyColorTo(componentChildren[j], color)
+      }
+      if (componentChildren.length < componentIds.length) {
+        const fallback = item.componentColors.find((c) => c != null) ?? item.objectColor
+        if (fallback != null) applyColorTo(buildChild, fallback)
+      }
+    } else if (componentIds.length === 1 && item.componentColors[0] != null) {
+      if (!item.modifierIndices.has(0)) {
+        applyColorTo(buildChild, item.componentColors[0] as number)
+      } else {
+        buildChild.visible = false
+      }
+    } else if (item.objectColor != null) {
+      applyColorTo(buildChild, item.objectColor)
+    } else {
+      const fallback = item.componentColors.find((c) => c != null)
+      if (fallback != null) applyColorTo(buildChild, fallback)
+    }
+  }
+}
+
+type ParsedMesh = {
+  vertices: Float32Array
+  indices: Uint32Array
+  triangleColors: Array<number | null>
+}
+
+type ParsedComponent = {
+  objectId: string
+  path: string | null
+  transform: InstanceType<ThreeLib['Matrix4']> | null
+}
+
+type ParsedObject = {
+  mesh?: ParsedMesh
+  components?: ParsedComponent[]
+}
+
+type ParsedModelPart = {
+  objects: Map<string, ParsedObject>
+}
+
+function parseTransformMatrix(THREE: ThreeLib, transform?: string | null) {
+  if (!transform) return null
+  const t = transform.trim().split(/\s+/).map((n) => Number.parseFloat(n))
+  if (t.length < 12 || t.some((v) => !Number.isFinite(v))) return null
+  const matrix = new THREE.Matrix4()
+  matrix.set(
+    t[0], t[3], t[6], t[9],
+    t[1], t[4], t[7], t[10],
+    t[2], t[5], t[8], t[11],
+    0, 0, 0, 1
+  )
+  return matrix
+}
+
+function parseMeshNode(meshNode: Element): ParsedMesh {
+  const vertexNodes = Array.from(meshNode.getElementsByTagName('vertex'))
+  const vertices: number[] = []
+  for (const v of vertexNodes) {
+    vertices.push(
+      Number.parseFloat(v.getAttribute('x') || '0'),
+      Number.parseFloat(v.getAttribute('y') || '0'),
+      Number.parseFloat(v.getAttribute('z') || '0'),
+    )
+  }
+  const triNodes = Array.from(meshNode.getElementsByTagName('triangle'))
+  const indices: number[] = []
+  const triangleColors: Array<number | null> = []
+  for (const tri of triNodes) {
+    indices.push(
+      Number.parseInt(tri.getAttribute('v1') || '0', 10),
+      Number.parseInt(tri.getAttribute('v2') || '0', 10),
+      Number.parseInt(tri.getAttribute('v3') || '0', 10),
+    )
+    const paintColor = tri.getAttribute('paint_color') || tri.getAttribute('paintColor')
+    const colorIdx = paintColor != null ? Number.parseInt(paintColor, 10) : Number.NaN
+    triangleColors.push(Number.isFinite(colorIdx) ? colorIdx : null)
+  }
+  return {
+    vertices: new Float32Array(vertices),
+    indices: new Uint32Array(indices),
+    triangleColors,
+  }
+}
+
+function parseModelPart(THREE: ThreeLib, xmlText: string): ParsedModelPart {
+  const doc = parseXml(xmlText)
+  const objects = new Map<string, ParsedObject>()
+  const objectNodes = Array.from(doc.getElementsByTagName('object'))
+  for (const obj of objectNodes) {
+    const id = obj.getAttribute('id')
+    if (!id) continue
+    const meshNode = obj.getElementsByTagName('mesh')[0]
+    const componentsNode = obj.getElementsByTagName('components')[0]
+    const parsed: ParsedObject = {}
+    if (meshNode) parsed.mesh = parseMeshNode(meshNode)
+    if (componentsNode) {
+      const comps: ParsedComponent[] = []
+      const compNodes = Array.from(componentsNode.getElementsByTagName('component'))
+      for (const comp of compNodes) {
+        const objectId = comp.getAttribute('objectid')
+        if (!objectId) continue
+        const rawPath = comp.getAttribute('p:path') || comp.getAttribute('path') || null
+        const transform = parseTransformMatrix(THREE, comp.getAttribute('transform'))
+        comps.push({ objectId, path: rawPath, transform })
+      }
+      parsed.components = comps
+    }
+    objects.set(id, parsed)
+  }
+  return { objects }
+}
+
+async function parse3mfSimple(THREE: ThreeLib, buffer: ArrayBuffer, overrides?: Array<string | null | undefined> | null) {
+  const fflate = await loadFflate()
+  let zip: Record<string, Uint8Array>
+  try {
+    zip = fflate.unzipSync(new Uint8Array(buffer))
+  } catch {
+    return null
+  }
+  const decoder = new TextDecoder()
+  const modelParts = new Map<string, ParsedModelPart>()
+  let mainModelText: string | null = null
+  let filamentPalette: Array<number | null> | null = null
+  let filamentSelfIndex: Array<number | null> | null = null
+
+  const projectSettings = zip['Metadata/project_settings.config']
+  if (projectSettings) {
+    const settingsText = decoder.decode(projectSettings)
+    try {
+      const parsed: {
+        filament_colour?: unknown
+        filament_multi_colour?: unknown
+        filament_colour_type?: unknown
+        filament_self_index?: unknown
+      } = JSON.parse(settingsText)
+      const basePalette = Array.isArray(parsed?.filament_colour) ? parsed.filament_colour : null
+      const multiPalette = Array.isArray(parsed?.filament_multi_colour) ? parsed.filament_multi_colour : null
+      const colorType = Array.isArray(parsed?.filament_colour_type) ? parsed.filament_colour_type : null
+      if (basePalette || multiPalette) {
+        const resolved = (basePalette || []).map((val: any, idx: number) => {
+          const typeFlag = colorType?.[idx]
+          const wantsMulti = String(typeFlag ?? '') === '1'
+          const source = wantsMulti && multiPalette?.[idx] ? multiPalette[idx] : (basePalette?.[idx] ?? multiPalette?.[idx])
+          return parseColorToHexInt(String(source)) ?? null
+        })
+        filamentPalette = resolved.length > 0 ? resolved : null
+      }
+      if (Array.isArray(parsed?.filament_self_index)) {
+        filamentSelfIndex = parsed.filament_self_index
+          .map((val: any) => {
+            const n = Number(val)
+            return Number.isFinite(n) ? n : null
+          })
+      }
+    } catch {
+      const match = settingsText.match(new RegExp('"filament_colour"\\s*:\\s*\\[([\\s\\S]*?)\\]', 'i'))
+      if (match) {
+        const values = match[1].split(',').map((v) => v.trim().replace(/^\"|\"$/g, '')).filter(Boolean)
+        const parsed = values.map((v) => parseColorToHexInt(v) ?? null)
+        if (parsed.length > 0) filamentPalette = parsed
+      }
+    }
+  }
+  if (overrides && overrides.length > 0) {
+    const parsed = parseOverrideColors(overrides)
+    if (parsed.length === 1) {
+      const only = parsed[0]
+      if (filamentPalette && filamentPalette.length > 0) {
+        filamentPalette = filamentPalette.map(() => only)
+      } else {
+        filamentPalette = [only]
+      }
+    } else if ((!filamentPalette || filamentPalette.every((v) => v == null)) && parsed.length > 0) {
+      filamentPalette = parsed
+    }
+  }
+
+  for (const name of Object.keys(zip)) {
+    if (!name.toLowerCase().endsWith('.model')) continue
+    const xmlText = decoder.decode(zip[name])
+    const part = parseModelPart(THREE, xmlText)
+    const normalized = name.replace(/^\//, '')
+    modelParts.set(normalized, part)
+    if (name.toLowerCase() === '3d/3dmodel.model') mainModelText = xmlText
+  }
+  if (!mainModelText) return null
+
+  const mainDoc = parseXml(mainModelText)
+  const buildNode = mainDoc.getElementsByTagName('build')[0]
+  if (!buildNode) return null
+  const buildItems = Array.from(buildNode.getElementsByTagName('item'))
+
+  const mainPart = modelParts.get('3D/3dmodel.model')
+  if (!mainPart) return null
+
+  const buildObject3D = (part: ParsedModelPart, objectId: string): InstanceType<ThreeLib['Object3D']> | null => {
+    const obj = part.objects.get(objectId)
+    if (!obj) return null
+    if (obj.mesh) {
+      const geometry = new THREE.BufferGeometry()
+      const hasPaint = filamentPalette && filamentPalette.length > 0 && obj.mesh.triangleColors.some((c) => c != null)
+      if (hasPaint) {
+        const pos: number[] = []
+        const colors: number[] = []
+        const verts = obj.mesh.vertices
+        const idx = obj.mesh.indices
+        for (let i = 0; i < idx.length; i += 3) {
+          const cidx = obj.mesh.triangleColors[i / 3]
+          let colorHex: number | null = null
+          if (cidx != null) {
+            const direct = filamentPalette?.[cidx] ?? (cidx > 0 ? filamentPalette?.[cidx - 1] : null)
+            if (direct != null) {
+              colorHex = direct as number
+            } else if (filamentSelfIndex && filamentPalette) {
+              const selfMatchIdx = filamentSelfIndex.findIndex((v) => v === cidx || v === cidx + 1)
+              if (selfMatchIdx >= 0 && filamentPalette[selfMatchIdx] != null) {
+                colorHex = filamentPalette[selfMatchIdx] as number
+              }
+            }
+          }
+          const color = colorHex != null ? new THREE.Color(colorHex) : new THREE.Color(0xd0d0d0)
+          for (let j = 0; j < 3; j++) {
+            const vi = idx[i + j] * 3
+            pos.push(verts[vi], verts[vi + 1], verts[vi + 2])
+            colors.push(color.r, color.g, color.b)
+          }
+        }
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+        geometry.computeVertexNormals()
+        const material = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
+        const mesh = new THREE.Mesh(geometry, material)
+        mesh.userData.paintTriangleColors = obj.mesh.triangleColors
+        return mesh
+      }
+      geometry.setAttribute('position', new THREE.BufferAttribute(obj.mesh.vertices, 3))
+      geometry.setIndex(new THREE.BufferAttribute(obj.mesh.indices, 1))
+      geometry.computeVertexNormals()
+      const material = new THREE.MeshStandardMaterial({ color: 0xd0d0d0, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
+      return new THREE.Mesh(geometry, material)
+    }
+    if (obj.components && obj.components.length > 0) {
+      const group = new THREE.Group()
+      for (const comp of obj.components) {
+        const path = comp.path ? comp.path.replace(/^\//, '') : null
+        const compPart = path ? modelParts.get(path) : part
+        if (!compPart) continue
+        const child = buildObject3D(compPart, comp.objectId)
+        if (!child) continue
+        if (comp.transform) child.applyMatrix4(comp.transform)
+        group.add(child)
+      }
+      return group
+    }
+    return null
+  }
+
+  const root = new THREE.Group()
+  for (const item of buildItems) {
+    const objectId = item.getAttribute('objectid')
+    if (!objectId) continue
+    const child = buildObject3D(mainPart, objectId)
+    if (!child) continue
+    const transform = parseTransformMatrix(THREE, item.getAttribute('transform'))
+    if (transform) child.applyMatrix4(transform)
+    root.add(child)
+  }
+
+  if (root.children.length === 0) return null
+  return root
+}
+
+export default function ModelViewer({
+  src,
+  srcs,
+  partKeys,
+  fallbackSrc,
+  fallbackSrcs,
+  className,
+  height = 480,
+  autoRotate = false,
+  colorOverrides = null,
+  colorOverridesByPartKey = null,
+  partPins = null,
+  onPartTap,
+}: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const fitRef = useRef<(() => void) | null>(null)
   const pivotRef = useRef<InstanceType<ThreeLib['Group']> | null>(null)
+  const groupRef = useRef<InstanceType<ThreeLib['Group']> | null>(null)
+  const sceneRef = useRef<InstanceType<ThreeLib['Scene']> | null>(null)
+  const cameraRef = useRef<InstanceType<ThreeLib['PerspectiveCamera']> | null>(null)
+  const rendererRef = useRef<InstanceType<ThreeLib['WebGLRenderer']> | null>(null)
+  const threeRef = useRef<ThreeLib | null>(null)
+  const bambuTargetsRef = useRef<Array<{ buffer: ArrayBuffer; root: InstanceType<ThreeLib['Object3D']> }>>([])
+  const non3mfTargetsRef = useRef<Array<{ root: InstanceType<ThreeLib['Object3D']>; overrideIndex: number; partKey: string }>>([])
+  const bambuPlanCacheRef = useRef<WeakMap<ArrayBuffer, Map<string, BambuColorPlan | null>>>(new WeakMap())
+  const colorOverridesRef = useRef<Array<string | null | undefined> | null>(colorOverrides)
+  const colorOverridesByPartKeyRef = useRef<Record<string, string | null | undefined> | null>(colorOverridesByPartKey)
+  const onPartTapRef = useRef<Props['onPartTap']>(onPartTap)
+  const partPinsRef = useRef<Props['partPins']>(partPins)
+  const selectableRootsRef = useRef<Map<string, InstanceType<ThreeLib['Object3D']>>>(new Map())
+  const pinObjectsRef = useRef<Array<InstanceType<ThreeLib['Object3D']>>>([])
+  const has3mfRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
-  const resolvedFiles = useMemo(() => {
+  const [loadedTargetRevision, setLoadedTargetRevision] = useState(0)
+  const resolveHeight = (element?: HTMLDivElement | null) => Math.max(
+    1,
+    typeof height === 'number'
+      ? height
+      : (element?.clientHeight || element?.offsetHeight || 540),
+  )
+  // Keep async loader callbacks synchronized with the latest props immediately.
+  colorOverridesRef.current = colorOverrides
+  colorOverridesByPartKeyRef.current = colorOverridesByPartKey
+  onPartTapRef.current = onPartTap
+  partPinsRef.current = partPins
+  const fileEntries = useMemo(() => {
     const list = srcs && srcs.length ? srcs : (src ? [src] : [])
+    const fallbacks = fallbackSrcs && fallbackSrcs.length ? fallbackSrcs : (fallbackSrc ? [fallbackSrc] : [])
     return list
-      .map((item) => toAbsoluteUrl(item))
-      .filter((item): item is string => !!item)
-  }, [src, srcs])
+      .map((item, idx) => ({
+        src: toAbsoluteUrl(item),
+        fallback: fallbacks[idx] ? toAbsoluteUrl(fallbacks[idx]) : null,
+        partKey: String(partKeys?.[idx] ?? idx),
+      }))
+      .filter((item): item is { src: string, fallback: string | null, partKey: string } => !!item.src)
+  }, [src, srcs, fallbackSrc, fallbackSrcs, partKeys])
 
   useEffect(() => {
     if (!mountRef.current) return
@@ -104,6 +795,10 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       setError(null)
       const container = mountRef.current!
       const [THREE, OrbitControlsMod, STLLoaderMod] = await Promise.all([loadThree(), loadOrbitControls(), loadStl()])
+      threeRef.current = THREE
+      bambuTargetsRef.current = []
+      non3mfTargetsRef.current = []
+      selectableRootsRef.current = new Map()
 
       const OBJLoaderModule = await loadObj().catch((err) => {
         console.warn('OBJ loader unavailable, OBJ previews disabled', err)
@@ -117,21 +812,50 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       if (disposed || !mountRef.current) return
 
       const width = Math.max(1, container.clientWidth || container.offsetWidth || 1)
-      const h = height
+      const h = resolveHeight(container)
       const scene = new THREE.Scene()
       scene.background = new THREE.Color('#000000')
       const camera = new THREE.PerspectiveCamera(45, width / h, 0.001, 5000)
       camera.position.set(2, 1.5, 2)
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+      let renderer: InstanceType<ThreeLib['WebGLRenderer']>
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+      } catch (err) {
+        const WebGL1Renderer = (THREE as any).WebGL1Renderer
+        if (WebGL1Renderer) {
+          try {
+            renderer = new WebGL1Renderer({ antialias: true, alpha: true })
+          } catch {
+            throw new Error('Unable to initialize WebGL. Check hardware acceleration or GPU/WebGL support.')
+          }
+        } else {
+          throw new Error('Unable to initialize WebGL. Check hardware acceleration or GPU/WebGL support.')
+        }
+      }
       renderer.setSize(width, h)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+      renderer.outputColorSpace = THREE.SRGBColorSpace
+      renderer.toneMapping = THREE.ACESFilmicToneMapping
+      renderer.toneMappingExposure = 1.6
+      sceneRef.current = scene
+      cameraRef.current = camera
+      rendererRef.current = renderer
       container.appendChild(renderer.domElement)
 
-      const light1 = new THREE.DirectionalLight(0xffffff, 1)
-      light1.position.set(5, 10, 7.5)
-      scene.add(light1)
-      scene.add(new THREE.AmbientLight(0x888888))
-      const hemi = new THREE.HemisphereLight(0xffffff, 0x222222, 0.6)
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.2)
+      keyLight.position.set(5, 10, 7.5)
+      scene.add(keyLight)
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.95)
+      fillLight.position.set(-6, 4, -4)
+      scene.add(fillLight)
+      const backFill = new THREE.DirectionalLight(0xffffff, 0.65)
+      backFill.position.set(0, 2, -10)
+      scene.add(backFill)
+      const rimLight = new THREE.DirectionalLight(0xffffff, 0.45)
+      rimLight.position.set(-2, 6, 10)
+      scene.add(rimLight)
+      scene.add(new THREE.AmbientLight(0xffffff, 0.95))
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x6a6a6a, 0.95)
       scene.add(hemi)
 
       const controls = new OrbitControlsMod.OrbitControls(camera as any, renderer.domElement)
@@ -156,10 +880,11 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       pivotRef.current = pivot
       const group = new THREE.Group()
       pivot.add(group)
+      groupRef.current = group
 
-      const files = resolvedFiles
-      const palette = [0xd0d0d0]
+      const files = fileEntries
       let loaded = 0
+      has3mfRef.current = files.some((entry) => entry.src.split('.').pop()?.toLowerCase() === '3mf')
 
       let fitRadius = 1
       const viewDir = new THREE.Vector3(2, 1.5, 2).normalize()
@@ -204,12 +929,15 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         onLoaded()
       }
 
-      const addObject = (object: InstanceType<ThreeLib['Object3D']>) => {
+      const addObject = (object: InstanceType<ThreeLib['Object3D']>, partKey: string) => {
         if (disposed) {
           disposeObject(THREE, object)
           return
         }
+        object.userData.__mwv2PartKey = partKey
+        selectableRootsRef.current.set(partKey, object)
         group.add(object)
+        setLoadedTargetRevision((prev) => prev + 1)
         loaded++
         if (loaded === files.length) onLoaded()
       }
@@ -228,20 +956,52 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         return object
       }
 
-      files.forEach((file, idx) => {
+      const preserveMaterials = (object: InstanceType<ThreeLib['Object3D']>) => {
+        object.traverse((child: any) => {
+          if (child instanceof THREE.Mesh) {
+            const geometry = child.geometry
+            const hasVertexColors = Boolean(geometry?.attributes?.color)
+            const material = child.material
+            const tune = (mat: any) => {
+              if (!mat) return
+              if ('side' in mat) mat.side = THREE.DoubleSide
+              if (hasVertexColors && 'vertexColors' in mat) mat.vertexColors = true
+              if (mat.map && 'colorSpace' in mat.map) mat.map.colorSpace = THREE.SRGBColorSpace
+            }
+            if (Array.isArray(material)) {
+              material.forEach((mat) => tune(mat))
+            } else {
+              tune(material)
+            }
+          }
+        })
+        return object
+      }
+
+      files.forEach((entry, idx) => {
+        const file = entry.src
+        const fallback = entry.fallback
+        const partKey = entry.partKey
         const ext = file.split('.').pop()?.toLowerCase()
-        const color = palette[idx % palette.length]
-        const handleError = (err: any) => {
-          console.error('Failed to load model', file, err)
-          setError(`Failed to load ${file}: ${err?.message || err}`)
+        const resolveInitialColor = () => {
+          const keyedColor = parseColorToHexInt(colorOverridesByPartKeyRef.current?.[partKey] ?? null)
+          const indexedColor = parseColorToHexInt(colorOverridesRef.current?.[idx] ?? colorOverridesRef.current?.[0] ?? null)
+          return keyedColor ?? indexedColor ?? 0xd0d0d0
+        }
+        const handleError = (err: any, attemptedFile = file) => {
+          console.error('Failed to load model', attemptedFile, err)
+          setError(`Failed to load ${attemptedFile}: ${err?.message || err}`)
           loaded++
           if (loaded === files.length) onLoaded()
         }
-
         if (ext === 'obj' && objLoader) {
           objLoader.load(
             file,
-            (obj: any) => addObject(meshify(obj, color)),
+            (obj: any) => {
+              const mesh = meshify(obj, resolveInitialColor())
+              non3mfTargetsRef.current.push({ root: mesh, overrideIndex: idx, partKey })
+              addObject(mesh, partKey)
+            },
             undefined,
             handleError
           )
@@ -249,16 +1009,68 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         }
 
         if (ext === '3mf' && tmfLoader) {
-          tmfLoader.load(
-            file,
-            (obj: any) => addObject(meshify(obj, color)),
-            undefined,
-            handleError
-          )
+          ;(async () => {
+            try {
+              const res = await fetch(file)
+              if (!res.ok) throw new Error(`Failed to fetch ${file}`)
+              const buf = await res.arrayBuffer()
+              let obj: InstanceType<ThreeLib['Object3D']> | null = null
+              obj = await parse3mfSimple(THREE, buf, colorOverridesRef.current)
+              if (!obj) {
+                try {
+                  obj = tmfLoader.parse(buf)
+                } catch (parseErr) {
+                  void parseErr
+                }
+              }
+              if (!obj) throw new Error('3MF parsing failed')
+              const plan = await tryBuildBambuColorPlan(buf, colorOverridesRef.current)
+              if (plan) applyBambuColors(THREE, obj, plan)
+              bambuTargetsRef.current.push({ buffer: buf, root: obj })
+              addObject(preserveMaterials(obj), partKey)
+            } catch (err: any) {
+              if (fallback) {
+                stlLoader.load(
+                  fallback,
+                  (geometry: any) => {
+                    try {
+                      if ((geometry as any).computeVertexNormals) (geometry as any).computeVertexNormals()
+                    } catch {}
+                    const material = new THREE.MeshStandardMaterial({ color: resolveInitialColor(), metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
+                    const mesh = new THREE.Mesh(geometry as any, material)
+                    non3mfTargetsRef.current.push({ root: mesh, overrideIndex: idx, partKey })
+                    addObject(mesh, partKey)
+                  },
+                  undefined,
+                  (fallbackErr: any) => handleError(fallbackErr, fallback)
+                )
+              } else {
+                handleError(err)
+              }
+            }
+          })()
           return
         }
 
         if (ext === 'obj' || ext === '3mf') {
+          if (ext === '3mf' && fallback) {
+            console.warn('Missing 3MF loader, falling back to STL preview', file)
+            stlLoader.load(
+              fallback,
+              (geometry: any) => {
+                try {
+                  if ((geometry as any).computeVertexNormals) (geometry as any).computeVertexNormals()
+                } catch {}
+                const material = new THREE.MeshStandardMaterial({ color: resolveInitialColor(), metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
+                const mesh = new THREE.Mesh(geometry as any, material)
+                non3mfTargetsRef.current.push({ root: mesh, overrideIndex: idx, partKey })
+                addObject(mesh, partKey)
+              },
+              undefined,
+              (fallbackErr: any) => handleError(fallbackErr, fallback)
+            )
+            return
+          }
           console.warn('Missing loader for', ext, 'files')
         }
 
@@ -268,9 +1080,10 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
             try {
               if ((geometry as any).computeVertexNormals) (geometry as any).computeVertexNormals()
             } catch {}
-            const material = new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
+            const material = new THREE.MeshStandardMaterial({ color: resolveInitialColor(), metalness: 0.05, roughness: 0.9, side: THREE.DoubleSide })
             const mesh = new THREE.Mesh(geometry as any, material)
-            addObject(mesh)
+            non3mfTargetsRef.current.push({ root: mesh, overrideIndex: idx, partKey })
+            addObject(mesh, partKey)
           },
           undefined,
           handleError
@@ -280,7 +1093,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       const onResize = () => {
         if (!mountRef.current) return
         const w = Math.max(1, mountRef.current.clientWidth || mountRef.current.offsetWidth || 1)
-        const hh = h
+        const hh = resolveHeight(mountRef.current)
         renderer.setSize(w, hh)
         camera.aspect = w / hh
         camera.updateProjectionMatrix()
@@ -294,6 +1107,60 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       }
 
       let raf = 0
+      let pointerDown: { x: number; y: number; moved: boolean } | null = null
+      const raycaster = new THREE.Raycaster()
+      const pointerNdc = new THREE.Vector2()
+      const moveThresholdPx = 8
+      const findPartKey = (start: any) => {
+        let node = start
+        while (node) {
+          const key = node?.userData?.__mwv2PartKey
+          if (typeof key === 'string' && key) return key
+          node = node.parent
+        }
+        return null
+      }
+      const handlePointerDown = (event: PointerEvent) => {
+        if (event.button !== 0) return
+        pointerDown = { x: event.clientX, y: event.clientY, moved: false }
+      }
+      const handlePointerMove = (event: PointerEvent) => {
+        if (!pointerDown) return
+        if (Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y) > moveThresholdPx) {
+          pointerDown.moved = true
+        }
+      }
+      const handlePointerUp = (event: PointerEvent) => {
+        if (!pointerDown || pointerDown.moved || event.button !== 0) {
+          pointerDown = null
+          return
+        }
+        const rect = renderer.domElement.getBoundingClientRect()
+        if (rect.width <= 0 || rect.height <= 0) {
+          pointerDown = null
+          return
+        }
+        pointerNdc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+        pointerNdc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+        raycaster.setFromCamera(pointerNdc, camera)
+        const intersections = raycaster.intersectObjects(group.children, true)
+        const hit = intersections.find((entry) => findPartKey(entry.object))
+        const partKey = hit ? findPartKey(hit.object) : null
+        if (partKey) {
+          const root = selectableRootsRef.current.get(partKey) || null
+          let pin = null as { x: number; y: number; z: number } | null
+          if (root && hit?.point) {
+            const localPoint = root.worldToLocal(hit.point.clone())
+            pin = { x: localPoint.x, y: localPoint.y, z: localPoint.z }
+          }
+          if (onPartTapRef.current) onPartTapRef.current(partKey, pin)
+        }
+        pointerDown = null
+      }
+      renderer.domElement.addEventListener('pointerdown', handlePointerDown)
+      renderer.domElement.addEventListener('pointermove', handlePointerMove)
+      renderer.domElement.addEventListener('pointerup', handlePointerUp)
+
       const animate = () => {
         controls.update()
         renderer.render(scene, camera)
@@ -305,8 +1172,17 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
       return () => {
         cancelAnimationFrame(raf)
         window.removeEventListener('resize', onResize)
+        renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
+        renderer.domElement.removeEventListener('pointermove', handlePointerMove)
+        renderer.domElement.removeEventListener('pointerup', handlePointerUp)
         if (ro) ro.disconnect()
         controls.dispose?.()
+        selectableRootsRef.current.clear()
+        pinObjectsRef.current.forEach((pin) => {
+          pin.parent?.remove(pin)
+          disposeObject(THREE, pin)
+        })
+        pinObjectsRef.current = []
         disposeObject(THREE, group)
         pivot.clear()
         renderer.dispose()
@@ -314,6 +1190,11 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement)
         fitRef.current = null
         pivotRef.current = null
+        groupRef.current = null
+        sceneRef.current = null
+        cameraRef.current = null
+        rendererRef.current = null
+        non3mfTargetsRef.current = []
         scene.clear()
       }
     }
@@ -335,12 +1216,190 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
 
     return () => {
       disposed = true
+      bambuTargetsRef.current = []
       if (cleanupFn) {
         try { cleanupFn() } catch {}
         cleanupFn = null
       }
     }
-  }, [resolvedFiles, height, autoRotate])
+  }, [fileEntries, height, autoRotate])
+
+  useEffect(() => {
+    const THREE = threeRef.current
+    if (!THREE) return
+    pinObjectsRef.current.forEach((pin) => {
+      pin.parent?.remove(pin)
+      disposeObject(THREE, pin)
+    })
+    pinObjectsRef.current = []
+    const pins = partPinsRef.current || []
+    pins.forEach((pin) => {
+      if (!pin || !pin.partKey) return
+      const root = selectableRootsRef.current.get(pin.partKey)
+      if (!root) return
+      const geometry = new THREE.SphereGeometry(2.4, 18, 18)
+      const material = new THREE.MeshStandardMaterial({
+        color: pin.highlighted ? 0x38bdf8 : 0xf59e0b,
+        emissive: pin.highlighted ? 0x0ea5e9 : 0x7c2d12,
+        emissiveIntensity: pin.highlighted ? 0.9 : 0.55,
+        metalness: 0.1,
+        roughness: 0.2,
+      })
+      const marker = new THREE.Mesh(geometry, material)
+      marker.position.set(pin.x, pin.y, pin.z)
+      marker.renderOrder = 1000
+      root.add(marker)
+      pinObjectsRef.current.push(marker)
+    })
+    const renderer = rendererRef.current
+    const scene = sceneRef.current
+    const camera = cameraRef.current
+    if (renderer && scene && camera) renderer.render(scene, camera)
+    return () => {
+      pinObjectsRef.current.forEach((pin) => {
+        pin.parent?.remove(pin)
+        disposeObject(THREE, pin)
+      })
+      pinObjectsRef.current = []
+    }
+  }, [loadedTargetRevision, partPins])
+
+  useEffect(() => {
+    const targets = bambuTargetsRef.current
+    const non3mfTargets = non3mfTargetsRef.current
+    const THREE = threeRef.current
+    if (!THREE) return
+    let cancelled = false
+    const overrideKey = `${buildOverrideKey(colorOverrides)}::${buildPartOverrideKey(colorOverridesByPartKey)}`
+    const overridePalette = (colorOverrides || []).map((value) => parseColorToHexInt(value ?? null))
+    const singleOverride = parseOverrideColors(colorOverrides)[0] ?? null
+    const resolveRawOverride = (overrideIndex: number, partKey: string) => (
+      colorOverridesByPartKey?.[partKey]
+      ?? colorOverrides?.[overrideIndex]
+      ?? colorOverrides?.[0]
+      ?? null
+    )
+    const applyPaintOverrides = (target: InstanceType<ThreeLib['Object3D']>) => {
+      const gradientPalette = (colorOverrides || []).map((value) => resolveGradientStops(value ?? null))
+      target.traverse((child: any) => {
+        if (!(child instanceof THREE.Mesh)) return
+        const triColors: Array<number | null> | undefined = child.userData?.paintTriangleColors
+        if (!triColors || triColors.length === 0 || overridePalette.length === 0) return
+        const geometry = child.geometry
+        const colorAttr = geometry?.getAttribute?.('color')
+        const positionAttr = geometry?.getAttribute?.('position')
+        if (!colorAttr || !positionAttr) return
+        const colors = new Float32Array(positionAttr.count * 3)
+        for (let i = 0; i < triColors.length; i++) {
+          const cidx = triColors[i]
+          const gradientStops = cidx != null
+            ? (gradientPalette[cidx] ?? (cidx > 0 ? gradientPalette[cidx - 1] : null) ?? [])
+            : []
+          const colorHex = cidx != null
+            ? (overridePalette[cidx] ?? (cidx > 0 ? overridePalette[cidx - 1] : null) ?? singleOverride)
+            : singleOverride
+          const base = i * 9
+          for (let j = 0; j < 3; j++) {
+            const offset = base + j * 3
+            if (gradientStops.length >= 2) {
+              const vertexIndex = i * 3 + j
+              const projection = positionAttr.getX(vertexIndex) * 0.72
+                + positionAttr.getY(vertexIndex) * 0.18
+                + positionAttr.getZ(vertexIndex) * 0.54
+              const gradientColor = interpolateGradientColor(THREE, gradientStops, (projection + 100) / 200)
+              colors[offset] = gradientColor.r
+              colors[offset + 1] = gradientColor.g
+              colors[offset + 2] = gradientColor.b
+            } else {
+              const color = colorHex != null ? new THREE.Color(colorHex) : new THREE.Color(0xd0d0d0)
+              colors[offset] = color.r
+              colors[offset + 1] = color.g
+              colors[offset + 2] = color.b
+            }
+          }
+        }
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+        const material = child.material
+        if (Array.isArray(material)) material.forEach((m) => { if (m) m.needsUpdate = true })
+        else if (material) material.needsUpdate = true
+      })
+    }
+    const apply = async () => {
+      for (const target of targets) {
+        let planCache = bambuPlanCacheRef.current.get(target.buffer)
+        if (!planCache) {
+          planCache = new Map<string, BambuColorPlan | null>()
+          bambuPlanCacheRef.current.set(target.buffer, planCache)
+        }
+        let plan = planCache.get(overrideKey)
+        if (plan === undefined) {
+          plan = await tryBuildBambuColorPlan(target.buffer, colorOverrides)
+          planCache.set(overrideKey, plan)
+        }
+        if (cancelled) continue
+        const rawOverride = resolveRawOverride(0, target.root.userData?.__mwv2PartKey || '')
+        const gradientStops = resolveGradientStops(rawOverride)
+        if (gradientStops.length >= 2) {
+          applyGradientToObject(THREE, target.root, gradientStops)
+        } else if (plan) {
+          applyBambuColors(THREE, target.root, plan)
+        } else {
+          applyPaintOverrides(target.root)
+        }
+      }
+      const paint = (target: InstanceType<ThreeLib['Object3D']>, overrideIndex: number, partKey: string) => {
+        const rawOverride = resolveRawOverride(overrideIndex, partKey)
+        const gradientStops = resolveGradientStops(rawOverride)
+        if (gradientStops.length >= 2) {
+          applyGradientToObject(THREE, target, gradientStops)
+          return
+        }
+        const keyedOverride = parseColorToHexInt(colorOverridesByPartKey?.[partKey] ?? null)
+        const indexedOverride = overridePalette[overrideIndex] ?? singleOverride ?? null
+        const resolvedOverride = keyedOverride ?? indexedOverride
+        target.traverse((child: any) => {
+          if (!(child instanceof THREE.Mesh)) return
+          const material = child.material
+          const triColors: Array<number | null> | undefined = child.userData?.paintTriangleColors
+          if (triColors && triColors.length > 0) {
+            applyPaintOverrides(child)
+            return
+          }
+          const override = resolvedOverride
+          if (override == null) return
+          const setMatColor = (mat: any) => {
+            if (!mat || !mat.color) return
+            mat.color.setHex(override)
+            mat.needsUpdate = true
+          }
+          if (Array.isArray(material)) material.forEach((mat) => setMatColor(mat))
+          else setMatColor(material)
+        })
+      }
+      if (cancelled) return
+      non3mfTargets.forEach((target) => paint(target.root, target.overrideIndex, target.partKey))
+      const renderer = rendererRef.current
+      const scene = sceneRef.current
+      const camera = cameraRef.current
+      if (renderer && scene && camera) {
+        renderer.render(scene, camera)
+        requestAnimationFrame(() => {
+          const r = rendererRef.current
+          const s = sceneRef.current
+          const c = cameraRef.current
+          if (r && s && c) r.render(s, c)
+        })
+      }
+    }
+    apply()
+    return () => {
+      cancelled = true
+    }
+  }, [colorOverrides, colorOverridesByPartKey, loadedTargetRevision])
+
+  const firstEntry = fileEntries[0]
+  const errorLink = firstEntry?.fallback || firstEntry?.src
+  const errorLabel = firstEntry?.fallback ? 'Open STL directly' : 'Open file directly'
 
   return (
     <div className={`relative ${className || ''}`} style={{ width: '100%', height }}>
@@ -349,10 +1408,10 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 text-center px-4 text-sm text-amber-200">
           <div>
             <p>{error}</p>
-            {resolvedFiles[0] && (
+            {errorLink && (
               <p className="mt-2">
-                <a href={resolvedFiles[0]} target="_blank" rel="noreferrer" className="underline">
-                  Open STL directly
+                <a href={errorLink} target="_blank" rel="noreferrer" className="underline">
+                  {errorLabel}
                 </a>
               </p>
             )}
@@ -372,8 +1431,7 @@ export default function ModelViewer({ src, srcs, className, height = 480, autoRo
           }}
           className="px-3 py-1.5 text-xs rounded-md border border-white/20 bg-black/40 backdrop-blur hover:border-white/40"
         >
-          Rotate 90°
-        </button>
+          Rotate 90</button>
         <button
           type="button"
           onClick={() => fitRef.current?.()}

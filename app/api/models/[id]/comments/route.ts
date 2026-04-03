@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
+import path from 'path'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
-import { revalidatePath } from 'next/cache'
-import { commentInclude, commentUserSelect, detectCommentViolation, serializeComment } from '@/lib/comments'
+import { revalidatePath, revalidateTag } from 'next/cache'
+import {
+  commentInclude,
+  commentUserSelect,
+  detectCommentViolation,
+  findVerifiedCommentUserIds,
+  serializeComment,
+  userHasModelReceipt,
+} from '@/lib/comments'
+import { saveBuffer } from '@/lib/storage'
+import { CACHE_TAGS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +34,12 @@ export async function GET(_req: NextRequest, { params }: ModelCommentsContext) {
     orderBy: commentInclude.orderBy,
     include: commentInclude.include,
   })
-  return NextResponse.json({ comments: comments.map(serializeComment) })
+  const verified = await findVerifiedCommentUserIds(id, comments.map(c => c.userId))
+  const payload = comments.map((comment) => serializeComment({
+    ...comment,
+    isVerified: comment.userId ? verified.has(comment.userId) : false,
+  }))
+  return NextResponse.json({ comments: payload })
 }
 
 export async function POST(req: NextRequest, { params }: ModelCommentsContext) {
@@ -33,11 +48,47 @@ export async function POST(req: NextRequest, { params }: ModelCommentsContext) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   let bodyText = ''
-  try {
-    const payload = await req.json()
-    bodyText = normalizeBody(payload?.body)
-  } catch {
-    bodyText = ''
+  let type: 'comment' | 'make' = 'comment'
+  let partId: string | null = null
+  let partName: string | null = null
+  let pinX: number | null = null
+  let pinY: number | null = null
+  let pinZ: number | null = null
+  let imageFile: File | null = null
+  const contentType = req.headers.get('content-type') || ''
+
+  if (contentType.includes('multipart/form-data')) {
+    const form = await req.formData()
+    bodyText = normalizeBody(form.get('body'))
+    const rawType = ((form.get('type') as string | null) || '').toLowerCase()
+    if (rawType === 'make') type = 'make'
+    partId = normalizeBody(form.get('partId')) || null
+    partName = normalizeBody(form.get('partName')) || null
+    const parsedPinX = Number(form.get('pinX'))
+    const parsedPinY = Number(form.get('pinY'))
+    const parsedPinZ = Number(form.get('pinZ'))
+    pinX = Number.isFinite(parsedPinX) ? parsedPinX : null
+    pinY = Number.isFinite(parsedPinY) ? parsedPinY : null
+    pinZ = Number.isFinite(parsedPinZ) ? parsedPinZ : null
+    const maybeFile = form.get('image')
+    if (maybeFile instanceof File) {
+      imageFile = maybeFile
+    }
+  } else {
+    try {
+      const payload = await req.json()
+      bodyText = normalizeBody(payload?.body)
+      if ((payload?.type || '').toLowerCase() === 'make') {
+        type = 'make'
+      }
+      partId = normalizeBody(payload?.partId) || null
+      partName = normalizeBody(payload?.partName) || null
+      pinX = Number.isFinite(Number(payload?.pinX)) ? Number(payload?.pinX) : null
+      pinY = Number.isFinite(Number(payload?.pinY)) ? Number(payload?.pinY) : null
+      pinZ = Number.isFinite(Number(payload?.pinZ)) ? Number(payload?.pinZ) : null
+    } catch {
+      bodyText = ''
+    }
   }
 
   if (bodyText.length < MIN_LENGTH) {
@@ -49,6 +100,9 @@ export async function POST(req: NextRequest, { params }: ModelCommentsContext) {
   const violation = detectCommentViolation(bodyText)
   if (violation) {
     return NextResponse.json({ error: violation }, { status: 400 })
+  }
+  if (type === 'make' && !(imageFile instanceof File)) {
+    return NextResponse.json({ error: 'Add a photo of your make to share it.' }, { status: 400 })
   }
 
   const model = await prisma.model.findUnique({
@@ -66,16 +120,62 @@ export async function POST(req: NextRequest, { params }: ModelCommentsContext) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  let imagePath: string | null = null
+  let imageWidth: number | null = null
+  let imageHeight: number | null = null
+  let imageSourcePath: string | null = null
+  if (type === 'make' && imageFile) {
+    const buf = Buffer.from(await imageFile.arrayBuffer())
+    if (buf.length === 0) {
+      return NextResponse.json({ error: 'Image upload failed' }, { status: 400 })
+    }
+    const ext = path.extname(imageFile.name) || '.bin'
+    const sourceRel = path.join(userId, 'makes', 'raw', `${model.id}-${Date.now()}${ext}`)
+    const rel = path.join(userId, 'makes', `${model.id}-${Date.now()}.webp`)
+    await saveBuffer(sourceRel, buf)
+    imagePath = `/${rel.replace(/\\/g, '/')}`
+    imageSourcePath = `/${sourceRel.replace(/\\/g, '/')}`
+    imageWidth = null
+    imageHeight = null
+  }
+
   const comment = await prisma.modelComment.create({
-    data: { modelId: model.id, userId, body: bodyText },
+    data: {
+      modelId: model.id,
+      userId,
+      body: bodyText,
+      partId: partId || undefined,
+      partName: partName || undefined,
+      pinX: pinX ?? undefined,
+      pinY: pinY ?? undefined,
+      pinZ: pinZ ?? undefined,
+      type,
+      imagePath,
+      imageStatus: imagePath ? 'processing' : undefined,
+      imageSourcePath: imageSourcePath ?? undefined,
+      imageWidth,
+      imageHeight,
+    },
     include: { user: { select: commentUserSelect } },
   })
 
+  const isVerified = await userHasModelReceipt(model.id, userId)
+
   try {
     revalidatePath(`/models/${model.id}`)
+    revalidateTag(modelTag(model.id), 'max')
+    revalidateTag(modelCommentsTag(model.id), 'max')
+    revalidateTag(CACHE_TAGS.discoverModels, 'max')
+    revalidateTag(CACHE_TAGS.homePage, 'max')
+    revalidateTag(CACHE_TAGS.homeCuratedComments, 'max')
   } catch {
     // ignore cache errors
   }
 
-  return NextResponse.json({ comment: serializeComment(comment) })
+  return NextResponse.json({
+    comment: serializeComment({
+      ...comment,
+      isVerified,
+    }),
+  })
 }

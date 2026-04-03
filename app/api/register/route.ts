@@ -6,6 +6,8 @@ import { hashPassword } from '@/lib/auth'
 import { ensureUserPage } from '@/lib/userpage'
 import { createEmailVerificationToken, buildVerificationUrl, sendVerificationEmail } from '@/lib/emailVerification'
 import { sendAdminDiscordNotification } from '@/lib/discord'
+import { sendAdminPushNotification } from '@/lib/push'
+import { consumeRateLimit, getAuthRateLimitConfig, getRequestIp } from '@/lib/rate-limit'
 
 const schema = z.object({
   email: z.string().email(),
@@ -19,12 +21,38 @@ export async function POST(req: NextRequest) {
     const json = await req.json()
     const { email, name, password, confirmPassword } = schema.parse(json)
     const normalizedEmail = email.trim().toLowerCase()
+    const ip = getRequestIp(req)
+    const userAgent = (req.headers.get('user-agent') || '').trim().slice(0, 512)
+    const rateKey = `register:${normalizedEmail}:${ip}`
+    const registerConfig = getAuthRateLimitConfig('register')
+    const registerLimit = await consumeRateLimit(rateKey, registerConfig)
+    if (!registerLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many registration attempts. Try again later.' },
+        { status: 429, headers: registerLimit.retryAfterSeconds ? { 'Retry-After': String(registerLimit.retryAfterSeconds) } : {} },
+      )
+    }
     if (password !== confirmPassword) {
       return NextResponse.json({ error: 'Passwords must match' }, { status: 400 })
     }
-    const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+    const existing = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, email: true, name: true, emailVerified: true, isSuspended: true },
+    })
     if (existing) {
-      return NextResponse.json({ error: 'Email already registered' }, { status: 400 })
+      if (!existing.isSuspended && !existing.emailVerified) {
+        try {
+          const token = await createEmailVerificationToken(existing.id, normalizedEmail)
+          const verifyUrl = buildVerificationUrl(token)
+          await sendVerificationEmail(normalizedEmail, verifyUrl, { reason: 'register', userName: existing.name || undefined })
+        } catch (mailErr) {
+          console.error('Verification email resend failed:', mailErr)
+        }
+      }
+      return NextResponse.json({
+        ok: true,
+        message: 'If that email is eligible, you will receive a verification email shortly.',
+      })
     }
     const passwordHash = await hashPassword(password)
     const user = await prisma.user.create({
@@ -32,6 +60,9 @@ export async function POST(req: NextRequest) {
         email: normalizedEmail,
         name: name?.trim() || null,
         passwordHash,
+        registrationSource: 'self_signup',
+        registrationIp: ip || null,
+        registrationUserAgent: userAgent || null,
         isAdmin: false,
         emailVerified: false,
         isSuspended: false,
@@ -64,11 +95,22 @@ export async function POST(req: NextRequest) {
     } catch (notifyErr) {
       console.error('Admin Discord notification failed for signup:', notifyErr)
     }
+    try {
+      const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+      const profileUrl = profile?.slug ? `${baseUrl}/u/${profile.slug}` : undefined
+      await sendAdminPushNotification({
+        title: 'New user registered',
+        body: `${normalizedEmail}${user.name ? ` (${user.name})` : ''}`,
+        url: profileUrl || `${baseUrl}/admin/users`,
+        tag: `user:${user.id}`,
+        data: { userId: user.id },
+      })
+    } catch (notifyErr) {
+      console.error('Admin push notification failed for signup:', notifyErr)
+    }
     return NextResponse.json({
       ok: true,
-      message: emailSent
-        ? 'Verification email sent. Please confirm to finish signing up.'
-        : 'Account created but we could not send the verification email automatically. Use “Resend verification email” once email is configured.',
+      message: 'If that email is eligible, you will receive a verification email shortly.',
       mailError: !emailSent,
     })
   } catch (e: any) {

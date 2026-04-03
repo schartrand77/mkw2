@@ -1,19 +1,31 @@
 "use client"
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useCart } from '@/components/cart/CartProvider'
 import { formatCurrency } from '@/lib/currency'
+import { toPublicHref } from '@/lib/public-path'
+import { normalizeHexColor, resolveColorPaint } from '@/lib/color-swatch'
 import {
   clampScale,
   DIMENSION_AXES,
   getColorMultiplier,
+  getFinishMultiplier,
   getMaterialMultiplier,
   getVolumeScaleMultiplier,
+  MATERIAL_OPTIONS,
+  normalizeColors,
+  normalizeMaterialName,
   resolveAxisScale,
   type MaterialType,
 } from '@/lib/cartPricing'
+import { buildAllowedColorTokenSet, isColorAllowed, normalizeModelColorSlotCount } from '@/lib/color-constraints'
 import type { DiscountSummary } from '@/lib/discounts'
 import { getDiscountMultiplier } from '@/lib/discounts'
+import { applyPricingAdjustments, resolveBatchDiscountPercent } from '@/lib/estimate-adjustments'
+
+const LazyModelViewer = dynamic(() => import('@/components/ModelViewer'), { ssr: false })
 
 const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
   x: 'Width (X)',
@@ -21,10 +33,12 @@ const AXIS_LABELS: Record<(typeof DIMENSION_AXES)[number], string> = {
   z: 'Height (Z)',
 }
 const COLOR_PICKER_FALLBACK = '#1f2937'
-const HEX_WITH_HASH_RE = /#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})/i
-const HEX_WITH_0X_RE = /0x([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})/i
-const HEX_BARE_RE = /\b([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})\b/i
-const isHexColor = (value?: string | null) => !!value && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value.trim())
+const PREVIEW_DEFAULT_COLOR = '#f8fafc'
+const PALETTE_MARGIN = 16
+const HEX_WITH_HASH_RE = /#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
+const HEX_WITH_0X_RE = /0x([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})/i
+const HEX_BARE_RE = /\b([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})\b/i
+const isHexColor = (value?: string | null) => !!value && /^#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})$/i.test(value.trim())
 const normalizeAlphaHex = (value: string) => {
   const trimmed = value.trim()
   if (!/^#([0-9a-f]{8})$/i.test(trimmed)) return trimmed
@@ -69,15 +83,55 @@ const COLOR_PALETTE = [
 type StockworksPalette = {
   enabled: boolean
   materials: Record<string, { inStock: StockworksColor[] | string[]; orderable: StockworksColor[] | string[] }>
+  materialTypes?: string[]
+}
+type StockworksWarning = {
+  status: 'in_stock' | 'limited' | 'out_of_stock'
+  quantityGrams: number
+  limitedThresholdGrams: number
+  leadTimeDays?: number | null
+}
+type StockworksWarningResponse = {
+  enabled: boolean
+  materials: Record<string, StockworksWarning>
+  updatedAt?: string
 }
 type StockworksColor = {
   name: string
   hex?: string | null
+  brand?: string | null
+  category?: string | null
 }
 type SwatchOption = {
   name: string
   hex: string
+  paint: string
   inStock?: boolean
+  brand?: string
+  category?: string
+}
+type ModelPreviewPart = {
+  id: string
+  index?: number | null
+  filePath: string
+  previewFilePath?: string | null
+}
+type ModelPreviewEntry = {
+  filePath: string | null
+  viewerFilePath: string | null
+  parts: ModelPreviewPart[]
+}
+type CustomerPreset = {
+  id: string
+  name: string
+  data: {
+    material?: string | null
+    colors?: string[] | null
+    finish?: string | null
+    infillPct?: number | null
+    scale?: number | null
+    priceMultiplier?: number | null
+  }
 }
 const normalizeColorValue = (value?: string | null) => (value || '').trim().toLowerCase()
 const extractHex = (value?: string | null) => {
@@ -102,16 +156,20 @@ const normalizeColorKey = (value: string | StockworksColor) => {
     const parsed = parseColorString(value)
     return normalizeColorValue(parsed.name || parsed.hex || value)
   }
-  return normalizeColorValue(value.name || value.hex || '')
+  const base = normalizeColorValue(value.name || value.hex || '')
+  const brand = normalizeColorValue(value.brand || '')
+  const category = normalizeColorValue(value.category || '')
+  const scope = [brand, category].filter(Boolean).join('::')
+  return scope ? `${scope}::${base}` : base
 }
 const toColorMeta = (value: string | StockworksColor) => {
   if (typeof value === 'string') {
     const parsed = parseColorString(value)
-    return { name: parsed.name || value, hex: parsed.hex }
+    return { name: parsed.name || value, hex: parsed.hex, brand: '', category: '' }
   }
   const hex = value.hex ? normalizeAlphaHex(value.hex) : extractHex(value.name)
   const name = value.name ? value.name.replace(HEX_WITH_HASH_RE, '').replace(HEX_WITH_0X_RE, '').replace(HEX_BARE_RE, '').trim() : ''
-  return { name: name || value.name || hex || 'Unknown', hex }
+  return { name: name || value.name || hex || 'Unknown', hex, brand: value.brand || '', category: value.category || '' }
 }
 const resolveSwatch = (value?: string | null) => {
   const parsed = parseColorString(value)
@@ -123,14 +181,82 @@ const resolveSwatch = (value?: string | null) => {
   return parsed.name ? { name: parsed.name, hex: '' } : null
 }
 
+const hexToRgb = (hex: string) => {
+  const normalized = normalizeHexColor(hex)
+  if (!normalized) return null
+  const raw = normalized.slice(1)
+  const r = Number.parseInt(raw.slice(0, 2), 16)
+  const g = Number.parseInt(raw.slice(2, 4), 16)
+  const b = Number.parseInt(raw.slice(4, 6), 16)
+  if ([r, g, b].some((c) => Number.isNaN(c))) return null
+  return { r, g, b }
+}
+
+const mixHex = (a: string, b: string, ratio = 0.5) => {
+  const rgbA = hexToRgb(a)
+  const rgbB = hexToRgb(b)
+  if (!rgbA || !rgbB) return ''
+  const blend = (x: number, y: number) => Math.round(x + (y - x) * ratio)
+  const r = blend(rgbA.r, rgbB.r)
+  const g = blend(rgbA.g, rgbB.g)
+  const bVal = blend(rgbA.b, rgbB.b)
+  return `#${[r, g, bVal].map((c) => c.toString(16).padStart(2, '0')).join('')}`
+}
+
+const buildBlendGradient = (hexes: string[]) => {
+  if (hexes.length === 0) return ''
+  if (hexes.length === 1) return hexes[0]
+  const stops = hexes.map((hex, idx) => {
+    const pct = Math.round((idx / (hexes.length - 1)) * 100)
+    return `${hex} ${pct}%`
+  })
+  return `linear-gradient(90deg, ${stops.join(', ')})`
+}
+
+const resolveColorHex = (value?: string | null) => {
+  const parsed = parseColorString(value)
+  const swatch = resolveSwatch(value)
+  const candidate = parsed.hex || swatch?.hex || ''
+  return candidate ? normalizeHexColor(candidate) : ''
+}
+
 export default function CartPage() {
-  const { items, inc, dec, update, remove, clear, maxColors } = useCart()
+  const { items, inc, dec, update, remove, clear, maxColors, pricingAdjustments, minimumOrder } = useCart()
   const [discount, setDiscount] = useState<DiscountSummary | null>(null)
-  const [activeColorSlot, setActiveColorSlot] = useState<{ id: string; modelId: string; partId: string | null; index: number } | null>(null)
+  const [rush, setRush] = useState(false)
+  const [activeColorSlot, setActiveColorSlot] = useState<{ id: string; cartItemId: string; modelId: string; partId: string | null; index: number } | null>(null)
   const [activeColorAnchor, setActiveColorAnchor] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
+  const [paletteWidth, setPaletteWidth] = useState<number | null>(null)
+  const [paletteMaxHeight, setPaletteMaxHeight] = useState<number | null>(null)
+  const [palettePlacement, setPalettePlacement] = useState<'above' | 'below'>('below')
   const [isMobilePalette, setIsMobilePalette] = useState(false)
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
+  const [materialWarnings, setMaterialWarnings] = useState<StockworksWarningResponse | null>(null)
+  const [modelPreviewCache, setModelPreviewCache] = useState<Record<string, ModelPreviewEntry>>({})
+  const [optimisticPartPreviewValue, setOptimisticPartPreviewValue] = useState<Record<string, string>>({})
+  const [dimensionInputs, setDimensionInputs] = useState<Record<string, Record<(typeof DIMENSION_AXES)[number], string>>>({})
+  const [activeDimensionInput, setActiveDimensionInput] = useState<{ key: string; axis: (typeof DIMENSION_AXES)[number] } | null>(null)
+  const [selectedPreviewKey, setSelectedPreviewKey] = useState<{ cartItemId: string } | null>(null)
+  const [presets, setPresets] = useState<CustomerPreset[]>([])
+  const [presetError, setPresetError] = useState<string | null>(null)
+  const [presetNames, setPresetNames] = useState<Record<string, string>>({})
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const paletteRef = useRef<HTMLDivElement | null>(null)
+  const searchParams = useSearchParams()
+  const previewParamRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('mwv2:cart:rush')
+      if (stored) setRush(stored === '1')
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mwv2:cart:rush', rush ? '1' : '0')
+    } catch {}
+  }, [rush])
 
   useEffect(() => {
     let active = true
@@ -143,6 +269,21 @@ export default function CartPage() {
     return () => {
       active = false
     }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/presets', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) return null
+        return res.json()
+      })
+      .then((data) => {
+        if (!active || !data?.presets) return
+        setPresets(Array.isArray(data.presets) ? data.presets : [])
+      })
+      .catch(() => {})
+    return () => { active = false }
   }, [])
 
   useEffect(() => {
@@ -171,6 +312,32 @@ export default function CartPage() {
     }
   }, [])
 
+  const cartMaterials = useMemo(() => {
+    const unique = new Set<string>()
+    for (const item of items) {
+      const key = normalizeMaterialName(item.options.material || 'PLA')
+      if (key) unique.add(key)
+    }
+    return Array.from(unique)
+  }, [items])
+
+  useEffect(() => {
+    let active = true
+    if (cartMaterials.length === 0) {
+      setMaterialWarnings(null)
+      return () => { active = false }
+    }
+    const qs = cartMaterials.join(',')
+    fetch(`/api/stockworks/material-warnings?materials=${encodeURIComponent(qs)}`, { cache: 'no-store' })
+      .then(async (res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.enabled) return
+        setMaterialWarnings(data)
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [cartMaterials])
+
   useEffect(() => {
     if (!activeColorSlot) return
     const handlePointer = (event: MouseEvent) => {
@@ -194,26 +361,110 @@ export default function CartPage() {
   useEffect(() => {
     if (!activeColorSlot) {
       setActiveColorAnchor(null)
+      setPaletteWidth(null)
+      setPaletteMaxHeight(null)
       return
     }
-    const updateAnchor = () => {
-      const button = document.querySelector(`[data-color-slot="${activeColorSlot.id}"]`)
-      if (!button) return
-      const rect = (button as HTMLElement).getBoundingClientRect()
+    if (!activeColorAnchor) return
+    const updateLayout = () => {
+      const rect = activeColorAnchor
+      const containerRect = containerRef.current?.getBoundingClientRect()
+      const availableWidth = Math.max(0, window.innerWidth - PALETTE_MARGIN * 2)
+      const targetWidth = Math.max(320, Math.min(containerRect?.width ?? availableWidth, availableWidth))
+      const verticalGap = 12
+      const availableBelow = Math.max(0, window.innerHeight - (rect.top + rect.height + verticalGap) - PALETTE_MARGIN)
+      const availableAbove = Math.max(0, rect.top - verticalGap - PALETTE_MARGIN)
+      const nextPlacement = availableAbove > availableBelow ? 'above' : 'below'
       setActiveColorAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
+      setPaletteWidth(targetWidth)
+      const available = nextPlacement === 'above' ? availableAbove : availableBelow
+      setPaletteMaxHeight(Math.max(220, Math.min(320, available)))
+      setPalettePlacement(nextPlacement)
     }
-    updateAnchor()
-    window.addEventListener('resize', updateAnchor)
-    window.addEventListener('scroll', updateAnchor, true)
+    updateLayout()
+    window.addEventListener('resize', updateLayout)
     return () => {
-      window.removeEventListener('resize', updateAnchor)
-      window.removeEventListener('scroll', updateAnchor, true)
+      window.removeEventListener('resize', updateLayout)
     }
-  }, [activeColorSlot])
+  }, [activeColorSlot, activeColorAnchor])
 
   const activeSlotItem = activeColorSlot
-    ? items.find((item) => item.modelId === activeColorSlot.modelId && (item.partId ?? null) === activeColorSlot.partId)
+    ? items.find((item) => item.cartItemId === activeColorSlot.cartItemId)
     : null
+  const activeSlotAllowedTokens = useMemo(
+    () => buildAllowedColorTokenSet(Array.isArray(activeSlotItem?.allowedColors) ? activeSlotItem.allowedColors : null),
+    [activeSlotItem],
+  )
+  const activeSlotLocked = Boolean(activeSlotItem?.options.lockedConfig)
+  const selectedPreviewItem = activeSlotItem
+    || (selectedPreviewKey
+      ? items.find((item) => item.cartItemId === selectedPreviewKey.cartItemId)
+      : null)
+    || items[0]
+    || null
+
+  useEffect(() => {
+    if (!activeColorSlot) return
+    setSelectedPreviewKey({ cartItemId: activeColorSlot.cartItemId })
+  }, [activeColorSlot])
+
+  useEffect(() => {
+    if (!selectedPreviewKey) return
+    const exists = items.some((item) => item.cartItemId === selectedPreviewKey.cartItemId)
+    if (!exists) setSelectedPreviewKey(null)
+  }, [items, selectedPreviewKey])
+
+  useEffect(() => {
+    const previewModelId = searchParams?.get('previewModelId')?.trim() || ''
+    if (!previewModelId) return
+    const previewPartRaw = searchParams?.get('previewPartId')
+    const previewPartId = previewPartRaw ? previewPartRaw.trim() : ''
+    const key = `${previewModelId}::${previewPartId}`
+    if (previewParamRef.current === key) return
+    const match = items.find((item) => item.modelId === previewModelId && (item.partId ?? '') === previewPartId)
+    if (!match) return
+    previewParamRef.current = key
+    setSelectedPreviewKey({ cartItemId: match.cartItemId })
+  }, [items, searchParams])
+
+  useEffect(() => {
+    if (!selectedPreviewItem) return
+    const modelId = selectedPreviewItem.modelId
+    if (modelPreviewCache[modelId]) return
+    let active = true
+    fetch(`/api/models/${modelId}`, { cache: 'no-store' })
+      .then(async (res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data?.model) return
+        const model = data.model as { filePath?: string | null; viewerFilePath?: string | null; parts?: any[] }
+        const parts = Array.isArray(model.parts)
+          ? model.parts
+            .map((part) => ({
+              id: String(part?.id ?? ''),
+              index: typeof part?.index === 'number' ? part.index : null,
+              filePath: String(part?.filePath ?? ''),
+              previewFilePath: typeof part?.previewFilePath === 'string' ? part.previewFilePath : null,
+            }))
+            .filter((part) => part.id && part.filePath)
+          : []
+        setModelPreviewCache((prev) => {
+          if (prev[modelId]) return prev
+          return {
+            ...prev,
+            [modelId]: {
+              filePath: typeof model.filePath === 'string' ? model.filePath : null,
+              viewerFilePath: typeof model.viewerFilePath === 'string' ? model.viewerFilePath : null,
+              parts,
+            },
+          }
+        })
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [selectedPreviewItem, modelPreviewCache])
+
   const activeSlotValue = activeColorSlot && activeSlotItem ? activeSlotItem.options.colors?.[activeColorSlot.index] || '' : ''
   const activeSlotParsed = parseColorString(activeSlotValue)
   const activeSlotSwatch = resolveSwatch(activeSlotValue)
@@ -226,11 +477,77 @@ export default function CartPage() {
     }
     return map
   }, [])
-  const activeMaterialKey = (activeSlotItem?.options.material || 'PLA').toUpperCase()
+  const activeMaterialKey = normalizeMaterialName(activeSlotItem?.options.material)
   const stockworksEntry = stockworksPalette?.materials?.[activeMaterialKey]
+  const stockworksColorValueToHex = useMemo(() => {
+    const map = new Map<string, string>()
+    if (!stockworksPalette?.materials) return map
+    for (const material of Object.values(stockworksPalette.materials)) {
+      const entries = [
+        ...(Array.isArray(material?.inStock) ? material.inStock : []),
+        ...(Array.isArray(material?.orderable) ? material.orderable : []),
+      ]
+      for (const entry of entries) {
+        const meta = toColorMeta(entry as any)
+        const hex = normalizeHexColor(meta.hex || '')
+        if (!hex) continue
+        const nameKey = normalizeColorValue(meta.name)
+        if (nameKey && !map.has(nameKey)) map.set(nameKey, hex)
+        const hexKey = normalizeColorValue(hex)
+        if (hexKey && !map.has(hexKey)) map.set(hexKey, hex)
+      }
+    }
+    return map
+  }, [stockworksPalette])
+  const stockworksColorValueToPaint = useMemo(() => {
+    const map = new Map<string, string>()
+    if (!stockworksPalette?.materials) return map
+    for (const material of Object.values(stockworksPalette.materials)) {
+      const entries = [
+        ...(Array.isArray(material?.inStock) ? material.inStock : []),
+        ...(Array.isArray(material?.orderable) ? material.orderable : []),
+      ]
+      for (const entry of entries) {
+        const meta = toColorMeta(entry as any)
+        const paint = resolveColorPaint({
+          name: meta.name,
+          hex: meta.hex,
+          category: meta.category,
+          fallback: COLOR_PICKER_FALLBACK,
+        })
+        const nameKey = normalizeColorValue(meta.name)
+        if (nameKey && !map.has(nameKey)) map.set(nameKey, paint)
+        const hexKey = normalizeColorValue(normalizeHexColor(meta.hex || ''))
+        if (hexKey && !map.has(hexKey)) map.set(hexKey, paint)
+      }
+    }
+    return map
+  }, [stockworksPalette])
+  const materialOptions = useMemo(() => {
+    const defaults = MATERIAL_OPTIONS.map((material) => material.toUpperCase())
+    const fromStockworks = stockworksPalette?.materialTypes?.length
+      ? stockworksPalette.materialTypes.map((key) => key.toUpperCase())
+      : (stockworksPalette?.materials ? Object.keys(stockworksPalette.materials).map((key) => key.toUpperCase()) : [])
+    const output: string[] = []
+    const seen = new Set<string>()
+    for (const material of [...defaults, ...fromStockworks]) {
+      const normalized = material.toUpperCase()
+      if (!normalized || seen.has(normalized)) continue
+      seen.add(normalized)
+      output.push(normalized)
+    }
+    return output.length ? output : defaults
+  }, [stockworksPalette])
   const paletteOptions = useMemo<SwatchOption[]>(() => {
-    if (!stockworksEntry) {
-      return COLOR_PALETTE.map((swatch) => ({ ...swatch }))
+    if (!stockworksEntry || (stockworksEntry.inStock.length === 0 && stockworksEntry.orderable.length === 0)) {
+      const basePalette = COLOR_PALETTE.map((swatch) => ({
+        ...swatch,
+        brand: '',
+        paint: swatch.hex,
+      }))
+      return activeSlotAllowedTokens
+        ? basePalette.filter((swatch) => isColorAllowed(`${swatch.name} ${swatch.hex}`, activeSlotAllowedTokens))
+        : basePalette
     }
     const inStockSet = new Set(stockworksEntry.inStock.map((color) => normalizeColorKey(color as StockworksColor | string)))
     const ordered = [...stockworksEntry.inStock, ...stockworksEntry.orderable]
@@ -239,18 +556,33 @@ export default function CartPage() {
     for (const color of ordered) {
       const colorMeta = toColorMeta(color as StockworksColor | string)
       const normalized = normalizeColorValue(colorMeta.name || colorMeta.hex)
-      if (!normalized || seen.has(normalized)) continue
-      seen.add(normalized)
+      const brandNormalized = normalizeColorValue(colorMeta.brand)
+      const categoryNormalized = normalizeColorValue(colorMeta.category)
+      const scope = [brandNormalized, categoryNormalized].filter(Boolean).join('::')
+      const uniqueKey = scope ? `${scope}::${normalized}` : normalized
+      if (!normalized || seen.has(uniqueKey)) continue
+      seen.add(uniqueKey)
       const swatch = paletteLookup.get(normalized)
       const hex = colorMeta.hex || swatch?.hex || (isHexColor(colorMeta.name) ? colorMeta.name : COLOR_PICKER_FALLBACK)
+      const paint = resolveColorPaint({
+        name: colorMeta.name || swatch?.name || colorMeta.hex || 'Unknown',
+        hex,
+        category: colorMeta.category || '',
+        fallback: COLOR_PICKER_FALLBACK,
+      })
       output.push({
         name: colorMeta.name || swatch?.name || colorMeta.hex || 'Unknown',
         hex,
-        inStock: inStockSet.has(normalized),
+        paint,
+        inStock: inStockSet.has(uniqueKey),
+        brand: colorMeta.brand || '',
+        category: colorMeta.category || '',
       })
     }
-    return output
-  }, [stockworksEntry, paletteLookup])
+    return activeSlotAllowedTokens
+      ? output.filter((swatch) => isColorAllowed(`${swatch.name} ${swatch.hex}`, activeSlotAllowedTokens))
+      : output
+  }, [stockworksEntry, paletteLookup, activeSlotAllowedTokens])
   const paletteValueToHex = useMemo(() => {
     const map = new Map<string, string>()
     for (const swatch of paletteOptions) {
@@ -259,22 +591,245 @@ export default function CartPage() {
     }
     return map
   }, [paletteOptions])
+  const paletteValueToPaint = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const swatch of paletteOptions) {
+      if (swatch.name) map.set(normalizeColorValue(swatch.name), swatch.paint)
+      if (swatch.hex) map.set(normalizeColorValue(swatch.hex), swatch.paint)
+    }
+    return map
+  }, [paletteOptions])
+  const fallbackBrandLabel = stockworksEntry ? 'Other' : 'Palette'
+  const fallbackCategoryLabel = 'Other'
+  const hasCategory = useMemo(() => paletteOptions.some((swatch) => (swatch.category || '').trim()), [paletteOptions])
+  const paletteGroups = useMemo(() => {
+    const groups: { label: string; categories: { label: string; options: SwatchOption[] }[] }[] = []
+    const brandMap = new Map<string, { label: string; categories: Map<string, SwatchOption[]>; list: { label: string; options: SwatchOption[] }[] }>()
+    for (const swatch of paletteOptions) {
+      const brandLabel = (swatch.brand || '').trim() || fallbackBrandLabel
+      const brandKey = normalizeColorValue(brandLabel)
+      let brandGroup = brandMap.get(brandKey)
+      if (!brandGroup) {
+        brandGroup = { label: brandLabel, categories: new Map(), list: [] }
+        brandMap.set(brandKey, brandGroup)
+        groups.push({ label: brandLabel, categories: brandGroup.list })
+      }
+      const categoryLabel = hasCategory ? ((swatch.category || '').trim() || fallbackCategoryLabel) : ''
+      const categoryKey = hasCategory ? normalizeColorValue(categoryLabel || fallbackCategoryLabel) : 'default'
+      let categoryList = brandGroup.categories.get(categoryKey)
+      if (!categoryList) {
+        categoryList = []
+        brandGroup.categories.set(categoryKey, categoryList)
+        brandGroup.list.push({ label: categoryLabel, options: categoryList })
+      }
+      categoryList.push(swatch)
+    }
+    return groups
+  }, [paletteOptions, fallbackBrandLabel, fallbackCategoryLabel, hasCategory])
   const activeSlotHexValue = isHexColor(activeSlotValue)
     ? activeSlotValue
     : activeSlotSwatch?.hex
       || activeSlotParsed.hex
+      || stockworksColorValueToHex.get(activeSlotNormalized)
       || paletteValueToHex.get(activeSlotNormalized)
       || COLOR_PICKER_FALLBACK
+  const paletteTitle = stockworksEntry ? 'Filament brands' : 'Palette'
+  const selectedPreview = selectedPreviewItem ? modelPreviewCache[selectedPreviewItem.modelId] : null
+  const selectedModelItems = useMemo(
+    () => (selectedPreviewItem ? items.filter((item) => item.modelId === selectedPreviewItem.modelId) : []),
+    [items, selectedPreviewItem],
+  )
+  const selectedModelPartItemMap = useMemo(() => {
+    const map = new Map<string, (typeof items)[number]>()
+    for (const item of selectedModelItems) {
+      const partId = item.partId ?? null
+      if (!partId) continue
+      if (!map.has(partId)) map.set(partId, item)
+    }
+    return map
+  }, [selectedModelItems])
+  const selectedModelPartDescriptorKey = useMemo(() => {
+    const descriptors = selectedModelItems
+      .map((item) => {
+        const partId = item.partId ?? ''
+        if (!partId) return null
+        const partIndex = typeof item.partIndex === 'number' ? item.partIndex : null
+        return `${partId}:${partIndex == null ? '' : partIndex}`
+      })
+      .filter((value): value is string => Boolean(value))
+      .sort((a, b) => a.localeCompare(b))
+    return descriptors.join('|')
+  }, [selectedModelItems])
+  const selectedModelPartDescriptors = useMemo(() => {
+    if (!selectedModelPartDescriptorKey) return []
+    return selectedModelPartDescriptorKey
+      .split('|')
+      .map((token) => {
+        const [partId, idxRaw] = token.split(':')
+        if (!partId) return null
+        const parsed = idxRaw ? Number(idxRaw) : Number.NaN
+        return {
+          partId,
+          partIndex: Number.isFinite(parsed) ? parsed : null,
+        }
+      })
+      .filter((value): value is { partId: string; partIndex: number | null } => Boolean(value))
+  }, [selectedModelPartDescriptorKey])
+  const selectedPreviewPart = selectedPreviewItem?.partId
+    ? (
+      selectedPreview?.parts.find((part) => part.id === selectedPreviewItem.partId)
+      || (typeof selectedPreviewItem.partIndex === 'number'
+        ? selectedPreview?.parts.find((part) => part.index === selectedPreviewItem.partIndex)
+        : null)
+    )
+    : null
+  const selectedPreviewMultipartSources = useMemo(() => {
+    if (!selectedPreview || selectedModelPartDescriptors.length <= 1) return []
+    const partsById = new Map<string, (typeof selectedPreview.parts)[number]>()
+    const partsByIndex = new Map<number, (typeof selectedPreview.parts)[number]>()
+    for (const part of selectedPreview.parts) {
+      if (part.id) partsById.set(part.id, part)
+      if (typeof part.index === 'number') partsByIndex.set(part.index, part)
+    }
+    const entries: Array<{ partId: string; src: string; fallback: string | null }> = []
+    for (const descriptor of selectedModelPartDescriptors) {
+      const partId = descriptor.partId
+      const matched = partsById.get(partId)
+        || (typeof descriptor.partIndex === 'number' ? partsByIndex.get(descriptor.partIndex) : null)
+      if (!matched) continue
+      const src = toPublicHref(matched.filePath)
+      if (!src) continue
+      const fallback = matched.previewFilePath ? toPublicHref(matched.previewFilePath) : null
+      entries.push({ partId, src, fallback })
+    }
+    return entries
+  }, [selectedPreview, selectedModelPartDescriptors])
+  const selectedMultipartViewerSrcs = useMemo(
+    () => selectedPreviewMultipartSources.map((entry) => entry.src),
+    [selectedPreviewMultipartSources],
+  )
+  const selectedMultipartViewerFallbacks = useMemo(
+    () => selectedPreviewMultipartSources.map((entry) => entry.fallback),
+    [selectedPreviewMultipartSources],
+  )
+  const selectedMultipartViewerPartKeys = useMemo(
+    () => selectedPreviewMultipartSources.map((entry) => entry.partId),
+    [selectedPreviewMultipartSources],
+  )
+  const selectedPreviewUsesMultipartViewer = selectedPreviewMultipartSources.length > 1
+  const selectedPreviewSource = selectedPreviewPart?.filePath || selectedPreview?.filePath || selectedPreview?.viewerFilePath || null
+  const selectedPreviewIs3mf = !!selectedPreviewSource && selectedPreviewSource.toLowerCase().endsWith('.3mf')
+  const selectedPreviewFallback = selectedPreviewIs3mf
+    ? (selectedPreviewPart?.previewFilePath || selectedPreview?.viewerFilePath || null)
+    : null
+  const selectedViewerSrc = selectedPreviewSource ? toPublicHref(selectedPreviewSource) : null
+  const selectedViewerFallback = selectedPreviewFallback ? toPublicHref(selectedPreviewFallback) : null
+  const resolveViewerOverrideValue = useCallback((material: string | null | undefined, value?: string | null) => {
+    const raw = (value || '').trim()
+    if (!raw) return PREVIEW_DEFAULT_COLOR
+    const parsed = parseColorString(raw)
+    const normalized = normalizeColorValue(parsed.name || parsed.hex || raw)
+    const materialKey = normalizeMaterialName(material)
+    const materialPalette = stockworksPalette?.materials?.[materialKey]
+    const paletteEntries = materialPalette
+      ? [
+        ...(Array.isArray(materialPalette.inStock) ? materialPalette.inStock : []),
+        ...(Array.isArray(materialPalette.orderable) ? materialPalette.orderable : []),
+      ]
+      : []
+    for (const entry of paletteEntries) {
+      const meta = toColorMeta(entry as StockworksColor | string)
+      const entryNormalized = normalizeColorValue(meta.name || meta.hex)
+      if (!entryNormalized || entryNormalized !== normalized) continue
+      const parts = [meta.category, meta.name, meta.hex].map((part) => (part || '').trim()).filter(Boolean)
+      return parts.join(' ')
+    }
+    return raw
+  }, [stockworksPalette])
+  const resolvePreviewHexFromValue = useCallback((value?: string | null) => {
+    const parsed = parseColorString(value)
+    const normalized = normalizeColorValue(parsed.name || parsed.hex || value)
+    const swatch = resolveSwatch(value)
+    return resolveColorHex(value)
+      || swatch?.hex
+      || parsed.hex
+      || stockworksColorValueToHex.get(normalized)
+      || paletteValueToHex.get(normalized)
+      || ''
+  }, [paletteValueToHex, stockworksColorValueToHex])
+  const resolveItemPreviewHex = useCallback((item: (typeof items)[number] | null | undefined) => {
+    if (!item) return PREVIEW_DEFAULT_COLOR
+    const primary = item.options.colors?.[0] || ''
+    return resolvePreviewHexFromValue(primary) || PREVIEW_DEFAULT_COLOR
+  }, [resolvePreviewHexFromValue])
+  const partPreviewKey = useCallback((modelId: string, partId: string | null) => `${modelId}::${partId || ''}`, [])
+  const resolveItemPreviewValueWithOptimistic = useCallback((item: (typeof items)[number] | null | undefined) => {
+    if (!item) return PREVIEW_DEFAULT_COLOR
+    const key = partPreviewKey(item.modelId, item.partId ?? null)
+    const optimistic = optimisticPartPreviewValue[key]
+    if (optimistic) return resolveViewerOverrideValue(item.options.material, optimistic)
+    return resolveViewerOverrideValue(item.options.material, item.options.colors?.[0])
+      || resolveItemPreviewHex(item)
+      || PREVIEW_DEFAULT_COLOR
+  }, [optimisticPartPreviewValue, partPreviewKey, resolveItemPreviewHex, resolveViewerOverrideValue])
+  const selectedViewerColors = useMemo(() => {
+    if (selectedPreviewUsesMultipartViewer) {
+      return selectedPreviewMultipartSources.map((entry) => resolveItemPreviewValueWithOptimistic(selectedModelPartItemMap.get(entry.partId)))
+    }
+    if (!selectedPreviewItem) return []
+    const derived = normalizeColors(selectedPreviewItem.options.colors)
+      .map((value) => resolveViewerOverrideValue(selectedPreviewItem.options.material, value))
+      .filter(Boolean)
+    return derived.length > 0 ? derived : [PREVIEW_DEFAULT_COLOR]
+  }, [selectedPreviewUsesMultipartViewer, selectedPreviewMultipartSources, selectedModelPartItemMap, selectedPreviewItem, resolveItemPreviewValueWithOptimistic, resolveViewerOverrideValue])
+  const selectedViewerColorMap = useMemo(() => {
+    if (!selectedPreviewUsesMultipartViewer) return null
+    const out: Record<string, string> = {}
+    for (const entry of selectedPreviewMultipartSources) {
+      out[entry.partId] = resolveItemPreviewValueWithOptimistic(selectedModelPartItemMap.get(entry.partId))
+    }
+    return out
+  }, [selectedPreviewUsesMultipartViewer, selectedPreviewMultipartSources, selectedModelPartItemMap, resolveItemPreviewValueWithOptimistic])
+  const handlePreviewPartTap = useCallback((partKey: string) => {
+    const tappedItem = selectedModelPartItemMap.get(partKey)
+    if (!tappedItem) return
+    setSelectedPreviewKey({ cartItemId: tappedItem.cartItemId })
+  }, [selectedModelPartItemMap])
 
   const discountMultiplier = useMemo(() => getDiscountMultiplier(discount), [discount])
   const totalDiscountPercent = discount?.totalPercent ?? 0
+  const itemsMissingColors = useMemo(
+    () => items.filter((item) => normalizeColors(item.options.colors).length === 0),
+    [items],
+  )
+  const hasMissingColors = itemsMissingColors.length > 0
+  const materialStatusEntries = useMemo(() => {
+    if (!materialWarnings?.enabled) return []
+    return Object.entries(materialWarnings.materials || {}).map(([material, warning]) => ({
+      material,
+      warning,
+    }))
+  }, [materialWarnings])
 
   const itemUnitPrice = (item: (typeof items)[number]) => {
     const base = item.priceUsd || 0
     const materialMultiplier = getMaterialMultiplier(item.options.material)
-    const colorMultiplier = getColorMultiplier(item.options.colors)
+    const colorMultiplier = item.flatRatePricing ? 1 : getColorMultiplier(item.options.colors)
+    const finishMultiplier = getFinishMultiplier(item.options.finish)
     const volumeMultiplier = getVolumeScaleMultiplier(item.options.scale, item.options.dimensionOverrides)
-    return base * volumeMultiplier * materialMultiplier * colorMultiplier
+    const optionMultiplier = item.options.priceMultiplier ?? 1
+    const rawUnit = base * volumeMultiplier * materialMultiplier * colorMultiplier * finishMultiplier * optionMultiplier
+    const qty = Math.max(1, item.options.qty || 1)
+    const batchDiscountPercent = resolveBatchDiscountPercent(qty, pricingAdjustments.batchDiscountTiers)
+    const adjusted = applyPricingAdjustments({
+      unitPrice: rawUnit,
+      qty,
+      rush,
+      demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
+      rushMultiplier: pricingAdjustments.rushMultiplier,
+      batchDiscountPercent,
+    })
+    return adjusted.adjustedUnitPrice
   }
 
   const subtotal = items.reduce((sum, item) => {
@@ -284,9 +839,95 @@ export default function CartPage() {
   }, 0)
   const discountedSubtotal = subtotal * discountMultiplier
   const discountSavings = Math.max(0, subtotal - discountedSubtotal)
+  const effectiveSubtotal = totalDiscountPercent > 0 ? discountedSubtotal : subtotal
+  const minimumOrderSubtotal = typeof minimumOrder.subtotal === 'number' && Number.isFinite(minimumOrder.subtotal)
+    ? minimumOrder.subtotal
+    : null
+  const meetsMinimumOrder = !minimumOrderSubtotal || effectiveSubtotal >= minimumOrderSubtotal
+  const disableCheckout = hasMissingColors || !meetsMinimumOrder
+
+  const applyColorRulesForItem = useCallback((item: (typeof items)[number], colors: string[]) => {
+    const locked = Boolean(item.options.lockedConfig)
+    const lockedSlots = Math.max(1, normalizeColors(item.options.colors).length)
+    const modelSlots = normalizeModelColorSlotCount(item.colorSlotCount)
+    const slotLimit = locked ? lockedSlots : (modelSlots ?? Math.max(1, maxColors))
+    const allowedTokens = buildAllowedColorTokenSet(Array.isArray(item.allowedColors) ? item.allowedColors : null)
+    return normalizeColors(colors, slotLimit).filter((value) => isColorAllowed(value, allowedTokens))
+  }, [maxColors])
+
+  const applyColorToSlot = useCallback(
+    (slot: { cartItemId: string; modelId: string; partId: string | null; index: number }, nextValue: string) => {
+      const item = items.find((entry) => entry.cartItemId === slot.cartItemId)
+      if (!item || item.options.lockedConfig) return
+      const allowedTokens = buildAllowedColorTokenSet(Array.isArray(item.allowedColors) ? item.allowedColors : null)
+      if (nextValue && !isColorAllowed(nextValue, allowedTokens)) return
+      const next = [...(item.options.colors || [])]
+      next[slot.index] = nextValue
+      if (slot.partId && slot.index === 0) {
+        const key = partPreviewKey(slot.modelId, slot.partId)
+        setOptimisticPartPreviewValue((prev) => {
+          if (nextValue) return { ...prev, [key]: nextValue }
+          if (!(key in prev)) return prev
+          const out = { ...prev }
+          delete out[key]
+          return out
+        })
+      }
+      update(slot.modelId, { colors: applyColorRulesForItem(item, next) }, slot.partId, slot.cartItemId)
+    },
+    [items, update, applyColorRulesForItem, partPreviewKey, resolvePreviewHexFromValue],
+  )
+
+  const applyPreset = (preset: CustomerPreset, item: (typeof items)[number]) => {
+    const data = preset.data || {}
+    update(item.modelId, {
+      material: data.material ? normalizeMaterialName(data.material) : item.options.material,
+      colors: Array.isArray(data.colors) ? data.colors : item.options.colors,
+      finish: data.finish ?? item.options.finish ?? null,
+      infillPct: typeof data.infillPct === 'number' ? data.infillPct : item.options.infillPct ?? null,
+      scale: typeof data.scale === 'number' ? clampScale(data.scale) : item.options.scale,
+      priceMultiplier: typeof data.priceMultiplier === 'number' ? data.priceMultiplier : item.options.priceMultiplier ?? null,
+    }, item.partId, item.cartItemId)
+  }
+
+  const savePreset = async (itemKey: string, item: (typeof items)[number]) => {
+    const name = (presetNames[itemKey] || '').trim()
+    if (!name) {
+      setPresetError('Enter a preset name before saving.')
+      return
+    }
+    setPresetError(null)
+    try {
+      const res = await fetch('/api/presets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          data: {
+            material: item.options.material,
+            colors: normalizeColors(item.options.colors),
+            finish: item.options.finish ?? null,
+            infillPct: item.options.infillPct ?? null,
+            scale: item.options.scale,
+            priceMultiplier: item.options.priceMultiplier ?? null,
+          },
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Unable to save preset.')
+      const saved = data.preset as CustomerPreset
+      setPresets((prev) => {
+        const exists = prev.some((p) => p.id === saved.id)
+        return exists ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev]
+      })
+      setPresetNames((prev) => ({ ...prev, [itemKey]: '' }))
+    } catch (err: any) {
+      setPresetError(err?.message || 'Unable to save preset.')
+    }
+  }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
+    <div ref={containerRef} className="max-w-3xl mx-auto space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-semibold">Your Cart</h1>
         <Link href="/discover" className="text-sm text-brand-400 hover:text-brand-300 underline underline-offset-4">
@@ -296,6 +937,87 @@ export default function CartPage() {
       <div className="glass p-4 rounded-xl text-sm text-slate-300">
         Configure every part from this cart view: tweak quantities, scale, infill, colors, material, and engraving notes before sending the job to checkout.
       </div>
+      <div className="glass rounded-xl border border-white/10 overflow-hidden">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 text-xs uppercase tracking-[0.3em] text-slate-400">
+          <span>3D Preview</span>
+          {selectedPreviewItem && (
+            <span className="text-[10px] normal-case tracking-normal text-slate-500">
+              {selectedPreviewItem.title}{selectedPreviewItem.partName ? ` · ${selectedPreviewItem.partName}` : ''}
+            </span>
+          )}
+        </div>
+        {selectedPreviewItem ? (
+          selectedPreviewUsesMultipartViewer ? (
+            <LazyModelViewer
+              srcs={selectedMultipartViewerSrcs}
+              fallbackSrcs={selectedMultipartViewerFallbacks}
+              partKeys={selectedMultipartViewerPartKeys}
+              onPartTap={handlePreviewPartTap}
+              height={360}
+              className="bg-black/40"
+              colorOverrides={selectedViewerColors}
+              colorOverridesByPartKey={selectedViewerColorMap}
+            />
+          ) : selectedViewerSrc ? (
+            <LazyModelViewer
+              src={selectedViewerSrc}
+              fallbackSrc={selectedViewerFallback || undefined}
+              partKeys={selectedPreviewItem.partId ? [selectedPreviewItem.partId] : undefined}
+              onPartTap={handlePreviewPartTap}
+              height={360}
+              className="bg-black/40"
+              colorOverrides={selectedViewerColors}
+              colorOverridesByPartKey={selectedPreviewItem.partId ? { [selectedPreviewItem.partId]: selectedViewerColors[0] || PREVIEW_DEFAULT_COLOR } : null}
+            />
+          ) : (
+            <div className="h-[360px] flex items-center justify-center text-sm text-slate-400 bg-slate-900/60">
+              Preview unavailable for this model.
+            </div>
+          )
+        ) : (
+          <div className="h-[360px] flex items-center justify-center text-sm text-slate-400 bg-slate-900/60">
+            Add a model to your cart to preview colors.
+          </div>
+        )}
+      </div>
+      {materialWarnings?.enabled && materialStatusEntries.length > 0 && (
+        <div className="rounded-xl border border-white/10 bg-slate-950/60 p-4 text-sm space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-semibold text-slate-100">Filament availability</p>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Live inventory</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {materialStatusEntries.map(({ material, warning }) => {
+              const statusLabel = warning.status === 'in_stock'
+                ? 'In stock'
+                : warning.status === 'limited'
+                  ? 'Limited'
+                  : 'Out of stock'
+              const tone = warning.status === 'in_stock'
+                ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100'
+                : warning.status === 'limited'
+                  ? 'border-amber-400/40 bg-amber-500/10 text-amber-100'
+                  : 'border-rose-400/40 bg-rose-500/10 text-rose-100'
+              return (
+                <div key={material} className={`rounded-lg border px-3 py-2 text-xs ${tone}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="uppercase tracking-[0.2em]">{material}</span>
+                    <span className="font-semibold">{statusLabel}</span>
+                  </div>
+                  {warning.status === 'limited' && (
+                    <div className="mt-1">Limited stock may affect production start and delivery timing.</div>
+                  )}
+                  {warning.status === 'out_of_stock' && (
+                    <div className="mt-1">
+                      Adds ~{warning.leadTimeDays ?? 'TBD'} days to production start and delivery.
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
       {items.length === 0 && (
         <div className="glass p-6 rounded-xl text-slate-400">
           Cart is empty. <Link className="underline" href="/discover">Discover models</Link>
@@ -305,10 +1027,18 @@ export default function CartPage() {
         <>
           <div className="glass rounded-xl border border-white/10 divide-y divide-white/10">
             {items.map((item) => {
+              const itemKey = item.cartItemId
+              const isLockedProduct = Boolean(item.options.lockedConfig)
+              const modelSlotCount = normalizeModelColorSlotCount(item.colorSlotCount)
+              const slotLimit = isLockedProduct
+                ? Math.max(1, normalizeColors(item.options.colors).length)
+                : (modelSlotCount ?? Math.max(1, maxColors))
               const qty = Math.max(1, item.options.qty || 1)
-              const baseTotal = itemUnitPrice(item) * qty
+              const unit = itemUnitPrice(item)
+              const baseTotal = unit * qty
               const discountedTotal = baseTotal * discountMultiplier
               const lineSavings = Math.max(0, baseTotal - discountedTotal)
+              const batchDiscountPercent = resolveBatchDiscountPercent(qty, pricingAdjustments.batchDiscountTiers)
               const locked = item.options.lockDimensions !== false
               const getAxisScale = (axis: (typeof DIMENSION_AXES)[number]) => resolveAxisScale(item.options.scale, locked ? null : item.options.dimensionOverrides, axis)
               const getAxisSize = (axis: (typeof DIMENSION_AXES)[number]) => {
@@ -319,47 +1049,69 @@ export default function CartPage() {
               const hasDimensions = DIMENSION_AXES.some(axis => typeof item.size?.[axis] === 'number' && !Number.isNaN(item.size?.[axis] ?? NaN))
               const uniformScale = clampScale(Math.cbrt(getVolumeScaleMultiplier(item.options.scale, item.options.dimensionOverrides)))
               const handleScaleChange = (value: number) => {
+                if (isLockedProduct) return
                 const nextScale = clampScale(value)
                 if (!locked) {
                   const overrides = DIMENSION_AXES.reduce((acc, axis) => {
                     acc[axis] = nextScale
                     return acc
                   }, {} as Record<(typeof DIMENSION_AXES)[number], number>)
-                  update(item.modelId, { scale: nextScale, dimensionOverrides: overrides }, item.partId)
+                  update(item.modelId, { scale: nextScale, dimensionOverrides: overrides }, item.partId, item.cartItemId)
                 } else {
-                  update(item.modelId, { scale: nextScale, dimensionOverrides: null }, item.partId)
+                  update(item.modelId, { scale: nextScale, dimensionOverrides: null }, item.partId, item.cartItemId)
                 }
+                setDimensionInputs((prev) => {
+                  if (!prev[itemKey]) return prev
+                  const next = { ...prev }
+                  delete next[itemKey]
+                  return next
+                })
               }
               const handleDimensionChange = (axis: (typeof DIMENSION_AXES)[number], input: number) => {
+                if (isLockedProduct) return
                 const baseValue = item.size?.[axis]
                 if (typeof baseValue !== 'number' || !Number.isFinite(baseValue) || baseValue <= 0) return
                 if (!Number.isFinite(input) || input <= 0) return
                 const nextScale = clampScale(input / baseValue)
                 if (locked) {
-                  update(item.modelId, { scale: nextScale, dimensionOverrides: null }, item.partId)
+                  update(item.modelId, { scale: nextScale, dimensionOverrides: null }, item.partId, item.cartItemId)
                   return
                 }
                 const overrides = { ...(item.options.dimensionOverrides || {}) }
                 overrides[axis] = nextScale
-                update(item.modelId, { dimensionOverrides: overrides }, item.partId)
+                update(item.modelId, { dimensionOverrides: overrides }, item.partId, item.cartItemId)
               }
               const toggleLock = () => {
+                if (isLockedProduct) return
                 if (locked) {
                   const overrides = DIMENSION_AXES.reduce((acc, axis) => {
                     acc[axis] = getAxisScale(axis)
                     return acc
                   }, {} as Record<(typeof DIMENSION_AXES)[number], number>)
-                  update(item.modelId, { lockDimensions: false, dimensionOverrides: overrides }, item.partId)
+                  update(item.modelId, { lockDimensions: false, dimensionOverrides: overrides }, item.partId, item.cartItemId)
                 } else {
-                  update(item.modelId, { lockDimensions: true, scale: uniformScale, dimensionOverrides: null }, item.partId)
+                  update(item.modelId, { lockDimensions: true, scale: uniformScale, dimensionOverrides: null }, item.partId, item.cartItemId)
                 }
+                setDimensionInputs((prev) => {
+                  if (!prev[itemKey]) return prev
+                  const next = { ...prev }
+                  delete next[itemKey]
+                  return next
+                })
               }
               const resetDimensions = () => {
-                update(item.modelId, { scale: 1, dimensionOverrides: null, lockDimensions: true }, item.partId)
+                if (isLockedProduct) return
+                update(item.modelId, { scale: 1, dimensionOverrides: null, lockDimensions: true }, item.partId, item.cartItemId)
+                setDimensionInputs((prev) => {
+                  if (!prev[itemKey]) return prev
+                  const next = { ...prev }
+                  delete next[itemKey]
+                  return next
+                })
               }
 
               return (
-                <div key={`${item.modelId}-${item.partId || 'whole'}`} className="p-4 grid grid-cols-[80px_1fr] gap-3 items-center">
+                <div key={item.cartItemId} className="p-4 grid grid-cols-[80px_1fr] gap-3 items-center">
                   <div>
                     {item.thumbnail ? (
                       <img src={item.thumbnail} className="w-20 h-14 object-cover rounded border border-white/10" alt="" />
@@ -372,18 +1124,29 @@ export default function CartPage() {
                       <Link href={`/models/${item.modelId}${typeof item.partIndex === 'number' ? `?part=${item.partIndex}` : ''}`} className="font-medium hover:underline">
                         {item.title}
                       </Link>
-                      <button className="text-xs text-slate-400 hover:text-white" onClick={() => remove(item.modelId, item.partId)}>
-                        Remove
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className={`text-xs ${selectedPreviewItem?.cartItemId === item.cartItemId ? 'text-emerald-300' : 'text-slate-400 hover:text-white'}`}
+                          onClick={() => setSelectedPreviewKey({ cartItemId: item.cartItemId })}
+                        >
+                          {selectedPreviewItem?.cartItemId === item.cartItemId
+                            ? 'Previewing'
+                            : 'Preview'}
+                        </button>
+                        <button className="text-xs text-slate-400 hover:text-white" onClick={() => remove(item.modelId, item.partId, item.cartItemId)}>
+                          Remove
+                        </button>
+                      </div>
                     </div>
                     {item.partName && (
                       <div className="text-xs text-slate-400">Part: {item.partName}</div>
                     )}
                     <div className="flex flex-wrap items-center gap-3 text-sm">
                       <div className="flex items-center gap-2">
-                        <button className="px-2 py-1 rounded-md border border-white/10" onClick={() => dec(item.modelId, item.partId)}>-</button>
+                        <button className="px-2 py-1 rounded-md border border-white/10" onClick={() => dec(item.modelId, item.partId, item.cartItemId)}>-</button>
                         <span>{item.options.qty}</span>
-                        <button className="px-2 py-1 rounded-md border border-white/10" onClick={() => inc(item.modelId, item.partId)}>+</button>
+                        <button className="px-2 py-1 rounded-md border border-white/10" onClick={() => inc(item.modelId, item.partId, item.cartItemId)}>+</button>
                       </div>
                       <label className="flex items-center gap-2">
                         <span>Scale</span>
@@ -394,6 +1157,7 @@ export default function CartPage() {
                           min="0.1"
                           max="5"
                           value={uniformScale.toFixed(2)}
+                          disabled={isLockedProduct}
                           onChange={(e) => handleScaleChange(Number(e.target.value))}
                         />
                       </label>
@@ -406,37 +1170,47 @@ export default function CartPage() {
                           min="0"
                           max="100"
                           value={item.options.infillPct ?? 20}
-                          onChange={(e) => update(item.modelId, { infillPct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }, item.partId)}
+                          disabled={isLockedProduct}
+                          onChange={(e) => update(item.modelId, { infillPct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }, item.partId, item.cartItemId)}
                         />
                       </label>
                       <label className="flex items-center gap-2">
                         <span>Material</span>
                         <select
                           className="w-32 input"
-                          value={item.options.material || 'PLA'}
-                          onChange={(e) => update(item.modelId, { material: e.target.value as MaterialType }, item.partId)}
+                          value={normalizeMaterialName(item.options.material)}
+                          disabled={isLockedProduct}
+                          onChange={(e) => update(item.modelId, { material: e.target.value as MaterialType }, item.partId, item.cartItemId)}
                         >
-                          <option value="PLA">PLA</option>
-                          <option value="PETG">PETG</option>
+                          {(() => {
+                            const normalized = normalizeMaterialName(item.options.material)
+                            const options = materialOptions.slice()
+                            if (!options.includes(normalized)) options.push(normalized)
+                            return options
+                          })().map((material) => (
+                              <option key={material} value={material}>{material}</option>
+                            ))}
                         </select>
                       </label>
-                      <div className="flex flex-col gap-2 text-xs text-slate-400 w-full">
-                        <span>AMS slots (tap a bay to edit)</span>
-                        <div className="space-y-2">
-                          {Array.from({ length: Math.max(1, Math.ceil(Math.max(1, maxColors) / 4)) }).map((_, unitIdx) => {
-                            const safeSlots = Math.max(1, maxColors)
+                      <div className="flex flex-col gap-1 text-xs text-slate-400 w-full">
+                        <span>{isLockedProduct ? 'AMS slots (locked)' : 'AMS slots (tap a bay to edit)'}</span>
+                        <div className="space-y-1">
+                          {Array.from({
+                            length: Math.max(1, Math.ceil(slotLimit / 4)),
+                          }).map((_, unitIdx) => {
+                            const safeSlots = slotLimit
                             const baseIndex = unitIdx * 4
                             const slotsInUnit = Math.min(4, Math.max(0, safeSlots - baseIndex))
                             return (
-                              <div key={`${item.modelId}-${item.partId || 'whole'}-ams-${unitIdx}`} className="rounded-xl border border-white/10 bg-slate-900/40 p-3">
-                                <div className="flex items-center justify-between mb-2 text-[11px] uppercase tracking-[0.3em] text-slate-500">
+                              <div key={`${item.cartItemId}-ams-${unitIdx}`} className="rounded-lg border border-white/10 bg-slate-900/40 px-2 py-1.5">
+                                <div className="flex items-center justify-between mb-0.5 text-[9px] uppercase tracking-[0.2em] text-slate-500">
                                   <span>AMS #{unitIdx + 1}</span>
                                   <span>Slots {baseIndex + 1}–{baseIndex + slotsInUnit}</span>
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <div className="inline-grid grid-cols-4 gap-1 w-fit">
                                   {Array.from({ length: slotsInUnit }).map((_, slotIdx) => {
                                     const idx = baseIndex + slotIdx
-                                    const slotId = `${item.modelId}-${item.partId || 'whole'}-color-${idx}`
+                                    const slotId = `${item.cartItemId}-color-${idx}`
                                     const value = item.options.colors?.[idx] || ''
                                     const swatch = resolveSwatch(value)
                                     const parsedValue = parseColorString(value)
@@ -447,64 +1221,73 @@ export default function CartPage() {
                                         || parsedValue.hex
                                         || paletteValueToHex.get(normalizedValue)
                                         || COLOR_PICKER_FALLBACK
+                                    const paintValue = stockworksColorValueToPaint.get(normalizedValue)
+                                      || paletteValueToPaint.get(normalizedValue)
+                                      || resolveColorPaint({
+                                        name: parsedValue.name || swatch?.name || value,
+                                        hex: hexValue,
+                                        fallback: COLOR_PICKER_FALLBACK,
+                                      })
                                     const isActive = activeColorSlot?.id === slotId
                                     const updateColor = (nextValue: string) => {
-                                      const next = [...(item.options.colors || [])]
-                                      next[idx] = nextValue
-                                      update(item.modelId, { colors: next }, item.partId)
+                                      if (isLockedProduct) return
+                                      applyColorToSlot(
+                                        { cartItemId: item.cartItemId, modelId: item.modelId, partId: item.partId ?? null, index: idx },
+                                        nextValue,
+                                      )
                                     }
                                     return (
-                                      <div key={slotId} className="flex flex-col gap-1">
-                                        <div className="relative">
-                                          <button
-                                            type="button"
-                                            data-color-slot={slotId}
-                                            className={`relative rounded-xl border border-white/20 aspect-square w-full flex items-center justify-center transition-all ${isActive ? 'ring-2 ring-amber-400' : ''}`}
-                                            style={{ background: hexValue }}
-                                            onClick={(event) => {
-                                              if (isActive) {
-                                                setActiveColorSlot(null)
-                                                return
-                                              }
-                                              const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-                                              setActiveColorAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
-                                              setActiveColorSlot({
-                                                id: slotId,
-                                                modelId: item.modelId,
-                                                partId: item.partId ?? null,
-                                                index: idx,
-                                              })
-                                            }}
-                                          >
-                                            {!value && (
-                                              <span className="text-[10px] uppercase tracking-wide text-white/70">
-                                                Pick colour
-                                              </span>
-                                            )}
-                                          </button>
-                                          <div className="pointer-events-none absolute left-1 top-1 z-10 flex flex-col px-2 py-1 rounded-xl bg-black/55 text-white uppercase tracking-wide text-[9px]">
-                                            <span className="font-semibold">Slot {idx + 1}</span>
-                                            <span className="text-[8px] normal-case text-white/80 truncate max-w-[70px]">
-                                              {value || 'No color'}
-                                            </span>
-                                          </div>
-                                          {value ? (
-                                            <button
-                                              type="button"
-                                              className="absolute right-1 top-1 z-10 px-2 py-1 text-[9px] uppercase rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                updateColor('')
-                                              }}
-                                            >
-                                              Clear
-                                            </button>
-                                          ) : (
-                                            <span className="pointer-events-none absolute right-1 top-1 z-10 px-2 py-1 text-[9px] uppercase rounded-full bg-black/30 text-white/70">
-                                              Empty
+                                      <div key={slotId} className="flex flex-col items-center gap-0.5">
+                                        <div className="text-[7px] uppercase tracking-wide text-slate-400">S{idx + 1}</div>
+                                        <button
+                                          type="button"
+                                          data-color-slot={slotId}
+                                          className={`relative rounded-md border border-white/20 h-8 w-8 flex items-center justify-center transition-all ${isActive ? 'ring-2 ring-amber-400' : ''}`}
+                                          style={{ background: paintValue }}
+                                          disabled={isLockedProduct}
+                                          onClick={(event) => {
+                                            if (isLockedProduct) return
+                                            if (isActive) {
+                                              setActiveColorSlot(null)
+                                              return
+                                            }
+                                            const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+                                            setActiveColorAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
+                                            setActiveColorSlot({
+                                              id: slotId,
+                                              cartItemId: item.cartItemId,
+                                              modelId: item.modelId,
+                                              partId: item.partId ?? null,
+                                              index: idx,
+                                            })
+                                          }}
+                                        >
+                                          {!value && (
+                                            <span className="text-[7px] uppercase tracking-wide text-white/70">
+                                              Pick
                                             </span>
                                           )}
+                                        </button>
+                                        <div className="text-[7px] normal-case text-slate-300 truncate max-w-[54px] text-center">
+                                          {value || 'No color'}
                                         </div>
+                                        {value ? (
+                                          <button
+                                            type="button"
+                                            className="px-2 py-0.5 text-[7px] uppercase rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                                            disabled={isLockedProduct}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              updateColor('')
+                                            }}
+                                          >
+                                            Clear
+                                          </button>
+                                        ) : (
+                                          <span className="text-[7px] uppercase rounded-full bg-black/30 text-white/70 px-2 py-0.5">
+                                            Empty
+                                          </span>
+                                        )}
                                       </div>
                                     )
                                   })}
@@ -514,17 +1297,64 @@ export default function CartPage() {
                           })}
                         </div>
                       </div>
-                      <label className="flex items-center gap-2">
-                        <span>Text</span>
-                        <input
-                          className="w-40 input"
-                          value={item.options.customText || ''}
-                          onChange={(e) => update(item.modelId, { customText: e.target.value || null }, item.partId)}
-                          placeholder="optional engraving"
-                        />
-                      </label>
+                      {!isLockedProduct && (
+                        <label className="flex items-center gap-2">
+                          <span>Engraving</span>
+                          <input
+                            className="w-40 input"
+                            value={item.options.customText || ''}
+                            onChange={(e) => update(item.modelId, { customText: e.target.value || null }, item.partId, item.cartItemId)}
+                            placeholder="optional engraving"
+                          />
+                        </label>
+                      )}
+                      <div className="rounded-lg border border-white/10 bg-black/30 p-3 space-y-2">
+                        <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Saved presets</div>
+                        {isLockedProduct && <div className="text-[11px] text-slate-500">Preset edits are disabled for locked product configurations.</div>}
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          {presets.length > 0 ? (
+                            <select
+                              className="input text-xs"
+                              defaultValue=""
+                              disabled={isLockedProduct}
+                              onChange={(e) => {
+                                if (isLockedProduct) return
+                                const preset = presets.find((p) => p.id === e.target.value)
+                                if (preset) applyPreset(preset, item)
+                              }}
+                            >
+                              <option value="">Apply preset...</option>
+                              {presets.map((preset) => (
+                                <option key={preset.id} value={preset.id}>{preset.name}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div className="text-xs text-slate-500">
+                              No presets yet.
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <input
+                              className="input text-xs"
+                              placeholder="Preset name"
+                              value={presetNames[itemKey] || ''}
+                              disabled={isLockedProduct}
+                              onChange={(e) => setPresetNames((prev) => ({ ...prev, [itemKey]: e.target.value }))}
+                            />
+                            <button
+                              type="button"
+                              className="px-3 py-1.5 rounded-md border border-white/10 hover:border-white/20 text-xs"
+                              disabled={isLockedProduct}
+                              onClick={() => savePreset(itemKey, item)}
+                            >
+                              Save preset
+                            </button>
+                          </div>
+                        </div>
+                        {presetError && <div className="text-xs text-amber-300">{presetError}</div>}
+                      </div>
                     </div>
-                    {hasDimensions ? (
+                    {hasDimensions && !isLockedProduct ? (
                       <div className="space-y-1 text-xs">
                         {(() => {
                           const baseText = DIMENSION_AXES.map((axis) => {
@@ -562,6 +1392,10 @@ export default function CartPage() {
                           <div className="flex flex-wrap gap-2">
                             {DIMENSION_AXES.map((axis) => {
                               const dim = getAxisSize(axis)
+                              const isActive = activeDimensionInput?.key === itemKey && activeDimensionInput.axis === axis
+                              const inputValue = isActive
+                                ? (dimensionInputs[itemKey]?.[axis] ?? '')
+                                : (dim != null ? dim.toFixed(1) : '')
                               return (
                                 <label key={`${item.modelId}-${axis}`} className="flex flex-col gap-1 text-slate-400 text-xs">
                                   <span>{AXIS_LABELS[axis]}</span>
@@ -570,8 +1404,36 @@ export default function CartPage() {
                                     type="number"
                                     min="0.1"
                                     step="0.1"
-                                    value={dim != null ? dim.toFixed(1) : ''}
-                                    onChange={(e) => handleDimensionChange(axis, Number(e.target.value))}
+                                    value={inputValue}
+                                    onFocus={() => {
+                                      setActiveDimensionInput({ key: itemKey, axis })
+                                      setDimensionInputs((prev) => {
+                                        const current = prev[itemKey]?.[axis]
+                                        if (current != null) return prev
+                                        const next = { ...prev }
+                                        next[itemKey] = { ...(next[itemKey] || {}), [axis]: inputValue }
+                                        return next
+                                      })
+                                    }}
+                                    onBlur={() => {
+                                      setActiveDimensionInput(null)
+                                      setDimensionInputs((prev) => {
+                                        if (!prev[itemKey]) return prev
+                                        const next = { ...prev }
+                                        delete next[itemKey]
+                                        return next
+                                      })
+                                    }}
+                                    onChange={(e) => {
+                                      const nextValue = e.target.value
+                                      setDimensionInputs((prev) => {
+                                        const next = { ...prev }
+                                        next[itemKey] = { ...(next[itemKey] || {}), [axis]: nextValue }
+                                        return next
+                                      })
+                                      const parsed = Number(nextValue)
+                                      if (Number.isFinite(parsed) && parsed > 0) handleDimensionChange(axis, parsed)
+                                    }}
                                   />
                                 </label>
                               )
@@ -580,12 +1442,25 @@ export default function CartPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="text-xs text-slate-500">Size metadata missing — add model dimensions to enable dimension controls.</div>
+                      <div className="text-xs text-slate-500">
+                        {isLockedProduct
+                          ? 'Dimensions are locked for this configured product.'
+                          : 'Size metadata missing — add model dimensions to enable dimension controls.'}
+                      </div>
                     )}
-                    <div className="text-xs text-emerald-300">
-                      Est. item total: {formatCurrency(discountedTotal)}
-                      {totalDiscountPercent > 0 && lineSavings > 0.01 && (
-                        <span className="ml-2 text-emerald-200">(-{formatCurrency(lineSavings)} with discount)</span>
+                    <div className="text-xs text-emerald-300 space-y-1">
+                      <div>
+                        Est. item total: {formatCurrency(discountedTotal)}
+                        {totalDiscountPercent > 0 && lineSavings > 0.01 && (
+                          <span className="ml-2 text-emerald-200">(-{formatCurrency(lineSavings)} with discount)</span>
+                        )}
+                      </div>
+                      {(rush || pricingAdjustments.demandSurgeMultiplier > 1 || batchDiscountPercent > 0) && (
+                        <div className="text-[11px] text-slate-400">
+                          {rush ? 'Rush pricing applied.' : 'Standard timing.'}{' '}
+                          {pricingAdjustments.demandSurgeMultiplier > 1 ? `Demand surge x${pricingAdjustments.demandSurgeMultiplier.toFixed(2)}.` : ''}
+                          {batchDiscountPercent > 0 ? ` Batch discount ${batchDiscountPercent}% included.` : ''}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -599,6 +1474,31 @@ export default function CartPage() {
             </button>
             <div className="flex items-center gap-3">
               <div className="text-right">
+                <div className="mb-2 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-slate-300">
+                  <label className="flex items-center justify-between gap-2">
+                    <span className="text-slate-400">Rush production</span>
+                    <input
+                      type="checkbox"
+                      checked={rush}
+                      onChange={(e) => setRush(e.target.checked)}
+                    />
+                  </label>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    Adds {Math.max(0, Math.round((pricingAdjustments.rushMultiplier - 1) * 100))}% to prioritize print time.
+                  </div>
+                </div>
+                {pricingAdjustments.batchDiscountTiers.length > 0 && (
+                  <div className="mb-2 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-[11px] text-slate-400">
+                    <div className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-1">Bulk pricing tiers</div>
+                    <div className="flex flex-wrap gap-2">
+                      {pricingAdjustments.batchDiscountTiers.map((tier) => (
+                        <span key={`tier-${tier.minQty}-${tier.percent}`} className="rounded-full border border-white/10 px-2 py-0.5">
+                          {tier.minQty}+ {'\u2192'} {tier.percent}%
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="text-slate-400 text-sm">Estimated subtotal</div>
                 {totalDiscountPercent > 0 && (
                   <>
@@ -617,24 +1517,65 @@ export default function CartPage() {
                   </div>
                 )}
               </div>
-              <Link href="/checkout" className="btn whitespace-nowrap">
-                Checkout
-              </Link>
+              {disableCheckout ? (
+                <button type="button" className="btn whitespace-nowrap opacity-60 cursor-not-allowed" disabled>
+                  Checkout
+                </button>
+              ) : (
+                <Link href="/checkout" className="btn whitespace-nowrap">
+                  Checkout
+                </Link>
+              )}
             </div>
           </div>
+          {disableCheckout && (
+            <div className="space-y-2 mt-3 text-xs text-amber-300">
+              {hasMissingColors && (
+                <p>Choose at least one filament color for each item before checking out.</p>
+              )}
+              {!meetsMinimumOrder && minimumOrderSubtotal && (
+                <p>
+                  Minimum order subtotal is {formatCurrency(minimumOrderSubtotal)}.
+                  {minimumOrder.notes ? ` ${minimumOrder.notes}` : ''}
+                </p>
+              )}
+            </div>
+          )}
         </>
       )}
       {activeColorSlot && activeSlotItem && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/50" />
+          {(() => {
+            const estimatedPaletteHeight = Math.min(320, paletteMaxHeight || 320)
+            const desktopTop = activeColorAnchor
+              ? palettePlacement === 'above'
+                ? Math.max(PALETTE_MARGIN, activeColorAnchor.top - 12 - estimatedPaletteHeight)
+                : Math.max(
+                  PALETTE_MARGIN,
+                  Math.min(
+                    activeColorAnchor.top + activeColorAnchor.height + 12,
+                    window.innerHeight - estimatedPaletteHeight - PALETTE_MARGIN,
+                  ),
+                )
+              : undefined
+            return (
           <div
             ref={paletteRef}
-            className={`absolute bg-slate-950/95 text-white rounded-xl border border-white/10 shadow-2xl p-3 w-[320px] max-w-[calc(100vw-2rem)] ${
+            className={`absolute bg-slate-950/95 text-white rounded-xl border border-white/10 shadow-2xl p-3 w-[320px] max-w-[calc(100vw-2rem)] flex flex-col ${
               isMobilePalette ? 'left-1/2 bottom-6 -translate-x-1/2' : ''
             }`}
             style={isMobilePalette || !activeColorAnchor ? undefined : {
-              left: Math.min(activeColorAnchor.left, window.innerWidth - 340),
-              top: Math.max(activeColorAnchor.top + activeColorAnchor.height + 12, 16),
+              left: Math.max(
+                PALETTE_MARGIN,
+                Math.min(
+                  activeColorAnchor.left + activeColorAnchor.width / 2 - (paletteWidth || 340) / 2,
+                  window.innerWidth - (paletteWidth || 340) - PALETTE_MARGIN,
+                ),
+              ),
+              top: desktopTop,
+              width: paletteWidth || undefined,
+              maxHeight: paletteMaxHeight || undefined,
             }}
           >
             <div className="flex items-center justify-between mb-2 text-[11px] uppercase tracking-[0.3em] text-slate-400">
@@ -647,43 +1588,106 @@ export default function CartPage() {
                 Close
               </button>
             </div>
-            <div className="text-[10px] uppercase tracking-wide text-slate-400">Palette</div>
-            <div className="rounded-lg border border-white/10 bg-slate-900/70 p-2 max-h-40 overflow-y-auto">
-              <div className="grid grid-cols-6 gap-2">
-                {paletteOptions.map((swatchOption) => {
-                  const swatchNormalized = normalizeColorValue(swatchOption.name || swatchOption.hex)
-                  const isSelected = activeSlotNormalized === swatchNormalized
-                    || activeSlotNormalized === normalizeColorValue(swatchOption.hex)
-                  const ringCls = isSelected
-                    ? 'ring-2 ring-amber-400'
-                    : swatchOption.inStock
-                      ? 'ring-2 ring-emerald-400/80'
-                      : ''
-                  return (
-                    <button
-                      key={swatchOption.name}
-                      type="button"
-                      title={
-                        swatchOption.inStock
-                          ? `${swatchOption.name} (${swatchOption.hex}) - In stock`
-                          : `${swatchOption.name} (${swatchOption.hex})`
-                      }
-                      className={`h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${ringCls}`}
-                      style={{ background: swatchOption.hex }}
-                      aria-label={`Select ${swatchOption.name}`}
-                      onClick={() => {
-                        const next = [...(activeSlotItem.options.colors || [])]
-                        const nextValue = swatchOption.name && swatchOption.hex
-                          ? `${swatchOption.name} ${swatchOption.hex}`
-                          : swatchOption.name || swatchOption.hex
-                        next[activeColorSlot.index] = nextValue
-                        update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
-                      }}
-                    >
-                      <span className="sr-only">{swatchOption.name}</span>
-                    </button>
-                  )
-                })}
+            <div className="text-[10px] uppercase tracking-wide text-slate-400">{paletteTitle}</div>
+            <div className="flex items-center gap-3 text-[10px] uppercase tracking-wide text-slate-500 mt-2">
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 ring-1 ring-emerald-300/70" />
+                In stock
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full border border-slate-500" />
+                Orderable
+              </div>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-slate-900/70 p-2 flex-1 overflow-y-auto min-h-[160px]">
+              <div className="space-y-3">
+                {paletteGroups.map((group) => (
+                  <div key={group.label}>
+                    <div className="text-[10px] uppercase tracking-wide text-slate-400 mb-2">{group.label}</div>
+                    {group.categories.map((category) => (
+                      <div key={`${group.label}-${category.label || 'default'}`} className="mb-3 last:mb-0">
+                        {hasCategory && (
+                          <div className="text-[9px] uppercase tracking-wide text-slate-500 mb-2">{category.label}</div>
+                        )}
+                        <div className="grid grid-cols-6 gap-2">
+                          {category.options.map((swatchOption) => {
+                            const swatchNormalized = normalizeColorValue(swatchOption.name || swatchOption.hex)
+                            const isSelected = activeSlotNormalized === swatchNormalized
+                              || activeSlotNormalized === normalizeColorValue(swatchOption.hex)
+                            const ringCls = isSelected
+                              ? 'ring-2 ring-amber-400'
+                              : swatchOption.inStock
+                                ? 'ring-2 ring-emerald-400/80'
+                                : ''
+                            const availabilityLabel = swatchOption.inStock ? 'In stock' : 'Orderable'
+                            return (
+                              <button
+                                key={`${swatchOption.brand || 'palette'}-${swatchOption.name}-${swatchOption.hex}`}
+                                type="button"
+                                title={
+                                  swatchOption.inStock
+                                    ? `${swatchOption.name} (${swatchOption.hex}) - In stock`
+                                    : `${swatchOption.name} (${swatchOption.hex})`
+                                }
+                                className={`relative h-8 w-8 rounded-full border border-white/30 transition-transform hover:scale-105 ${ringCls}`}
+                                style={{ background: swatchOption.paint }}
+                                aria-label={`Select ${swatchOption.name}`}
+                                onClick={() => {
+                                  if (activeSlotLocked) return
+                                  if (!isColorAllowed(`${swatchOption.name} ${swatchOption.hex}`, activeSlotAllowedTokens)) return
+                                  const nextValue = swatchOption.name && swatchOption.hex
+                                    ? `${swatchOption.name} ${swatchOption.hex}`
+                                    : swatchOption.name || swatchOption.hex
+                                  applyColorToSlot(activeColorSlot, nextValue)
+                                }}
+                              >
+                                <span className="sr-only">{swatchOption.name}</span>
+                                <span
+                                  className={`absolute -top-1 -right-1 h-3 w-3 rounded-full ${
+                                    swatchOption.inStock ? 'bg-emerald-400' : 'bg-slate-700'
+                                  } border border-slate-900`}
+                                  aria-hidden="true"
+                                  title={availabilityLabel}
+                                />
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {(() => {
+                          const blendHexes = (activeSlotItem?.options.colors || []).map(resolvePreviewHexFromValue).filter(Boolean)
+                          if (blendHexes.length < 2) return null
+                          const blendGradient = buildBlendGradient(blendHexes)
+                          const blendPairs = blendHexes.slice(0, -1).map((hex, idx) => ({
+                            from: hex,
+                            to: blendHexes[idx + 1],
+                            mixed: mixHex(hex, blendHexes[idx + 1]),
+                            label: `S${idx + 1}→S${idx + 2}`,
+                          }))
+                          return (
+                            <div className="mt-2 rounded-lg border border-white/10 bg-black/30 p-2 space-y-2">
+                              <div className="text-[9px] uppercase tracking-[0.25em] text-slate-500">AMS blend preview</div>
+                              <div className="h-2 rounded-full border border-white/10" style={{ background: blendGradient }} />
+                              <div className="flex flex-wrap gap-2">
+                                {blendPairs.map((pair) => (
+                                  <div key={pair.label} className="flex items-center gap-1 text-[9px] text-slate-400">
+                                    <span
+                                      className="h-4 w-4 rounded-full border border-white/20"
+                                      style={{ background: `linear-gradient(135deg, ${pair.from}, ${pair.to})` }}
+                                    />
+                                    <span className="text-[8px] uppercase tracking-wide">{pair.label}</span>
+                                    {pair.mixed ? (
+                                      <span className="h-3 w-3 rounded-full border border-white/20" style={{ background: pair.mixed }} />
+                                    ) : null}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             </div>
             <div className="mt-3 space-y-2">
@@ -691,10 +1695,11 @@ export default function CartPage() {
                 className="w-full input text-sm"
                 value={activeSlotValue}
                 placeholder="Name or hex"
+                disabled={activeSlotLocked}
                 onChange={(e) => {
-                  const next = [...(activeSlotItem.options.colors || [])]
-                  next[activeColorSlot.index] = e.target.value
-                  update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
+                  if (activeSlotLocked) return
+                  if (e.target.value && !isColorAllowed(e.target.value, activeSlotAllowedTokens)) return
+                  applyColorToSlot(activeColorSlot, e.target.value)
                 }}
               />
               <label className="text-[10px] uppercase tracking-wide text-slate-400">
@@ -703,16 +1708,19 @@ export default function CartPage() {
                   type="color"
                   className="mt-1 h-10 w-full rounded-md border border-white/20 bg-transparent cursor-pointer"
                   value={activeSlotHexValue}
+                  disabled={activeSlotLocked}
                   aria-label={`Pick colour ${activeColorSlot.index + 1}`}
                   onChange={(e) => {
-                    const next = [...(activeSlotItem.options.colors || [])]
-                    next[activeColorSlot.index] = e.target.value
-                    update(activeColorSlot.modelId, { colors: next }, activeColorSlot.partId)
+                    if (activeSlotLocked) return
+                    if (!isColorAllowed(e.target.value, activeSlotAllowedTokens)) return
+                    applyColorToSlot(activeColorSlot, e.target.value)
                   }}
                 />
               </label>
             </div>
           </div>
+            )
+          })()}
         </div>
       )}
     </div>

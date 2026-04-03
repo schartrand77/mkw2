@@ -3,19 +3,26 @@ import type { CheckoutLineItem } from '@/types/checkout'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import type { DiscountSummary } from '@/lib/discounts'
 import { DIMENSION_AXES } from '@/lib/cartPricing'
+import QuoteBreakdownCard from '@/components/QuoteBreakdownCard'
 
 type Props = {
   items: CheckoutLineItem[]
   currency: Currency
   total: number
   discount?: DiscountSummary | null
+  shippingRate?: {
+    label: string
+    amount: number
+  } | null
 }
 
-export default function OrderSummary({ items, currency, total, discount }: Props) {
+export default function OrderSummary({ items, currency, total, discount, shippingRate }: Props) {
   const totalSavings = items.reduce((sum, item) => {
     const undiscounted = item.undiscountedLineTotal ?? item.lineTotal
     return sum + Math.max(0, undiscounted - item.lineTotal)
   }, 0)
+
+  const showShipping = shippingRate && typeof shippingRate.amount === 'number'
 
   return (
     <div className="glass rounded-xl border border-white/10 divide-y divide-white/10">
@@ -33,7 +40,7 @@ export default function OrderSummary({ items, currency, total, discount }: Props
         })()
         return (
           <div
-            key={`${item.modelId}-${item.partId || 'whole'}-${item.scale}-${item.material}-${palette.join('-')}-${item.customText ?? ''}-${item.infillPct ?? 'na'}`}
+            key={`${item.modelId}-${item.partId || 'whole'}-${item.scale}-${item.material}-${palette.join('-')}-${item.finish ?? 'standard'}-${item.customText ?? ''}-${item.infillPct ?? 'na'}`}
             className="p-4 space-y-1 text-sm"
           >
             <div className="flex items-center justify-between">
@@ -45,6 +52,7 @@ export default function OrderSummary({ items, currency, total, discount }: Props
                 <div className="text-xs text-slate-400">
                   {item.qty} x scale {item.scale.toFixed(2)} | {item.material}
                   {palette.length > 0 && <> | Colors: {palette.join(', ')}</>}
+                  {item.finish && item.finish !== 'standard' ? ` | Finish: ${item.finish}` : ''}
                   {typeof item.infillPct === 'number' ? ` | ${item.infillPct}% infill` : ''}
                 </div>
               </div>
@@ -62,9 +70,41 @@ export default function OrderSummary({ items, currency, total, discount }: Props
                 {item.discountPercent ? ` (${item.discountPercent}% off)` : ''}
               </div>
             )}
+            {(typeof item.leadTimeHours === 'number' || typeof item.etaConfidenceScore === 'number') && (
+              <div className="text-xs text-slate-400">
+                Lead time {typeof item.leadTimeHours === 'number' ? `${item.leadTimeHours.toFixed(1)} hrs` : 'Pending'}
+                {item.leadTimeWindowHours ? ` (${item.leadTimeWindowHours.min.toFixed(1)}-${item.leadTimeWindowHours.max.toFixed(1)} hrs)` : ''}
+                {typeof item.etaConfidenceScore === 'number' ? ` | ${Math.round(item.etaConfidenceScore * 100)}% confidence` : ''}
+              </div>
+            )}
+            <QuoteBreakdownCard
+              currency={currency}
+              title="Quote details"
+              pricing={item.pricingBreakdown?.base || null}
+              unitPrice={item.unitPrice}
+              varianceLabel={item.leadTimeWindowHours ? `${item.leadTimeWindowHours.min.toFixed(1)}-${item.leadTimeWindowHours.max.toFixed(1)} hrs` : null}
+              confidenceScore={item.etaConfidenceScore ?? null}
+              adjustments={{
+                batchDiscountPercent: item.pricingBreakdown?.batchDiscountPercent,
+                rush: item.pricingBreakdown?.rush,
+                demandSurgeMultiplier: item.pricingBreakdown?.demandSurgeMultiplier,
+                rushMultiplier: item.pricingBreakdown?.rushMultiplier,
+              }}
+              leadTimeSignals={item.leadTimeSignals ?? null}
+            />
           </div>
         )
       })}
+      {showShipping && (
+        <div className="p-4 flex items-center justify-between text-sm">
+          <span>{shippingRate?.label || 'Shipping'}</span>
+          <span>
+            {shippingRate && shippingRate.amount > 0
+              ? formatCurrency(shippingRate.amount, currency)
+              : 'Free'}
+          </span>
+        </div>
+      )}
       <div className="p-4 flex items-center justify-between font-semibold">
         <span>Total</span>
         <span>{formatCurrency(total, currency)}</span>

@@ -1,0 +1,54 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA CMYK Lithophane Bundle",
+  "description": "Bambu PLA CMYK Lithophane is a four-color bundle of PLA Basic filaments for lithophane printing including cyan, magenta, yellow, and white. Based on the CMYK color mixing principle, this bundle can create a wide range of colors through the overlaying of the three process colors. With this bundle, you can create vibrant, full-color prints that are perfect for memorizing special moments and creating unique gifts. Whether you're printing photos or creating custom lithophanes, Bambu PLA CMYK Lithophane Bundle will fresh up your experience by coloring your ideas.",
+  "url": "https://ca.store.bambulab.com/products/pla-cmyk-lithophane",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8266590847216",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "44072637137136",
+      "image": "https://store.bblcdn.com/s5/default/e2b29aad75054c438d62d4763550e84d.jpg",
+      "name": "PLA CMYK Lithophane Bundle - CMYK Lithophane Bundle / Filament with spool / 1kg*4",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-cmyk-lithophane?id=44072637137136",
+        "priceCurrency": "CAD",
+        "price": 83.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock",
+        "priceSpecification": {
+          "@type": "UnitPriceSpecification",
+          "priceType": "https://schema.org/StrikethroughPrice",
+          "price": 119.96,
+          "priceCurrency": "CAD"
+        }
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44279480320240",
+      "image": "https://store.bblcdn.com/s5/default/26ef43916a454cc0a9e3af038053b44d.jpg",
+      "name": "PLA CMYK Lithophane Bundle - CMYK Lithophane Bundle + Backlight Board / Filament with spool / 1kg*4",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-cmyk-lithophane?id=44279480320240",
+        "priceCurrency": "CAD",
+        "price": 89.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock",
+        "priceSpecification": {
+          "@type": "UnitPriceSpecification",
+          "priceType": "https://schema.org/StrikethroughPrice",
+          "price": 132.95,
+          "priceCurrency": "CAD"
+        }
+      }
+    }
+  ]
+}

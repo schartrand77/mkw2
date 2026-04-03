@@ -1,23 +1,108 @@
 import Link from 'next/link'
-import { buildImageSrc } from '@/lib/public-path'
+import { unstable_cache } from 'next/cache'
 import { BRAND_SLUG } from '@/lib/brand'
-import { formatPriceLabel } from '@/lib/price-label'
+import { resolveBaseUrl } from '@/lib/base-url'
+import FeaturedMarquee from '@/components/FeaturedMarquee'
+import { prisma } from '@/lib/db'
+import { toPublicHref } from '@/lib/storage'
+import { serializeComment } from '@/lib/comments'
+import { CACHE_TAGS, CACHE_TTL_SECONDS } from '@/lib/cache-policy'
 
-async function fetchFeatured() {
-  const res = await fetch(`${process.env.BASE_URL || ''}/api/featured`, { cache: 'no-store' })
+export const revalidate = 120
+
+async function fetchFeatured(baseUrl: string) {
+  const res = await fetch(`${baseUrl}/api/featured`, {
+    next: {
+      revalidate: CACHE_TTL_SECONDS.featuredModels,
+      tags: [CACHE_TAGS.homePage, CACHE_TAGS.featuredModels],
+    },
+  })
   if (!res.ok) return []
   const data = await res.json()
   return data.models as any[]
 }
 
+type CuratedHomeComment = {
+  id: string
+  body: string
+  modelId: string
+  modelTitle: string
+  userDisplayName: string
+  userProfileSlug: string | null
+  userAvatarUrl: string | null
+}
+
+const fetchCuratedComments = unstable_cache(async (): Promise<CuratedHomeComment[]> => {
+  const curated = await prisma.modelComment.findMany({
+    where: {
+      type: 'comment',
+      body: { not: '' },
+      isHomeCurated: true,
+      model: { visibility: 'public' },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 12,
+    include: {
+      model: { select: { id: true, title: true } },
+      user: {
+        select: {
+          id: true,
+          name: true,
+          profile: { select: { slug: true, avatarImagePath: true } },
+        },
+      },
+    },
+  } as any) as any[]
+
+  const picked: CuratedHomeComment[] = []
+  const seenUsers = new Set<string>()
+  const seenModels = new Set<string>()
+
+  for (const comment of curated) {
+    const serialized = serializeComment(comment)
+    const userId = serialized.user?.id || null
+    const modelId = comment.model?.id || ''
+    if (!serialized.body?.trim() || !modelId) continue
+    if (userId && seenUsers.has(userId)) continue
+    if (seenModels.has(modelId)) continue
+    picked.push({
+      id: serialized.id,
+      body: serialized.body,
+      modelId,
+      modelTitle: comment.model?.title || 'Untitled model',
+      userDisplayName: serialized.user?.displayName || 'Community maker',
+      userProfileSlug: serialized.user?.profileSlug || null,
+      userAvatarUrl: toPublicHref(serialized.user?.avatarUrl) || null,
+    })
+    if (userId) seenUsers.add(userId)
+    seenModels.add(modelId)
+    if (picked.length >= 3) break
+  }
+
+  return picked
+}, ['home-curated-comments:v1'], {
+  revalidate: CACHE_TTL_SECONDS.homeCuratedComments,
+  tags: [CACHE_TAGS.homePage, CACHE_TAGS.homeCuratedComments],
+})
+
 export default async function HomePage() {
-  const featured = await fetchFeatured()
+  const baseUrl = await resolveBaseUrl()
+  const [featured, curatedComments] = await Promise.all([
+    fetchFeatured(baseUrl),
+    fetchCuratedComments(),
+  ])
   const defaultContactEmail = `info@${BRAND_SLUG}.app`
-  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || defaultContactEmail
+  const runtimeContactEmail = process.env['NEXT_PUBLIC_CONTACT_EMAIL']
+  const contactEmail = runtimeContactEmail && runtimeContactEmail.trim().length > 0 ? runtimeContactEmail : defaultContactEmail
   return (
     <div className="space-y-8">
       <section className="text-center py-10">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Dream. Discover. Deliver.</h1>
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+          <span aria-label="Dream">
+            Dre<span aria-hidden="true" className="valentines-heart">♥</span><span aria-hidden="true" className="valentines-heart-fallback">a</span>m
+          </span>
+          . Discover. Deliver.
+        </h1>
         <p className="mt-3 text-slate-300">Bringing your ideas to life, one layer at a time.</p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <Link href="/upload" className="btn">Upload a Model</Link>
@@ -47,6 +132,52 @@ export default async function HomePage() {
         <p className="text-slate-400 mb-5">Browse hundreds of community models, parts, and curated kits.</p>
         <Link href="/discover" className="px-4 py-2 rounded-md border border-white/10 hover:border-white/20">Open Discover</Link>
       </section>
+      {curatedComments.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.3em] text-brand-300/80">Community</p>
+              <h2 className="text-xl font-semibold mt-1">Curated model comments</h2>
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {curatedComments.map((comment) => (
+              <article key={comment.id} className="glass rounded-xl border border-white/10 p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  {comment.userAvatarUrl ? (
+                    <img
+                      src={comment.userAvatarUrl}
+                      alt=""
+                      className="w-9 h-9 rounded-full object-cover border border-white/10"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center text-xs font-semibold border border-white/10">
+                      {(comment.userDisplayName || '?').slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    {comment.userProfileSlug ? (
+                      <Link href={`/u/${comment.userProfileSlug}`} className="block text-sm font-semibold truncate hover:underline">
+                        {comment.userDisplayName}
+                      </Link>
+                    ) : (
+                      <p className="text-sm font-semibold truncate">{comment.userDisplayName}</p>
+                    )}
+                    <p className="text-xs text-slate-400">
+                      on{' '}
+                      <Link href={`/models/${comment.modelId}`} className="hover:text-white">
+                        {comment.modelTitle}
+                      </Link>
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-200 line-clamp-4 whitespace-pre-wrap">{comment.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       <section className="glass rounded-2xl border border-white/10 p-8 text-center space-y-4">
         <h3 className="text-2xl font-semibold">Questions or custom work?</h3>
         <p className="text-slate-400">
@@ -60,58 +191,5 @@ export default async function HomePage() {
         </a>
       </section>
     </div>
-  )
-}
-
-function FeaturedMarquee({ models }: { models: any[] }) {
-  const cloneCount = models.length >= 4 ? Math.min(models.length, 4) : 0
-  const loop =
-    cloneCount > 0
-      ? [...models, ...models.slice(0, cloneCount)]
-      : models
-  const durationSeconds = Math.max(18, models.length * 4)
-  return (
-    <div className="marquee-viewport glass rounded-2xl border border-white/10 p-4">
-      <div className="marquee-fade marquee-fade-left" aria-hidden="true" />
-      <div className="marquee-fade marquee-fade-right" aria-hidden="true" />
-      <div className="marquee-track" style={{ animationDuration: `${durationSeconds}s` }}>
-        {loop.map((model, idx) => (
-          <FeaturedCard key={`${model.id}-${idx}`} model={model} ariaHidden={idx >= models.length} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function FeaturedCard({ model, ariaHidden = false }: { model: any; ariaHidden?: boolean }) {
-  const coverSrc = buildImageSrc(model.coverImagePath, model.updatedAt)
-  const priceLabel = formatPriceLabel(model.priceUsd, { from: model.salePriceIsFrom, unit: model.salePriceUnit })
-  return (
-    <Link
-      href={`/models/${model.id}`}
-      className="w-[280px] sm:w-[320px] md:w-[360px] flex-shrink-0 glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition"
-      aria-hidden={ariaHidden}
-      tabIndex={ariaHidden ? -1 : undefined}
-    >
-      {coverSrc ? (
-        <img
-          src={coverSrc}
-          alt={model.title}
-          className="aspect-video w-full object-cover"
-          loading="lazy"
-          decoding="async"
-        />
-      ) : (
-        <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
-      )}
-      <div className="p-4">
-        <h3 className="font-semibold truncate">{model.title}</h3>
-        {priceLabel ? (
-          <p className="text-sm text-slate-400">Est. {priceLabel}</p>
-        ) : (
-          <p className="text-sm text-slate-400">No estimate</p>
-        )}
-      </div>
-    </Link>
   )
 }

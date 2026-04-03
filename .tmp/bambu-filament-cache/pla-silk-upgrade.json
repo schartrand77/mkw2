@@ -1,0 +1,252 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Silk+",
+  "description": "",
+  "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "542547831272378368",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "542547831280766994",
+      "image": "https://store.bblcdn.com/s5/default/46aa65c617a8471da4a01cd51f2478ff.jpg",
+      "name": "PLA Silk+ - Gold (13405) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831280766994",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "542547831280767000",
+      "image": "https://store.bblcdn.com/s5/default/344443d48cab4e94992d9c388f585fc1.jpg",
+      "name": "PLA Silk+ - Silver (13109) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831280767000",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "542547831280767006",
+      "image": "https://store.bblcdn.com/s5/default/a6e936cd3be64cec827555490f771b99.jpg",
+      "name": "PLA Silk+ - Titan Gray (13108) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831280767006",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "542547831280767012",
+      "image": "https://store.bblcdn.com/s5/default/d2008538df9e401e9644bfbfdf1179ac.jpg",
+      "name": "PLA Silk+ - Candy Red (13205) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831280767012",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "542547831280767018",
+      "image": "https://store.bblcdn.com/s5/default/1865fd2939f745ecb89e2bf1a6e22ef7.jpg",
+      "name": "PLA Silk+ - Candy Green (13506) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831280767018",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "542547831280767024",
+      "image": "https://store.bblcdn.com/s5/default/d08a4e3e041540cf9589c141a8e79a57.jpg",
+      "name": "PLA Silk+ - Blue (13604) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831280767024",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "542547831280767030",
+      "image": "https://store.bblcdn.com/s5/default/7a6ee2f6ea6a4b0193f123ab3a751898.jpg",
+      "name": "PLA Silk+ - Purple (13702) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831280767030",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "542547831280767036",
+      "image": "https://store.bblcdn.com/s5/default/7e807e841fe144a993b4bd5947d56d8b.jpg",
+      "name": "PLA Silk+ - Rose Gold (13206) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831280767036",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "542547831280767042",
+      "image": "https://store.bblcdn.com/s5/default/66beef322ddf42899a5f77f214b044d5.jpg",
+      "name": "PLA Silk+ - Baby Blue (13603) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831280767042",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "542547831280767048",
+      "image": "https://store.bblcdn.com/s5/default/6d7357a7390f4873b2d12157ee9ddd09.jpg",
+      "name": "PLA Silk+ - Mint (13507) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831280767048",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "542547831280767054",
+      "image": "https://store.bblcdn.com/s5/default/65f72225705a4475aae0f8ba03625a1d.jpg",
+      "name": "PLA Silk+ - Pink (13207) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831280767054",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "542547831280767060",
+      "image": "https://store.bblcdn.com/s5/default/ce958f3221c342e991a84630752e1c1d.jpg",
+      "name": "PLA Silk+ - Champagne (13404) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831280767060",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "542547831284961285",
+      "image": "https://store.bblcdn.com/s5/default/742e9d01ed714b51b44963338c0593bd.jpg",
+      "name": "PLA Silk+ - White (13110) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=542547831284961285",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "669699832095612930",
+      "image": "https://store.bblcdn.com/s5/default/46aa65c617a8471da4a01cd51f2478ff.jpg",
+      "name": "PLA Silk+ - Gold (13405) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=669699832095612930",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "669699832095612936",
+      "image": "https://store.bblcdn.com/s5/default/a6e936cd3be64cec827555490f771b99.jpg",
+      "name": "PLA Silk+ - Titan Gray (13108) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=669699832095612936",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "669699832099807232",
+      "image": "https://store.bblcdn.com/s5/default/344443d48cab4e94992d9c388f585fc1.jpg",
+      "name": "PLA Silk+ - Silver (13109) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=669699832099807232",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "669699832099807238",
+      "image": "https://store.bblcdn.com/s5/default/742e9d01ed714b51b44963338c0593bd.jpg",
+      "name": "PLA Silk+ - White (13110) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-silk-upgrade?id=669699832099807238",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

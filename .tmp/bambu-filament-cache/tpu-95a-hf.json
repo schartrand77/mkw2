@@ -1,0 +1,98 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "TPU 95A HF",
+  "description": "Bambu TPU 95A HF is an optimized TPU filament designed for high-speed 3D printing. Compared to regular TPU 95A, TPU 95A HF offers an impressive 3x faster printing speed, effectively addressing the common problem of lengthy prints associated with other TPU filaments. TPU 95A HF maintains exceptional interlayer adhesion, impact resistance, flexibility, and cold-temperature resilience, just like traditional TPU filaments. Experience faster TPU printing without any compromises!",
+  "url": "https://ca.store.bambulab.com/products/tpu-95a-hf",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8395671011568",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "44405012201712",
+      "image": "https://store.bblcdn.com/s5/default/5d33093564274d6db3d593a6593dc793.png",
+      "name": "TPU 95A HF - Black (51100) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-95a-hf?id=44405012201712",
+        "priceCurrency": "CAD",
+        "price": 53.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44405012300016",
+      "image": "https://store.bblcdn.com/s5/default/813162934f57427b9f20297951ad8f56.png",
+      "name": "TPU 95A HF - White (51102) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-95a-hf?id=44405012300016",
+        "priceCurrency": "CAD",
+        "price": 53.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44405012332784",
+      "image": "https://store.bblcdn.com/s5/default/7ed342a8a4d6461fbdb7ef006bb70334.png",
+      "name": "TPU 95A HF - Gray (51101) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-95a-hf?id=44405012332784",
+        "priceCurrency": "CAD",
+        "price": 53.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44405012365552",
+      "image": "https://store.bblcdn.com/s5/default/17328c906d3242ff9c64c2565deabbdd.png",
+      "name": "TPU 95A HF - Yellow (51400) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-95a-hf?id=44405012365552",
+        "priceCurrency": "CAD",
+        "price": 53.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44405012398320",
+      "image": "https://store.bblcdn.com/s5/default/08947e6f9164421491100cf7518c6596.png",
+      "name": "TPU 95A HF - Blue (51600) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-95a-hf?id=44405012398320",
+        "priceCurrency": "CAD",
+        "price": 53.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44405012431088",
+      "image": "https://store.bblcdn.com/s5/default/7ce0823b9e214525bd98a6e19b7cf786.png",
+      "name": "TPU 95A HF - Red (51200) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-95a-hf?id=44405012431088",
+        "priceCurrency": "CAD",
+        "price": 53.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

@@ -1,0 +1,196 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "TPU 85A / TPU 90A",
+  "description": "",
+  "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "573761482369122304",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "573761482377510924",
+      "image": "https://store.bblcdn.com/s5/default/65d73fc03c7c4ef5a5f82ecda434d172/TPU_90_Frozen.jpg",
+      "name": "TPU 85A / TPU 90A - TPU 90A / Frozen (51900) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=573761482377510924",
+        "priceCurrency": "CAD",
+        "price": 76.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "573761482377510930",
+      "image": "https://store.bblcdn.com/s5/default/a09b4a9822744b92ab48369ef33bd7fd/TPU_90_Blaze.jpg",
+      "name": "TPU 85A / TPU 90A - TPU 90A / Blaze (51901) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=573761482377510930",
+        "priceCurrency": "CAD",
+        "price": 76.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "573761482377510942",
+      "image": "https://store.bblcdn.com/s5/default/ec10a06daac54460815acbfcfcfcf855/TPU_90_BK.png",
+      "name": "TPU 85A / TPU 90A - TPU 90A / Black (51103) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=573761482377510942",
+        "priceCurrency": "CAD",
+        "price": 53.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "573761482377510954",
+      "image": "https://store.bblcdn.com/s5/default/75540b9c97814cdabfa1b7c3f5c83987/TPU_85_Cyan.jpg",
+      "name": "TPU 85A / TPU 90A - TPU 85A / Light Cyan (51500) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=573761482377510954",
+        "priceCurrency": "CAD",
+        "price": 57.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "668354619028484097",
+      "image": "https://store.bblcdn.com/s5/default/216263b0e121477aae18fabdfcee5c1e/TPU_85_Orange.jpg",
+      "name": "TPU 85A / TPU 90A - TPU 85A / Neon Orange (51305) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=668354619028484097",
+        "priceCurrency": "CAD",
+        "price": 57.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "672317379708768257",
+      "image": "https://store.bblcdn.com/s5/default/4ac3c59e99f94ddd829c3e985babf67b/TPU_90_White.jpg",
+      "name": "TPU 85A / TPU 90A - TPU 90A / White (51105) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=672317379708768257",
+        "priceCurrency": "CAD",
+        "price": 53.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "679919043689914375",
+      "image": "https://store.bblcdn.com/s5/default/3c6c9faf544b4215957e0f98cc6d0893/grape_jelly.jpg",
+      "name": "TPU 85A / TPU 90A - TPU 90A / Grape Jelly (51700) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=679919043689914375",
+        "priceCurrency": "CAD",
+        "price": 53.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "679919043689914381",
+      "image": "https://store.bblcdn.com/s5/default/04c5c9bc12e1487e8ec46933366c05f6/Crystal_Blue.jpg",
+      "name": "TPU 85A / TPU 90A - TPU 90A / Crystal Blue (51601) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=679919043689914381",
+        "priceCurrency": "CAD",
+        "price": 53.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "679919043689914387",
+      "image": "https://store.bblcdn.com/s5/default/81d60d015e7244efac0dac1ebc305791/Cocoa_Brown.jpg",
+      "name": "TPU 85A / TPU 90A - TPU 90A / Cocoa Brown (51800) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=679919043689914387",
+        "priceCurrency": "CAD",
+        "price": 53.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "679919043689914393",
+      "image": "https://store.bblcdn.com/s5/default/ca938a55465c4b33b21ed49687770f84/BLACK.jpg",
+      "name": "TPU 85A / TPU 90A - TPU 85A / Black (51107) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=679919043689914393",
+        "priceCurrency": "CAD",
+        "price": 57.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "679919043689914399",
+      "image": "https://store.bblcdn.com/s5/default/52a8b71537484b7699b1fc382f11b86c/flesh.jpg",
+      "name": "TPU 85A / TPU 90A - TPU 85A / Flesh (51201) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=679919043689914399",
+        "priceCurrency": "CAD",
+        "price": 57.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "679919043689914405",
+      "image": "https://store.bblcdn.com/s5/default/bd0a1f7267764201bd791898682ee269/lime_green_(2).jpg",
+      "name": "TPU 85A / TPU 90A - TPU 85A / Lime Green (51501) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=679919043689914405",
+        "priceCurrency": "CAD",
+        "price": 57.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "697574284617752578",
+      "image": "https://store.bblcdn.com/s5/default/3d3d68718b6a41c88aabee990cb7a41a/sliver.jpg",
+      "name": "TPU 85A / TPU 90A - TPU 90A / Quicksilver(51106) / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/tpu-85a-tpu-90a?id=697574284617752578",
+        "priceCurrency": "CAD",
+        "price": 53.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}

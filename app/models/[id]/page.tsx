@@ -1,18 +1,29 @@
-import Gallery from '@/components/Gallery'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { formatCurrency } from '@/lib/currency'
-import { formatPriceLabel } from '@/lib/price-label'
 import { buildYouTubeEmbedUrl } from '@/lib/youtube'
 import { buildImageSrc, toPublicHref } from '@/lib/storage'
-import { BRAND_NAME } from '@/lib/brand'
+import { resolveBaseUrl } from '@/lib/base-url'
 import ModelPartsList from '@/components/ModelPartsList'
 import ModelComments from '@/components/ModelComments'
+import ModelShareButton from '@/components/ModelShareButton'
+import InstantQuoteConfigurator from '@/components/InstantQuoteConfigurator'
+import ModelProcessingNotifier from '@/components/ModelProcessingNotifier'
+import PrintabilityChecksCard from '@/components/PrintabilityChecksCard'
+import ModelReviewWorkspace from '@/components/ModelReviewWorkspace'
+import CreatorQualityCard from '@/components/CreatorQualityCard'
+import ModelLineageCard from '@/components/ModelLineageCard'
+import { CACHE_TAGS, CACHE_TTL_SECONDS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
+import { needsModelPreviewConversion } from '@/lib/model-files'
 
-async function fetchModel(id: string) {
-  const res = await fetch(`${process.env.BASE_URL || ''}/api/models/${id}`, { cache: 'no-store' })
+async function fetchModel(id: string, baseUrl: string) {
+  const res = await fetch(`${baseUrl}/api/models/${id}`, {
+    next: {
+      revalidate: CACHE_TTL_SECONDS.modelDetail,
+      tags: [modelTag(id), modelCommentsTag(id), CACHE_TAGS.discoverModels],
+    },
+  })
   if (!res.ok) return null
   return (await res.json()).model as any
 }
@@ -24,57 +35,137 @@ type ModelDetailProps = {
 
 export default async function ModelDetail({ params, searchParams }: ModelDetailProps) {
   const { id } = await params
+  const baseUrl = await resolveBaseUrl()
   const resolvedSearchParams = searchParams ? await searchParams : undefined
-  const model = await fetchModel(id)
+  const model = await fetchModel(id, baseUrl)
   if (!model) return <div>Not found</div>
+  const shareUrl = `${baseUrl}/models/${model.id}`
   const fileHref = toPublicHref(model.filePath)
-  const viewerHref = toPublicHref(model.viewerFilePath || model.filePath)
-  const coverHref = buildImageSrc(model.coverImagePath, model.updatedAt)
+  const filePath = typeof model.filePath === 'string' ? model.filePath : null
+  const viewerPath = typeof model.viewerFilePath === 'string' ? model.viewerFilePath : null
+  const viewerHref = toPublicHref(viewerPath || filePath)
+  const viewerFallbackHref = null
+  const coverHref = model.coverImageStatus === 'ready'
+    ? buildImageSrc(model.coverImagePath, model.updatedAt)
+    : null
   const hasParts = Array.isArray(model.parts) && model.parts.length > 0
+  const downloadsEnabled = model.downloadsEnabled !== false
   const partParam = resolvedSearchParams?.part
   const partIndexRaw = Array.isArray(partParam) ? partParam[0] : partParam
   const partIndex = partIndexRaw != null ? Number.parseInt(String(partIndexRaw), 10) : NaN
   const initialGalleryKey = Number.isFinite(partIndex) && partIndex >= 0 && partIndex < (hasParts ? model.parts.length : 0)
     ? `three:${partIndex}`
-    : undefined
+    : 'three:all'
   const videoEmbedUrl = model.videoEmbedId ? buildYouTubeEmbedUrl(model.videoEmbedId) : null
   const affiliateHost = model.affiliateUrl ? (() => {
     try {
       const rawHost = new URL(model.affiliateUrl).hostname
-      return rawHost.replace(/^www\./i, '') || 'amazon.ca'
+      return rawHost.replace(/^www\./i, '') || 'external site'
     } catch {
-      return 'amazon.ca'
+      return 'external site'
     }
   })() : null
-  const affiliateImage = model.affiliateImage || null
-  const onSale = model.salePriceUsd != null && model.basePriceUsd != null && model.salePriceUsd < model.basePriceUsd
-  const priceLabel = formatPriceLabel(model.priceUsd, { from: model.salePriceIsFrom, unit: model.salePriceUnit })
+  const creditName = typeof model.creditName === 'string' ? model.creditName.trim() : ''
+  const creditUrlRaw = typeof model.creditUrl === 'string' ? model.creditUrl.trim() : ''
+  const creditUrlHref = creditUrlRaw ? (() => {
+    try {
+      return new URL(creditUrlRaw).toString()
+    } catch {
+      return ''
+    }
+  })() : ''
   const cookieStore = await cookies()
   const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   const me = payload?.sub ? await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } }) : null
   const canEdit = !!(payload?.sub && (payload.sub === model.userId || me?.isAdmin))
   const canModerateComments = !!me?.isAdmin
+  const coverProcessing = model.coverImageStatus === 'processing'
+  const galleryProcessing = Array.isArray(model.images)
+    ? model.images.some((img: any) => img?.status === 'processing')
+    : false
+  const previewProcessing = typeof model.previewProcessing === 'boolean'
+    ? model.previewProcessing
+    : Array.isArray(model.parts)
+      ? model.parts.some((part: any) => {
+          const filePath = String(part.filePath || '').toLowerCase()
+          const ext = filePath.includes('.') ? `.${filePath.split('.').pop()}` : ''
+          return needsModelPreviewConversion(ext) && !part.previewFilePath
+        })
+      : false
+  const isProcessing = coverProcessing || galleryProcessing || previewProcessing
+  const reviewPins = Array.isArray(model.comments)
+    ? model.comments
+        .filter((comment: any) => comment?.partReview?.partId && comment?.partReview?.pin)
+        .map((comment: any) => ({
+          partKey: comment.partReview.partId,
+          x: Number(comment.partReview.pin.x),
+          y: Number(comment.partReview.pin.y),
+          z: Number(comment.partReview.pin.z),
+        }))
+        .filter((pin: any) => [pin.x, pin.y, pin.z].every((value: number) => Number.isFinite(value)))
+    : []
   return (
-    <div className="max-w-5xl mx-auto space-y-5">
+    <div className="max-w-[1500px] mx-auto min-w-0 space-y-5 px-4 sm:px-6">
       <div>
         <Link href="/discover" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white">
           <span aria-hidden="true">&larr;</span>
           Back to Discover
         </Link>
       </div>
-      <div className="grid lg:grid-cols-2 gap-8">
-        <div>
-          <Gallery
+      {canEdit && isProcessing && (
+        <div className="glass rounded-xl p-4 text-sm text-slate-200 border border-amber-400/30">
+          <div className="font-semibold text-amber-200">Processing uploads</div>
+          <p className="text-slate-300 mt-1">
+            {coverProcessing && previewProcessing
+              ? 'Cover image and model previews are processing in the background.'
+              : coverProcessing
+                ? 'Cover image is processing in the background.'
+                : galleryProcessing
+                  ? 'Gallery photos are processing in the background.'
+                  : 'Model previews are processing in the background.'}
+            {' '}We will email you when everything is ready.
+          </p>
+        </div>
+      )}
+      {canEdit && (
+        <ModelProcessingNotifier
+          modelId={model.id}
+          enabled={canEdit}
+          initialCoverProcessing={coverProcessing}
+          initialGalleryProcessing={galleryProcessing}
+          initialPreviewProcessing={previewProcessing}
+        />
+      )}
+      <div className="grid lg:grid-cols-[minmax(0,1.3fr)_minmax(360px,440px)] gap-6 min-w-0 items-start">
+        <div className="min-w-0 xl:sticky xl:top-24">
+          <ModelReviewWorkspace
+            modelId={model.id}
             coverSrc={coverHref}
-            parts={hasParts ? model.parts : []}
+            parts={hasParts ? model.parts.map((part: any, index: number) => ({
+              id: part.id,
+              name: part.name,
+              index,
+              filePath: part.filePath,
+              previewFilePath: part.previewFilePath,
+              sizeXmm: part.sizeXmm,
+              sizeYmm: part.sizeYmm,
+              sizeZmm: part.sizeZmm,
+            })) : []}
             allSrc={viewerHref || null}
+            allFallbackSrc={viewerFallbackHref}
             images={model.images || []}
             initialKey={initialGalleryKey}
+            reviewPins={reviewPins}
+            actions={payload ? (
+              <form action={`/api/models/${model.id}/like`} method="post">
+                <button className="px-3 py-2 rounded-md border border-white/10 bg-black/50 text-sm hover:border-white/30" formAction={`/api/models/${model.id}/like`}>Like</button>
+              </form>
+            ) : null}
           />
         </div>
-        <div className="space-y-4">
-        <h1 className="text-3xl font-semibold">{model.title}</h1>
+        <div className="space-y-3 min-w-0">
+        <h1 className="text-3xl font-semibold break-words">{model.title}</h1>
         {model.tags && model.tags.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {model.tags.map((t: any) => (
@@ -82,6 +173,31 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             ))}
           </div>
         )}
+        {creditName && (
+          <div className="glass rounded-xl p-4 text-sm text-slate-300">
+            <div className="text-xs uppercase tracking-[0.3em] text-slate-400 mb-2">Credited creator</div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-medium text-white">{creditName}</span>
+              {creditUrlHref && (
+                <a
+                  href={creditUrlHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-300 hover:text-brand-200 underline underline-offset-2"
+                >
+                  View source
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+        {model.creator?.quality ? (
+          <CreatorQualityCard
+            quality={model.creator.quality}
+            profileSlug={model.creator.profileSlug}
+            creatorName={model.creator.name || null}
+          />
+        ) : null}
         <div className="glass rounded-xl p-4 text-slate-300 whitespace-pre-wrap">{model.description || 'No description provided.'}</div>
         {videoEmbedUrl && (
           <div className="glass rounded-xl overflow-hidden">
@@ -106,48 +222,46 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           <div>{model.fileType}</div>
           <div className="text-slate-400">Volume</div>
           <div>{model.volumeMm3 ? `${(model.volumeMm3/1000).toFixed(2)} cm^3` : 'N/A'}</div>
-          <div className="text-slate-400">Estimated Price</div>
-          <div>
-            {onSale && (
-              <div className="text-xs text-rose-300">On sale</div>
-            )}
-            <div className="flex items-center gap-3">
-              {onSale && model.basePriceUsd != null && (
-                <span className="text-sm text-slate-400 line-through">
-                  {formatCurrency(model.basePriceUsd)}
-                </span>
-              )}
-              <span className="text-lg font-semibold">
-                {priceLabel || 'N/A'}
-              </span>
-            </div>
-            {model.pricing && (
-              <p className="text-xs text-slate-400 mt-1">
-                ≈ {model.pricing.grams} g · {model.pricing.hours} h @ {model.pricing.nozzleDiameterMm} mm ({model.pricing.printerProfile.label})
-              </p>
-            )}
-          </div>
         </div>
+        {(model.printabilityScore != null || model.failureRiskScore != null || model.supportLikelihood != null) && (
+          <PrintabilityChecksCard
+            printabilityScore={model.printabilityScore}
+            failureRiskScore={model.failureRiskScore}
+            supportLikelihood={model.supportLikelihood}
+            orientationSuggestion={model.orientationSuggestion}
+            supportStrategySuggestion={model.supportStrategySuggestion}
+            sizeXmm={model.sizeXmm}
+            sizeYmm={model.sizeYmm}
+            sizeZmm={model.sizeZmm}
+          />
+        )}
+        <InstantQuoteConfigurator
+          modelId={model.id}
+          title={model.title}
+          priceUsd={model.priceUsd}
+          material={model.material}
+          sizeXmm={model.sizeXmm}
+          sizeYmm={model.sizeYmm}
+          sizeZmm={model.sizeZmm}
+          thumbnail={coverHref}
+          defaultColors={Array.isArray(model.defaultColors) ? model.defaultColors : null}
+          colorSlotCount={typeof model.colorSlotCount === 'number' ? model.colorSlotCount : null}
+          allowedColors={Array.isArray(model.allowedColors) ? model.allowedColors : null}
+          flatRatePricing={Boolean(model.flatRatePricing)}
+          parts={hasParts ? model.parts.map((p: any, i: number) => ({
+            id: p.id,
+            name: p.name,
+            index: typeof p.index === 'number' ? p.index : i,
+            priceUsd: p.priceUsd,
+            sizeXmm: p.sizeXmm,
+            sizeYmm: p.sizeYmm,
+            sizeZmm: p.sizeZmm,
+          })) : []}
+        />
         {model.affiliateUrl && (
           <div className="glass rounded-xl p-4 space-y-3">
             <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Required parts</div>
-            <div className="flex flex-col sm:flex-row gap-4">
-              {affiliateImage && (
-                <a
-                  href={model.affiliateUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-shrink-0 inline-flex items-center justify-center"
-                >
-                  <img
-                    src={affiliateImage}
-                    alt={model.affiliateTitle ? `Amazon preview of ${model.affiliateTitle}` : 'Amazon preview'}
-                    className="w-24 h-24 object-contain rounded-lg border border-white/10 bg-white/5 p-2"
-                    loading="lazy"
-                  />
-                </a>
-              )}
-              <div className="space-y-2">
+            <div className="space-y-2">
                 <p className="text-lg font-semibold">{model.affiliateTitle || 'Recommended hardware'}</p>
                 <p className="text-sm text-slate-300">
                   Link provided by the maker so you can grab the exact companion parts (springs, screws, electronics, etc.) this model expects.
@@ -158,12 +272,8 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
                   rel="noopener noreferrer"
                   className="btn w-full md:w-auto text-center"
                 >
-                  Shop on {affiliateHost || 'Amazon'}
+                  Open on {affiliateHost || 'external site'}
                 </a>
-                <p className="text-xs text-slate-500">
-                  As an Amazon Associate, {BRAND_NAME} may earn from qualifying purchases. Pricing/availability updates instantly on Amazon.
-                </p>
-              </div>
             </div>
           </div>
         )}
@@ -171,7 +281,13 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           <ModelPartsList
             modelId={model.id}
             modelTitle={model.title}
+            flatRatePricing={Boolean(model.flatRatePricing)}
             thumbnail={coverHref}
+            downloadsEnabled={downloadsEnabled}
+            colorSlotCount={typeof model.colorSlotCount === 'number' ? model.colorSlotCount : null}
+            allowedColors={Array.isArray(model.allowedColors) ? model.allowedColors : null}
+            defaultColors={Array.isArray(model.defaultColors) ? model.defaultColors : null}
+            selectedPartIndex={Number.isFinite(partIndex) ? partIndex : null}
             parts={model.parts.map((p: any, i: number) => ({
               id: p.id,
               name: p.name,
@@ -186,19 +302,46 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             }))}
           />
         )}
-        <div className="flex gap-3">
-          <a
-            href={hasParts ? `/api/models/${model.id}/download.zip` : (fileHref || '#')}
-            {...(!hasParts && fileHref ? { download: true } : {})}
-            className="btn"
-          >
-            {hasParts ? 'Download All Parts (.zip)' : 'Download Model'}
-          </a>
-          {payload && (
-            <form action={`/api/models/${model.id}/like`} method="post">
-              <button className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20" formAction={`/api/models/${model.id}/like`}>Like</button>
-            </form>
+        <ModelLineageCard
+          modelId={model.id}
+          lineage={model.lineage || null}
+          revisions={Array.isArray(model.revisions) ? model.revisions : []}
+        />
+        {Array.isArray(model.revisions) && model.revisions.length > 0 && (
+          <div className="glass rounded-xl p-4 space-y-2">
+            <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Revision notes</div>
+            <div className="space-y-3 text-sm text-slate-300">
+              {model.revisions.map((rev: any) => (
+                <div key={rev.id} className="rounded-lg border border-white/10 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold">
+                      v{rev.version}{rev.label ? ` - ${rev.label}` : ''}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString() : ''}
+                    </div>
+                  </div>
+                  {rev.note && <div className="text-xs text-slate-400 mt-1">{rev.note}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="flex flex-wrap gap-3">
+          {downloadsEnabled ? (
+            <a
+              href={hasParts ? `/api/models/${model.id}/download.zip` : (fileHref || '#')}
+              {...(!hasParts && fileHref ? { download: true } : {})}
+              className="btn"
+            >
+              {hasParts ? 'Download All Parts (.zip)' : 'Download Model'}
+            </a>
+          ) : (
+            <span className="px-3 py-2 rounded-md border border-amber-400/30 bg-amber-400/10 text-sm text-amber-200">
+              Downloads disabled
+            </span>
           )}
+          <ModelShareButton title={model.title} url={shareUrl} />
           {canEdit && (
             <Link href={`/models/${model.id}/edit`} className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20">Edit</Link>
           )}

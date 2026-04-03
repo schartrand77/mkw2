@@ -1,0 +1,42 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Marble",
+  "description": "Achieve a natural stone finish in your 3D printing projects with Bambu PLA Marble filament. This premium 3D printing material has a unique marble-like finish that will give your objects a natural appearance, making them stand out and look professional.",
+  "url": "https://ca.store.bambulab.com/products/pla-marble",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8226017837296",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "43867392868592",
+      "image": "https://store.bblcdn.com/s5/default/ca48e1d56ed042b7920cba9912fe5977.png",
+      "name": "PLA Marble - White Marble (13103) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-marble?id=43867392868592",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44106844307696",
+      "image": "https://store.bblcdn.com/s5/default/79b1d2427e4047649c730f2605f45354.jpg",
+      "name": "PLA Marble - Red Granite (13201) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-marble?id=44106844307696",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

@@ -1,52 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import path from 'path'
+import { createWriteStream } from 'fs'
+import { readFile, rename, unlink } from 'fs/promises'
+import { pipeline } from 'stream/promises'
+import { Readable, Transform } from 'stream'
+import { randomUUID } from 'crypto'
+import Busboy from 'busboy'
+import UnzipperParse from 'unzipper/lib/parse'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
-import { saveBuffer } from '@/lib/storage'
+import { ensureDir, saveBuffer, storageRoot } from '@/lib/storage'
 import { computeStlStatsMm } from '@/lib/stl'
-import JSZip from 'jszip'
-import { estimatePriceUSD } from '@/lib/pricing'
+import { estimatePriceUSD, resolveModelPricing } from '@/lib/pricing'
+import { computeModelIntelligence } from '@/lib/model-intelligence'
 import { refreshUserAchievements } from '@/lib/achievements'
-import sharp from 'sharp'
 import { isSupportedImageFile } from '@/lib/images'
-import { applyKnownOrientation, ensureProcessableImageBuffer } from '@/lib/image-processing'
-import { XMLParser } from 'fast-xml-parser'
 import { sendAdminDiscordNotification } from '@/lib/discord'
-import { BRAND_NAME } from '@/lib/brand'
+import { sendAdminPushNotification } from '@/lib/push'
+import { convertModelToStlPreview, enqueueModelPreviewJob, extract3mfFilamentColors } from '@/lib/model-preview-queue'
+import { enqueueImageProcessing, enqueuePreviewProcessing } from '@/lib/processing-jobs'
+import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
+import { isSupportedModelFile, needsModelPreviewConversion } from '@/lib/model-files'
+import { getAllowedUploadOrigins, isLanRequestHost, readUploadByteEnv } from '@/lib/upload-config'
 
-const isAllowedModel = (name: string) => /\.(stl|obj|3mf)$/i.test(name)
+type UploadLimits = {
+  fileSize: number | null
+  totalSize: number | null
+}
 
-const xmlParser = new XMLParser({
-  ignoreAttributes: false,
-  attributeNamePrefix: '',
-  removeNSPrefix: true,
-})
-
-function normalizeOrigin(url?: string | null) {
-  if (!url) return null
-  try {
-    const parsed = new URL(url)
-    return parsed.origin
-  } catch {
-    return null
+function getUploadLimitsForRequest(req: NextRequest): UploadLimits {
+  const requestHost = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const isLan = isLanRequestHost(requestHost, process.env.LAN_SITE_HOSTS || null)
+  if (isLan) {
+    return {
+      fileSize: readUploadByteEnv('LAN_UPLOAD_MAX_FILE_BYTES', 100 * 1024 * 1024),
+      totalSize: readUploadByteEnv('LAN_UPLOAD_MAX_TOTAL_BYTES', 200 * 1024 * 1024),
+    }
+  }
+  return {
+    fileSize: readUploadByteEnv('UPLOAD_MAX_FILE_BYTES', 100 * 1024 * 1024),
+    totalSize: readUploadByteEnv('UPLOAD_MAX_TOTAL_BYTES', 200 * 1024 * 1024),
   }
 }
 
-function applyCorsHeaders(req: NextRequest, res: NextResponse, directUploadUrl?: string | null) {
-  const allowedOrigin = normalizeOrigin(directUploadUrl)
+function applyCorsHeaders(req: NextRequest, res: NextResponse, allowedOrigins: string[]) {
   const requestOrigin = req.headers.get('origin')
-  if (allowedOrigin && requestOrigin && requestOrigin === allowedOrigin) {
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
     res.headers.set('Access-Control-Allow-Origin', requestOrigin)
     res.headers.set('Access-Control-Allow-Credentials', 'true')
   }
   return res
 }
 
-function applyPreflightCors(req: NextRequest, res: NextResponse, directUploadUrl?: string | null) {
-  const allowedOrigin = normalizeOrigin(directUploadUrl)
+function applyPreflightCors(req: NextRequest, res: NextResponse, allowedOrigins: string[]) {
   const requestOrigin = req.headers.get('origin')
-  if (allowedOrigin && requestOrigin && requestOrigin === allowedOrigin) {
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
     const requestedHeaders = req.headers.get('access-control-request-headers') || 'content-type'
     res.headers.set('Access-Control-Allow-Origin', requestOrigin)
     res.headers.set('Access-Control-Allow-Credentials', 'true')
@@ -57,303 +66,261 @@ function applyPreflightCors(req: NextRequest, res: NextResponse, directUploadUrl
   return res
 }
 
-function jsonWithCors(req: NextRequest, body: any, init: ResponseInit | undefined, directUploadUrl?: string | null) {
+function jsonWithCors(req: NextRequest, body: any, init: ResponseInit | undefined, allowedOrigins: string[]) {
   const res = NextResponse.json(body, init)
-  return applyCorsHeaders(req, res, directUploadUrl)
+  return applyCorsHeaders(req, res, allowedOrigins)
 }
 
-type Vec3 = { x: number, y: number, z: number }
-type Matrix4x4 = [number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number]
-
-function asArray<T>(value: T | T[] | undefined | null): T[] {
-  if (!value) return []
-  return Array.isArray(value) ? value : [value]
+function uploadError(message: string, status = 400) {
+  const err = new Error(message) as Error & { status?: number }
+  err.status = status
+  return err
 }
 
-function toNumber(val: any, fallback = 0) {
-  if (val == null) return fallback
-  const n = Number(val)
-  return Number.isFinite(n) ? n : fallback
+type TempModelFile = {
+  originalName: string
+  ext: string
+  tempRel: string
+  tempFull: string
+  size: number
 }
 
-const IDENTITY_MATRIX: Matrix4x4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+type ParsedUpload = {
+  fields: Record<string, string>
+  modelFiles: TempModelFile[]
+  coverImageSourceRel?: string
+  sawModelInput: boolean
+}
 
-function parseTransformMatrix(value?: string | null): Matrix4x4 {
-  if (!value) return IDENTITY_MATRIX.slice() as Matrix4x4
-  const parts = value.trim().split(/\s+/).map(Number)
-  if (parts.length !== 12 || parts.some(v => !Number.isFinite(v))) {
-    return IDENTITY_MATRIX.slice() as Matrix4x4
+function buildTempRelPath(userId: string, filename: string) {
+  const ext = path.extname(filename) || '.bin'
+  const base = safeName(path.basename(filename, ext)) || 'upload'
+  return path.join(userId, 'tmp', `${Date.now()}-${randomUUID()}-${base}${ext}`)
+}
+
+async function streamToStorage(relPath: string, stream: NodeJS.ReadableStream, onBytes?: (size: number) => void) {
+  const full = path.join(storageRoot(), relPath)
+  await ensureDir(path.dirname(full))
+  const out = createWriteStream(full)
+  if (!onBytes) {
+    await pipeline(stream, out)
+    return full
   }
-  const [m00, m01, m02, m10, m11, m12, m20, m21, m22, tx, ty, tz] = parts
-  return [
-    m00, m01, m02, tx,
-    m10, m11, m12, ty,
-    m20, m21, m22, tz,
-    0, 0, 0, 1,
-  ]
+  const counter = new Transform({
+    transform(chunk, _enc, cb) {
+      try {
+        onBytes(chunk.length)
+        cb(null, chunk)
+      } catch (err) {
+        cb(err as Error)
+      }
+    },
+  })
+  await pipeline(stream, counter, out)
+  return full
 }
 
-function multiplyMatrices(a: Matrix4x4, b: Matrix4x4): Matrix4x4 {
-  const out: Matrix4x4 = new Array(16).fill(0) as Matrix4x4
-  for (let row = 0; row < 4; row++) {
-    for (let col = 0; col < 4; col++) {
-      let sum = 0
-      for (let k = 0; k < 4; k++) {
-        sum += a[row * 4 + k] * b[k * 4 + col]
-      }
-      out[row * 4 + col] = sum
+async function parseMultipartUpload(req: NextRequest, userId: string, limits: UploadLimits) {
+  const headers: Record<string, string> = {}
+  req.headers.forEach((value, key) => {
+    headers[key] = value
+  })
+  const bb = Busboy({
+    headers,
+    limits: {
+      files: 25,
+      fields: 50,
+      parts: 100,
+      ...(limits.fileSize != null ? { fileSize: limits.fileSize } : {}),
+    },
+  })
+  const fields: Record<string, string> = {}
+  const modelFiles: TempModelFile[] = []
+  let coverImageSourceRel: string | undefined
+  let totalModelBytes = 0
+  let sawModelInput = false
+  const fileWrites: Array<Promise<void>> = []
+  let failed = false
+  let settled = false
+  let rejectOnce: (err: Error) => void = () => undefined
+
+  const trackTotalBytes = (bytes: number) => {
+    totalModelBytes += bytes
+    if (limits.totalSize != null && totalModelBytes > limits.totalSize) {
+      throw uploadError('Upload exceeds total size limit.', 413)
     }
   }
-  return out
-}
 
-function applyMatrix(v: Vec3, m: Matrix4x4): Vec3 {
-  const x = v.x, y = v.y, z = v.z
-  return {
-    x: m[0] * x + m[1] * y + m[2] * z + m[3],
-    y: m[4] * x + m[5] * y + m[6] * z + m[7],
-    z: m[8] * x + m[9] * y + m[10] * z + m[11],
+  const fail = (err: Error) => {
+    if (failed) return
+    failed = true
+    bb.destroy(err)
+    rejectOnce(err)
   }
-}
 
-function cloneTri(tri: Vec3[]): Vec3[] {
-  return tri.map(v => ({ ...v }))
-}
+  bb.on('field', (name, value) => {
+    fields[name] = value
+  })
 
-function transformTriangles(tris: Vec3[][], matrix: Matrix4x4): Vec3[][] {
-  return tris.map(tri => tri.map(v => applyMatrix(v, matrix)))
-}
+  bb.on('file', (fieldname, file, info) => {
+    const filename = info.filename || 'upload.bin'
+    const lower = filename.toLowerCase()
 
-function buildBinaryStl(tris: Vec3[][]): Buffer {
-  const header = Buffer.alloc(80)
-  const title = `${BRAND_NAME} STL Preview`.slice(0, 79)
-  header.write(title)
-  const triCount = tris.length
-  const body = Buffer.alloc(4 + triCount * 50)
-  let offset = 0
-  body.writeUInt32LE(triCount, offset); offset += 4
-  for (const [a, b, c] of tris) {
-    const abx = b.x - a.x
-    const aby = b.y - a.y
-    const abz = b.z - a.z
-    const acx = c.x - a.x
-    const acy = c.y - a.y
-    const acz = c.z - a.z
-    let nx = aby * acz - abz * acy
-    let ny = abz * acx - abx * acz
-    let nz = abx * acy - aby * acx
-    const len = Math.hypot(nx, ny, nz) || 1
-    nx /= len; ny /= len; nz /= len
-    body.writeFloatLE(nx, offset); offset += 4
-    body.writeFloatLE(ny, offset); offset += 4
-    body.writeFloatLE(nz, offset); offset += 4
-    ;[a, b, c].forEach((v) => {
-      body.writeFloatLE(v.x, offset); offset += 4
-      body.writeFloatLE(v.y, offset); offset += 4
-      body.writeFloatLE(v.z, offset); offset += 4
+    file.on('limit', () => {
+      fail(uploadError(`File too large: ${filename}`, 413))
+      file.resume()
     })
-    body.writeUInt16LE(0, offset); offset += 2
-  }
-  return Buffer.concat([header, body])
-}
 
-type ParsedObject = {
-  key: string
-  meshTriangles: Vec3[][]
-  components: { key: string, transform: Matrix4x4 }[]
-}
-
-function getAttr(obj: any, keys: string[]): any {
-  if (!obj) return undefined
-  for (const key of keys) {
-    if (obj[key] != null) return obj[key]
-  }
-  return undefined
-}
-
-function normalizeZipPath(p: string) {
-  const replaced = p.replace(/\\/g, '/').replace(/^\/+/, '')
-  const normalized = path.posix.normalize(replaced)
-  if (normalized.startsWith('../')) return normalized.replace(/^(\.\.\/)+/, '')
-  return normalized
-}
-
-async function convert3mfToStl(buffer: Buffer): Promise<{ buf: Buffer, triangles: number } | null> {
-  try {
-    const zip = await JSZip.loadAsync(buffer)
-    const embeddedStl = Object.values(zip.files).find(entry => !entry.dir && entry.name.toLowerCase().endsWith('.stl'))
-    if (embeddedStl) {
-      const stlBuf = await embeddedStl.async('nodebuffer')
-      console.info('3MF conversion: extracted embedded STL', { entry: embeddedStl.name })
-      return { buf: Buffer.from(stlBuf), triangles: -1 }
-    }
-    const modelEntry = Object.values(zip.files).find(entry => !entry.dir && entry.name.toLowerCase().endsWith('.model'))
-    if (!modelEntry) {
-      console.warn('3MF conversion: .model part not found')
-      return null
-    }
-
-    const objectMap = new Map<string, ParsedObject>()
-    const processedEntries = new Set<string>()
-    const buildItems: { key: string, transform: Matrix4x4 }[] = []
-    const queue: { path: string, collectBuild: boolean }[] = [{ path: modelEntry.name, collectBuild: true }]
-
-    while (queue.length) {
-      const { path: entryPathRaw, collectBuild } = queue.pop()!
-      const entryPath = normalizeZipPath(entryPathRaw)
-      if (processedEntries.has(entryPath)) continue
-      const entry = zip.file(entryPath)
-      if (!entry) {
-        console.warn('3MF conversion: referenced model entry missing', { entryPath })
-        continue
+    if (fieldname === 'image') {
+      if (coverImageSourceRel || !isSupportedImageFile(filename, info.mimeType || '')) {
+        file.resume()
+        return
       }
-      processedEntries.add(entryPath)
-      const xml = await entry.async('string')
-      const data = xmlParser.parse(xml)
-      const model = data?.model || data?.Model
-      if (!model) continue
-      const resourcesList = asArray(model.resources || model.Resources)
-
-      for (const obj of resourcesList.flatMap((res) => asArray(res?.object || res?.Object))) {
-        const rawId = getAttr(obj, ['id', 'ID'])
-        if (rawId == null) continue
-        const objectId = String(rawId)
-        const key = `${entryPath}#${objectId}`
-        if (objectMap.has(key)) continue
-        const mesh = obj?.mesh || obj?.Mesh
-        const vertexNodes = asArray(mesh?.vertices?.vertex || mesh?.vertices?.Vertex)
-        const vertices: Vec3[] = vertexNodes.map((v: any) => ({
-          x: toNumber(getAttr(v, ['x', 'X'])),
-          y: toNumber(getAttr(v, ['y', 'Y'])),
-          z: toNumber(getAttr(v, ['z', 'Z'])),
-        }))
-        const triangleNodes = asArray(mesh?.triangles?.triangle || mesh?.triangles?.Triangle)
-        const meshTriangles: Vec3[][] = []
-        if (vertices.length && triangleNodes.length) {
-          for (const tri of triangleNodes) {
-            const indices = [getAttr(tri, ['v1', 'V1']), getAttr(tri, ['v2', 'V2']), getAttr(tri, ['v3', 'V3'])]
-            if (indices.some(idx => idx == null)) continue
-            const v1 = vertices[toNumber(indices[0])]
-            const v2 = vertices[toNumber(indices[1])]
-            const v3 = vertices[toNumber(indices[2])]
-            if (v1 && v2 && v3) {
-              meshTriangles.push([{ ...v1 }, { ...v2 }, { ...v3 }])
-            }
+      const ext = path.extname(filename) || '.bin'
+      coverImageSourceRel = path.join(userId, 'uploads', `cover-raw-${Date.now()}${ext}`)
+      let imageBytes = 0
+      const p: Promise<void> = (async () => {
+        try {
+          await streamToStorage(coverImageSourceRel!, file, (size) => { imageBytes += size })
+          if (imageBytes === 0) {
+            throw new Error('Image upload failed')
           }
+        } catch (err) {
+          console.error('Failed to process cover image:', err)
+          coverImageSourceRel = undefined
         }
-        const componentNodes = asArray(obj?.components?.component || obj?.components?.Component)
-        const components: { key: string, transform: Matrix4x4 }[] = []
-        for (const comp of componentNodes) {
-          const compIdRaw = getAttr(comp, ['objectid', 'objectId', 'objectID', 'object'])
-          if (compIdRaw == null) continue
-          const compId = String(compIdRaw)
-          const compPathRaw = getAttr(comp, ['path', 'Path'])
-          const targetPath = compPathRaw ? normalizeZipPath(compPathRaw) : entryPath
-          if (compPathRaw) queue.push({ path: compPathRaw, collectBuild: false })
-          const childKey = `${targetPath}#${compId}`
-          components.push({
-            key: childKey,
-            transform: parseTransformMatrix(getAttr(comp, ['transform', 'Transform'])),
+      })()
+      fileWrites.push(p)
+      return
+    }
+
+    if (fieldname !== 'files' && fieldname !== 'model') {
+      file.resume()
+      return
+    }
+    sawModelInput = true
+
+    if (lower.endsWith('.zip')) {
+      const p: Promise<void> = (async () => {
+        const zipParser = (UnzipperParse as any)({ forceStream: true })
+        const zipPromise = pipeline(file, zipParser)
+        for await (const entry of zipParser) {
+          if (entry.type === 'Directory') {
+            entry.autodrain()
+            continue
+          }
+          const entryName = path.basename(entry.path)
+          if (!isSupportedModelFile(entryName) || entryName.toLowerCase().endsWith('.zip')) {
+            entry.autodrain()
+            continue
+          }
+          const entrySize = Number(entry.vars?.uncompressedSize || 0)
+          if (limits.fileSize != null && entrySize && entrySize > limits.fileSize) {
+            entry.autodrain()
+            throw uploadError(`Zip entry too large: ${entryName}`, 413)
+          }
+          const ext = path.extname(entryName).toLowerCase() || '.bin'
+          const tempRel = buildTempRelPath(userId, entryName)
+          const tempFull = path.join(storageRoot(), tempRel)
+          const record: TempModelFile = {
+            originalName: entryName,
+            ext,
+            tempRel,
+            tempFull,
+            size: 0,
+          }
+          modelFiles.push(record)
+          await streamToStorage(tempRel, entry, (size) => {
+            record.size += size
+            if (limits.fileSize != null && record.size > limits.fileSize) {
+              throw uploadError(`Zip entry too large: ${entryName}`, 413)
+            }
+            trackTotalBytes(size)
           })
         }
-        objectMap.set(key, { key, meshTriangles, components })
+        await zipPromise
+      })()
+      fileWrites.push(p)
+      return
+    }
+
+    if (!isSupportedModelFile(lower) || lower.endsWith('.zip')) {
+      file.resume()
+      return
+    }
+
+    const tempRel = buildTempRelPath(userId, filename)
+    const tempFull = path.join(storageRoot(), tempRel)
+    const record: TempModelFile = {
+      originalName: filename,
+      ext: path.extname(filename).toLowerCase() || '.bin',
+      tempRel,
+      tempFull,
+      size: 0,
+    }
+    modelFiles.push(record)
+    const p: Promise<void> = streamToStorage(tempRel, file, (size) => {
+      record.size += size
+      trackTotalBytes(size)
+    }).then(() => undefined).catch((err) => {
+      file.destroy(err as Error)
+      throw err
+    })
+    fileWrites.push(p)
+  })
+
+  return new Promise<ParsedUpload>((resolve, reject) => {
+    rejectOnce = (err) => {
+      if (settled) return
+      settled = true
+      reject(err)
+    }
+
+    bb.on('error', (err) => {
+      const error = err instanceof Error ? err : new Error(String(err))
+      rejectOnce(error)
+    })
+
+    bb.on('finish', async () => {
+      if (failed) return
+      try {
+        await Promise.all(fileWrites)
+        if (settled) return
+        settled = true
+        resolve({ fields, modelFiles, coverImageSourceRel, sawModelInput })
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err))
+        rejectOnce(error)
       }
+    })
 
-      if (collectBuild) {
-        const buildList = asArray(model.build?.item || model.build?.Item).map((item) => {
-          const itemId = getAttr(item, ['objectid', 'objectId', 'objectID', 'id', 'ID'])
-          if (itemId == null) return null
-          const key = `${entryPath}#${String(itemId)}`
-          return {
-            key,
-            transform: parseTransformMatrix(getAttr(item, ['transform', 'Transform'])),
-          }
-        }).filter((v): v is { key: string, transform: Matrix4x4 } => !!v)
-        buildItems.push(...buildList)
-      }
-    }
-    const triangles: Vec3[][] = []
-    const cache = new Map<string, Vec3[][]>()
-
-    // Resolve triangles iteratively to avoid deep recursion on complex component graphs
-    const resolveObjectTriangles = (rootKey: string): Vec3[][] => {
-      if (cache.has(rootKey)) return cache.get(rootKey)!
-
-      type Frame = { key: string, phase: 'enter' | 'exit' }
-      const frames: Frame[] = [{ key: rootKey, phase: 'enter' }]
-      const active = new Set<string>()
-
-      while (frames.length) {
-        const frame = frames.pop()!
-        const key = frame.key
-
-        if (frame.phase === 'enter') {
-          if (cache.has(key)) continue
-          if (active.has(key)) {
-            console.warn('3MF conversion: detected recursive component reference', { key })
-            cache.set(key, [])
-            continue
-          }
-          active.add(key)
-          const obj = objectMap.get(key)
-          if (!obj) {
-            cache.set(key, [])
-            active.delete(key)
-            continue
-          }
-          frames.push({ key, phase: 'exit' })
-          for (let i = obj.components.length - 1; i >= 0; i--) {
-            const child = obj.components[i]
-            frames.push({ key: child.key, phase: 'enter' })
-          }
-        } else {
-          active.delete(key)
-          const obj = objectMap.get(key)
-          if (!obj) {
-            cache.set(key, [])
-            continue
-          }
-          let triList = obj.meshTriangles.map(tri => tri.map(v => ({ ...v })))
-          for (const comp of obj.components) {
-            const childTris = cache.get(comp.key) || []
-            const transformed = transformTriangles(childTris, comp.transform)
-            triList = triList.concat(transformed)
-          }
-          cache.set(key, triList)
-        }
-      }
-
-      return cache.get(rootKey) || []
+    if (!req.body) {
+      rejectOnce(new Error('Missing request body'))
+      return
     }
 
-    const itemsToProcess = buildItems.length > 0
-      ? buildItems
-      : Array.from(objectMap.keys()).map((key) => ({ key, transform: IDENTITY_MATRIX }))
+    Readable.fromWeb(req.body as any).pipe(bb)
+  })
+}
 
-    for (const item of itemsToProcess) {
-      const localTris = resolveObjectTriangles(item.key)
-      if (!localTris.length) continue
-      const transformed = transformTriangles(localTris, item.transform)
-      for (const tri of transformed) triangles.push(tri)
-    }
+async function moveTempFile(tempFull: string, finalRel: string) {
+  const finalFull = path.join(storageRoot(), finalRel)
+  await ensureDir(path.dirname(finalFull))
+  await rename(tempFull, finalFull)
+  return finalFull
+}
 
-    if (triangles.length === 0) {
-      console.warn('3MF conversion: no triangles located in model', { entry: modelEntry.name })
-      return null
-    }
-    return { buf: buildBinaryStl(triangles), triangles: triangles.length }
-  } catch (err) {
-    console.warn('3MF conversion to STL failed', err)
-    return null
-  }
+async function cleanupTempFiles(files: TempModelFile[]) {
+  await Promise.all(files.map((file) => unlink(file.tempFull).catch(() => undefined)))
 }
 
 export async function OPTIONS(req: NextRequest) {
   try {
     const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' }, select: { directUploadUrl: true } })
     const directUploadUrl = cfg?.directUploadUrl || process.env.DIRECT_UPLOAD_URL || null
+    const allowedOrigins = getAllowedUploadOrigins([directUploadUrl, process.env.LAN_DIRECT_UPLOAD_URL || null])
     const res = new NextResponse(null, { status: 204 })
-    return applyPreflightCors(req, res, directUploadUrl)
+    return applyPreflightCors(req, res, allowedOrigins)
   } catch {
     return new NextResponse(null, { status: 204 })
   }
@@ -361,11 +328,14 @@ export async function OPTIONS(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   let directUploadUrl: string | null = process.env.DIRECT_UPLOAD_URL || null
+  let allowedOrigins = getAllowedUploadOrigins([directUploadUrl, process.env.LAN_DIRECT_UPLOAD_URL || null])
+  let tempFiles: TempModelFile[] = []
   try {
     // Check site config for anonymous upload policy
     const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
     directUploadUrl = cfg?.directUploadUrl || directUploadUrl
-    const json = (body: any, init?: ResponseInit) => jsonWithCors(req, body, init, directUploadUrl)
+    allowedOrigins = getAllowedUploadOrigins([directUploadUrl, process.env.LAN_DIRECT_UPLOAD_URL || null])
+    const json = (body: any, init?: ResponseInit) => jsonWithCors(req, body, init, allowedOrigins)
     const uidFromCookie = await getUserIdFromCookie()
     if (cfg && cfg.allowAnonymousUploads === false && !uidFromCookie) {
       return json({ error: 'Sign in required to upload' }, { status: 401 })
@@ -376,117 +346,142 @@ export async function POST(req: NextRequest) {
       select: { email: true, name: true, profile: { select: { slug: true } } },
     })
 
-    const form = await req.formData()
-    const title = String(form.get('title') || '').slice(0, 200)
-    const description = String(form.get('description') || '').slice(0, 2000)
-    const creditName = ((form.get('creditName') as string) || '').slice(0, 200) || null
-    const creditUrl = ((form.get('creditUrl') as string) || '').slice(0, 500) || null
-    const material = String(form.get('material') || 'PLA').slice(0, 40)
-    const files = form.getAll('files') as File[]
-    const model = (form.get('model') as File | null) // legacy single file field
-    const tagsRaw = (form.get('tags') as string | null) || ''
-    const image = form.get('image') as File | null
-
-    // Collect candidate model files (support zip or multiple file inputs)
-    const modelFiles: { name: string, buf: Buffer }[] = []
-    const inputs = files && files.length > 0 ? files : (model ? [model] : [])
-    if (!inputs || inputs.length === 0) return json({ error: 'Missing model files' }, { status: 400 })
-
-    for (const f of inputs) {
-      const lower = f.name.toLowerCase()
-      const ab = await f.arrayBuffer()
-      const buf = Buffer.from(ab)
-      if (lower.endsWith('.zip')) {
-        const zip = await JSZip.loadAsync(buf)
-        const entries = Object.values(zip.files)
-        for (const entry of entries) {
-          if (entry.dir) continue
-          const ename = entry.name
-          if (!isAllowedModel(ename)) continue
-          const ebuf = await entry.async('nodebuffer')
-          modelFiles.push({ name: path.basename(ename), buf: ebuf })
-        }
-      } else if (isAllowedModel(lower)) {
-        modelFiles.push({ name: f.name, buf })
-      }
+    const parsed = await parseMultipartUpload(req, userId, getUploadLimitsForRequest(req))
+    tempFiles = parsed.modelFiles
+    const title = String(parsed.fields.title || '').slice(0, 200)
+    const description = String(parsed.fields.description || '').slice(0, 2000)
+    const creditName = String(parsed.fields.creditName || '').slice(0, 200) || null
+    const creditUrl = String(parsed.fields.creditUrl || '').slice(0, 500) || null
+    const material = String(parsed.fields.material || 'PLA').slice(0, 40)
+    const tagsRaw = String(parsed.fields.tags || '')
+    const parsePositive = (value: string | undefined) => {
+      if (!value) return null
+      const numeric = Number(value)
+      if (!Number.isFinite(numeric) || numeric <= 0) return null
+      return numeric
     }
+    const targetDimensions = {
+      x: parsePositive(parsed.fields.sizeXmm),
+      y: parsePositive(parsed.fields.sizeYmm),
+      z: parsePositive(parsed.fields.sizeZmm),
+    }
+    const hasTargetDimensions = Object.values(targetDimensions).some((val) => val != null)
 
+    const modelFiles = parsed.modelFiles
+    if (!parsed.sawModelInput) return json({ error: 'Missing model files' }, { status: 400 })
     if (modelFiles.length === 0) return json({ error: 'No valid model files found' }, { status: 400 })
 
     let coverImageRel: string | undefined
-    if (image && isSupportedImageFile(image.name, image.type)) {
-      try {
-        const imgBuf = Buffer.from(await image.arrayBuffer())
-        const prepared = await ensureProcessableImageBuffer(imgBuf, { filename: image.name, mimeType: image.type })
-        const pipeline = applyKnownOrientation(sharp(prepared.buffer), prepared.orientation)
-        const processed = await pipeline.resize(1600, 1200, { fit: 'inside' }).webp({ quality: 88 }).toBuffer()
-        // Store cover images under userId/thumbnails as consistent webp assets
-        coverImageRel = path.join(userId, 'thumbnails', `${Date.now()}-${safeName(title) || 'cover'}.webp`)
-        await saveBuffer(coverImageRel, processed)
-      } catch (err) {
-        console.error('Failed to process cover image:', err)
-      }
+    const coverImageSourceRel = parsed.coverImageSourceRel
+    if (coverImageSourceRel) {
+      // Store cover images under userId/thumbnails as consistent webp assets
+      coverImageRel = path.join(userId, 'thumbnails', `${Date.now()}-${safeName(title) || 'cover'}.webp`)
     }
 
     // Save files and create model + parts
     const now = Date.now()
     const isMultipart = modelFiles.length > 1
+    const applyTargetDimensions = hasTargetDimensions && !isMultipart
     let totalVolMm3 = 0
     let totalPrice = 0
+    let totalSupportRatio: number | null = null
     const partCreates: any[] = []
+    const previewJobs: Array<{ sourcePath: string, previewPath: string, partIndex: number }> = []
     const partVolumes: Array<number | null> = []
     let firstPath: string | null = null
     let firstViewerPath: string | null = null
+    let defaultColors: string[] | null = null
     const storedExts: string[] = []
-    // overall bounding box
-    let minX = Number.POSITIVE_INFINITY, minY = Number.POSITIVE_INFINITY, minZ = Number.POSITIVE_INFINITY
-    let maxX = Number.NEGATIVE_INFINITY, maxY = Number.NEGATIVE_INFINITY, maxZ = Number.NEGATIVE_INFINITY
+    let overallSizeXmm: number | undefined
+    let overallSizeYmm: number | undefined
+    let overallSizeZmm: number | undefined
 
     for (let i = 0; i < modelFiles.length; i++) {
       const f = modelFiles[i]
-      let ext = path.extname(f.name).toLowerCase()
-      let fileBuf = f.buf
-      if (ext === '.3mf') {
-        const extracted = await convert3mfToStl(f.buf)
-        if (extracted) {
-          fileBuf = extracted.buf
-          ext = '.stl'
-          console.info('3MF converted to STL preview', { triangles: extracted.triangles })
-        } else {
-          console.warn('3MF conversion returned no data; keeping original 3MF', { file: f.name })
+      const storedExt = f.ext
+      let queuedPreviewPath: string | null = null
+      let previewRel: string | null = null
+      if (needsModelPreviewConversion(storedExt)) {
+        previewRel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}-preview.stl`)
+        queuedPreviewPath = `/${previewRel.replace(/\\/g, '/')}`
+      }
+
+      const rel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}${storedExt}`)
+      const storedFull = await moveTempFile(f.tempFull, rel)
+      const storedPath = `/${rel.replace(/\\/g, '/')}`
+      storedExts.push(storedExt.replace('.', '').toUpperCase())
+      if (!firstPath) firstPath = storedPath
+      let previewPath: string | null = storedExt === '.stl' ? storedPath : null
+      let statsBuf: Buffer | null = null
+      let storedBuf: Buffer | null = null
+      if (storedExt === '.stl' || storedExt === '.3mf' || needsModelPreviewConversion(storedExt)) {
+        storedBuf = await readFile(storedFull)
+      }
+      if (storedExt === '.3mf' && storedBuf) {
+        try {
+          const parsedColors = await extract3mfFilamentColors(storedBuf)
+          if (parsedColors && parsedColors.length > 0) {
+            if (!defaultColors) defaultColors = []
+            for (const color of parsedColors) {
+              if (!defaultColors.includes(color)) defaultColors.push(color)
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to extract 3MF colors', err)
         }
       }
-      const rel = path.join(userId, 'models', `${now}-${safeName(title) || 'model'}-${i + 1}${ext}`)
-      await saveBuffer(rel, fileBuf)
-      const storedPath = `/${rel.replace(/\\/g, '/')}`
-      storedExts.push(ext.replace('.', '').toUpperCase())
-      if (!firstPath) firstPath = storedPath
-      const previewPath: string | null = ext === '.stl' ? storedPath : null
-      if (!firstViewerPath && previewPath) firstViewerPath = previewPath
+      if (storedExt === '.stl' && storedBuf) {
+        statsBuf = storedBuf
+      }
+      if (needsModelPreviewConversion(storedExt) && storedBuf && previewRel) {
+        try {
+          const converted = await convertModelToStlPreview(storedBuf, storedExt)
+          if (converted) {
+            await saveBuffer(previewRel, converted.buf)
+            previewPath = `/${previewRel.replace(/\\/g, '/')}`
+            statsBuf = converted.statsBuf || converted.buf
+          }
+        } catch (err) {
+          console.warn('Inline model preview conversion failed, deferring to queue', err)
+        }
+      }
+      const viewerPath = previewPath || storedPath
+      if (!firstViewerPath && viewerPath) firstViewerPath = viewerPath
       let volMm3: number | null = null
       let sizeXmm: number | undefined, sizeYmm: number | undefined, sizeZmm: number | undefined
-      if (ext === '.stl') {
-        const stats = computeStlStatsMm(fileBuf)
+      let supportRatio: number | null = null
+      if (statsBuf) {
+        let stats = computeStlStatsMm(statsBuf)
+        if (applyTargetDimensions) {
+          stats = scaleStatsToTargetDimensions(stats, targetDimensions)
+        }
         volMm3 = stats.volumeMm3
         sizeXmm = stats.sizeXmm; sizeYmm = stats.sizeYmm; sizeZmm = stats.sizeZmm
-        if (sizeXmm != null && sizeYmm != null && sizeZmm != null) {
-          // update overall
-          const sx = sizeXmm, sy = sizeYmm, sz = sizeZmm
-          // We don't know min/max directly from sizes; assume centered around 0 -> approximate using size only
-          // Better: treat size as extents; expand overall by size (relative). We'll skip for now and set overall based on max of parts sizes.
-          if (sx > (maxX - minX) || minX === Infinity) { maxX = sx; minX = 0 }
-          if (sy > (maxY - minY) || minY === Infinity) { maxY = sy; minY = 0 }
-          if (sz > (maxZ - minZ) || minZ === Infinity) { maxZ = sz; minZ = 0 }
+        if (stats.supportAreaRatio != null && Number.isFinite(Number(stats.supportAreaRatio))) {
+          supportRatio = Number(stats.supportAreaRatio)
         }
+        if (!isMultipart) {
+          if (sizeXmm != null) overallSizeXmm = sizeXmm
+          if (sizeYmm != null) overallSizeYmm = sizeYmm
+          if (sizeZmm != null) overallSizeZmm = sizeZmm
+        }
+      } else if (applyTargetDimensions) {
+        if (targetDimensions.x != null) sizeXmm = targetDimensions.x
+        if (targetDimensions.y != null) sizeYmm = targetDimensions.y
+        if (targetDimensions.z != null) sizeZmm = targetDimensions.z
+        if (sizeXmm != null) overallSizeXmm = sizeXmm
+        if (sizeYmm != null) overallSizeYmm = sizeYmm
+        if (sizeZmm != null) overallSizeZmm = sizeZmm
       }
       const cm3 = volMm3 ? volMm3 / 1000 : null
-      const p = cm3 != null ? estimatePriceUSD({ cm3, material, cfg, applyMinimum: !isMultipart }) : null
+      const p = cm3 != null
+        ? estimatePriceUSD({ cm3, material, supportRatio, cfg, applyMinimum: !isMultipart })
+        : null
       if (volMm3) totalVolMm3 += volMm3
       if (p) totalPrice += p
       partVolumes.push(volMm3)
-      const storedName = ext === '.stl' && f.name.toLowerCase().endsWith('.3mf') ? f.name.replace(/\.3mf$/i, '.stl') : f.name
       partCreates.push({
-        name: storedName,
+        name: f.originalName,
         index: i,
         filePath: storedPath,
         previewFilePath: previewPath || undefined,
@@ -494,19 +489,65 @@ export async function POST(req: NextRequest) {
         sizeXmm,
         sizeYmm,
         sizeZmm,
+        supportRatio: supportRatio ?? undefined,
         priceUsd: p || undefined
       })
+      if (needsModelPreviewConversion(storedExt) && queuedPreviewPath && !previewPath) {
+        previewJobs.push({ sourcePath: storedPath, previewPath: queuedPreviewPath, partIndex: i })
+      }
     }
 
     if (isMultipart && totalVolMm3 > 0) {
-      const totalWithMinimum = estimatePriceUSD({ cm3: totalVolMm3 / 1000, material, cfg, applyMinimum: true })
+      let weightedSupport = 0
+      let weightedVolume = 0
+      partCreates.forEach((part, idx) => {
+        const vol = partVolumes[idx]
+        if (!vol || !Number.isFinite(vol)) return
+        if (part.supportRatio == null || !Number.isFinite(Number(part.supportRatio))) return
+        weightedSupport += Number(part.supportRatio) * vol
+        weightedVolume += vol
+      })
+      if (weightedVolume > 0) {
+        totalSupportRatio = weightedSupport / weightedVolume
+      }
+      const totalWithMinimum = estimatePriceUSD({
+        cm3: totalVolMm3 / 1000,
+        material,
+        supportRatio: totalSupportRatio,
+        cfg,
+        applyMinimum: true,
+      })
       totalPrice = totalWithMinimum
       partCreates.forEach((part, idx) => {
         const vol = partVolumes[idx]
         if (!vol || !Number.isFinite(vol)) return
         part.priceUsd = Number(((totalWithMinimum * vol) / totalVolMm3).toFixed(2))
       })
+    } else if (partCreates.length === 1) {
+      totalSupportRatio = partCreates[0].supportRatio ?? null
     }
+
+    const effectivePriceUsd = resolveModelPricing({
+      volumeMm3: totalVolMm3 || null,
+      material,
+      supportRatio: totalSupportRatio,
+      priceUsd: totalPrice || null,
+      salePriceUsd: null,
+    }, cfg).priceUsd
+
+    if (isMultipart) {
+      if (overallSizeXmm == null) overallSizeXmm = Math.max(0, ...partCreates.map((part) => Number(part.sizeXmm || 0)))
+      if (overallSizeYmm == null) overallSizeYmm = Math.max(0, ...partCreates.map((part) => Number(part.sizeYmm || 0)))
+      if (overallSizeZmm == null) overallSizeZmm = Math.max(0, ...partCreates.map((part) => Number(part.sizeZmm || 0)))
+    }
+
+    const intelligence = computeModelIntelligence({
+      sizeXmm: overallSizeXmm ?? null,
+      sizeYmm: overallSizeYmm ?? null,
+      sizeZmm: overallSizeZmm ?? null,
+      volumeMm3: totalVolMm3 || null,
+      supportRatio: totalSupportRatio,
+    })
 
     const created = await prisma.model.create({
       data: {
@@ -518,17 +559,68 @@ export async function POST(req: NextRequest) {
         material,
         filePath: firstPath!,
         viewerFilePath: firstViewerPath || firstPath!,
-        coverImagePath: coverImageRel ? `/${coverImageRel.replace(/\\/g, '/')}` : undefined,
-        fileType: modelFiles.length > 1 ? 'MULTI' : (storedExts[0] || path.extname(modelFiles[0].name).replace('.', '').toUpperCase()),
+        fileType: modelFiles.length > 1 ? 'MULTI' : (storedExts[0] || path.extname(modelFiles[0].originalName).replace('.', '').toUpperCase()),
         volumeMm3: totalVolMm3 || undefined,
-        sizeXmm: isFinite(maxX - minX) ? (maxX - minX) : undefined,
-        sizeYmm: isFinite(maxY - minY) ? (maxY - minY) : undefined,
-        sizeZmm: isFinite(maxZ - minZ) ? (maxZ - minZ) : undefined,
+        sizeXmm: overallSizeXmm,
+        sizeYmm: overallSizeYmm,
+        sizeZmm: overallSizeZmm,
+        supportRatio: totalSupportRatio ?? undefined,
+        printabilityScore: intelligence?.printabilityScore,
+        supportLikelihood: intelligence?.supportLikelihood,
+        failureRiskScore: intelligence?.failureRiskScore,
+        orientationSuggestion: intelligence?.orientationSuggestion,
+        supportStrategySuggestion: intelligence?.supportStrategySuggestion,
+        intelligenceUpdatedAt: intelligence ? new Date() : undefined,
         priceUsd: totalPrice || undefined,
+        effectivePriceUsd: effectivePriceUsd ?? undefined,
+        effectivePriceUpdatedAt: effectivePriceUsd != null ? new Date() : undefined,
+        defaultColors: defaultColors?.length ? defaultColors : undefined,
+        coverImagePath: coverImageRel ? `/${coverImageRel.replace(/\\/g, '/')}` : undefined,
+        coverImageStatus: coverImageRel ? 'processing' : undefined,
+        coverImageSourcePath: coverImageSourceRel ? `/${coverImageSourceRel.replace(/\\/g, '/')}` : undefined,
         modelTags: tagsRaw ? { create: await prepareTags(tagsRaw) } : undefined,
         parts: { create: partCreates }
-      }
+      },
+      include: { parts: true }
     })
+    if (previewJobs.length > 0) {
+      try {
+        for (const job of previewJobs) {
+          const part = created.parts.find((entry) => entry.index === job.partIndex)
+          if (!part) continue
+          await enqueueModelPreviewJob({
+            modelId: created.id,
+            partId: part.id,
+            sourcePath: job.sourcePath,
+            previewPath: job.previewPath,
+          })
+        }
+      } catch (err) {
+        console.warn('Failed to queue preview job', err)
+      }
+    }
+    if (coverImageSourceRel) {
+      void enqueueImageProcessing({
+        modelId: created.id,
+        includeAvatars: false,
+        includeComments: false,
+        limit: 1,
+        idempotencyKey: `image:model:${created.id}`,
+      }).catch((err) => {
+        console.warn('Failed to process cover image', err)
+      })
+    }
+    if (previewJobs.length > 0) {
+      try {
+        await enqueuePreviewProcessing({
+          modelId: created.id,
+          limit: previewJobs.length,
+          idempotencyKey: `preview:model:${created.id}`,
+        })
+      } catch (err) {
+        console.warn('Failed to process model previews', err)
+      }
+    }
     try { await refreshUserAchievements(prisma, userId) } catch {}
     try {
       const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
@@ -551,10 +643,27 @@ export async function POST(req: NextRequest) {
     } catch (notifyErr) {
       console.error('Admin Discord notification failed for upload:', notifyErr)
     }
+    try {
+      const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+      const uploaderLabel = uploader?.name || uploader?.email || 'anonymous'
+      await sendAdminPushNotification({
+        title: 'New model uploaded',
+        body: `${title || '(untitled)'} by ${uploaderLabel}`,
+        url: `${baseUrl}/admin`,
+        tag: `model:${created.id}`,
+        data: { modelId: created.id },
+      })
+    } catch (notifyErr) {
+      console.error('Admin push notification failed for upload:', notifyErr)
+    }
     return json({ model: created })
   } catch (e: any) {
     console.error('Upload failed:', e)
-    return jsonWithCors(req, { error: e.message || 'Upload failed' }, { status: 400 }, directUploadUrl)
+    if (tempFiles.length > 0) {
+      await cleanupTempFiles(tempFiles)
+    }
+    const status = e?.status && Number.isFinite(e.status) ? Number(e.status) : 400
+    return jsonWithCors(req, { error: e.message || 'Upload failed' }, { status }, allowedOrigins)
   }
 }
 

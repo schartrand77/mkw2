@@ -2,7 +2,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
 import { getPrinterProfiles } from '@/lib/printerProfiles'
-import { MATERIAL_DENSITY_DEFAULTS } from '@/lib/pricing'
+import { MATERIAL_DENSITY_DEFAULTS, estimatePricingDetails } from '@/lib/pricing'
+import { FINISH_OPTIONS } from '@/lib/cartPricing'
+import { formatCurrency } from '@/lib/currency'
 
 const materialDensitySchema = z.record(z.number().positive().max(5))
 const printerOverrideSchema = z.object({
@@ -10,16 +12,42 @@ const printerOverrideSchema = z.object({
   materialDensities: materialDensitySchema.optional(),
 }).partial()
 
-const configSchema = z.object({
+const materialPriceSchema = z.object({
   plaPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
   petgPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  absPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  asaPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  tpuPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  pa6PricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  pa12PricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  nylonPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  pcPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+  resinPricePerKgUsd: z.number().nonnegative({ message: 'Enter a price at or above 0.' }).optional(),
+})
+
+const configSchema = z.object({
+  ...materialPriceSchema.shape,
   allowAnonymousUploads: z.boolean().optional(),
+  allowModelDownloads: z.boolean().optional(),
   printSpeedCm3PerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   energyUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
+  machineUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
+  laborUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   minimumPriceUsd: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
+  minimumOrderSubtotalUsd: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
+  minimumOrderNotes: z.string().max(300).optional(),
+  printTimeCorrectionFactor: z.number().min(0.5).max(2.5).optional(),
   extraHourlyUsdAfterFirst: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
+  demandSurgeMultiplier: z.number().positive().max(5).optional(),
+  rushMultiplier: z.number().positive().max(5).optional(),
+  batchDiscountTiers: z.array(z.object({
+    minQty: z.number().int().min(1),
+    percent: z.number().min(0).max(100),
+  })).optional(),
   fillFactor: z.number().positive({ message: 'Select an infill percentage.' }).max(2, { message: 'Fill factor is out of range.' }).optional(),
   directUploadUrl: z.union([z.string().url({ message: 'Enter a valid https:// URL.' }), z.null()], { invalid_type_error: 'Enter a valid URL.' }).optional(),
+  showApplePayBadge: z.boolean().optional(),
+  showGooglePayBadge: z.boolean().optional(),
   printerProfileKey: z.string().optional(),
   printerProfileOverrides: z.record(printerOverrideSchema).optional(),
 })
@@ -33,40 +61,159 @@ type PrinterProfileOverrideState = {
   materialDensities?: Record<string, number>
 }
 type PrinterProfileOverridesState = Record<string, PrinterProfileOverrideState>
-type MaterialOption = 'PLA' | 'PETG' | 'ABS' | 'RESIN'
+type MaterialOption = keyof typeof MATERIAL_DENSITY_DEFAULTS
 
-const MATERIAL_OPTIONS: MaterialOption[] = ['PLA', 'PETG', 'ABS', 'RESIN']
+const MATERIAL_OPTIONS = Object.keys(MATERIAL_DENSITY_DEFAULTS) as MaterialOption[]
 const PRINTER_PROFILES = getPrinterProfiles()
 const DEFAULT_PROFILE_KEY = PRINTER_PROFILES[0]?.key || 'BAMBU_X1C'
+const MATERIAL_PRICE_FIELDS = [
+  { key: 'plaPricePerKgUsd', label: 'PLA' },
+  { key: 'petgPricePerKgUsd', label: 'PETG' },
+  { key: 'absPricePerKgUsd', label: 'ABS' },
+  { key: 'asaPricePerKgUsd', label: 'ASA' },
+  { key: 'tpuPricePerKgUsd', label: 'TPU' },
+  { key: 'pa6PricePerKgUsd', label: 'PA6' },
+  { key: 'pa12PricePerKgUsd', label: 'PA12' },
+  { key: 'nylonPricePerKgUsd', label: 'NYLON' },
+  { key: 'pcPricePerKgUsd', label: 'PC' },
+  { key: 'resinPricePerKgUsd', label: 'RESIN' },
+] as const
+type MaterialPriceField = typeof MATERIAL_PRICE_FIELDS[number]['key']
 
 type Config = {
   plaPricePerKgUsd?: number | null
   petgPricePerKgUsd?: number | null
+  absPricePerKgUsd?: number | null
+  asaPricePerKgUsd?: number | null
+  tpuPricePerKgUsd?: number | null
+  pa6PricePerKgUsd?: number | null
+  pa12PricePerKgUsd?: number | null
+  nylonPricePerKgUsd?: number | null
+  pcPricePerKgUsd?: number | null
+  resinPricePerKgUsd?: number | null
   allowAnonymousUploads?: boolean | null
+  allowModelDownloads?: boolean | null
   printSpeedCm3PerHour?: number | null
   energyUsdPerHour?: number | null
+  machineUsdPerHour?: number | null
+  laborUsdPerHour?: number | null
   minimumPriceUsd?: number | null
+  minimumOrderSubtotalUsd?: number | null
+  minimumOrderNotes?: string | null
+  printTimeCorrectionFactor?: number | null
   extraHourlyUsdAfterFirst?: number | null
+  demandSurgeMultiplier?: number | null
+  rushMultiplier?: number | null
+  batchDiscountTiers?: Array<{ minQty: number; percent: number }> | null
   fillFactor?: number | null
   directUploadUrl?: string | null
+  showApplePayBadge?: boolean | null
+  showGooglePayBadge?: boolean | null
   printerProfileKey?: string | null
   printerProfileOverrides?: PrinterProfileOverridesState | null
 }
 
+type PricingProfile = {
+  id: string
+  name: string
+  description?: string | null
+  data: Partial<Config>
+  createdAt: string
+  updatedAt: string
+}
+
+type SandboxState = {
+  cm3: string
+  material: MaterialOption
+  infillPct: string
+  supportRatio: string
+  colorCount: string
+  finish: string
+  quantity: string
+}
+
+const PRICING_PROFILE_KEYS: (keyof Config)[] = [
+  'plaPricePerKgUsd',
+  'petgPricePerKgUsd',
+  'absPricePerKgUsd',
+  'asaPricePerKgUsd',
+  'tpuPricePerKgUsd',
+  'pa6PricePerKgUsd',
+  'pa12PricePerKgUsd',
+  'nylonPricePerKgUsd',
+  'pcPricePerKgUsd',
+  'resinPricePerKgUsd',
+  'printSpeedCm3PerHour',
+  'energyUsdPerHour',
+  'machineUsdPerHour',
+  'laborUsdPerHour',
+  'minimumPriceUsd',
+  'printTimeCorrectionFactor',
+  'extraHourlyUsdAfterFirst',
+  'demandSurgeMultiplier',
+  'rushMultiplier',
+  'batchDiscountTiers',
+  'fillFactor',
+  'printerProfileKey',
+  'printerProfileOverrides',
+]
+
+function extractPricingProfileData(cfg: Config): Partial<Config> {
+  const result: Partial<Config> = {}
+  for (const key of PRICING_PROFILE_KEYS) {
+    if (key in cfg) {
+      ;(result as Record<string, unknown>)[key] = cfg[key]
+    }
+  }
+  return result
+}
+
+function buildMaterialPricePayload(cfg: Config): Record<MaterialPriceField, number | undefined> {
+  const result = {} as Record<MaterialPriceField, number | undefined>
+  for (const field of MATERIAL_PRICE_FIELDS) {
+    result[field.key] = cfg[field.key] ?? undefined
+  }
+  return result
+}
+
 function buildPayload(cfg: Config): SchemaShape {
   return {
-    plaPricePerKgUsd: cfg.plaPricePerKgUsd ?? undefined,
-    petgPricePerKgUsd: cfg.petgPricePerKgUsd ?? undefined,
+    ...buildMaterialPricePayload(cfg),
     allowAnonymousUploads: typeof cfg.allowAnonymousUploads === 'boolean' ? cfg.allowAnonymousUploads : undefined,
+    allowModelDownloads: typeof cfg.allowModelDownloads === 'boolean' ? cfg.allowModelDownloads : undefined,
     printSpeedCm3PerHour: cfg.printSpeedCm3PerHour ?? undefined,
     energyUsdPerHour: cfg.energyUsdPerHour ?? undefined,
+    machineUsdPerHour: cfg.machineUsdPerHour ?? undefined,
+    laborUsdPerHour: cfg.laborUsdPerHour ?? undefined,
     minimumPriceUsd: cfg.minimumPriceUsd ?? undefined,
+    minimumOrderSubtotalUsd: cfg.minimumOrderSubtotalUsd ?? undefined,
+    minimumOrderNotes: cfg.minimumOrderNotes ?? undefined,
+    printTimeCorrectionFactor: cfg.printTimeCorrectionFactor ?? undefined,
     extraHourlyUsdAfterFirst: cfg.extraHourlyUsdAfterFirst ?? undefined,
+    demandSurgeMultiplier: cfg.demandSurgeMultiplier ?? undefined,
+    rushMultiplier: cfg.rushMultiplier ?? undefined,
+    batchDiscountTiers: normalizeBatchDiscountTiers(cfg.batchDiscountTiers),
     fillFactor: cfg.fillFactor ?? undefined,
     directUploadUrl: cfg.directUploadUrl === null ? null : cfg.directUploadUrl || undefined,
+    showApplePayBadge: typeof cfg.showApplePayBadge === 'boolean' ? cfg.showApplePayBadge : undefined,
+    showGooglePayBadge: typeof cfg.showGooglePayBadge === 'boolean' ? cfg.showGooglePayBadge : undefined,
     printerProfileKey: cfg.printerProfileKey || undefined,
     printerProfileOverrides: sanitizeOverrides(cfg.printerProfileOverrides),
   }
+}
+
+function normalizeBatchDiscountTiers(raw?: Array<{ minQty?: number; percent?: number }> | null) {
+  if (!raw || !Array.isArray(raw)) return undefined
+  const cleaned = raw
+    .map((tier) => {
+      const minQty = Number(tier.minQty)
+      const percent = Number(tier.percent)
+      if (!Number.isFinite(minQty) || minQty <= 0) return null
+      if (!Number.isFinite(percent) || percent <= 0) return null
+      return { minQty: Math.floor(minQty), percent: Math.min(100, Math.max(0, percent)) }
+    })
+    .filter((tier): tier is { minQty: number; percent: number } => Boolean(tier))
+  return cleaned.length ? cleaned : undefined
 }
 
 function mapErrors(result: z.SafeParseReturnType<SchemaShape, SchemaShape>): FieldErrors {
@@ -140,9 +287,30 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [correctionInfo, setCorrectionInfo] = useState<{
+    suggestedFactor: number
+    totalActualHours: number
+    totalEstimatedHours: number
+    samples: number
+    rangeDays: number
+  } | null>(null)
+  const [correctionBusy, setCorrectionBusy] = useState(false)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<TouchMap>({})
   const [profileEditorKey, setProfileEditorKey] = useState(() => cfg.printerProfileKey || DEFAULT_PROFILE_KEY)
+  const [sandbox, setSandbox] = useState<SandboxState>({
+    cm3: '20',
+    material: MATERIAL_OPTIONS[0] || 'PLA',
+    infillPct: '',
+    supportRatio: '',
+    colorCount: '',
+    finish: 'standard',
+    quantity: '1',
+  })
+  const [profiles, setProfiles] = useState<PricingProfile[]>([])
+  const [profileName, setProfileName] = useState('')
+  const [profileDescription, setProfileDescription] = useState('')
+  const [profileBusy, setProfileBusy] = useState(false)
   const payload = useMemo(() => buildPayload(cfg), [cfg])
 
   useEffect(() => {
@@ -154,6 +322,36 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
   useEffect(() => {
     setErrors(mapErrors(configSchema.safeParse(payload)))
   }, [payload])
+
+  const loadProfiles = async () => {
+    try {
+      const res = await fetch('/api/admin/pricing-profiles', { cache: 'no-store' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Unable to load pricing profiles.')
+      setProfiles(Array.isArray(data.profiles) ? data.profiles : [])
+    } catch {
+      setProfiles([])
+    }
+  }
+
+  useEffect(() => {
+    loadProfiles().catch(() => {})
+  }, [])
+
+  const fetchCorrectionSuggestion = async () => {
+    if (correctionBusy) return
+    setCorrectionBusy(true)
+    try {
+      const res = await fetch('/api/admin/print-time-correction?days=90', { cache: 'no-store' })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Failed to compute correction')
+      setCorrectionInfo(data)
+    } catch (error: any) {
+      setErr(error?.message || 'Failed to compute correction')
+    } finally {
+      setCorrectionBusy(false)
+    }
+  }
 
   const markTouched = (field: FieldKey) => setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }))
   const fieldHasError = (field: FieldKey) => Boolean(touched[field] && errors[field])
@@ -167,6 +365,80 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
     [profileEditorKey, selectedProfile],
   )
   const tuningOverride = (cfg.printerProfileOverrides && cfg.printerProfileOverrides[tuningProfile.key]) || {}
+
+  const preview = useMemo(() => {
+    const cm3 = Number(sandbox.cm3)
+    if (!Number.isFinite(cm3) || cm3 <= 0) return null
+    const infillPct = sandbox.infillPct === '' ? null : Number(sandbox.infillPct)
+    const supportRatio = sandbox.supportRatio === '' ? null : Number(sandbox.supportRatio)
+    const colorCount = sandbox.colorCount === '' ? null : Number(sandbox.colorCount)
+    const finish = sandbox.finish || null
+    const breakdown = estimatePricingDetails({
+      cm3,
+      material: sandbox.material,
+      infillPct: Number.isFinite(Number(infillPct)) ? Number(infillPct) : null,
+      supportRatio: Number.isFinite(Number(supportRatio)) ? Number(supportRatio) : null,
+      colorCount: Number.isFinite(Number(colorCount)) ? Number(colorCount) : null,
+      finish,
+      cfg,
+      applyMinimum: true,
+    })
+    const qty = Math.max(1, Math.floor(Number(sandbox.quantity) || 1))
+    return { breakdown, qty, total: Number((breakdown.price * qty).toFixed(2)) }
+  }, [cfg, sandbox])
+
+  const applyProfile = (profile: PricingProfile) => {
+    setCfg((prev) => ({
+      ...prev,
+      ...profile.data,
+    }))
+    if (profile.data.printerProfileKey) {
+      setProfileEditorKey(profile.data.printerProfileKey)
+    }
+  }
+
+  const saveProfile = async () => {
+    const trimmed = profileName.trim()
+    if (!trimmed) {
+      setErr('Enter a profile name before saving.')
+      return
+    }
+    setProfileBusy(true)
+    try {
+      const res = await fetch('/api/admin/pricing-profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: trimmed,
+          description: profileDescription.trim() || undefined,
+          data: extractPricingProfileData(cfg),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Unable to save profile.')
+      setProfileName('')
+      setProfileDescription('')
+      await loadProfiles()
+    } catch (error: any) {
+      setErr(error?.message || 'Unable to save profile.')
+    } finally {
+      setProfileBusy(false)
+    }
+  }
+
+  const deleteProfile = async (id: string) => {
+    setProfileBusy(true)
+    try {
+      const res = await fetch(`/api/admin/pricing-profiles/${id}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Unable to delete profile.')
+      await loadProfiles()
+    } catch (error: any) {
+      setErr(error?.message || 'Unable to delete profile.')
+    } finally {
+      setProfileBusy(false)
+    }
+  }
 
   const setProfileOverride = (profileKey: string, updater: (prev: PrinterProfileOverrideState) => PrinterProfileOverrideState) => {
     setCfg((prev) => {
@@ -225,6 +497,47 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
       next.materialDensities = Object.keys(densities).length ? densities : undefined
       return next
     })
+  }
+
+  const updateMaterialPrice = (field: MaterialPriceField, value: string) => {
+    markTouched(field)
+    setCfg((prev) => ({
+      ...prev,
+      [field]: value === '' ? null : Number(value),
+    }))
+  }
+
+  const updateBatchTier = (index: number, field: 'minQty' | 'percent', value: string) => {
+    setCfg((prev) => {
+      const tiers = Array.isArray(prev.batchDiscountTiers) ? [...prev.batchDiscountTiers] : []
+      const existing = tiers[index] || { minQty: 1, percent: 0 }
+      const numeric = value === '' ? null : Number(value)
+      const next = {
+        ...existing,
+        [field]: numeric == null || Number.isNaN(numeric) ? existing[field] : numeric,
+      }
+      tiers[index] = next
+      return { ...prev, batchDiscountTiers: tiers }
+    })
+    markTouched('batchDiscountTiers')
+  }
+
+  const addBatchTier = () => {
+    setCfg((prev) => {
+      const tiers = Array.isArray(prev.batchDiscountTiers) ? [...prev.batchDiscountTiers] : []
+      tiers.push({ minQty: 5, percent: 5 })
+      return { ...prev, batchDiscountTiers: tiers }
+    })
+    markTouched('batchDiscountTiers')
+  }
+
+  const removeBatchTier = (index: number) => {
+    setCfg((prev) => {
+      const tiers = Array.isArray(prev.batchDiscountTiers) ? [...prev.batchDiscountTiers] : []
+      tiers.splice(index, 1)
+      return { ...prev, batchDiscountTiers: tiers.length ? tiers : undefined }
+    })
+    markTouched('batchDiscountTiers')
   }
 
   const resetProfileTuning = () => {
@@ -286,38 +599,21 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
             content: (
               <div className="space-y-4">
                 <div className="grid sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm mb-1">PLA price per kg ({currency})</label>
-                    <input
-                      className={`input ${fieldHasError('plaPricePerKgUsd') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
-                      type="number"
-                      step="0.01"
-                      value={cfg.plaPricePerKgUsd ?? ''}
-                      disabled={saving}
-                      onChange={(e) => {
-                        markTouched('plaPricePerKgUsd')
-                        setCfg({ ...cfg, plaPricePerKgUsd: e.target.value === '' ? null : Number(e.target.value) })
-                      }}
-                      onBlur={() => markTouched('plaPricePerKgUsd')}
-                    />
-                    {fieldHasError('plaPricePerKgUsd') && <p className="text-xs text-rose-300 mt-1">{errors.plaPricePerKgUsd}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm mb-1">PETG price per kg ({currency})</label>
-                    <input
-                      className={`input ${fieldHasError('petgPricePerKgUsd') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
-                      type="number"
-                      step="0.01"
-                      value={cfg.petgPricePerKgUsd ?? ''}
-                      disabled={saving}
-                      onChange={(e) => {
-                        markTouched('petgPricePerKgUsd')
-                        setCfg({ ...cfg, petgPricePerKgUsd: e.target.value === '' ? null : Number(e.target.value) })
-                      }}
-                      onBlur={() => markTouched('petgPricePerKgUsd')}
-                    />
-                    {fieldHasError('petgPricePerKgUsd') && <p className="text-xs text-rose-300 mt-1">{errors.petgPricePerKgUsd}</p>}
-                  </div>
+                  {MATERIAL_PRICE_FIELDS.map((field) => (
+                    <div key={field.key}>
+                      <label className="block text-sm mb-1">{field.label} price per kg ({currency})</label>
+                      <input
+                        className={`input ${fieldHasError(field.key) ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                        type="number"
+                        step="0.01"
+                        value={cfg[field.key] ?? ''}
+                        disabled={saving}
+                        onChange={(e) => updateMaterialPrice(field.key, e.target.value)}
+                        onBlur={() => markTouched(field.key)}
+                      />
+                      {fieldHasError(field.key) && <p className="text-xs text-rose-300 mt-1">{errors[field.key]}</p>}
+                    </div>
+                  ))}
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -339,6 +635,53 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                     {fieldHasError('printSpeedCm3PerHour') && <p className="text-xs text-rose-300 mt-1">{errors.printSpeedCm3PerHour}</p>}
                   </div>
                   <div>
+                    <label className="block text-sm mb-1">Print time correction factor</label>
+                    <input
+                      className={`input ${fieldHasError('printTimeCorrectionFactor') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                      type="number"
+                      step="0.01"
+                      min="0.5"
+                      max="2.5"
+                      value={cfg.printTimeCorrectionFactor ?? ''}
+                      disabled={saving || correctionBusy}
+                      onChange={(e) => {
+                        markTouched('printTimeCorrectionFactor')
+                        setCfg({ ...cfg, printTimeCorrectionFactor: e.target.value === '' ? null : Number(e.target.value) })
+                      }}
+                      onBlur={() => markTouched('printTimeCorrectionFactor')}
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Scales estimated print hours using slicer history (0.5x - 2.5x).</p>
+                    {correctionInfo && (
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Suggest {correctionInfo.suggestedFactor}x based on {correctionInfo.samples} samples ({correctionInfo.totalActualHours}h actual / {correctionInfo.totalEstimatedHours}h estimated).
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <button
+                        type="button"
+                        className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs"
+                        onClick={() => fetchCorrectionSuggestion()}
+                        disabled={saving || correctionBusy}
+                      >
+                        {correctionBusy ? 'Calculating…' : 'Recalculate from history'}
+                      </button>
+                      {correctionInfo && (
+                        <button
+                          type="button"
+                          className="px-2 py-1 rounded-md border border-brand-500/40 hover:border-brand-500 text-xs text-brand-200"
+                          onClick={() => {
+                            setCfg({ ...cfg, printTimeCorrectionFactor: correctionInfo.suggestedFactor })
+                            markTouched('printTimeCorrectionFactor')
+                          }}
+                          disabled={saving}
+                        >
+                          Apply suggestion
+                        </button>
+                      )}
+                    </div>
+                    {fieldHasError('printTimeCorrectionFactor') && <p className="text-xs text-rose-300 mt-1">{errors.printTimeCorrectionFactor}</p>}
+                  </div>
+                  <div>
                     <label className="block text-sm mb-1">Energy cost per hour ({currency})</label>
                     <input
                       className={`input ${fieldHasError('energyUsdPerHour') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
@@ -353,6 +696,38 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                       onBlur={() => markTouched('energyUsdPerHour')}
                     />
                     {fieldHasError('energyUsdPerHour') && <p className="text-xs text-rose-300 mt-1">{errors.energyUsdPerHour}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Machine cost per hour ({currency})</label>
+                    <input
+                      className={`input ${fieldHasError('machineUsdPerHour') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                      type="number"
+                      step="0.01"
+                      value={cfg.machineUsdPerHour ?? ''}
+                      disabled={saving}
+                      onChange={(e) => {
+                        markTouched('machineUsdPerHour')
+                        setCfg({ ...cfg, machineUsdPerHour: e.target.value === '' ? null : Number(e.target.value) })
+                      }}
+                      onBlur={() => markTouched('machineUsdPerHour')}
+                    />
+                    {fieldHasError('machineUsdPerHour') && <p className="text-xs text-rose-300 mt-1">{errors.machineUsdPerHour}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Labor cost per hour ({currency})</label>
+                    <input
+                      className={`input ${fieldHasError('laborUsdPerHour') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                      type="number"
+                      step="0.01"
+                      value={cfg.laborUsdPerHour ?? ''}
+                      disabled={saving}
+                      onChange={(e) => {
+                        markTouched('laborUsdPerHour')
+                        setCfg({ ...cfg, laborUsdPerHour: e.target.value === '' ? null : Number(e.target.value) })
+                      }}
+                      onBlur={() => markTouched('laborUsdPerHour')}
+                    />
+                    {fieldHasError('laborUsdPerHour') && <p className="text-xs text-rose-300 mt-1">{errors.laborUsdPerHour}</p>}
                   </div>
                   <div>
                     <label className="block text-sm mb-1">Extra per-hour charge after first hour ({currency})</label>
@@ -387,9 +762,128 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                     />
                     {fieldHasError('minimumPriceUsd') && <p className="text-xs text-rose-300 mt-1">{errors.minimumPriceUsd}</p>}
                   </div>
+                  <div>
+                    <label className="block text-sm mb-1">Minimum order subtotal ({currency})</label>
+                    <input
+                      className={`input ${fieldHasError('minimumOrderSubtotalUsd') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                      type="number"
+                      step="0.01"
+                      value={cfg.minimumOrderSubtotalUsd ?? ''}
+                      disabled={saving}
+                      onChange={(e) => {
+                        markTouched('minimumOrderSubtotalUsd')
+                        setCfg({ ...cfg, minimumOrderSubtotalUsd: e.target.value === '' ? null : Number(e.target.value) })
+                      }}
+                      onBlur={() => markTouched('minimumOrderSubtotalUsd')}
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Applied to cart subtotal before shipping.</p>
+                    {fieldHasError('minimumOrderSubtotalUsd') && <p className="text-xs text-rose-300 mt-1">{errors.minimumOrderSubtotalUsd}</p>}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm mb-1">Minimum order notes</label>
+                    <textarea
+                      className={`input min-h-[80px] ${fieldHasError('minimumOrderNotes') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                      value={cfg.minimumOrderNotes ?? ''}
+                      disabled={saving}
+                      onChange={(e) => {
+                        markTouched('minimumOrderNotes')
+                        setCfg({ ...cfg, minimumOrderNotes: e.target.value })
+                      }}
+                      onBlur={() => markTouched('minimumOrderNotes')}
+                      placeholder="Optional message shown when orders are under the minimum."
+                    />
+                    {fieldHasError('minimumOrderNotes') && <p className="text-xs text-rose-300 mt-1">{errors.minimumOrderNotes}</p>}
+                  </div>
                 </div>
 
                 <p className="text-xs text-slate-400">Material costs are derived from the per-kg prices; no multipliers needed.</p>
+
+                <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-3">
+                  <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Pricing adjustments</div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm mb-1">Demand surge multiplier</label>
+                      <input
+                        className={`input ${fieldHasError('demandSurgeMultiplier') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                        type="number"
+                        step="0.01"
+                        min={1}
+                        value={cfg.demandSurgeMultiplier ?? ''}
+                        disabled={saving}
+                        onChange={(e) => {
+                          markTouched('demandSurgeMultiplier')
+                          setCfg({ ...cfg, demandSurgeMultiplier: e.target.value === '' ? null : Number(e.target.value) })
+                        }}
+                        onBlur={() => markTouched('demandSurgeMultiplier')}
+                      />
+                      {fieldHasError('demandSurgeMultiplier') && <p className="text-xs text-rose-300 mt-1">{errors.demandSurgeMultiplier}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Rush multiplier</label>
+                      <input
+                        className={`input ${fieldHasError('rushMultiplier') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                        type="number"
+                        step="0.01"
+                        min={1}
+                        value={cfg.rushMultiplier ?? ''}
+                        disabled={saving}
+                        onChange={(e) => {
+                          markTouched('rushMultiplier')
+                          setCfg({ ...cfg, rushMultiplier: e.target.value === '' ? null : Number(e.target.value) })
+                        }}
+                        onBlur={() => markTouched('rushMultiplier')}
+                      />
+                      {fieldHasError('rushMultiplier') && <p className="text-xs text-rose-300 mt-1">{errors.rushMultiplier}</p>}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm">Batch discount tiers</label>
+                      <button type="button" className="text-xs px-2 py-1 rounded border border-white/10 hover:border-white/20" onClick={addBatchTier}>
+                        Add tier
+                      </button>
+                    </div>
+                    {(cfg.batchDiscountTiers || []).length === 0 && (
+                      <p className="text-xs text-slate-500">No batch discounts configured.</p>
+                    )}
+                    {(cfg.batchDiscountTiers || []).map((tier, index) => (
+                      <div key={`tier-${index}`} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                        <label className="text-xs text-slate-400">
+                          Min qty
+                          <input
+                            className="input mt-1"
+                            type="number"
+                            min={1}
+                            value={tier.minQty}
+                            disabled={saving}
+                            onChange={(e) => updateBatchTier(index, 'minQty', e.target.value)}
+                          />
+                        </label>
+                        <label className="text-xs text-slate-400">
+                          Discount %
+                          <input
+                            className="input mt-1"
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={0.5}
+                            value={tier.percent}
+                            disabled={saving}
+                            onChange={(e) => updateBatchTier(index, 'percent', e.target.value)}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="text-xs text-rose-300 hover:text-rose-200"
+                          onClick={() => removeBatchTier(index)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    {fieldHasError('batchDiscountTiers') && <p className="text-xs text-rose-300">{errors.batchDiscountTiers}</p>}
+                  </div>
+                </div>
 
                 <div>
                   <label className="block text-sm mb-1">Infill (%)</label>
@@ -417,8 +911,212 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
             ),
           },
           {
+            key: 'sandbox',
+            label: 'Pricing sandbox',
+            content: (
+              <div className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm mb-1">Model volume (cm³)</label>
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.1"
+                      value={sandbox.cm3}
+                      onChange={(e) => setSandbox((prev) => ({ ...prev, cm3: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Quantity</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={sandbox.quantity}
+                      onChange={(e) => setSandbox((prev) => ({ ...prev, quantity: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Material</label>
+                    <select
+                      className="input"
+                      value={sandbox.material}
+                      onChange={(e) => setSandbox((prev) => ({ ...prev, material: e.target.value as MaterialOption }))}
+                    >
+                      {MATERIAL_OPTIONS.map((material) => (
+                        <option key={material} value={material}>{material}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Finish</label>
+                    <select
+                      className="input"
+                      value={sandbox.finish}
+                      onChange={(e) => setSandbox((prev) => ({ ...prev, finish: e.target.value }))}
+                    >
+                      {FINISH_OPTIONS.map((finish) => (
+                        <option key={finish} value={finish}>{finish}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Infill (%)</label>
+                    <input
+                      className="input"
+                      type="number"
+                      step="1"
+                      value={sandbox.infillPct}
+                      onChange={(e) => setSandbox((prev) => ({ ...prev, infillPct: e.target.value }))}
+                      placeholder="Use config default"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Support ratio (0-1)</label>
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.05"
+                      value={sandbox.supportRatio}
+                      onChange={(e) => setSandbox((prev) => ({ ...prev, supportRatio: e.target.value }))}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Color count</label>
+                    <input
+                      className="input"
+                      type="number"
+                      step="1"
+                      value={sandbox.colorCount}
+                      onChange={(e) => setSandbox((prev) => ({ ...prev, colorCount: e.target.value }))}
+                      placeholder="Auto"
+                    />
+                  </div>
+                </div>
+
+                {preview ? (
+                  <div className="grid lg:grid-cols-[0.7fr_1.3fr] gap-3">
+                    <div className="rounded-lg border border-white/10 bg-white/5 p-4 space-y-2">
+                      <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Result</div>
+                      <div className="text-2xl font-semibold">
+                        {formatCurrency(preview.breakdown.price, preview.breakdown.currency as any)}
+                        <span className="text-sm text-slate-400"> per unit</span>
+                      </div>
+                      <div className="text-sm text-slate-400">
+                        Total: {formatCurrency(preview.total, preview.breakdown.currency as any)} for {preview.qty} unit(s)
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Profile: {preview.breakdown.printerProfile.label} · Nozzle {preview.breakdown.nozzleDiameterMm} mm
+                      </div>
+                      {preview.breakdown.minimumApplied ? (
+                        <div className="text-xs text-amber-300">Minimum price applied</div>
+                      ) : null}
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-black/20 p-4 space-y-2 text-sm">
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        <div>Effective volume: {preview.breakdown.effectiveCm3.toFixed(2)} cm³</div>
+                        <div>Time: {preview.breakdown.hours.toFixed(2)} hrs</div>
+                        <div>Material: {preview.breakdown.grams.toFixed(1)} g</div>
+                        <div>Density: {preview.breakdown.densityGPerCm3.toFixed(2)} g/cm³</div>
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        <div>Material cost: {formatCurrency(preview.breakdown.materialCost, preview.breakdown.currency as any)}</div>
+                        <div>Machine cost: {formatCurrency(preview.breakdown.machineCost, preview.breakdown.currency as any)}</div>
+                        <div>Energy cost: {formatCurrency(preview.breakdown.energyCost, preview.breakdown.currency as any)}</div>
+                        <div>Labor cost: {formatCurrency(preview.breakdown.laborCost, preview.breakdown.currency as any)}</div>
+                        <div>Extra hourly: {formatCurrency(preview.breakdown.extraHourlyCost, preview.breakdown.currency as any)}</div>
+                        <div>Finish multiplier: {preview.breakdown.finishMultiplier.toFixed(2)}x</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">Enter a valid volume to preview pricing.</p>
+                )}
+
+                <div className="rounded-lg border border-white/10 bg-white/5 p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold">Saved pricing profiles</h3>
+                      <p className="text-xs text-slate-500">Store reusable pricing configs and apply them on demand.</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-md border border-white/10 text-xs hover:border-white/30"
+                      onClick={() => loadProfiles()}
+                      disabled={profileBusy}
+                    >
+                      {profileBusy ? 'Refreshing...' : 'Refresh'}
+                    </button>
+                  </div>
+                  <div className="grid sm:grid-cols-[1.2fr_0.8fr] gap-3">
+                    <div className="space-y-2">
+                      <label className="block text-xs text-slate-400">Profile name</label>
+                      <input
+                        className="input"
+                        value={profileName}
+                        onChange={(e) => setProfileName(e.target.value)}
+                        placeholder="Standard pricing"
+                      />
+                      <label className="block text-xs text-slate-400">Description (optional)</label>
+                      <input
+                        className="input"
+                        value={profileDescription}
+                        onChange={(e) => setProfileDescription(e.target.value)}
+                        placeholder="PLA + PETG baseline"
+                      />
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={saveProfile}
+                        disabled={profileBusy}
+                      >
+                        {profileBusy ? 'Saving...' : 'Save current config'}
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {profiles.length === 0 ? (
+                        <p className="text-xs text-slate-500">No profiles saved yet.</p>
+                      ) : (
+                        profiles.map((profile) => (
+                          <div key={profile.id} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+                            <div>
+                              <div className="text-sm font-semibold">{profile.name}</div>
+                              {profile.description ? (
+                                <div className="text-xs text-slate-500">{profile.description}</div>
+                              ) : null}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                className="px-2 py-1 text-xs rounded-md border border-white/10 hover:border-white/30"
+                                onClick={() => applyProfile(profile)}
+                                disabled={profileBusy}
+                              >
+                                Apply
+                              </button>
+                              <button
+                                type="button"
+                                className="px-2 py-1 text-xs rounded-md border border-white/10 hover:border-white/30 text-rose-300"
+                                onClick={() => deleteProfile(profile.id)}
+                                disabled={profileBusy}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ),
+          },
+          {
             key: 'uploads',
-            label: 'Uploads',
+            label: 'Uploads & Downloads',
             content: (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -433,6 +1131,19 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                     }}
                   />
                   <label htmlFor="anu" className="text-sm">Allow anonymous uploads</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="amd"
+                    type="checkbox"
+                    checked={cfg.allowModelDownloads !== false}
+                    disabled={saving}
+                    onChange={(e) => {
+                      markTouched('allowModelDownloads')
+                      setCfg({ ...cfg, allowModelDownloads: e.target.checked })
+                    }}
+                  />
+                  <label htmlFor="amd" className="text-sm">Allow model downloads</label>
                 </div>
                 <div>
                   <label className="block text-sm mb-1">Direct upload URL (optional)</label>
@@ -450,6 +1161,39 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                   />
                   <p className="text-xs text-slate-400 mt-1">When provided, the Upload page will POST to this host&apos;s `/api/upload`, bypassing Cloudflare/Tunnel limits.</p>
                   {fieldHasError('directUploadUrl') && <p className="text-xs text-rose-300 mt-1">{errors.directUploadUrl}</p>}
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: 'footer',
+            label: 'Footer',
+            content: (
+              <div className="space-y-3">
+                <p className="text-xs text-slate-400">
+                  Show payment badges next to the Proudly made in Canada footer text.
+                </p>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!!cfg.showApplePayBadge}
+                      disabled={saving}
+                      onChange={(e) => setCfg({ ...cfg, showApplePayBadge: e.target.checked })}
+                    />
+                    <span>Show Apple Pay badge</span>
+                    <img src="/ApplePay.svg" alt="Apple Pay" className="h-4 w-auto opacity-80" loading="lazy" />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!!cfg.showGooglePayBadge}
+                      disabled={saving}
+                      onChange={(e) => setCfg({ ...cfg, showGooglePayBadge: e.target.checked })}
+                    />
+                    <span>Show Google Pay badge</span>
+                    <img src="/GooglePay.png" alt="Google Pay" className="h-4 w-auto opacity-80" loading="lazy" />
+                  </label>
                 </div>
               </div>
             ),

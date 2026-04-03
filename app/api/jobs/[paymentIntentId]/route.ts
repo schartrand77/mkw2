@@ -5,6 +5,17 @@ import { FulfillmentStatus } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '@/app/api/admin/_utils'
 import { serializeJob, type JobWithUser } from '@/app/api/admin/orderworks/jobs/_helpers'
+import { sendAdminPushNotification } from '@/lib/push'
+import { syncOrderStatusFromFulfillment } from '@/lib/orderworks-sync'
+import { createOrderFromJobForm } from '@/lib/orders'
+import {
+  isPaidPaymentStatus,
+  isPaymentPromise,
+  normalizePaymentMethod,
+  normalizePaymentStatus,
+} from '@/lib/orderworks-status'
+import { incrementMetric } from '@/lib/observability-metrics'
+import { withRequestObservability } from '@/lib/request-observability'
 
 const patchSchema = z.object({
   status: z.enum(['pending', 'sent']).optional(),
@@ -15,13 +26,6 @@ const patchSchema = z.object({
 })
 
 type Params = { params: Promise<{ paymentIntentId: string }> }
-
-function normalizeString(value: string | null | undefined) {
-  if (value === undefined) return undefined
-  if (value === null) return null
-  const trimmed = value.trim()
-  return trimmed.length === 0 ? null : trimmed
-}
 
 function parseFulfilledAt(explicit: unknown): Date | null | undefined {
   if (explicit === undefined) return undefined
@@ -53,7 +57,7 @@ function resolveFulfilledAt(
 
 export const dynamic = 'force-dynamic'
 
-export async function PATCH(req: Request, { params }: Params) {
+async function handlePatch(req: Request, { params }: Params) {
   const { paymentIntentId } = await params
   try {
     await requireAdmin()
@@ -75,13 +79,15 @@ export async function PATCH(req: Request, { params }: Params) {
   if (!job) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 })
   }
+  const previousPaymentStatus = job.paymentStatus
+  const previousPaymentMethod = job.paymentMethod
 
   const payload = parsed.data
   const updateData: Prisma.JobFormUpdateInput = {}
   if (payload.status) updateData.status = payload.status
-  const paymentMethod = normalizeString(payload.paymentMethod)
+  const paymentMethod = normalizePaymentMethod(payload.paymentMethod)
   if (paymentMethod !== undefined) updateData.paymentMethod = paymentMethod
-  const paymentStatus = normalizeString(payload.paymentStatus)
+  const paymentStatus = normalizePaymentStatus(payload.paymentStatus)
   if (paymentStatus !== undefined) updateData.paymentStatus = paymentStatus
   if (payload.fulfillmentStatus) updateData.fulfillmentStatus = payload.fulfillmentStatus
   const fulfilledAt = resolveFulfilledAt(payload.fulfilledAt, payload.fulfillmentStatus, job.fulfillmentStatus, job.fulfilledAt)
@@ -97,5 +103,34 @@ export async function PATCH(req: Request, { params }: Params) {
     include: { user: { select: { id: true, name: true, email: true } } },
   })) as JobWithUser
 
+  try {
+    if (updated.fulfillmentStatus) {
+      await syncOrderStatusFromFulfillment(paymentIntentId, updated.fulfillmentStatus)
+    }
+    if (isPaidPaymentStatus(updated.paymentStatus)) {
+      await createOrderFromJobForm(updated)
+    }
+    const paymentStatusChanged = payload.paymentStatus !== undefined && updated.paymentStatus !== previousPaymentStatus
+    const paymentMethodChanged = payload.paymentMethod !== undefined && updated.paymentMethod !== previousPaymentMethod
+    if (paymentStatusChanged || paymentMethodChanged) {
+      if (updated.paymentStatus && ['failed', 'canceled', 'cancelled'].includes(updated.paymentStatus)) {
+        incrementMetric('payment_failures_total', 1, { source: 'admin_job_patch', reason: updated.paymentStatus })
+      }
+      const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+      const isPromise = isPaymentPromise(updated.paymentMethod, updated.paymentStatus)
+      await sendAdminPushNotification({
+        title: isPromise ? 'Payment promise received' : 'Payment updated',
+        body: `Intent ${paymentIntentId} - ${updated.paymentMethod || 'unknown'} ${updated.paymentStatus ? `(${updated.paymentStatus})` : ''}`.trim(),
+        url: `${baseUrl}/admin/jobs`,
+        tag: `payment:${paymentIntentId}`,
+        data: { paymentIntentId, paymentMethod: updated.paymentMethod, paymentStatus: updated.paymentStatus || undefined },
+      })
+    }
+  } catch (notifyErr) {
+    console.error('Admin push notification failed for job update:', notifyErr)
+  }
+
   return NextResponse.json({ ok: true, job: serializeJob(updated) })
 }
+
+export const PATCH = withRequestObservability(handlePatch, { routeName: '/api/jobs/[paymentIntentId]' })

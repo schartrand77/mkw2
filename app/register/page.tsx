@@ -50,8 +50,8 @@ export default function RegisterPage() {
         const message = data?.error || 'Registration failed'
         throw new Error(message)
       }
-      await notify({ type: 'success', title: 'Account created', message: 'Check your email to verify your account.' })
-      const verifyNote = data?.message || 'Please check your inbox for the verification link.'
+      await notify({ type: 'info', title: 'Check your email', message: 'If the address is eligible, we will send a verification email.' })
+      const verifyNote = data?.message || 'If the address is eligible, we will send a verification email.'
       setSuccessMsg(verifyNote)
       setLastEmail(normalizedEmail)
       setEmail('')

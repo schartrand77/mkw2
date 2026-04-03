@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../../_utils'
 import { slugify } from '@/lib/userpage'
-import { normalizeAmazonAffiliateUrl } from '@/lib/amazon'
 import { extractYouTubeId } from '@/lib/youtube'
 import { storageRoot } from '@/lib/storage'
+import { computeEffectivePriceUsd } from '@/lib/pricing-cache'
+import { normalizeModelColorSlotCount, sanitizeAllowedColors } from '@/lib/color-constraints'
 import path from 'path'
 import { unlink } from 'fs/promises'
+import { revalidatePath, revalidateTag } from 'next/cache'
+import { CACHE_TAGS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
+import { getAdminAuditRequestMeta, recordAdminAuditEvent } from '@/lib/admin-audit'
 export const dynamic = 'force-dynamic'
 
 const SALE_PRICE_UNITS = new Set(['ea', 'bx', 'complete'])
@@ -15,7 +19,19 @@ type AdminModelContext = { params: Promise<{ id: string }> }
 
 export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
   const { id } = await params
-  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  let adminId = ''
+  try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  const existing = await prisma.model.findUnique({
+    where: { id },
+    select: {
+      volumeMm3: true,
+      material: true,
+      supportRatio: true,
+      priceUsd: true,
+      salePriceUsd: true,
+    },
+  })
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   let body: any
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
@@ -37,8 +53,12 @@ export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
     if (!raw) {
       updates.affiliateUrl = null
     } else {
-      const normalized = normalizeAmazonAffiliateUrl(raw)
-      if (!normalized) return NextResponse.json({ error: 'Affiliate link must be an Amazon URL' }, { status: 400 })
+      let normalized = ''
+      try {
+        normalized = new URL(raw).toString()
+      } catch {
+        return NextResponse.json({ error: 'Affiliate link must be a valid URL' }, { status: 400 })
+      }
       updates.affiliateUrl = normalized
     }
   }
@@ -79,6 +99,40 @@ export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
     }
   }
 
+  if (body.disableCustomerDiscounts !== undefined) {
+    updates.disableCustomerDiscounts = Boolean(body.disableCustomerDiscounts)
+  }
+
+  if (body.flatRatePricing !== undefined) {
+    updates.flatRatePricing = Boolean(body.flatRatePricing)
+  }
+
+  if (body.colorSlotCount !== undefined) {
+    const normalized = normalizeModelColorSlotCount(body.colorSlotCount)
+    if (body.colorSlotCount !== null && body.colorSlotCount !== '' && normalized == null) {
+      return NextResponse.json({ error: 'Invalid color slot count' }, { status: 400 })
+    }
+    updates.colorSlotCount = normalized
+  }
+
+  if (body.allowedColors !== undefined) {
+    updates.allowedColors = sanitizeAllowedColors(body.allowedColors)
+  }
+
+  if (body.salePriceUsd !== undefined) {
+    const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
+    const effectivePriceUsd = computeEffectivePriceUsd({
+      id,
+      volumeMm3: existing.volumeMm3,
+      material: existing.material,
+      supportRatio: existing.supportRatio,
+      priceUsd: existing.priceUsd,
+      salePriceUsd: updates.salePriceUsd ?? null,
+    }, cfg)
+    updates.effectivePriceUsd = effectivePriceUsd
+    updates.effectivePriceUpdatedAt = new Date()
+  }
+
   // Apply updates
   await prisma.model.update({ where: { id }, data: updates })
 
@@ -101,13 +155,37 @@ export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
       }
     })
   }
+  const requestMeta = getAdminAuditRequestMeta(req)
+  await recordAdminAuditEvent({
+    adminId,
+    action: 'admin.model.update',
+    targetType: 'model',
+    targetId: id,
+    requestMethod: requestMeta.requestMethod,
+    requestPath: requestMeta.requestPath,
+    requestIp: requestMeta.requestIp,
+    userAgent: requestMeta.userAgent,
+    metadata: { updatedKeys: Object.keys(updates), tagsInput: tagsInput ?? null } as any,
+  })
+
+  try {
+    revalidatePath(`/models/${id}`)
+    revalidatePath('/discover')
+    revalidatePath('/')
+    revalidateTag(modelTag(id), 'max')
+    revalidateTag(modelCommentsTag(id), 'max')
+    revalidateTag(CACHE_TAGS.discoverModels, 'max')
+    revalidateTag(CACHE_TAGS.featuredModels, 'max')
+    revalidateTag(CACHE_TAGS.homePage, 'max')
+  } catch {}
 
   return NextResponse.json({ ok: true })
 }
 
-export async function DELETE(_req: NextRequest, { params }: AdminModelContext) {
+export async function DELETE(req: NextRequest, { params }: AdminModelContext) {
   const { id } = await params
-  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  let adminId = ''
+  try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const model = await prisma.model.findUnique({
     where: { id },
     include: { images: true, parts: true },
@@ -123,6 +201,27 @@ export async function DELETE(_req: NextRequest, { params }: AdminModelContext) {
 
   await prisma.model.delete({ where: { id: model.id } })
   await removeStoredFiles(files)
+  const requestMeta = getAdminAuditRequestMeta(req)
+  await recordAdminAuditEvent({
+    adminId,
+    action: 'admin.model.delete',
+    targetType: 'model',
+    targetId: id,
+    requestMethod: requestMeta.requestMethod,
+    requestPath: requestMeta.requestPath,
+    requestIp: requestMeta.requestIp,
+    userAgent: requestMeta.userAgent,
+    metadata: { title: model.title, visibility: model.visibility } as any,
+  })
+  try {
+    revalidatePath('/discover')
+    revalidatePath('/')
+    revalidateTag(modelTag(id), 'max')
+    revalidateTag(modelCommentsTag(id), 'max')
+    revalidateTag(CACHE_TAGS.discoverModels, 'max')
+    revalidateTag(CACHE_TAGS.featuredModels, 'max')
+    revalidateTag(CACHE_TAGS.homePage, 'max')
+  } catch {}
   return NextResponse.json({ ok: true })
 }
 

@@ -4,6 +4,7 @@ import { verifyToken } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import ModelEditForm from '@/components/ModelEditForm'
 import ModelImagesManager from '@/components/ModelImagesManager'
+import ModelRevisionsManager from '@/components/ModelRevisionsManager'
 import { MODEL_IMAGE_LIMIT } from '@/lib/model-images'
 
 type EditModelPageProps = { params: Promise<{ id: string }> }
@@ -24,7 +25,16 @@ export default async function EditModelPage({ params }: EditModelPageProps) {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <h1 className="text-2xl font-semibold">Edit Model</h1>
-      <ModelEditForm model={{ id: model.id, title: model.title, description: model.description, material: model.material, coverImagePath: model.coverImagePath }} />
+      <ModelEditForm model={{
+        id: model.id,
+        title: model.title,
+        description: model.description,
+        material: model.material,
+        coverImagePath: model.coverImagePath,
+        creditName: model.creditName,
+        creditUrl: model.creditUrl,
+      }} />
+      <ModelRevisionsManager modelId={model.id} />
       <div className="space-y-2">
         <div>
           <h2 className="text-xl font-semibold">Real-life photos</h2>

@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/db'
 import { setAuthCookie } from '@/lib/auth'
+import { hashVerificationToken } from '@/lib/emailVerification'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const token = searchParams.get('token') || ''
   if (!token) return NextResponse.json({ error: 'Invalid token' }, { status: 400 })
-  const vt = await prisma.verificationToken.findUnique({ where: { token } })
+  const tokenHash = hashVerificationToken(token)
+  let vt = await prisma.verificationToken.findUnique({ where: { token: tokenHash } })
+  const legacyToken = !vt
+  if (!vt) {
+    vt = await prisma.verificationToken.findUnique({ where: { token } })
+  }
   if (!vt) return NextResponse.json({ error: 'Invalid token' }, { status: 400 })
   if (vt.usedAt) return NextResponse.json({ error: 'Token already used' }, { status: 400 })
   if (vt.expiresAt < new Date()) return NextResponse.json({ error: 'Token expired' }, { status: 400 })
@@ -18,7 +24,10 @@ export async function GET(req: NextRequest) {
 
   await prisma.$transaction([
     prisma.user.update({ where: { id: vt.userId }, data: { email: vt.email, emailVerified: true } }),
-    prisma.verificationToken.update({ where: { token }, data: { usedAt: new Date() } })
+    prisma.verificationToken.update({
+      where: { token: legacyToken ? token : tokenHash },
+      data: { usedAt: new Date(), token: tokenHash },
+    })
   ])
 
   const redirectBase = (() => {

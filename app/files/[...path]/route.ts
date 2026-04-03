@@ -3,13 +3,19 @@ export const dynamic = 'force-dynamic'
 import { createReadStream } from 'fs'
 import { stat } from 'fs/promises'
 import path from 'path'
-import { storageRoot } from '@/lib/storage'
+import { getModelMimeType } from '@/lib/model-files'
+import { filesPublicBaseUrl, storageRoot } from '@/lib/storage'
 
 type FileRouteContext = { params: Promise<{ path: string[] }> }
 
 export async function GET(req: NextRequest, { params }: FileRouteContext) {
   const routeParams = await params
   const relPath = routeParams.path.join('/')
+  const base = filesPublicBaseUrl()
+  if (base) {
+    const target = new URL(relPath, `${base.replace(/\/+$/, '')}/`).toString()
+    return Response.redirect(target, 302)
+  }
   const full = path.join(storageRoot(), relPath)
   try {
     const st = await stat(full)
@@ -30,9 +36,7 @@ function mimeFromExt(ext: string) {
     case '.jpg':
     case '.jpeg': return 'image/jpeg'
     case '.webp': return 'image/webp'
-    case '.stl': return 'model/stl'
-    case '.obj': return 'text/plain'
-    case '.3mf': return 'model/3mf'
-    default: return 'application/octet-stream'
+    case '.pdf': return 'application/pdf'
+    default: return getModelMimeType(ext)
   }
 }

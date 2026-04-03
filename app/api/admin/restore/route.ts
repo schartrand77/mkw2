@@ -6,6 +6,12 @@ const restoreModule = require('@/lib/backups')
 
 export const dynamic = 'force-dynamic'
 
+function isWithin(base: string, target: string) {
+  const baseNorm = `${base}`.replace(/[\\/]+$/, '')
+  const targetNorm = `${target}`.replace(/[\\/]+$/, '')
+  return targetNorm === baseNorm || targetNorm.startsWith(`${baseNorm}/`) || targetNorm.startsWith(`${baseNorm}\\`)
+}
+
 export async function GET() {
   try {
     await requireAdmin()
@@ -14,16 +20,22 @@ export async function GET() {
   }
 
   const storageDir = storageRoot()
+  const backupsRoot = restoreModule.resolveBackupsDir(storageDir)
   const backups = (restoreModule.listBackups() || []).map((entry: any) => ({
     folder: entry.folder,
     createdAt: entry.createdAt,
     hasStorage: entry.hasStorage,
     hasDatabase: entry.hasDatabase,
     relativePath: entry.relativePath,
-    downloadUrl: entry.relativePath ? toPublicHref(entry.relativePath) : null,
+    downloadUrl:
+      entry.relativePath && isWithin(storageDir, entry.absolutePath)
+        ? toPublicHref(entry.relativePath)
+        : null,
   }))
   const pending = restoreModule.getPendingRestore()
   return NextResponse.json({
+    backupsRoot,
+    backupsRootInStorage: isWithin(storageDir, backupsRoot),
     backups,
     pending: pending
       ? { folder: pending.relativePath, scheduledAt: pending.createdAt }

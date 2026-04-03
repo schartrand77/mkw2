@@ -1,0 +1,56 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Aero",
+  "description": "Bambu PLA Aero achieves low density and light weight by foaming at high temperatures during printing and creating small holes inside the prints.\nIt's the perfect choice for light-weight and energy-saving prints, including unmanned aerial vehicles (UAVs), aerodynamic models, and gliders.",
+  "url": "https://ca.store.bambulab.com/products/pla-aero",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8306225676528",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "44189333061872",
+      "image": "https://store.bblcdn.com/s5/default/3b112ca34ea34dc5a11d7ca0725dcac0.png",
+      "name": "PLA Aero - White (14102) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-aero?id=44189333061872",
+        "priceCurrency": "CAD",
+        "price": 57.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44189333094640",
+      "image": "https://store.bblcdn.com/s5/default/e80bdfdf32f34e4094d001a055595efa.png",
+      "name": "PLA Aero - Black (14103) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-aero?id=44189333094640",
+        "priceCurrency": "CAD",
+        "price": 57.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46352156623088",
+      "image": "https://store.bblcdn.com/s5/default/6407f12c15cf4debb06de690378be64d.png",
+      "name": "PLA Aero - Gray (14104) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-aero?id=46352156623088",
+        "priceCurrency": "CAD",
+        "price": 57.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

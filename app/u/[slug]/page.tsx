@@ -6,6 +6,32 @@ import { buildImageSrc, toPublicHref } from '@/lib/storage'
 import { resolveModelPricing } from '@/lib/pricing'
 import { formatPriceLabel } from '@/lib/price-label'
 import { formatCurrency } from '@/lib/currency'
+import { DEFAULT_ACHIEVEMENTS } from '@/lib/achievements'
+import { getBadgeImageSrc } from '@/lib/badge-images'
+import CreatorQualityCard from '@/components/CreatorQualityCard'
+import { getCreatorQualitySnapshot } from '@/lib/creator-quality'
+
+const fallbackAchievements = new Map(DEFAULT_ACHIEVEMENTS.map((ach) => [ach.key, ach]))
+
+function resolveBadgeDetails(achievement?: { key?: string | null; name?: string | null; icon?: string | null }) {
+  const fallback = achievement?.key ? fallbackAchievements.get(achievement.key) : undefined
+  const rawName = achievement?.name || fallback?.name || 'Badge'
+  let icon = (achievement?.icon || fallback?.icon || '').trim()
+  let name = rawName
+  if (icon) {
+    const prefix = `${icon} `
+    if (name.startsWith(prefix)) {
+      name = name.slice(prefix.length)
+    }
+  } else {
+    const match = rawName.match(/^([A-Z]{1,4}\d{0,2})\s+(.*)$/)
+    if (match) {
+      icon = match[1]
+      name = match[2]
+    }
+  }
+  return { icon, name }
+}
 
 async function getProfile(slug: string) {
   return prisma.profile.findUnique({
@@ -23,27 +49,32 @@ async function getProfile(slug: string) {
   })
 }
 
-async function getUserModels(userId: string) {
-  const [models, cfg] = await Promise.all([
-    prisma.model.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        title: true,
-        coverImagePath: true,
-        priceUsd: true,
-        salePriceUsd: true,
-        salePriceIsFrom: true,
-        salePriceUnit: true,
-        volumeMm3: true,
-        material: true,
-        updatedAt: true,
-      },
-    }),
+async function getUserModels(userId: string, page: number, pageSize: number) {
+  const [total, cfg] = await Promise.all([
+    prisma.model.count({ where: { userId } }),
     prisma.siteConfig.findUnique({ where: { id: 'main' } }),
   ])
-  return models.map((m) => {
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  const currentPage = Math.min(Math.max(page, 1), pageCount)
+  const models = await prisma.model.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    skip: (currentPage - 1) * pageSize,
+    take: pageSize,
+    select: {
+      id: true,
+      title: true,
+      coverImagePath: true,
+      priceUsd: true,
+      salePriceUsd: true,
+      salePriceIsFrom: true,
+      salePriceUnit: true,
+      volumeMm3: true,
+      material: true,
+      updatedAt: true,
+    },
+  })
+  const items = models.map((m) => {
     const summary = resolveModelPricing(m as any, cfg)
     return {
       ...m,
@@ -55,15 +86,21 @@ async function getUserModels(userId: string) {
       salePriceUnit: (m as any).salePriceUnit ?? null,
     }
   })
+  return { items, total, pageCount, currentPage }
 }
 
-type UserPageProps = { params: Promise<{ slug: string }> }
+type UserPageProps = { params: Promise<{ slug: string }>; searchParams?: Promise<Record<string, string | string[] | undefined>> }
 
-export default async function UserPage({ params }: UserPageProps) {
+export default async function UserPage({ params, searchParams }: UserPageProps) {
   const { slug } = await params
   const profile = await getProfile(slug)
   if (!profile) return <div>Profile not found</div>
-  const models = await getUserModels(profile.userId)
+  const rawSearchParams = searchParams ? await searchParams : {}
+  const pageParam = Array.isArray(rawSearchParams?.page) ? rawSearchParams?.page?.[0] : rawSearchParams?.page
+  const page = pageParam ? Number.parseInt(pageParam, 10) : 1
+  const pageSize = 9
+  const { items: models, total: modelCount, pageCount, currentPage } = await getUserModels(profile.userId, page, pageSize)
+  const creatorQuality = await getCreatorQualitySnapshot(profile.userId)
   const cookieStore = await cookies()
   const token = cookieStore.get('mwv2_token')?.value
   const current = token ? verifyToken(token)?.sub : null
@@ -102,12 +139,32 @@ export default async function UserPage({ params }: UserPageProps) {
           </div>
           {profile.user.badges && profile.user.badges.length > 0 && (
             <div className="flex flex-wrap gap-2 text-sm">
-              {profile.user.badges.map((ub: any) => (
-                <span key={ub.achievementId} title={ub.achievement?.description || ''} className="px-2 py-1 rounded-md border border-white/10 bg-black/30">
-                  <span className="mr-1">{ub.achievement?.icon || 'dY?+'}</span>
-                  <span>{ub.achievement?.name}</span>
-                </span>
-              ))}
+              {profile.user.badges.map((ub: any) => {
+                const { icon, name } = resolveBadgeDetails(ub.achievement)
+                const badgeImage = getBadgeImageSrc(icon)
+                return (
+                  <span
+                    key={ub.achievementId}
+                    title={ub.achievement?.description || ''}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-black/30 px-2 py-1"
+                  >
+                    {badgeImage ? (
+                      <img
+                        src={badgeImage}
+                        alt={name}
+                        className="h-6 w-6"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : icon ? (
+                      <span className="inline-flex min-w-[1.75rem] items-center justify-center rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-white/90">
+                        {icon}
+                      </span>
+                    ) : null}
+                    <span>{name}</span>
+                  </span>
+                )
+              })}
             </div>
           )}
           {profile.bio && <p className="text-slate-300 whitespace-pre-wrap">{profile.bio}</p>}
@@ -118,6 +175,11 @@ export default async function UserPage({ params }: UserPageProps) {
           )}
         </div>
       </div>
+      <CreatorQualityCard
+        quality={creatorQuality}
+        profileSlug={profile.slug}
+        creatorName={profile.user.name || profile.user.email}
+      />
       {(contactItems.length > 0 || socials.length > 0) && (
         <div className="glass rounded-xl p-6 space-y-4">
           {contactItems.length > 0 && (
@@ -151,33 +213,84 @@ export default async function UserPage({ params }: UserPageProps) {
           )}
         </div>
       )}
-      <section className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
-        {models.length === 0 && <p className="text-slate-400">No models yet.</p>}
-        {models.map((m) => {
-          const priceLabel = formatPriceLabel(m.priceUsd, { from: m.salePriceIsFrom, unit: m.salePriceUnit })
-          return (
-            <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition">
-              {m.coverImagePath ? (
-                <img src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
-              ) : (
-                <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
-              )}
-              <div className="p-4">
-                <h3 className="font-semibold">{m.title}</h3>
-                {priceLabel ? (
-                  <div className="text-sm text-slate-300">
-                    <span className="font-medium">{priceLabel}</span>
-                    {m.saleActive && m.basePriceUsd && (
-                      <span className="text-xs text-slate-500 ml-2 line-through">{formatCurrency(m.basePriceUsd)}</span>
-                    )}
-                  </div>
+      <section className="glass rounded-xl p-6 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Models</h2>
+            <p className="text-xs text-slate-400">{modelCount} total</p>
+          </div>
+          {pageCount > 1 && (
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span>Page {currentPage} of {pageCount}</span>
+              <div className="flex items-center gap-2">
+                {currentPage > 1 ? (
+                  <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={`/u/${profile.slug}?page=${currentPage - 1}`}>
+                    Prev
+                  </Link>
                 ) : (
-                  <p className="text-sm text-slate-400">No estimate</p>
+                  <span className="px-2 py-1 rounded-md border border-white/10 text-slate-600">Prev</span>
+                )}
+                {currentPage < pageCount ? (
+                  <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={`/u/${profile.slug}?page=${currentPage + 1}`}>
+                    Next
+                  </Link>
+                ) : (
+                  <span className="px-2 py-1 rounded-md border border-white/10 text-slate-600">Next</span>
                 )}
               </div>
-            </Link>
-          )
-        })}
+            </div>
+          )}
+        </div>
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {models.length === 0 && <p className="text-slate-400">No models yet.</p>}
+          {models.map((m) => {
+            const hasCustomPrice = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd))
+            const priceLabel = formatPriceLabel(m.priceUsd, { from: hasCustomPrice ? false : m.salePriceIsFrom, unit: m.salePriceUnit })
+            return (
+              <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition">
+                {m.coverImagePath ? (
+                  <img src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
+                ) : (
+                  <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
+                )}
+                <div className="p-4">
+                  <h3 className="font-semibold">{m.title}</h3>
+                  {priceLabel ? (
+                    <div className="text-sm text-slate-300">
+                      <span className="font-medium">{priceLabel}</span>
+                      {!hasCustomPrice && m.saleActive && m.basePriceUsd && (
+                        <span className="text-xs text-slate-500 ml-2 line-through">{formatCurrency(m.basePriceUsd)}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400">No estimate</p>
+                  )}
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+        {pageCount > 1 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+            <span>Page {currentPage} of {pageCount}</span>
+            <div className="flex items-center gap-2">
+              {currentPage > 1 ? (
+                <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={`/u/${profile.slug}?page=${currentPage - 1}`}>
+                  Prev
+                </Link>
+              ) : (
+                <span className="px-2 py-1 rounded-md border border-white/10 text-slate-600">Prev</span>
+              )}
+              {currentPage < pageCount ? (
+                <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={`/u/${profile.slug}?page=${currentPage + 1}`}>
+                  Next
+                </Link>
+              ) : (
+                <span className="px-2 py-1 rounded-md border border-white/10 text-slate-600">Next</span>
+              )}
+            </div>
+          </div>
+        )}
       </section>
     </div>
   )

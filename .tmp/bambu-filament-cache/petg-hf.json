@@ -1,0 +1,224 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PETG HF",
+  "description": "PETG HF is a fully optimized PETG filament designed specifically for high-speed printing. With a default printing speed that is twice as fast as standard PETG filaments, PETG HF takes your printing efficiency to new heights. It effectively addresses common issues such as oozing and clumping associated with regular PETG, ensuring smoother and more reliable prints. The new matte finish not only enhances the aesthetic by smoothing out uneven gloss during speed transitions but also provides a consistently uniform look. Offering greater durability and toughness than PLA, PETG HF is the ideal choice for creating long-lasting items with an improved finish and faster production times.",
+  "url": "https://ca.store.bambulab.com/products/petg-hf",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8932831592688",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "46336540770544",
+      "image": "https://store.bblcdn.com/s5/default/7de1911f91d34be280040a4ef84fdbd2.jpg",
+      "name": "PETG HF - Red (33200) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=46336540770544",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46336540803312",
+      "image": "https://store.bblcdn.com/s5/default/6583fc4c677b47c78a79b5af54707241.jpg",
+      "name": "PETG HF - Black (33102) / Refill / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=46336540803312",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46336540836080",
+      "image": "https://store.bblcdn.com/s5/default/6583fc4c677b47c78a79b5af54707241.jpg",
+      "name": "PETG HF - Black (33102) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=46336540836080",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46336540901616",
+      "image": "https://store.bblcdn.com/s5/default/6f0f3ffb6bdb459f97d0f44a6d83fbf6.jpg",
+      "name": "PETG HF - White (33100) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=46336540901616",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46336540967152",
+      "image": "https://store.bblcdn.com/s5/default/729f2d6de88b4001938dcf49c97c2d8c.jpg",
+      "name": "PETG HF - Blue (33600) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=46336540967152",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46336541032688",
+      "image": "https://store.bblcdn.com/s5/default/22729c93daef4e0293f50584690457d0.jpg",
+      "name": "PETG HF - Gray (33101) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=46336541032688",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "654207551461335041",
+      "image": "https://store.bblcdn.com/s5/default/88d2cf2480094d6cbbba24a6751eb943.jpg",
+      "name": "PETG HF - Lake Blue (33601) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=654207551461335041",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "659539853725208577",
+      "image": "https://store.bblcdn.com/s5/default/d96a3ffe711444f0a4d4b734f1519537.jpg",
+      "name": "PETG HF - Dark Gray (33103) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=659539853725208577",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "659539853725208583",
+      "image": "https://store.bblcdn.com/s5/default/132b2c639d284831ad3a65a5a2450ab3.jpg",
+      "name": "PETG HF - Cream (33401) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=659539853725208583",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "659539853725208589",
+      "image": "https://store.bblcdn.com/s5/default/695dad0142ca4d0c8ca64cd2cf5eaa6f.jpg",
+      "name": "PETG HF - Yellow (33400) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=659539853725208589",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "659539853725208595",
+      "image": "https://store.bblcdn.com/s5/default/3eeb673909be49ae8cb99bd18f365614.jpg",
+      "name": "PETG HF - Lime Green (33501) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=659539853725208595",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "659539853725208601",
+      "image": "https://store.bblcdn.com/s5/default/9bd37be5d1b24bfb940af905904e7145.jpg",
+      "name": "PETG HF - Green (33500) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=659539853725208601",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "659539853725208607",
+      "image": "https://store.bblcdn.com/s5/default/327777e6ed004cb0820532eb7e263a2d.jpg",
+      "name": "PETG HF - Forest Green (33502) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=659539853725208607",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "659539853725208613",
+      "image": "https://store.bblcdn.com/s5/default/048a5c2661644b849a6a955ccde1a877.jpg",
+      "name": "PETG HF - Orange (33300) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=659539853725208613",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "659539853725208619",
+      "image": "https://store.bblcdn.com/s5/default/a27c74b9bf7741b581ac70bfcb5e82f9.jpg",
+      "name": "PETG HF - Peanut Brown (33801) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/petg-hf?id=659539853725208619",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

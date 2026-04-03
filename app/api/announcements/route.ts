@@ -19,9 +19,9 @@ export async function GET(_req: NextRequest) {
     })
     if (!res.ok) return NextResponse.json({ items: [] })
     const list = await res.json() as DiscordMessage[]
-    // Keep messages that are clearly announcements: have ✅ reaction or start with [notify]
+    // Keep messages that are clearly announcements: have checkmark reaction or start with [notify]
     const items = list.filter(m => {
-      const hasCheck = (m.reactions || []).some(r => r.emoji?.name === '✅' && r.count > 0)
+      const hasCheck = (m.reactions || []).some(r => r.emoji?.name === '\u2705' && r.count > 0)
       return hasCheck || /^\s*\[notify\]/i.test(m.content)
     }).map(m => ({ id: m.id, content: m.content, author: m.author?.username || 'unknown', timestamp: m.timestamp }))
     return NextResponse.json({ items })
@@ -29,4 +29,6 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ items: [] })
   }
 }
+
+
 

@@ -13,11 +13,23 @@ services:
     networks:
       - makerworks-net
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - makerworks-net
+
   web:
-    build: .
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
     restart: unless-stopped
     depends_on:
       - db
+      - redis
     env_file:
       - .env
     environment:
@@ -26,6 +38,17 @@ services:
       BASE_URL: ${BASE_URL:-http://localhost:3000}
       # Persist uploads under STORAGE_DIR
       STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
+      # Optional mapped source folder for the bulk upload importer.
+      BULK_UPLOAD_DIR: ${BULK_UPLOAD_DIR:-/app/imports}
+      BULK_UPLOAD_BASE_URL: ${BULK_UPLOAD_BASE_URL:-http://127.0.0.1:3000}
+      # Backup destination. Defaults to STORAGE_DIR/backups when empty.
+      BACKUP_DIR: ${BACKUP_DIR:-}
+      # Backup runtime mode and DB service target for compose exec.
+      SKIP_DOCKER: ${SKIP_DOCKER:-0}
+      BACKUP_DOCKER_SERVICE: ${BACKUP_DOCKER_SERVICE:-db}
+      # Optional explicit client-tool paths (mainly for non-compose runtimes).
+      PG_DUMP_BIN: ${PG_DUMP_BIN:-}
+      PSQL_BIN: ${PSQL_BIN:-}
       # In local Docker (HTTP), do not mark cookies as Secure
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       PLA_PRICE_PER_KG_USD: ${PLA_PRICE_PER_KG_USD:-25.00}
@@ -38,6 +61,9 @@ services:
       NEXT_PUBLIC_COLOR_SURCHARGE_RATE: ${NEXT_PUBLIC_COLOR_SURCHARGE_RATE:-0.05}
       NEXT_PUBLIC_MAX_CART_COLORS: ${NEXT_PUBLIC_MAX_CART_COLORS:-4}
       MAX_CART_COLORS: ${MAX_CART_COLORS:-}
+      SUPPORT_OVERHANG_ANGLE_DEG: ${SUPPORT_OVERHANG_ANGLE_DEG:-45}
+      SUPPORT_VOLUME_MULTIPLIER_MAX: ${SUPPORT_VOLUME_MULTIPLIER_MAX:-0.6}
+      COLOR_TIME_MULTIPLIER_PER_COLOR: ${COLOR_TIME_MULTIPLIER_PER_COLOR:-0.2}
       # Branding (override to re-theme the storefront)
       NEXT_PUBLIC_BRAND_NAME: ${NEXT_PUBLIC_BRAND_NAME:-MakerWorks}
       NEXT_PUBLIC_BRAND_VERSION: ${NEXT_PUBLIC_BRAND_VERSION:-v2}
@@ -50,8 +76,16 @@ services:
       SMTP_SECURE: ${SMTP_SECURE:-false}
       RECEIPT_FROM_EMAIL: ${RECEIPT_FROM_EMAIL:-}
       RECEIPT_REPLY_TO_EMAIL: ${RECEIPT_REPLY_TO_EMAIL:-}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      # StockWorks filament availability
+      STOCKWORKS_BASE_URL: ${STOCKWORKS_BASE_URL:-}
+      STOCKWORKS_ADMIN_USERNAME: ${STOCKWORKS_ADMIN_USERNAME:-}
+      STOCKWORKS_ADMIN_PASSWORD: ${STOCKWORKS_ADMIN_PASSWORD:-}
+      STOCKWORKS_USERNAME: ${STOCKWORKS_USERNAME:-}
+      STOCKWORKS_PASSWORD: ${STOCKWORKS_PASSWORD:-}
+      STOCKWORKS_COLOR_OVERRIDES: ${STOCKWORKS_COLOR_OVERRIDES:-}
       # Currency configuration (USD or CAD). For client-side display use NEXT_PUBLIC_CURRENCY as well.
       CURRENCY: ${CURRENCY:-USD}
       NEXT_PUBLIC_CURRENCY: ${NEXT_PUBLIC_CURRENCY:-USD}
@@ -62,10 +96,72 @@ services:
       DISCORD_CHANNEL_ID: ${DISCORD_CHANNEL_ID:-}
       DISCORD_ADMIN_BOT_TOKEN: ${DISCORD_ADMIN_BOT_TOKEN:-}
       DISCORD_ADMIN_CHANNEL_ID: ${DISCORD_ADMIN_CHANNEL_ID:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
     ports:
       - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       # Map host storage folder to container STORAGE_DIR
+      - ./storage:/app/storage
+      # Optional source folder for bulk imports
+      - ./imports:/app/imports
+    networks:
+      - makerworks-net
+
+  processing-worker:
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/makerworks?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
+      PROCESSING_QUEUE_ATTEMPTS: ${PROCESSING_QUEUE_ATTEMPTS:-5}
+      PROCESSING_QUEUE_BACKOFF_MS: ${PROCESSING_QUEUE_BACKOFF_MS:-5000}
+      IMAGE_WORKER_CONCURRENCY: ${IMAGE_WORKER_CONCURRENCY:-2}
+      PREVIEW_WORKER_CONCURRENCY: ${PREVIEW_WORKER_CONCURRENCY:-1}
+    command: ["npm", "run", "worker:processing"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./storage:/app/storage
+    networks:
+      - makerworks-net
+
+  backup-scheduler:
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/makerworks?schema=public}
+      STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
+      BACKUP_DIR: ${BACKUP_DIR:-}
+      SKIP_DOCKER: ${SKIP_DOCKER:-0}
+      BACKUP_DOCKER_SERVICE: ${BACKUP_DOCKER_SERVICE:-db}
+      PG_DUMP_BIN: ${PG_DUMP_BIN:-}
+      PSQL_BIN: ${PSQL_BIN:-}
+      BACKUP_SCHEDULE_ENABLED: ${BACKUP_SCHEDULE_ENABLED:-0}
+      BACKUP_SCHEDULE_TIME_UTC: ${BACKUP_SCHEDULE_TIME_UTC:-03:00}
+      BACKUP_RUN_ON_START: ${BACKUP_RUN_ON_START:-0}
+      BACKUP_PRUNE_ON_BACKUP: ${BACKUP_PRUNE_ON_BACKUP:-1}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_RETENTION_MAX_COUNT: ${BACKUP_RETENTION_MAX_COUNT:-30}
+      LOG_BACKUPS: ${LOG_BACKUPS:-true}
+    command: ["node", "scripts/backup-scheduler.js"]
+    volumes:
       - ./storage:/app/storage
     networks:
       - makerworks-net

@@ -1,0 +1,210 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "ABS",
+  "description": "Bambu ABS is designed to reduce warping and cracking but maintain outstanding impact resistance. In addition, it's very suitable for high-speed printing because of its good flow behavior.",
+  "url": "https://ca.store.bambulab.com/products/abs-filament",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8011872469232",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "43115678859504",
+      "image": "https://store.bblcdn.com/s5/default/ef66b79717594fd7a32316968fbf7ac4.png",
+      "name": "ABS - ABS Black (40101) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=43115678859504",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115678892272",
+      "image": "https://store.bblcdn.com/s5/default/dcc84bbb1ebb4feab8e7fa3c6776d603.png",
+      "name": "ABS - ABS White (40100) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=43115678892272",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115678925040",
+      "image": "https://store.bblcdn.com/s5/default/a612a441405449059b5e9215e9b4845d.png",
+      "name": "ABS - ABS Red (40200) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=43115678925040",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "43115678990576",
+      "image": "https://store.bblcdn.com/s5/default/ca8b7ba4f03243d1af97c06ec01d5100.png",
+      "name": "ABS - ABS Blue (40600) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=43115678990576",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44118341681392",
+      "image": "https://store.bblcdn.com/s5/default/9cae91f6f14d4672bad03466e8fc0905.png",
+      "name": "ABS - ABS Silver (40102) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=44118341681392",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44183939580144",
+      "image": "https://store.bblcdn.com/s5/default/ef66b79717594fd7a32316968fbf7ac4.png",
+      "name": "ABS - ABS Black (40101) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=44183939580144",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44183939776752",
+      "image": "https://store.bblcdn.com/s5/default/dcc84bbb1ebb4feab8e7fa3c6776d603.png",
+      "name": "ABS - ABS White (40100) / Filament with spool / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=44183939776752",
+        "priceCurrency": "CAD",
+        "price": 29.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46130964955376",
+      "image": "https://store.bblcdn.com/s5/default/ac47548b54224e6297d49459802405a7.png",
+      "name": "ABS - ABS Bambu Green (40500) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=46130964955376",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46130970886384",
+      "image": "https://store.bblcdn.com/s5/default/af10bba0ddcb4d129125f0b1b3f04e59.png",
+      "name": "ABS - ABS Orange (40300) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=46130970886384",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46311953203440",
+      "image": "https://store.bblcdn.com/s5/default/ffe1ffc6768f49cf958439e67f98409b.jpg",
+      "name": "ABS - ABS Navy Blue (40602) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=46311953203440",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46311955202288",
+      "image": "https://store.bblcdn.com/s5/default/24c01cdd00994022b35a676e2241c943.jpg",
+      "name": "ABS - ABS Azure (40601) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=46311955202288",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46311956513008",
+      "image": "https://store.bblcdn.com/s5/default/a0d6c3c3f0ce4d94a1b50c3a0c746760.jpg",
+      "name": "ABS - ABS Olive (40502) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=46311956513008",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46311958282480",
+      "image": "https://store.bblcdn.com/s5/default/a8fce7027f1f4ba2b9aff377ed99a5bf.jpg",
+      "name": "ABS - ABS Tangerine Yellow (40402) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=46311958282480",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "46541030883568",
+      "image": "https://store.bblcdn.com/s5/default/9cae91f6f14d4672bad03466e8fc0905.png",
+      "name": "ABS - ABS Silver (40102) / Refill / 1kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/abs-filament?id=46541030883568",
+        "priceCurrency": "CAD",
+        "price": 25.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}

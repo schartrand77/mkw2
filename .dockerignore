@@ -2,9 +2,9 @@ node_modules
 npm-debug.log
 Dockerfile*
 .dockerignore
-.next/cache
+.next
 storage
 .git
 .gitignore
 README.md
-
+docs/bank-loan-brief.md

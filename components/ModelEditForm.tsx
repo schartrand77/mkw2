@@ -2,13 +2,30 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
+import { MATERIAL_OPTIONS, normalizeMaterialName } from '@/lib/cartPricing'
 
-type Model = { id: string; title: string; description?: string | null; material?: string | null; coverImagePath?: string | null }
+type Model = {
+  id: string
+  title: string
+  description?: string | null
+  material?: string | null
+  coverImagePath?: string | null
+  creditName?: string | null
+  creditUrl?: string | null
+}
 
 export default function ModelEditForm({ model }: { model: Model }) {
   const [title, setTitle] = useState(model.title)
   const [description, setDescription] = useState(model.description || '')
   const [material, setMaterial] = useState(model.material || 'PLA')
+  const [creditName, setCreditName] = useState(model.creditName || '')
+  const [creditUrl, setCreditUrl] = useState(model.creditUrl || '')
+  const normalizedMaterial = normalizeMaterialName(material)
+  const materialOptions = (() => {
+    const options = MATERIAL_OPTIONS.map((option) => String(option))
+    if (!options.includes(normalizedMaterial)) options.push(normalizedMaterial)
+    return options
+  })()
   const [cover, setCover] = useState<File | null>(null)
   const [removeCover, setRemoveCover] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -23,6 +40,8 @@ export default function ModelEditForm({ model }: { model: Model }) {
       fd.append('title', title)
       fd.append('description', description)
       fd.append('material', material)
+      fd.append('creditName', creditName)
+      fd.append('creditUrl', creditUrl)
       fd.append('removeCover', removeCover ? '1' : '0')
       if (cover) fd.append('cover', cover)
       const res = await fetch(`/api/models/${model.id}`, { method: 'PATCH', body: fd })
@@ -48,11 +67,36 @@ export default function ModelEditForm({ model }: { model: Model }) {
       </div>
       <div>
         <label className="block text-sm mb-1">Material</label>
-        <select className="input" value={material} onChange={(e) => setMaterial(e.target.value)}>
-          <option>PLA</option>
-          <option>ABS</option>
-          <option>PETG</option>
+        <select
+          className="input"
+          value={normalizedMaterial}
+          onChange={(e) => setMaterial(e.target.value)}
+        >
+          {materialOptions.map((option) => (
+            <option key={option} value={option}>{option}</option>
+          ))}
         </select>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm mb-1">Credit model creator</label>
+          <input
+            className="input"
+            value={creditName}
+            onChange={(e) => setCreditName(e.target.value)}
+            placeholder="Creator name"
+          />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Credit URL</label>
+          <input
+            className="input"
+            type="url"
+            value={creditUrl}
+            onChange={(e) => setCreditUrl(e.target.value)}
+            placeholder="https://..."
+          />
+        </div>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
         <div>

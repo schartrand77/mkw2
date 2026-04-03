@@ -1,0 +1,84 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "ProductGroup",
+  "name": "PLA Glow",
+  "description": "PLA Glow stands out due to its incorporation of a unique additive: luminous powder. This variant retains the familiar qualities of traditional PLA, including easy printing, high quality, and exceptional overall mechanical properties. What sets PLA Glow apart is its distinctive feature—it glows in the dark. This makes it the optimal selection for crafting luminous nameplates, logos, jewelry, and various models that require a captivating glow effect.",
+  "url": "https://ca.store.bambulab.com/products/pla-glow",
+  "brand": {
+    "@type": "Brand",
+    "name": "Bambu Lab"
+  },
+  "productGroupID": "8420629872880",
+  "hasVariant": [
+    {
+      "@type": "Product",
+      "sku": "44604961161456",
+      "image": "https://store.bblcdn.com/s5/default/24e492c5a648473d90afeccb6123dd81.png",
+      "name": "PLA Glow - Glow Orange (15300) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-glow?id=44604961161456",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44604961194224",
+      "image": "https://store.bblcdn.com/s5/default/471fa997fa0543c1b0dffb1ffe0f0918.png",
+      "name": "PLA Glow - Glow Blue (15600) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-glow?id=44604961194224",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44604961226992",
+      "image": "https://store.bblcdn.com/s5/default/565869eeaeea4c709e2c5bc999af0a7e.png",
+      "name": "PLA Glow - Glow Green (15500) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-glow?id=44604961226992",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44604961259760",
+      "image": "https://store.bblcdn.com/s5/default/fd8da84c11f644aebb543fbf808e4781.png",
+      "name": "PLA Glow - Glow Pink (15200) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-glow?id=44604961259760",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "Product",
+      "sku": "44604961292528",
+      "image": "https://store.bblcdn.com/s5/default/dd226454d6204bdc85ae0454d80136a9.png",
+      "name": "PLA Glow - Glow Yellow (15400) / Filament with spool / 1 kg",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://ca.store.bambulab.com/products/pla-glow?id=44604961292528",
+        "priceCurrency": "CAD",
+        "price": 31.99,
+        "itemCondition": "https://schema.org/NewCondition",
+        "availability": "https://schema.org/OutOfStock"
+      }
+    }
+  ]
+}
