@@ -9,7 +9,7 @@
   <Support>https://forums.unraid.net/topic/195232-support-makerw%E2%9A%99%EF%B8%8Frks-3d-print-hub/</Support>
   <Project>https://github.com/schartrand77/mkw2</Project>
   <Overview><![CDATA[
-Companion worker for MakerWorks v2. This container runs the BullMQ processing worker so image and preview jobs queued by the web app are consumed in the background.
+Companion worker for MakerWorks v2. This container runs the BullMQ processing worker so image-processing and preview-generation jobs queued by the web app are consumed in the background.
   ]]></Overview>
   <Category>Productivity:Tools</Category>
   <Icon>https://raw.githubusercontent.com/schartrand77/mkw2/main/public/favicon.jpg</Icon>
