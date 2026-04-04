@@ -1,171 +1,269 @@
-# MakerWorks Feature Roadmap (By Phase)
+# MakerWorks Next Major Release Roadmap (v3)
 
-Last updated: 2026-02-16
+Last updated: 2026-04-04
+Planning horizon: Q2 2026 -> Q1 2027
 
-## Phase 1 - Operational Core (Stability + Daily Use)
+## 0) Audit Snapshot (Current State)
 
-Goal: Make it rock-solid for real daily production use.
+This roadmap is based on the current repository/application baseline:
 
-Orders & Jobs
-- [x] Estimate -> Cart -> Order -> Job pipeline
-- [x] Job status workflow (queued / printing / post-process / shipped)
-- [x] Job ticket printable sheets
-- [x] QR code per job
-- [x] Attach model + slicer profile to job
+- Frontend/API platform: Next.js App Router + React 19 + TypeScript.
+- Commerce + operations breadth is already high and includes customer flows, admin production tools, PrintLab integration, and Stockworks inventory intelligence.
+- Codebase footprint (approx):
+  - 49 route pages (`app/**/page.tsx`)
+  - 133 API routes (`app/api/**/route.ts`)
+  - 88 React components (`components/**/*.tsx`)
+  - 97 library modules (`lib/**/*.ts`)
+- Quality checks from this audit run:
+  - `npm run lint` passes with warnings (no errors).
+  - `npm run typecheck` passes.
+  - `npm test` exits successfully but reports `0` discovered tests in this environment.
 
-Inventory Reliability
-- [x] Filament level adjustments with audit log
-- [x] Spool consumption per job
-- [x] Low-stock alerts
-- [x] SKU + barcode normalization
+### Key strengths
 
-Pricing Engine v1 Lockdown
-- [x] Material + time + electricity + labor formula finalized
-- [x] Admin pricing preview sandbox
-- [x] Saved pricing profiles
+- Strong end-to-end domain coverage from quoting to fulfillment.
+- Mature operations surfaces (queues, analytics, fleet, maintenance, inventory, backup/restore).
+- Modern integration strategy: PrintLab as execution boundary and Stockworks for inventory/material intelligence.
 
-Admin Safety
-- [x] Role-based access
-- [x] Config change audit log
-- [x] Environment validation checks
-- [x] Backup / restore button
+### Key gaps to close for a major release
 
-Ship when: You could run your farm for a week without touching spreadsheets.
+- Design consistency across growing feature surfaces (admin + customer + discover + checkout).
+- Test depth/coverage and CI confidence gating.
+- Multi-tenant enterprise hardening (permissions granularity, audit exportability, SLOs).
+- Advanced automation and intelligence to reduce operator touch time further.
 
-## Phase 2 - Automation Layer
+---
 
-Goal: Reduce human babysitting.
+## 1) Release Theme
 
-Printer Integration
-- [x] Bambu View API client + sync endpoints
-- [x] Printer records + assignment fields in schema
-- [x] Printer status dashboard
-- [x] Job -> printer assignment
-- [x] Auto job queue
-- [x] Failure flag + requeue button
-- [x] AMS tray mapping from estimate colors
+**MakerWorks v3 = "Autonomous Print Commerce Platform"**
 
-Smart Material Tracking
-- [x] Auto spool deduction from slicer stats
-- [x] Remaining spool prediction
-- [x] Reorder thresholds
-- [x] Vendor + cost history tracking
+Primary objective: move from "feature-rich system" to "state-of-the-art operating system" for print farms and distributed maker teams.
 
-Workflow Automation
-- [x] Auto job creation from paid orders
-- [x] Packing checklist auto-generate
-- [x] Shipping label fields + tracking
+Success criteria:
 
-Ship when: You're clicking half as much per job.
+- 30-50% fewer operator interactions per order/job.
+- Measurable UX improvements in checkout completion and order confidence.
+- Stronger reliability posture (defined SLOs + incident visibility + recovery drills).
+- Clear enterprise-ready differentiation: governance, automation, and integrations.
 
-## Phase 3 - Intelligence & Insight
+---
 
-Goal: Stop guessing. Start knowing.
-Status: Complete (2026-02-08)
+## 2) North-Star Product Pillars
 
-Analytics
-- [x] Profit per job
-- [x] Profit per printer hour
-- [x] Failure rate per model/material
-- [x] Revenue per filament type
-- [x] Utilization charts
+### Pillar A — Next-Gen UX/UI System
 
-Model Intelligence
-- [x] Mesh analysis on upload
-- [x] Printability score
-- [x] Support likelihood detection
-- [x] Orientation suggestions
-- [x] Estimated failure risk score
+- Ship a unified design system across storefront, workspace, and admin.
+- Add adaptive dashboards by user role (customer, production operator, manager, finance).
+- Bring advanced interaction quality to parity with modern SaaS leaders:
+  - command palette + global actions
+  - contextual side panels
+  - keyboard-first flows for operations
+  - optimistic UI + skeleton/loading states tuned by task type
+- Accessibility target: WCAG 2.2 AA across all critical flows.
 
-Estimate Engine v2
-- [x] G-code parser import
-- [x] Multi-material breakdown
-- [x] Batch discounts
-- [x] Rush pricing toggle
-- [x] Demand surge multiplier
+### Pillar B — Intelligence Everywhere
 
-Ship when: You can answer "is this job worth it?" instantly.
+- Expand model/job intelligence from static scoring to live recommendations:
+  - print strategy assistant (orientation, support, material, queue slot)
+  - ETA confidence calibration by printer/material/history
+  - pre-flight issue prevention with action-based fixes
+- Introduce explainable AI outputs with confidence + reason traces for every recommendation.
 
-## Phase 4 - Storefront Power
+### Pillar C — Autonomous Operations
 
-Goal: Turn MakerWorks into a real customer-facing platform.
-Status: Complete (2026-02-08)
+- Policy-driven automation engine:
+  - auto-routing jobs to printers by capability, queue health, SLA, and cost
+  - automated recovery playbooks (failure detected -> requeue profile -> notify)
+  - dynamic material substitution with approval policies
+- Shift from dashboards-only to "recommended actions" and one-click execution.
 
-Product Builder
-- [x] Configurable products
-- [x] Locked product configuration from StockWorks-backed choices
-- [x] Products created in Product Builder are added as inventory models in StockWorks
-- [x] Live price preview
-- [x] Saved product templates
+### Pillar D — Enterprise Governance & Security
 
-Customer Portal
-- [x] Upload model -> instant estimate
-- [x] Order tracking page
-- [x] Approval checkpoints
-- [x] Saved presets
+- Fine-grained RBAC (module + record + action scope).
+- Full audit/event timeline export (compliance-friendly).
+- Security posture upgrades:
+  - secrets rotation playbooks
+  - signed webhook lifecycle management
+  - abuse/rate-limit analytics and anomaly alerts
 
-Commerce Features
-- [x] Bulk pricing tiers
-- [x] Minimum order rules
-- [x] Quote approval flow
-- [x] Invoice + PO mode
+### Pillar E — Open Ecosystem & Integrations
 
-Ship when: Customers can self-serve without emailing you 19 times.
+- API/automation platform maturity:
+  - stable webhook contracts
+  - outbound event bus
+  - connector SDK template
+- First-party connectors roadmap:
+  - ecommerce (Shopify/Woo)
+  - shipping providers
+  - accounting/ERP exports
+  - printer adapters beyond current boundary
 
-## Phase 5 - Farm Optimization
+---
 
-Goal: Make multi-printer scaling not hurt.
-Status: Complete (2026-02-08)
+## 3) Release Tracks and Milestones
 
-Fleet Intelligence
-- [x] Printer utilization heatmaps
-- [x] Maintenance schedules
-- [x] MTBF tracking
-- [x] Per-printer success rate
+## Track 1 — Platform & Reliability Foundation (Weeks 1-6)
 
-Batch Optimization
-- [x] Auto nesting suggestions
-- [x] Batch grouping by material/color
-- [x] Queue optimizer
-- [x] Print cluster planning
+- Runtime/dependency modernization from `UPGRADE_RECOMMENDATIONS.md` execution wave.
+- CI quality gates:
+  - route-level API contract tests
+  - smoke e2e pack for quote -> checkout -> order -> job
+  - backup/restore validation in CI-capable environment
+- Observability baseline:
+  - SLOs for checkout API, job orchestration callbacks, and queue processing
+  - release health dashboard and alert thresholds
 
-Material Optimization
-- [x] Waste reports
-- [x] Color similarity suggestions
-- [x] Alternate filament recommendations
+Exit criteria:
 
-Ship when: Adding printers feels easy instead of chaotic.
+- No critical regressions for 2 consecutive release candidates.
+- SLO instrumentation live in staging + production.
 
-## Phase 6 - Integrations & Ecosystem
+## Track 2 — UX/UI Modernization (Weeks 4-12)
 
-Goal: MakerWorks becomes the hub, not the island.
-Status: Skipped (2026-02-08) - Not in scope.
+- Design token system and component primitives rollout.
+- Navigation overhaul:
+  - role-aware left nav
+  - command palette
+  - cross-context breadcrumbs and quick-switching
+- High-impact surface redesign:
+  - discover/search UX
+  - model detail + quote workspace
+  - checkout and order status timeline
+  - production queue board + exception handling panels
 
-Integrations
-- [ ] Slicer plugins
-- [ ] Webhook API
-- [ ] Shopify/WooCommerce connector
-- [ ] OctoPrint/Klipper adapters
-- [ ] Vendor catalog importers
+Exit criteria:
 
-External Automation
-- [ ] Accounting export
-- [ ] Shipping provider APIs
-- [ ] Supplier reorder automation
+- Visual consistency scorecard complete on all tier-1 screens.
+- Accessibility audit signoff for core purchase and ops flows.
 
-Ship when: Other systems plug into you - not vice versa.
+## Track 3 — Intelligence & Automation (Weeks 8-16)
 
-## Phase 7 - Advanced / Differentiator Tier
+- Smart routing engine v2 with policy configuration UI.
+- AI-assisted preflight and remediation suggestions.
+- Predictive operations:
+  - spool depletion forecasting with confidence windows
+  - printer downtime risk scoring
+  - SLA risk early-warning on queued orders
 
-Goal: Features competitors do not bother building.
-Status: Complete (2026-02-08)
+Exit criteria:
 
-- [x] AI orientation optimizer
-- [x] Failure photo classifier
-- [x] Auto support strategy suggestions
-- [x] Color blend preview for AMS
-- [x] Print time correction from history
-- [x] Assembly grouping for multipart models
-- [x] Demand forecasting
+- Operator touches per job reduced by at least 30% in pilot cohort.
+- Documented false-positive/false-negative rates for recommendations.
 
-Ship when: People accuse you of being unfair.
+## Track 4 — Enterprise & Ecosystem (Weeks 12-18)
+
+- Advanced org controls (department policy packs, spend controls, approval graphs).
+- Webhook/API hardening and documentation portal refresh.
+- Connector beta releases (pick 2 priority integrations by customer demand).
+
+Exit criteria:
+
+- Two production beta customers onboarded per connector.
+- Audit exports and governance controls validated with real admin workflows.
+
+## Track 5 — Launch Readiness (Weeks 18-20)
+
+- Release candidate hardening, migration docs, rollback drills.
+- Performance pass (core web vitals + high-volume admin tables).
+- GTM bundle:
+  - launch narrative
+  - migration guide from current MakerWorks release
+  - benchmark snapshots (throughput, operator time savings)
+
+Exit criteria:
+
+- Launch checklist complete with green status across engineering, product, and operations.
+
+---
+
+## 4) UI Modernization Blueprint (State-of-the-Art Target)
+
+### Design language
+
+- Introduce semantic tokens (`color.surface.*`, `color.status.*`, `space.*`, `motion.*`, etc.) and dark mode parity.
+- Use systemized data-density modes (comfortable/compact) per workflow context.
+- Standardize feedback patterns: toast hierarchy, inline validation, activity timelines.
+
+### Interaction model
+
+- Command palette as universal action layer.
+- Contextual drawers replacing deep navigation for frequent tasks.
+- Inline "why" explanations for pricing, lead-time, and risk decisions.
+- Real-time collaboration presence on model review + order approval pages.
+
+### Visual analytics
+
+- Unified chart grammar for analytics and production dashboards.
+- Drill-down from KPI cards to actionable queue/filter states.
+- Time-travel comparisons (today vs last week vs trailing 30-day baseline).
+
+---
+
+## 5) Technical Architecture Initiatives
+
+- Domain service boundaries for quoting, orchestration, inventory, and billing.
+- Event-driven workflow backbone for order/job state transitions.
+- Idempotency hardening across integrations and retries.
+- Background processing roadmap:
+  - queue partitioning by workload class
+  - dead-letter handling UX
+  - replay tooling for failed flows
+- Data strategy:
+  - query performance profiling + index roadmap
+  - analytical snapshot tables for dashboards
+
+---
+
+## 6) Quality and Performance Bar
+
+### Test strategy target for v3
+
+- Unit tests for critical pricing/orchestration logic.
+- API contract tests for public and admin endpoints.
+- End-to-end critical-path coverage:
+  - discover -> quote -> cart -> checkout
+  - order -> job creation -> printer assignment -> status callbacks
+  - backup -> restore smoke validation
+
+### Performance targets
+
+- <2.0s median interactive load on top storefront routes.
+- <500ms p95 for key quote and order read endpoints.
+- 99.9% success for job callback processing with retry traceability.
+
+---
+
+## 7) Suggested Team Structure for Delivery
+
+- **Track Lead: Platform/Reliability** (CI, infra, SLOs, upgrade waves)
+- **Track Lead: Design System + Frontend** (tokens, primitives, nav overhaul)
+- **Track Lead: Automation/AI** (routing engine, recommendation services)
+- **Track Lead: Integrations/Enterprise** (API/webhooks/connectors/governance)
+- **Release PM/Ops** (milestones, launch readiness, migration docs)
+
+---
+
+## 8) Risks and Mitigations
+
+- **Risk:** Scope explosion across too many major features.
+  - **Mitigation:** enforce milestone exit criteria and freeze non-critical features after week 14.
+- **Risk:** UI modernization causes regressions in mature operations workflows.
+  - **Mitigation:** shadow mode + operator pilot group before default rollout.
+- **Risk:** Automation confidence issues reduce trust.
+  - **Mitigation:** explainability + confidence thresholds + easy manual overrides.
+- **Risk:** Integration instability under production load.
+  - **Mitigation:** contract testing, replay tooling, and canary rollout by tenant.
+
+---
+
+## 9) Definition of Done (Major Release)
+
+MakerWorks v3 ships when all are true:
+
+1. Platform reliability objectives and SLO dashboards are live and stable.
+2. Core customer + operations surfaces use the new unified UI system.
+3. Automation features demonstrably reduce operator effort in real workflows.
+4. Governance and integration layers support enterprise adoption requirements.
+5. Migration and rollback playbooks are tested and published.
+
