@@ -116,6 +116,22 @@ const ADMIN_ACTIONS: CommandPaletteAction[] = [
     adminOnly: true,
   },
   {
+    id: 'admin-governance',
+    label: 'Governance',
+    description: 'Manage organization policy packs, spend controls, and approval graphs.',
+    href: '/admin/governance',
+    keywords: ['admin', 'governance', 'organizations', 'approvals', 'budgets', 'policy'],
+    adminOnly: true,
+  },
+  {
+    id: 'admin-webhooks',
+    label: 'Webhook & API ops',
+    description: 'Review webhook security posture, callback contracts, and operator guidance.',
+    href: '/admin/webhooks',
+    keywords: ['admin', 'webhooks', 'api', 'callbacks', 'signatures', 'docs'],
+    adminOnly: true,
+  },
+  {
     id: 'admin-jobs',
     label: 'Job queue',
     description: 'Inspect and manage queued job execution.',
@@ -183,6 +199,8 @@ export function resolvePaletteRoute(rawQuery: string): PaletteRouteResolution {
     likes: '/likes',
     me: '/me',
     admin: '/admin',
+    governance: '/admin/governance',
+    webhooks: '/admin/webhooks',
     users: '/admin/users',
     jobs: '/admin/jobs',
     inventory: '/admin/inventory',
@@ -195,7 +213,7 @@ export function resolvePaletteRoute(rawQuery: string): PaletteRouteResolution {
 
   const preferredNavOrder = [
     'home', 'discover', 'models', 'merch', 'products', 'store', 'upload', 'cart', 'checkout', 'orders', 'portal', 'workspace',
-    'workspaces', 'profile', 'account', 'orgs', 'organizations', 'likes', 'me', 'admin', 'users', 'jobs', 'inventory',
+    'workspaces', 'profile', 'account', 'orgs', 'organizations', 'likes', 'me', 'admin', 'governance', 'webhooks', 'users', 'jobs', 'inventory',
     'analytics', 'production',
   ]
 

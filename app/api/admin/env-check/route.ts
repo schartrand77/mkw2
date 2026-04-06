@@ -24,6 +24,7 @@ const OPTIONAL_CHECKS: Array<{ key: string; label: string; required: boolean; al
   { key: 'ORDERWORKS_BASE_URL', label: 'OrderWorks inbound base URL', required: false },
   { key: 'ORDERWORKS_USERNAME', label: 'OrderWorks username', required: false },
   { key: 'ORDERWORKS_PASSWORD', label: 'OrderWorks password', required: false },
+  { key: 'MAKERWORKS_INBOUND_SECRET', label: 'MakerWorks inbound webhook secret', required: false },
   { key: 'STOCKWORKS_BASE_URL', label: 'StockWorks base URL', required: false },
   { key: 'STOCKWORKS_ADMIN_USERNAME', label: 'StockWorks admin user', required: false, alt: ['STOCKWORKS_USERNAME'] },
   { key: 'STOCKWORKS_ADMIN_PASSWORD', label: 'StockWorks admin password', required: false, alt: ['STOCKWORKS_PASSWORD'] },

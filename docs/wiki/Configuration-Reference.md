@@ -85,12 +85,17 @@ Required for card-based checkout.
 - `PRINTLAB_SESSION_COOKIE`
 - `PRINTLAB_AUTH_HEADER`
 - `PRINTLAB_WEBHOOK_SECRET`
+- `MAKERWORKS_INBOUND_SECRET`
 
 Legacy alias support still exists for:
 
 - `BAMBU_VIEW_BASE_URL`
 - `BAMBU_VIEW_API_KEY`
 - related `BAMBU_VIEW_*` auth variables
+
+Webhook operations guidance:
+
+- See [`Webhook-Operations.md`](./Webhook-Operations.md) for callback authentication, replay windows, and rotation steps.
 
 ## Stockworks
 

@@ -34,6 +34,8 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin/products', label: 'Product builder' },
   { href: '/admin/catalog', label: 'Catalog manager' },
   { href: '/admin/production', label: 'Production' },
+  { href: '/admin/governance', label: 'Governance' },
+  { href: '/admin/webhooks', label: 'Webhook & API ops' },
   { href: '/admin/release-health', label: 'Release health' },
   { href: '/admin/jobs', label: 'Job queue' },
   { href: '/admin/processing-queues', label: 'Processing queues' },

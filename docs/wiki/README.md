@@ -13,6 +13,7 @@ It is intended to serve two purposes:
 - [Getting Started](./Getting-Started.md)
 - [Architecture](./Architecture.md)
 - [Configuration Reference](./Configuration-Reference.md)
+- [Webhook Operations](./Webhook-Operations.md)
 - [Operations Runbook](./Operations-Runbook.md)
 - [Product Guide](./Product-Guide.md)
 - [Developer Guide](./Developer-Guide.md)
