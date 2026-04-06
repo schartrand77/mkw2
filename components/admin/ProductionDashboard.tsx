@@ -67,6 +67,18 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null)
 
   const formattedGeneratedAt = useMemo(() => formatDateTime(snapshot.generatedAt), [snapshot.generatedAt])
+  const groupedOrders = useMemo(() => ({
+    queued: snapshot.orders.filter((order) => order.status === 'queued'),
+    printing: snapshot.orders.filter((order) => order.status === 'printing'),
+    postProcess: snapshot.orders.filter((order) => order.status === 'post_process'),
+    failed: snapshot.orders.filter((order) => order.status === 'failed'),
+  }), [snapshot.orders])
+  const exceptions = useMemo(() => snapshot.orders.filter((order) => (
+    order.status === 'failed' || !order.printerId || Boolean(order.orderWorksLastError) || order.queuePosition == null
+  )), [snapshot.orders])
+  const atRiskOrders = useMemo(() => snapshot.orders.filter((order) => (
+    typeof order.queuePosition === 'number' && order.queuePosition >= 6
+  )), [snapshot.orders])
 
   const loadPrinterStatus = async () => {
     setStatusLoading(true)
@@ -304,6 +316,93 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
           {error}
         </div>
       ) : null}
+
+      <section className="glass rounded-[1.75rem] border border-white/10 p-5 md:p-6 space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.34em] text-brand-300/80">Production board</p>
+            <h2 className="mt-2 text-2xl font-semibold">Queue flow by lane</h2>
+            <p className="mt-1 max-w-3xl text-sm text-slate-300">
+              Operators can scan the queue by current stage, then drop into exceptions and per-order actions without hunting across separate admin pages.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <WatchCard title="Queued" value={groupedOrders.queued.length} detail="Awaiting printer assignment or start." />
+            <WatchCard title="Printing" value={groupedOrders.printing.length} detail="Currently active on a machine." />
+            <WatchCard title="Post-process" value={groupedOrders.postProcess.length} detail="Cleanup, QA, and packing steps." />
+            <WatchCard title="Exceptions" value={exceptions.length} detail="Need operator intervention." />
+          </div>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-4">
+          <QueueLane title="Queued" subtitle="Ready for scheduling." tone="amber" orders={groupedOrders.queued} />
+          <QueueLane title="Printing" subtitle="Running or assigned." tone="sky" orders={groupedOrders.printing} />
+          <QueueLane title="Post-process" subtitle="Finishing and packing." tone="emerald" orders={groupedOrders.postProcess} />
+          <QueueLane title="Failed" subtitle="Blocked and needs recovery." tone="rose" orders={groupedOrders.failed} />
+        </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Exception handling</p>
+              <h2 className="mt-1 text-lg font-semibold">Orders needing attention</h2>
+            </div>
+            <span className="text-xs text-slate-400">{exceptions.length} flagged</span>
+          </div>
+          {exceptions.length === 0 ? (
+            <p className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-5 text-sm text-emerald-100">
+              No active exceptions. Queue assignment, integration state, and status flow all look healthy.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {exceptions.map((order) => (
+                <div key={`exception-${order.id}`} className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                        {order.orderNumber ? `MW-${order.orderNumber.toString().padStart(5, '0')}` : 'Draft order'}
+                      </p>
+                      <p className="font-medium text-white">{order.customerName || order.customerEmail || 'Customer order'}</p>
+                    </div>
+                    <OrderStatusBadge status={order.status} />
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-[11px]">
+                    {!order.printerId && <ExceptionChip label="Printer unassigned" tone="amber" />}
+                    {order.orderWorksLastError && <ExceptionChip label="OrderWorks error" tone="rose" />}
+                    {order.status === 'failed' && <ExceptionChip label="Production failure" tone="rose" />}
+                    {order.queuePosition == null && <ExceptionChip label="Missing queue position" tone="sky" />}
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 text-xs text-slate-300">
+                    <div>
+                      <p className="text-slate-500">Estimated print hours</p>
+                      <p className="mt-1 text-sm font-medium">{order.totalHours.toFixed(1)} hrs</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Projected completion</p>
+                      <p className="mt-1 text-sm font-medium">{order.estimatedCompletionAt ? formatDateTime(order.estimatedCompletionAt) : 'Unscheduled'}</p>
+                    </div>
+                  </div>
+                  {order.failureNote ? <p className="text-xs text-rose-200">Failure note: {order.failureNote}</p> : null}
+                  {order.orderWorksLastError ? <p className="text-xs text-rose-200">OrderWorks: {order.orderWorksLastError}</p> : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Operational watchlist</p>
+            <h2 className="mt-1 text-lg font-semibold">Immediate queue signals</h2>
+          </div>
+          <div className="space-y-3">
+            <WatchCard title="Unassigned jobs" value={snapshot.orders.filter((order) => !order.printerId).length} detail="Orders still waiting for a specific machine." />
+            <WatchCard title="At-risk queue depth" value={atRiskOrders.length} detail="Deeper queue items that may see lower ETA confidence." />
+            <WatchCard title="Integration issues" value={snapshot.orders.filter((order) => Boolean(order.orderWorksLastError)).length} detail="Orders carrying OrderWorks errors or needing follow-up." />
+          </div>
+        </div>
+      </section>
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2">
@@ -558,6 +657,77 @@ function formatDateTime(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '--'
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+
+function QueueLane({
+  title,
+  subtitle,
+  tone,
+  orders,
+}: {
+  title: string
+  subtitle: string
+  tone: 'amber' | 'sky' | 'emerald' | 'rose'
+  orders: OrderEntry[]
+}) {
+  const toneClass = tone === 'amber'
+    ? 'border-amber-400/20 bg-amber-500/5'
+    : tone === 'sky'
+      ? 'border-sky-400/20 bg-sky-500/5'
+      : tone === 'emerald'
+        ? 'border-emerald-400/20 bg-emerald-500/5'
+        : 'border-rose-400/20 bg-rose-500/5'
+
+  return (
+    <div className={`rounded-2xl border p-4 space-y-3 ${toneClass}`}>
+      <div>
+        <p className="text-sm font-semibold text-white">{title}</p>
+        <p className="text-xs text-slate-400">{subtitle}</p>
+      </div>
+      {orders.length === 0 ? (
+        <p className="rounded-xl border border-white/10 bg-black/20 px-3 py-4 text-xs text-slate-500">No orders in this lane.</p>
+      ) : (
+        <div className="space-y-2">
+          {orders.map((order) => (
+            <div key={`${title}-${order.id}`} className="rounded-xl border border-white/10 bg-black/20 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+                  {order.orderNumber ? `MW-${order.orderNumber.toString().padStart(5, '0')}` : 'Draft'}
+                </p>
+                <span className="text-[11px] text-slate-400">#{order.queuePosition ?? '--'}</span>
+              </div>
+              <p className="mt-2 text-sm font-medium text-white">{order.customerName || order.customerEmail || 'Customer order'}</p>
+              <div className="mt-2 grid gap-1 text-xs text-slate-400">
+                <span>Printer: {order.printerName || 'Unassigned'}</span>
+                <span>{order.totalHours.toFixed(1)} hrs</span>
+                <span>{order.estimatedCompletionAt ? formatDateTime(order.estimatedCompletionAt) : 'Unscheduled'}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ExceptionChip({ label, tone }: { label: string; tone: 'amber' | 'sky' | 'rose' }) {
+  const toneClass = tone === 'amber'
+    ? 'border-amber-400/30 bg-amber-500/10 text-amber-200'
+    : tone === 'sky'
+      ? 'border-sky-400/30 bg-sky-500/10 text-sky-200'
+      : 'border-rose-400/30 bg-rose-500/10 text-rose-200'
+
+  return <span className={`rounded-full border px-2 py-1 ${toneClass}`}>{label}</span>
+}
+
+function WatchCard({ title, value, detail }: { title: string; value: number; detail: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">{title}</p>
+      <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
+      <p className="mt-1 text-sm text-slate-400">{detail}</p>
+    </div>
+  )
 }
 
 function formatPrinterStatus(status: any) {

@@ -109,8 +109,9 @@ Success criteria:
 - Runtime/dependency modernization from `UPGRADE_RECOMMENDATIONS.md` execution wave.
 - CI quality gates:
   - route-level API contract tests
-  - smoke e2e pack for quote -> checkout -> order -> job
+  - ~~smoke e2e pack for quote -> checkout -> order -> job~~
   - backup/restore validation in CI-capable environment
+- Completed v3 foundation slice: focused server smoke coverage now exercises quote pricing plus the checkout -> OrderWorks -> customer order -> manufacturability artifact -> PrintLab submission path.
 - Observability baseline:
   - SLOs for checkout API, job orchestration callbacks, and queue processing
   - release health dashboard and alert thresholds
@@ -131,10 +132,12 @@ Exit criteria:
 - High-impact surface redesign:
   - ~~discover/search UX~~
   - ~~model detail + quote workspace~~
-  - checkout and order status timeline
-  - production queue board + exception handling panels
+  - ~~checkout and order status timeline~~
+  - ~~production queue board + exception handling panels~~
 - Completed v3 surface slice: Discover now uses the new hero search/filter stack, presets, and improved result states.
 - Completed v3 surface slice: Model detail now uses a clearer review-and-quote workspace with structured buyer guidance and quote flow entry.
+- Completed v3 surface slice: Checkout and customer order detail now share clearer status-preview and timeline patterns across purchase and fulfillment.
+- Completed v3 surface slice: Admin production now includes a queue board and dedicated exception-handling/watchlist layer for operator triage.
 
 Exit criteria:
 

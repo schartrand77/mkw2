@@ -8,6 +8,7 @@ import OrderSummary from '@/components/checkout/OrderSummary'
 import TrustBadge from '@/components/checkout/TrustBadge'
 import CheckoutMiniSummary from '@/components/checkout/CheckoutMiniSummary'
 import ConfigurationCompareCard from '@/components/checkout/ConfigurationCompareCard'
+import CheckoutStatusPreview from '@/components/checkout/CheckoutStatusPreview'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 import { useCart } from '@/components/cart/CartProvider'
 import type { CheckoutIntentResponse, CheckoutItemInput, ShippingAddress, CheckoutPaymentMethod, Dimensions, CheckoutOrganization } from '@/types/checkout'
@@ -476,6 +477,18 @@ export default function CheckoutPage() {
     : null
   const meetsMinimumOrder = isAdminFreeCheckout || !minimumOrderSubtotal || (intentSubtotal != null && intentSubtotal >= minimumOrderSubtotal)
   const disableFinalize = hasMissingColors || !meetsMinimumOrder
+  const paymentMethodLabel = isAdminFreeCheckout
+    ? 'Admin free checkout'
+    : paymentMethod === 'card'
+      ? 'Pay now by card'
+      : paymentMethod === 'cash'
+        ? 'Pay cash at pickup'
+        : paymentMethod === 'invoice'
+          ? 'Invoice request'
+          : paymentMethod === 'po'
+            ? 'Purchase order review'
+            : 'Quote approval flow'
+  const shippingMethodLabel = shippingMethod === 'ship' ? 'Ship to saved address' : `Local pickup at ${BRAND_LAB_NAME}`
 
   if (!checkoutItemsState.length && !successIntent && !cashConfirmationId) {
     return (
@@ -487,7 +500,44 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto grid gap-6 md:grid-cols-2">
+    <div className="max-w-6xl mx-auto space-y-6">
+      <section className="glass rounded-[1.75rem] border border-white/10 p-5 md:p-7">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.8fr)] lg:items-start">
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.34em] text-brand-300/80">Checkout v3</p>
+              <h1 className="text-3xl font-semibold md:text-4xl">Confirm pricing, payment, and fulfillment with fewer surprises.</h1>
+              <p className="max-w-2xl text-sm text-slate-300 md:text-base">
+                Review the full quote, pick a payment path, and see exactly how the order moves from checkout into production and final pickup or shipping.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Cart items</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{checkoutItemsState.length}</p>
+                <p className="mt-1 text-sm text-slate-400">Each item keeps material, scale, color, and lead-time data attached.</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Payment path</p>
+                <p className="mt-2 text-base font-semibold text-white">{paymentMethodLabel}</p>
+                <p className="mt-1 text-sm text-slate-400">Switch between immediate payment and deferred billing or approval flows.</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Fulfillment</p>
+                <p className="mt-2 text-base font-semibold text-white">{shippingMethodLabel}</p>
+                <p className="mt-1 text-sm text-slate-400">The status rail on the right shows what happens after confirmation.</p>
+              </div>
+            </div>
+          </div>
+          <CheckoutStatusPreview
+            paymentMethodLabel={paymentMethodLabel}
+            shippingMethodLabel={shippingMethodLabel}
+            confirmed={Boolean(successIntent || cashConfirmationId)}
+            confirmationId={successIntent?.id || cashConfirmationId}
+          />
+        </div>
+      </section>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,420px)]">
       <div className="space-y-4">
         <div>
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -875,6 +925,12 @@ export default function CheckoutPage() {
         )}
       </div>
       <div className="glass rounded-2xl border border-white/10 p-6 space-y-4 self-start md:sticky md:top-24">
+        <CheckoutStatusPreview
+          paymentMethodLabel={paymentMethodLabel}
+          shippingMethodLabel={shippingMethodLabel}
+          confirmed={Boolean(successIntent || cashConfirmationId)}
+          confirmationId={successIntent?.id || cashConfirmationId}
+        />
         {intent ? (
           <CheckoutMiniSummary
             items={intent.lineItems}
@@ -961,6 +1017,7 @@ export default function CheckoutPage() {
           <p className="text-sm text-slate-300">You can close this tab or continue browsing models.</p>
         )}
       </div>
+    </div>
     </div>
   )
 }

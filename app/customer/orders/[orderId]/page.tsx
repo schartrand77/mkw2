@@ -9,6 +9,7 @@ import RevisionUploader from '@/components/orders/RevisionUploader'
 import ApprovalRequests from '@/components/orders/ApprovalRequests'
 import OrderMessageComposer from '@/components/orders/OrderMessageComposer'
 import OrganizationQuoteApproval from '@/components/orders/OrganizationQuoteApproval'
+import OrderTimeline from '@/components/orders/OrderTimeline'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { normalizeOrderStatus } from '@/lib/order-status'
 import { summarizePrintLabJobs } from '@/lib/printlab-jobs'
@@ -135,8 +136,33 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{formatOrderNumber(order.orderNumber)}</p>
             <h1 className="text-3xl font-semibold">{formatCurrency(order.totalCents / 100, order.currency as Currency)}</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-300">
+              Track payment, approvals, production, and fulfillment in one place. This order view now mirrors the checkout handoff with a live status timeline and production context.
+            </p>
           </div>
           <OrderStatusBadge status={order.status} />
+        </div>
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Current stage</p>
+            <p className="mt-2 text-base font-semibold text-white">{progress.label}</p>
+            <p className="mt-1 text-xs text-slate-400">{progress.percent}% through the default fulfillment path.</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">ETA confidence</p>
+            <p className="mt-2 text-base font-semibold text-white">{formatConfidence(production?.etaConfidenceScore)}</p>
+            <p className="mt-1 text-xs text-slate-400">Updated from queue state, printer availability, and material readiness.</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Queue position</p>
+            <p className="mt-2 text-base font-semibold text-white">{production?.queuePosition ?? 'Pending'}</p>
+            <p className="mt-1 text-xs text-slate-400">Moves as jobs are assigned, retried, or completed upstream.</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[11px] uppercase tracking-[0.25em] text-slate-500">Fulfillment</p>
+            <p className="mt-2 text-base font-semibold text-white capitalize">{order.shippingMethod}</p>
+            <p className="mt-1 text-xs text-slate-400">{shippingAddress ? 'Shipping details confirmed below.' : 'Pickup instructions remain attached to this order.'}</p>
+          </div>
         </div>
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-4">
@@ -372,34 +398,7 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
         </div>
         <div className="glass rounded-2xl border border-white/10 p-6 space-y-4">
           <h2 className="text-xl font-semibold">Order timeline</h2>
-          {timeline.length === 0 ? (
-            <p className="text-sm text-slate-400">No updates yet.</p>
-          ) : (
-            <ul className="space-y-3">
-              {timeline.map((entry) => (
-                <li key={entry.id} className="rounded-lg border border-white/10 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium">{entry.title}</p>
-                      {entry.actor && <p className="text-xs text-slate-400">{entry.actor}</p>}
-                    </div>
-                    <p className="text-xs text-slate-400">{formatDate(entry.createdAt)}</p>
-                  </div>
-                  {entry.detail && <p className="text-xs text-slate-300 mt-2">{entry.detail}</p>}
-                  {entry.link ? (
-                    <a
-                      href={entry.link.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-brand-400 hover:text-brand-300 underline underline-offset-4 mt-2 inline-block"
-                    >
-                      {entry.link.label}
-                    </a>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
+          <OrderTimeline entries={timeline} formatDate={formatDate} />
         </div>
       </div>
       <div className="grid lg:grid-cols-2 gap-6">
