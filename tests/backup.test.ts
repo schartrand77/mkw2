@@ -4,8 +4,15 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { runBackup, listBackups, scheduleRestore, getPendingRestore, pruneBackups, getNextScheduledBackupAt } = require('../lib/backups')
+const {
+  runBackup,
+  listBackups,
+  scheduleRestore,
+  getPendingRestore,
+  applyPendingRestore,
+  pruneBackups,
+  getNextScheduledBackupAt,
+} = require('../lib/backups')
 
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'makerworks-backup-'))
@@ -32,6 +39,32 @@ function writeFakePgDump(binDir: string) {
   fs.writeFileSync(
     shPath,
     ['#!/bin/sh', 'if [ "$1" = "--version" ]; then', '  echo "pg_dump (PostgreSQL) 16.0"', '  exit 0', 'fi', 'echo "-- mock pg_dump"', ''].join('\n'),
+    { mode: 0o755 },
+  )
+  return shPath
+}
+
+function writeFakePsql(binDir: string) {
+  if (process.platform === 'win32') {
+    const cmdPath = path.join(binDir, 'psql.cmd')
+    fs.writeFileSync(
+      cmdPath,
+      [
+        '@echo off',
+        'if "%1"=="--version" (',
+        '  echo psql ^(PostgreSQL^) 16.0',
+        '  exit /B 0',
+        ')',
+        'exit /B 0',
+        '',
+      ].join('\r\n'),
+    )
+    return cmdPath
+  }
+  const shPath = path.join(binDir, 'psql')
+  fs.writeFileSync(
+    shPath,
+    ['#!/bin/sh', 'if [ "$1" = "--version" ]; then', '  echo "psql (PostgreSQL) 16.0"', '  exit 0', 'fi', 'exit 0', ''].join('\n'),
     { mode: 0o755 },
   )
   return shPath
@@ -155,6 +188,64 @@ test('scheduleRestore creates pending restore manifest', () => {
     } else {
       process.env.LOG_BACKUPS = previousLog
     }
+    fs.rmSync(tempRoot, { recursive: true, force: true })
+  }
+})
+
+test('applyPendingRestore restores storage contents and clears the pending manifest', () => {
+  const tempRoot = makeTempDir()
+  const binDir = path.join(tempRoot, 'bin')
+  const storageDir = path.join(tempRoot, 'storage')
+  fs.mkdirSync(binDir, { recursive: true })
+  fs.mkdirSync(path.join(storageDir, 'uploads'), { recursive: true })
+  fs.mkdirSync(path.join(storageDir, 'generated'), { recursive: true })
+  fs.writeFileSync(path.join(storageDir, 'uploads', 'original.txt'), 'before-backup', 'utf8')
+  fs.writeFileSync(path.join(storageDir, 'generated', 'stale.txt'), 'stale', 'utf8')
+  const pgDumpPath = writeFakePgDump(binDir)
+  const psqlPath = writeFakePsql(binDir)
+
+  const previousPath = process.env.PATH
+  const previousPathAlt = process.env.Path
+  const previousStorage = process.env.STORAGE_DIR
+  const previousPgDump = process.env.PG_DUMP_BIN
+  const previousPsql = process.env.PSQL_BIN
+  const previousSkipDocker = process.env.SKIP_DOCKER
+  const previousLog = process.env.LOG_BACKUPS
+  const nextPath = `${binDir}${path.delimiter}${previousPath || previousPathAlt || ''}`
+  process.env.PATH = nextPath
+  process.env.Path = nextPath
+  process.env.STORAGE_DIR = storageDir
+  process.env.PG_DUMP_BIN = pgDumpPath
+  process.env.PSQL_BIN = psqlPath
+  process.env.SKIP_DOCKER = '1'
+  process.env.LOG_BACKUPS = 'false'
+
+  try {
+    const backupDir = runBackup()
+    const folder = path.basename(backupDir)
+    fs.writeFileSync(path.join(storageDir, 'uploads', 'original.txt'), 'after-backup', 'utf8')
+    fs.writeFileSync(path.join(storageDir, 'generated', 'new.txt'), 'should-be-removed', 'utf8')
+
+    scheduleRestore(folder)
+    const result = applyPendingRestore()
+
+    assert.deepEqual(result, { backupPath: `backups/${folder}` })
+    assert.equal(fs.readFileSync(path.join(storageDir, 'uploads', 'original.txt'), 'utf8'), 'before-backup')
+    assert.ok(!fs.existsSync(path.join(storageDir, 'generated', 'new.txt')))
+    assert.equal(getPendingRestore(), null)
+  } finally {
+    process.env.PATH = previousPath
+    process.env.Path = previousPathAlt
+    if (previousStorage === undefined) delete process.env.STORAGE_DIR
+    else process.env.STORAGE_DIR = previousStorage
+    if (previousPgDump === undefined) delete process.env.PG_DUMP_BIN
+    else process.env.PG_DUMP_BIN = previousPgDump
+    if (previousPsql === undefined) delete process.env.PSQL_BIN
+    else process.env.PSQL_BIN = previousPsql
+    if (previousSkipDocker === undefined) delete process.env.SKIP_DOCKER
+    else process.env.SKIP_DOCKER = previousSkipDocker
+    if (previousLog === undefined) delete process.env.LOG_BACKUPS
+    else process.env.LOG_BACKUPS = previousLog
     fs.rmSync(tempRoot, { recursive: true, force: true })
   }
 })

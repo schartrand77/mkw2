@@ -3,6 +3,7 @@ import test from 'node:test'
 import { NextRequest } from 'next/server'
 
 import { POST as checkoutPost } from '../app/api/checkout/route'
+import { POST as quotePost } from '../app/api/models/[id]/quote/route'
 import { POST as loginPost } from '../app/api/login/route'
 import { POST as registerPost } from '../app/api/register/route'
 import { POST as customerOrderMessagePost } from '../app/api/customer/orders/[orderId]/messages/route'
@@ -62,6 +63,280 @@ test('checkout blocks cash payments when shipping is requested', async () => {
   assert.equal(res.status, 400)
   const payload = await res.json()
   assert.equal(payload.error, 'Cash payments are only available for local pickup')
+})
+
+test('quote returns 400 for an invalid quote payload contract', async () => {
+  const req = jsonRequest('http://localhost/api/models/model_1/quote', {
+    qty: 0,
+    colors: ['#ffffff'],
+  })
+  const res = await quotePost(req, {
+    params: Promise.resolve({ id: 'model_1' }),
+  })
+  assert.equal(res.status, 400)
+  const payload = await res.json()
+  assert.equal(payload.error, 'Invalid quote payload')
+})
+
+test('quote returns 404 when the requested model does not exist', async () => {
+  const originalModelFindUnique = (prisma.model as any).findUnique
+  ;(prisma.model as any).findUnique = async () => null
+
+  const req = jsonRequest('http://localhost/api/models/missing/quote', {
+    qty: 1,
+    colors: ['#ffffff'],
+  })
+  try {
+    const res = await quotePost(req, {
+      params: Promise.resolve({ id: 'missing' }),
+    })
+    assert.equal(res.status, 404)
+    const payload = await res.json()
+    assert.equal(payload.error, 'Model not found')
+  } finally {
+    ;(prisma.model as any).findUnique = originalModelFindUnique
+  }
+})
+
+test('quote enforces model color-slot limits', async () => {
+  const originalModelFindUnique = (prisma.model as any).findUnique
+  const originalSiteConfigFindUnique = (prisma.siteConfig as any).findUnique
+  ;(prisma.model as any).findUnique = async () => ({
+    id: 'model_color_limit',
+    title: 'Panel',
+    material: 'PLA',
+    volumeMm3: 1000,
+    sizeXmm: 10,
+    sizeYmm: 10,
+    sizeZmm: 10,
+    salePriceUsd: 5,
+    flatRatePricing: false,
+    supportRatio: 0.05,
+    colorSlotCount: 1,
+    allowedColors: ['#ffffff', '#000000'],
+  })
+  ;(prisma.siteConfig as any).findUnique = async () => ({ id: 'main' })
+
+  const req = jsonRequest('http://localhost/api/models/model_color_limit/quote', {
+    qty: 1,
+    colors: ['#ffffff', '#000000'],
+  })
+  try {
+    const res = await quotePost(req, {
+      params: Promise.resolve({ id: 'model_color_limit' }),
+    })
+    assert.equal(res.status, 400)
+    const payload = await res.json()
+    assert.equal(payload.error, 'This model allows up to 1 color slots.')
+  } finally {
+    ;(prisma.model as any).findUnique = originalModelFindUnique
+    ;(prisma.siteConfig as any).findUnique = originalSiteConfigFindUnique
+  }
+})
+
+test('checkout returns a stable preview payload for quote-based carts', async () => {
+  const originalUserFindUnique = (prisma.user as any).findUnique
+  const originalModelFindMany = (prisma.model as any).findMany
+  const originalSiteConfigFindUnique = (prisma.siteConfig as any).findUnique
+  const originalModelPartFindMany = (prisma.modelPart as any).findMany
+  const originalPrinterFindMany = (prisma.printer as any).findMany
+  const originalJobFormFindMany = (prisma.jobForm as any).findMany
+  const originalPrintOrderFindMany = (prisma.printOrder as any).findMany
+
+  ;(prisma.user as any).findUnique = async () => null
+  ;(prisma.model as any).findMany = async () => [
+    {
+      id: 'model_preview_1',
+      title: 'Preview Bracket',
+      priceUsd: 18,
+      effectivePriceUsd: 18,
+      salePriceUsd: 18,
+      disableCustomerDiscounts: false,
+      flatRatePricing: false,
+      volumeMm3: 12000,
+      material: 'PLA',
+      sizeXmm: 100,
+      sizeYmm: 50,
+      sizeZmm: 30,
+      supportRatio: 0.08,
+      printabilityScore: 0.91,
+      failureRiskScore: 0.06,
+      orientationSuggestion: 'Lay flat',
+      supportLikelihood: 'low',
+      colorSlotCount: 2,
+      allowedColors: ['#ffffff', '#000000'],
+      filePath: '/models/preview-bracket.3mf',
+      viewerFilePath: '/models/preview-bracket.3mf',
+      _count: { parts: 0 },
+    },
+  ]
+  ;(prisma.siteConfig as any).findUnique = async () => ({
+    id: 'main',
+    minimumPriceUsd: 1,
+    minimumOrderSubtotalUsd: null,
+  })
+  ;(prisma.modelPart as any).findMany = async () => []
+  ;(prisma.printer as any).findMany = async () => [
+    { id: 'printer_preview_1', name: 'X1C', active: true, status: 'available' },
+  ]
+  ;(prisma.jobForm as any).findMany = async () => []
+  ;(prisma.printOrder as any).findMany = async () => []
+
+  const req = jsonRequest('http://localhost/api/checkout', {
+    paymentMethod: 'quote',
+    items: [
+      {
+        modelId: 'model_preview_1',
+        qty: 2,
+        colors: ['#ffffff'],
+        material: 'PLA',
+      },
+    ],
+    shipping: { method: 'pickup' },
+  })
+
+  try {
+    const res = await checkoutPost(req, {} as any)
+    assert.equal(res.status, 200)
+    const payload = await res.json()
+    assert.equal(payload.committed, false)
+    assert.equal(payload.paymentMethod, 'quote')
+    assert.match(payload.paymentIntentId, /^quote_preview_/)
+    assert.equal(payload.lineItems.length, 1)
+    assert.equal(payload.lineItems[0].modelId, 'model_preview_1')
+    assert.equal(payload.lineItems[0].qty, 2)
+    assert.equal(payload.shipping.method, 'pickup')
+    assert.equal(payload.printLabSubmission, null)
+    assert.ok(payload.amount > 0)
+    assert.ok(payload.estimatedTotal > 0)
+  } finally {
+    ;(prisma.user as any).findUnique = originalUserFindUnique
+    ;(prisma.model as any).findMany = originalModelFindMany
+    ;(prisma.siteConfig as any).findUnique = originalSiteConfigFindUnique
+    ;(prisma.modelPart as any).findMany = originalModelPartFindMany
+    ;(prisma.printer as any).findMany = originalPrinterFindMany
+    ;(prisma.jobForm as any).findMany = originalJobFormFindMany
+    ;(prisma.printOrder as any).findMany = originalPrintOrderFindMany
+  }
+})
+
+test('checkout returns 404 when a requested model is unavailable', async () => {
+  const originalUserFindUnique = (prisma.user as any).findUnique
+  const originalModelFindMany = (prisma.model as any).findMany
+  const originalSiteConfigFindUnique = (prisma.siteConfig as any).findUnique
+
+  ;(prisma.user as any).findUnique = async () => null
+  ;(prisma.model as any).findMany = async () => []
+  ;(prisma.siteConfig as any).findUnique = async () => ({ id: 'main' })
+
+  const req = jsonRequest('http://localhost/api/checkout', {
+    paymentMethod: 'quote',
+    items: [
+      {
+        modelId: 'missing_model',
+        qty: 1,
+        colors: ['#ffffff'],
+      },
+    ],
+    shipping: { method: 'pickup' },
+  })
+
+  try {
+    const res = await checkoutPost(req, {} as any)
+    assert.equal(res.status, 404)
+    const payload = await res.json()
+    assert.equal(payload.error, 'One or more models are unavailable')
+  } finally {
+    ;(prisma.user as any).findUnique = originalUserFindUnique
+    ;(prisma.model as any).findMany = originalModelFindMany
+    ;(prisma.siteConfig as any).findUnique = originalSiteConfigFindUnique
+  }
+})
+
+test('checkout finalize requires paymentIntentId for card payments', async () => {
+  const envSnapshot = {
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+  }
+  process.env.STRIPE_SECRET_KEY = 'sk_test_contract'
+  const originalUserFindUnique = (prisma.user as any).findUnique
+  const originalModelFindMany = (prisma.model as any).findMany
+  const originalSiteConfigFindUnique = (prisma.siteConfig as any).findUnique
+  const originalModelPartFindMany = (prisma.modelPart as any).findMany
+  const originalPrinterFindMany = (prisma.printer as any).findMany
+  const originalJobFormFindMany = (prisma.jobForm as any).findMany
+  const originalPrintOrderFindMany = (prisma.printOrder as any).findMany
+
+  ;(prisma.user as any).findUnique = async () => null
+  ;(prisma.model as any).findMany = async () => [
+    {
+      id: 'model_card_1',
+      title: 'Card Bracket',
+      priceUsd: 22,
+      effectivePriceUsd: 22,
+      salePriceUsd: 22,
+      disableCustomerDiscounts: false,
+      flatRatePricing: false,
+      volumeMm3: 12000,
+      material: 'PLA',
+      sizeXmm: 80,
+      sizeYmm: 40,
+      sizeZmm: 20,
+      supportRatio: 0.05,
+      printabilityScore: 0.95,
+      failureRiskScore: 0.03,
+      orientationSuggestion: 'Lay flat',
+      supportLikelihood: 'low',
+      colorSlotCount: 2,
+      allowedColors: ['#ffffff'],
+      filePath: '/models/card-bracket.3mf',
+      viewerFilePath: '/models/card-bracket.3mf',
+      _count: { parts: 0 },
+    },
+  ]
+  ;(prisma.siteConfig as any).findUnique = async () => ({
+    id: 'main',
+    minimumPriceUsd: 1,
+    minimumOrderSubtotalUsd: null,
+  })
+  ;(prisma.modelPart as any).findMany = async () => []
+  ;(prisma.printer as any).findMany = async () => [
+    { id: 'printer_card_1', name: 'A1', active: true, status: 'available' },
+  ]
+  ;(prisma.jobForm as any).findMany = async () => []
+  ;(prisma.printOrder as any).findMany = async () => []
+
+  const req = jsonRequest('http://localhost/api/checkout', {
+    commit: true,
+    paymentMethod: 'card',
+    items: [
+      {
+        modelId: 'model_card_1',
+        qty: 1,
+        colors: ['#ffffff'],
+        material: 'PLA',
+      },
+    ],
+    shipping: { method: 'pickup' },
+  })
+
+  try {
+    const res = await checkoutPost(req, {} as any)
+    assert.equal(res.status, 400)
+    const payload = await res.json()
+    assert.equal(payload.error, 'paymentIntentId is required to finalize checkout.')
+  } finally {
+    for (const [key, value] of Object.entries(envSnapshot)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+    ;(prisma.user as any).findUnique = originalUserFindUnique
+    ;(prisma.model as any).findMany = originalModelFindMany
+    ;(prisma.siteConfig as any).findUnique = originalSiteConfigFindUnique
+    ;(prisma.modelPart as any).findMany = originalModelPartFindMany
+    ;(prisma.printer as any).findMany = originalPrinterFindMany
+    ;(prisma.jobForm as any).findMany = originalJobFormFindMany
+    ;(prisma.printOrder as any).findMany = originalPrintOrderFindMany
+  }
 })
 
 test('login returns 400 for invalid payload', async () => {

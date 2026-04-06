@@ -108,6 +108,14 @@ const ADMIN_ACTIONS: CommandPaletteAction[] = [
     adminOnly: true,
   },
   {
+    id: 'admin-release-health',
+    label: 'Release health',
+    description: 'Inspect live SLOs, dependencies, and launch-risk alerts.',
+    href: '/admin/release-health',
+    keywords: ['admin', 'release', 'health', 'slo', 'metrics', 'alerts'],
+    adminOnly: true,
+  },
+  {
     id: 'admin-jobs',
     label: 'Job queue',
     description: 'Inspect and manage queued job execution.',

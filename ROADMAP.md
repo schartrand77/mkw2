@@ -108,13 +108,16 @@ Success criteria:
 
 - Runtime/dependency modernization from `UPGRADE_RECOMMENDATIONS.md` execution wave.
 - CI quality gates:
-  - route-level API contract tests
+  - ~~route-level API contract tests~~
   - ~~smoke e2e pack for quote -> checkout -> order -> job~~
-  - backup/restore validation in CI-capable environment
+  - ~~backup/restore validation in CI-capable environment~~
+- Completed v3 foundation slice: route-level API contract coverage now locks key quote, checkout, auth, and job-update response/error contracts.
 - Completed v3 foundation slice: focused server smoke coverage now exercises quote pricing plus the checkout -> OrderWorks -> customer order -> manufacturability artifact -> PrintLab submission path.
+- Completed v3 foundation slice: backup and restore validation now includes an executable restore-flow test and Windows-safe local `psql` restore handling.
 - Observability baseline:
-  - SLOs for checkout API, job orchestration callbacks, and queue processing
-  - release health dashboard and alert thresholds
+  - ~~SLOs for checkout API, job orchestration callbacks, and queue processing~~
+  - ~~release health dashboard and alert thresholds~~
+- Completed v3 foundation slice: admin release health now surfaces live SLO summaries for checkout API, webhook callbacks, queue pressure, and dependency checks with warn/fail thresholds.
 
 Exit criteria:
 

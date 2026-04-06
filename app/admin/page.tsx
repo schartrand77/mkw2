@@ -57,7 +57,7 @@ export default async function AdminPage() {
               ? `Pending restore: ${(pendingRestore.relativePath || pendingRestore.backupPath || '').replace(/^backups\//, '')}`
               : 'No restore currently scheduled.'}
           </p>
-          <Link href="/admin/backup-tools" className="mt-4 inline-flex text-xs text-brand-300 underline">
+            <Link href="/admin/backup-tools" className="mt-4 inline-flex text-xs text-brand-300 underline">
             Open backups page
           </Link>
         </div>
@@ -69,6 +69,7 @@ export default async function AdminPage() {
             <Link href="/admin/notifications" className="block underline text-brand-300">Notifications</Link>
             <Link href="/admin/home-comments" className="block underline text-brand-300">Home comments</Link>
             <Link href="/admin/production" className="block underline text-brand-300">Production dashboard</Link>
+            <Link href="/admin/release-health" className="block underline text-brand-300">Release health</Link>
             <Link href="/admin/users" className="block underline text-brand-300">User manager</Link>
             <Link href="/admin/models" className="block underline text-brand-300">Model library</Link>
           </div>

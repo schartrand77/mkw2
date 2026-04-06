@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/app/api/admin/_utils'
 import { getInMemoryMetricsSnapshot } from '@/lib/observability-metrics'
-import { getOperationalMetrics } from '@/lib/observability-health'
+import { getOperationalMetrics, getReleaseHealthSnapshot } from '@/lib/observability-health'
 import { withRequestObservability } from '@/lib/request-observability'
 
 export const dynamic = 'force-dynamic'
@@ -13,15 +13,17 @@ async function handleGet() {
     return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 })
   }
 
-  const [runtime, operational] = await Promise.all([
+  const [runtime, operational, releaseHealth] = await Promise.all([
     Promise.resolve(getInMemoryMetricsSnapshot()),
     getOperationalMetrics(),
+    getReleaseHealthSnapshot(),
   ])
 
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
     runtime,
     operational,
+    releaseHealth,
   })
 }
 

@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test --import tsx",
     "test:api": "node --test --import tsx tests/api-integration-flows.test.ts",
+    "test:backup": "node --test --import tsx tests/backup.test.ts",
     "test:contracts": "node --test --import tsx tests/integration-contracts.test.ts",
     "e2e": "playwright test",
     "prisma:migrate:drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url \"$SHADOW_DATABASE_URL\" --exit-code",

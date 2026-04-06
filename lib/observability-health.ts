@@ -14,6 +14,27 @@ type DependencyCheck = {
   detail?: string
 }
 
+type RuntimeSnapshot = ReturnType<typeof getInMemoryMetricsSnapshot>
+
+export type ReleaseHealthStatus = 'ok' | 'warn' | 'fail'
+
+type ReleaseHealthSlo = {
+  key: string
+  label: string
+  status: ReleaseHealthStatus
+  summary: string
+  target: string
+  metrics: Record<string, number | string | null>
+}
+
+export type ReleaseHealthSnapshot = {
+  generatedAt: string
+  status: ReleaseHealthStatus
+  alerts: Array<{ severity: ReleaseHealthStatus; area: string; message: string }>
+  dependencies: Awaited<ReturnType<typeof runDependencyChecks>>
+  slos: ReleaseHealthSlo[]
+}
+
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: NodeJS.Timeout | null = null
   try {
@@ -109,12 +130,220 @@ export async function runDependencyChecks() {
   }
 }
 
+function asSeverityRank(status: ReleaseHealthStatus) {
+  if (status === 'fail') return 2
+  if (status === 'warn') return 1
+  return 0
+}
+
+function pickHigherStatus(a: ReleaseHealthStatus, b: ReleaseHealthStatus): ReleaseHealthStatus {
+  return asSeverityRank(a) >= asSeverityRank(b) ? a : b
+}
+
+function getCounterTotal(
+  runtime: RuntimeSnapshot,
+  name: string,
+  predicate?: (labels: Record<string, string>) => boolean,
+) {
+  return runtime.counters
+    .filter((entry) => entry.name === name)
+    .filter((entry) => (predicate ? predicate(entry.labels) : true))
+    .reduce((sum, entry) => sum + entry.value, 0)
+}
+
+function getRequestStatsForRoute(runtime: RuntimeSnapshot, route: string) {
+  const requests = runtime.counters
+    .filter((entry) => entry.name === 'api_requests_total')
+    .filter((entry) => entry.labels.route === route)
+  const total = requests.reduce((sum, entry) => sum + entry.value, 0)
+  const healthy = requests
+    .filter((entry) => Number(entry.labels.status || 0) < 500)
+    .reduce((sum, entry) => sum + entry.value, 0)
+  const serverErrors = requests
+    .filter((entry) => Number(entry.labels.status || 0) >= 500)
+    .reduce((sum, entry) => sum + entry.value, 0)
+  const duration = runtime.durations.find((entry) => entry.name === 'api_request_latency_ms' && entry.labels.route === route) || null
+  return {
+    total,
+    healthy,
+    serverErrors,
+    availabilityPct: total > 0 ? Number(((healthy / total) * 100).toFixed(3)) : null,
+    avgMs: duration?.avgMs ?? null,
+    p95Ms: (duration as any)?.p95Ms ?? null,
+  }
+}
+
+function describePercent(value: number | null, fractionDigits = 2) {
+  if (value == null || !Number.isFinite(value)) return '--'
+  return `${value.toFixed(fractionDigits)}%`
+}
+
+function describeMs(value: number | null) {
+  if (value == null || !Number.isFinite(value)) return '--'
+  return `${value.toFixed(0)} ms`
+}
+
+function describeHours(value: number | null) {
+  if (value == null || !Number.isFinite(value)) return '--'
+  return `${value.toFixed(1)}h`
+}
+
+export function buildReleaseHealthSnapshot(args: {
+  runtime: RuntimeSnapshot
+  operational: Awaited<ReturnType<typeof getOperationalMetrics>>
+  dependencies: Awaited<ReturnType<typeof runDependencyChecks>>
+}): ReleaseHealthSnapshot {
+  const { runtime, operational, dependencies } = args
+  const slos: ReleaseHealthSlo[] = []
+  const alerts: ReleaseHealthSnapshot['alerts'] = []
+
+  const checkout = getRequestStatsForRoute(runtime, '/api/checkout')
+  let checkoutStatus: ReleaseHealthStatus = 'ok'
+  if (checkout.total === 0) {
+    checkoutStatus = 'warn'
+  } else if ((checkout.availabilityPct ?? 100) < 99.5 || (checkout.p95Ms ?? 0) > 2500) {
+    checkoutStatus = 'fail'
+  } else if ((checkout.availabilityPct ?? 100) < 99.9 || (checkout.p95Ms ?? 0) > 1500) {
+    checkoutStatus = 'warn'
+  }
+  slos.push({
+    key: 'checkout_api',
+    label: 'Checkout API',
+    status: checkoutStatus,
+    summary: checkout.total === 0
+      ? 'No checkout traffic recorded since process start.'
+      : `${describePercent(checkout.availabilityPct, 3)} availability, ${describeMs(checkout.p95Ms)} p95 latency.`,
+    target: 'Availability >= 99.9%, p95 <= 1500 ms',
+    metrics: {
+      requests: checkout.total,
+      availabilityPct: checkout.availabilityPct,
+      p95Ms: checkout.p95Ms,
+      serverErrors: checkout.serverErrors,
+    },
+  })
+  if (checkoutStatus !== 'ok') {
+    alerts.push({
+      severity: checkoutStatus,
+      area: 'Checkout API',
+      message: checkout.total === 0
+        ? 'No checkout API samples recorded yet.'
+        : `Checkout API is outside target: availability ${describePercent(checkout.availabilityPct, 3)}, p95 ${describeMs(checkout.p95Ms)}.`,
+    })
+  }
+
+  const callbackSuccess = getCounterTotal(runtime, 'job_webhook_success_total')
+  const callbackFailure = getCounterTotal(runtime, 'job_webhook_failure_total')
+  const callbackTotal = callbackSuccess + callbackFailure
+  const callbackLatencyCandidates = [
+    getRequestStatsForRoute(runtime, '/api/printlab/jobs/[jobId]'),
+    getRequestStatsForRoute(runtime, '/api/makerworks/jobs'),
+  ].filter((entry) => entry.total > 0)
+  const callbackP95 = callbackLatencyCandidates.length > 0
+    ? Math.max(...callbackLatencyCandidates.map((entry) => entry.p95Ms || 0))
+    : null
+  const callbackSuccessRate = callbackTotal > 0 ? Number(((callbackSuccess / callbackTotal) * 100).toFixed(3)) : null
+  let callbackStatus: ReleaseHealthStatus = 'ok'
+  if (callbackTotal === 0) {
+    callbackStatus = 'warn'
+  } else if ((callbackSuccessRate ?? 100) < 99 || (callbackP95 ?? 0) > 3000) {
+    callbackStatus = 'fail'
+  } else if ((callbackSuccessRate ?? 100) < 99.9 || (callbackP95 ?? 0) > 1000) {
+    callbackStatus = 'warn'
+  }
+  slos.push({
+    key: 'job_callbacks',
+    label: 'Job callback processing',
+    status: callbackStatus,
+    summary: callbackTotal === 0
+      ? 'No callback traffic recorded since process start.'
+      : `${describePercent(callbackSuccessRate, 3)} success, ${describeMs(callbackP95)} p95 latency.`,
+    target: 'Success >= 99.9%, p95 <= 1000 ms',
+    metrics: {
+      callbacks: callbackTotal,
+      successRatePct: callbackSuccessRate,
+      p95Ms: callbackP95,
+      failures: callbackFailure,
+    },
+  })
+  if (callbackStatus !== 'ok') {
+    alerts.push({
+      severity: callbackStatus,
+      area: 'Job callbacks',
+      message: callbackTotal === 0
+        ? 'No webhook callback samples recorded yet.'
+        : `Callback processing is outside target: success ${describePercent(callbackSuccessRate, 3)}, p95 ${describeMs(callbackP95)}.`,
+    })
+  }
+
+  const queueAgeHours = operational.queue.queueAgeSec > 0 ? Number((operational.queue.queueAgeSec / 3600).toFixed(2)) : 0
+  const queueBacklogDays = operational.capacityHoursPerDay > 0
+    ? Number((operational.queueHours / operational.capacityHoursPerDay).toFixed(2))
+    : null
+  let queueStatus: ReleaseHealthStatus = 'ok'
+  if ((queueAgeHours > 8) || ((queueBacklogDays ?? 0) > 2)) {
+    queueStatus = 'fail'
+  } else if ((queueAgeHours > 4) || ((queueBacklogDays ?? 0) > 1)) {
+    queueStatus = 'warn'
+  }
+  slos.push({
+    key: 'queue_processing',
+    label: 'Queue processing',
+    status: queueStatus,
+    summary: `${operational.queue.pendingJobs} pending jobs, ${queueAgeHours.toFixed(1)}h oldest age, ${describeHours(queueBacklogDays != null ? queueBacklogDays * 24 : null)} backlog.`,
+    target: 'Oldest queue age <= 4h, backlog <= 1 day of capacity',
+    metrics: {
+      pendingJobs: operational.queue.pendingJobs,
+      oldestQueueAgeHours: queueAgeHours,
+      backlogDays: queueBacklogDays,
+      queueHours: operational.queueHours,
+      capacityHoursPerDay: operational.capacityHoursPerDay,
+    },
+  })
+  if (queueStatus !== 'ok') {
+    alerts.push({
+      severity: queueStatus,
+      area: 'Queue processing',
+      message: `Queue is outside target: oldest age ${queueAgeHours.toFixed(1)}h, backlog ${queueBacklogDays?.toFixed(2) ?? '--'} day(s).`,
+    })
+  }
+
+  const dependencyStatus: ReleaseHealthStatus = dependencies.summary.failing > 0
+    ? 'fail'
+    : dependencies.summary.warning > 0
+      ? 'warn'
+      : 'ok'
+  if (dependencyStatus !== 'ok') {
+    alerts.push({
+      severity: dependencyStatus,
+      area: 'Dependencies',
+      message: `${dependencies.summary.failing} failing, ${dependencies.summary.warning} warning dependency checks.`,
+    })
+  }
+
+  const status = [checkoutStatus, callbackStatus, queueStatus, dependencyStatus].reduce<ReleaseHealthStatus>(
+    (current, next) => pickHigherStatus(current, next),
+    'ok',
+  )
+
+  return {
+    generatedAt: new Date().toISOString(),
+    status,
+    alerts: alerts.sort((a, b) => asSeverityRank(b.severity) - asSeverityRank(a.severity)),
+    dependencies,
+    slos,
+  }
+}
+
 export async function getOperationalMetrics() {
-  const [oldestPendingJob, pendingJobs, sentJobs, failedPaymentJobs] = await Promise.all([
+  const [oldestPendingJob, pendingJobs, sentJobs, failedPaymentJobs, printerCapacity] = await Promise.all([
     prisma.jobForm.findFirst({ where: { status: 'pending' }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
     prisma.jobForm.count({ where: { status: 'pending' } }),
     prisma.jobForm.count({ where: { status: 'sent' } }),
     prisma.jobForm.count({ where: { paymentStatus: { in: ['failed', 'canceled', 'cancelled'] } } }),
+    prisma.printer.findMany({
+      where: { active: true, status: { in: ['available', 'printing'] } },
+      select: { dailyCapacityHours: true },
+    }),
   ])
   const inMemory = getInMemoryMetricsSnapshot()
   const startedCheckouts = inMemory.counters
@@ -132,6 +361,12 @@ export async function getOperationalMetrics() {
 
   const now = Date.now()
   const queueAgeSec = oldestPendingJob?.createdAt ? Math.max(0, Math.round((now - oldestPendingJob.createdAt.getTime()) / 1000)) : 0
+  const capacityHoursPerDay = Number(
+    printerCapacity
+      .reduce((sum, printer) => sum + (Number.isFinite(printer.dailyCapacityHours) ? printer.dailyCapacityHours : 0), 0)
+      .toFixed(2),
+  )
+  const queueHoursApprox = pendingJobs * 1.5
 
   return {
     queue: {
@@ -139,6 +374,8 @@ export async function getOperationalMetrics() {
       queueAgeSec,
       oldestPendingAt: oldestPendingJob?.createdAt?.toISOString() || null,
     },
+    queueHours: Number(queueHoursApprox.toFixed(2)),
+    capacityHoursPerDay,
     jobs: {
       success: sentJobs,
       failed: jobFailureEvents,
@@ -152,4 +389,13 @@ export async function getOperationalMetrics() {
       failures: failedPaymentJobs + paymentFailures,
     },
   }
+}
+
+export async function getReleaseHealthSnapshot() {
+  const [runtime, operational, dependencies] = await Promise.all([
+    Promise.resolve(getInMemoryMetricsSnapshot()),
+    getOperationalMetrics(),
+    runDependencyChecks(),
+  ])
+  return buildReleaseHealthSnapshot({ runtime, operational, dependencies })
 }

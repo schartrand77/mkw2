@@ -11,11 +11,13 @@ type DurationBucket = {
   totalMs: number
   minMs: number
   maxMs: number
+  samples: number[]
 }
 
 const counters = new Map<string, CounterBucket>()
 const durations = new Map<string, DurationBucket>()
 const startedAt = Date.now()
+const MAX_DURATION_SAMPLES = 200
 
 function toLabelKey(labels?: Record<string, string | number | boolean | null | undefined>) {
   if (!labels) return ''
@@ -64,6 +66,10 @@ export function observeDurationMetric(name: string, ms: number, labels?: Record<
     existing.totalMs += value
     existing.minMs = Math.min(existing.minMs, value)
     existing.maxMs = Math.max(existing.maxMs, value)
+    existing.samples.push(value)
+    if (existing.samples.length > MAX_DURATION_SAMPLES) {
+      existing.samples.shift()
+    }
     return
   }
   durations.set(key, {
@@ -73,7 +79,15 @@ export function observeDurationMetric(name: string, ms: number, labels?: Record<
     totalMs: value,
     minMs: value,
     maxMs: value,
+    samples: [value],
   })
+}
+
+function percentile(values: number[], p: number) {
+  if (values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1))
+  return sorted[index] ?? 0
 }
 
 export function getInMemoryMetricsSnapshot() {
@@ -81,11 +95,14 @@ export function getInMemoryMetricsSnapshot() {
     uptimeSec: Number(((Date.now() - startedAt) / 1000).toFixed(3)),
     counters: Array.from(counters.values()).sort((a, b) => a.name.localeCompare(b.name)),
     durations: Array.from(durations.values()).map((entry) => ({
-      ...entry,
+      name: entry.name,
+      labels: entry.labels,
+      count: entry.count,
       avgMs: entry.count > 0 ? Number((entry.totalMs / entry.count).toFixed(3)) : 0,
       totalMs: Number(entry.totalMs.toFixed(3)),
       minMs: Number(entry.minMs.toFixed(3)),
       maxMs: Number(entry.maxMs.toFixed(3)),
+      p95Ms: Number(percentile(entry.samples, 95).toFixed(3)),
     })).sort((a, b) => a.name.localeCompare(b.name)),
   }
 }
