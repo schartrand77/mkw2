@@ -5,10 +5,14 @@
 - [Getting Started](./Getting-Started.md)
 - [Architecture](./Architecture.md)
 - [Configuration Reference](./Configuration-Reference.md)
+- [Release Readiness](./Release-Readiness.md)
+- [V3 Migration Guide](./V3-Migration-Guide.md)
 
 ## Operations
 
 - [Operations Runbook](./Operations-Runbook.md)
+- [Webhook Operations](./Webhook-Operations.md)
+- [Connector Betas](./Connector-Betas.md)
 
 ## Product
 

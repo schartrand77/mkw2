@@ -19,6 +19,8 @@ This wiki is the operator and contributor guide for the repository. It is organi
 - [Getting Started](./Getting-Started.md): local setup, Docker setup, and first-run workflow.
 - [Architecture](./Architecture.md): high-level system map and domain boundaries.
 - [Configuration Reference](./Configuration-Reference.md): environment variables and integration groups.
+- [Release Readiness](./Release-Readiness.md): release gates, cutover sequence, and rollback triggers.
+- [V3 Migration Guide](./V3-Migration-Guide.md): deployment validation path from pre-v3 to v3.
 - [Operations Runbook](./Operations-Runbook.md): backups, queues, health checks, and production support tasks.
 - [Product Guide](./Product-Guide.md): user-facing journeys and admin surfaces.
 - [Developer Guide](./Developer-Guide.md): repository layout, coding touchpoints, and testing commands.

@@ -147,6 +147,14 @@ npm run prisma:deploy
 npm run backup
 ```
 
+## Release Execution References
+
+Use these pages for coordinated release work:
+
+- [`Release-Readiness.md`](./Release-Readiness.md)
+- [`V3-Migration-Guide.md`](./V3-Migration-Guide.md)
+- [`Webhook-Operations.md`](./Webhook-Operations.md)
+
 ## Support Artifacts
 
 Useful repository references:
