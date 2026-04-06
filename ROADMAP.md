@@ -168,9 +168,10 @@ Exit criteria:
 
 - ~~Advanced org controls (department policy packs, spend controls, approval graphs).~~
 - ~~Webhook/API hardening and documentation portal refresh.~~
-- Connector beta releases (pick 2 priority integrations by customer demand).
+- ~~Connector beta releases (pick 2 priority integrations by customer demand).~~
 - Completed v3 enterprise slice: admin governance now centralizes organization policy packs, spend controls, department budget tracking, and approval-graph visibility with audited policy updates.
 - Completed v3 enterprise slice: admin webhook/API ops now surfaces callback security posture, secret coverage, and operator guidance in-product, with refreshed webhook operations docs and inbound secret validation.
+- Completed v3 enterprise slice: connector betas now include Shopify draft-order export payloads and shipping-manifest export payloads with admin preview tooling and documented contract shapes.
 
 Exit criteria:
 

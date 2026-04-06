@@ -70,6 +70,7 @@ export default async function AdminPage() {
             <Link href="/admin/home-comments" className="block underline text-brand-300">Home comments</Link>
             <Link href="/admin/production" className="block underline text-brand-300">Production dashboard</Link>
             <Link href="/admin/governance" className="block underline text-brand-300">Governance</Link>
+            <Link href="/admin/connectors" className="block underline text-brand-300">Connectors</Link>
             <Link href="/admin/webhooks" className="block underline text-brand-300">Webhook & API ops</Link>
             <Link href="/admin/release-health" className="block underline text-brand-300">Release health</Link>
             <Link href="/admin/users" className="block underline text-brand-300">User manager</Link>

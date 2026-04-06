@@ -132,6 +132,14 @@ const ADMIN_ACTIONS: CommandPaletteAction[] = [
     adminOnly: true,
   },
   {
+    id: 'admin-connectors',
+    label: 'Connectors',
+    description: 'Preview outbound beta connector payloads for commerce and shipping sync.',
+    href: '/admin/connectors',
+    keywords: ['admin', 'connectors', 'shopify', 'shipping', 'exports', 'integrations'],
+    adminOnly: true,
+  },
+  {
     id: 'admin-jobs',
     label: 'Job queue',
     description: 'Inspect and manage queued job execution.',
@@ -200,6 +208,7 @@ export function resolvePaletteRoute(rawQuery: string): PaletteRouteResolution {
     me: '/me',
     admin: '/admin',
     governance: '/admin/governance',
+    connectors: '/admin/connectors',
     webhooks: '/admin/webhooks',
     users: '/admin/users',
     jobs: '/admin/jobs',
@@ -213,7 +222,7 @@ export function resolvePaletteRoute(rawQuery: string): PaletteRouteResolution {
 
   const preferredNavOrder = [
     'home', 'discover', 'models', 'merch', 'products', 'store', 'upload', 'cart', 'checkout', 'orders', 'portal', 'workspace',
-    'workspaces', 'profile', 'account', 'orgs', 'organizations', 'likes', 'me', 'admin', 'governance', 'webhooks', 'users', 'jobs', 'inventory',
+    'workspaces', 'profile', 'account', 'orgs', 'organizations', 'likes', 'me', 'admin', 'governance', 'connectors', 'webhooks', 'users', 'jobs', 'inventory',
     'analytics', 'production',
   ]
 
