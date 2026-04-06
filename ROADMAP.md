@@ -152,11 +152,12 @@ Exit criteria:
 - ~~Smart routing engine v2 with policy configuration UI.~~
 - ~~AI-assisted preflight and remediation suggestions.~~
 - Predictive operations:
-  - spool depletion forecasting with confidence windows
-  - printer downtime risk scoring
-  - SLA risk early-warning on queued orders
+  - ~~spool depletion forecasting with confidence windows~~
+  - ~~printer downtime risk scoring~~
+  - ~~SLA risk early-warning on queued orders~~
 - Completed v3 automation slice: production now includes policy-driven smart routing with previewable assignment recommendations, scoring reasons, and operator controls for speed, cost, queue balance, and SLA urgency.
 - Completed v3 automation slice: the quote workspace now includes a preflight assistant that turns manufacturability, risk, support, material, and ETA signals into actionable remediation suggestions with confidence and priority.
+- Completed v3 automation slice: predictive operations now score spool depletion windows from queue plus burn-rate history, surface printer downtime risk from reliability and maintenance signals, and flag queued orders with early SLA risk warnings.
 
 Exit criteria:
 

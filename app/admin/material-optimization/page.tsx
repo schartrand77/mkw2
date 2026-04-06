@@ -6,6 +6,14 @@ import { prisma } from '@/lib/db'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { buildWasteReport, buildColorSimilaritySuggestions, buildAlternateMaterialSuggestions } from '@/lib/material-optimization'
+import { buildPredictiveSpoolForecast } from '@/lib/predictive-ops'
+
+function riskTone(risk: 'low' | 'medium' | 'high' | 'critical') {
+  if (risk === 'critical') return 'text-rose-300 border-rose-500/30 bg-rose-500/10'
+  if (risk === 'high') return 'text-amber-200 border-amber-500/30 bg-amber-500/10'
+  if (risk === 'medium') return 'text-sky-200 border-sky-500/30 bg-sky-500/10'
+  return 'text-emerald-200 border-emerald-500/30 bg-emerald-500/10'
+}
 
 export default async function MaterialOptimizationPage() {
   const cookieStore = await cookies()
@@ -16,10 +24,11 @@ export default async function MaterialOptimizationPage() {
   const role = user?.role || null
   if (!(user?.isAdmin || role === 'admin' || role === 'staff')) redirect('/')
 
-  const [wasteReport, colorSuggestions, alternateMaterials] = await Promise.all([
+  const [wasteReport, colorSuggestions, alternateMaterials, spoolForecasts] = await Promise.all([
     buildWasteReport(30).catch(() => []),
     buildColorSimilaritySuggestions().catch(() => []),
     buildAlternateMaterialSuggestions().catch(() => []),
+    buildPredictiveSpoolForecast().catch(() => []),
   ])
 
   return (
@@ -31,6 +40,60 @@ export default async function MaterialOptimizationPage() {
         </div>
         <Link href="/admin" className="text-xs text-brand-300 underline">Back to admin</Link>
       </div>
+
+      <section className="rounded-2xl border border-white/10 bg-black/20 p-6 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Spool depletion forecast</div>
+            <p className="text-sm text-slate-400 mt-1">Queue-weighted depletion forecast with reorder confidence windows.</p>
+          </div>
+          <div className="text-xs text-slate-500">{spoolForecasts.filter((entry) => ['critical', 'high'].includes(entry.risk)).length} urgent spools</div>
+        </div>
+        {spoolForecasts.length === 0 ? (
+          <p className="text-sm text-slate-400">StockWorks inventory is not available, so depletion forecasting is disabled.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                <tr>
+                  <th className="text-left py-2">Spool</th>
+                  <th className="text-right py-2">On hand (g)</th>
+                  <th className="text-right py-2">Queued (g)</th>
+                  <th className="text-right py-2">Remaining (g)</th>
+                  <th className="text-right py-2">Reorder window</th>
+                  <th className="text-left py-2">Risk</th>
+                </tr>
+              </thead>
+              <tbody>
+                {spoolForecasts.slice(0, 8).map((entry) => (
+                  <tr key={entry.inventoryItemId} className="border-t border-white/10 align-top">
+                    <td className="py-2">
+                      <div className="font-medium">{entry.spoolLabel}</div>
+                      <div className="text-xs text-slate-500">{entry.material}{entry.color ? ` / ${entry.color}` : ''}</div>
+                    </td>
+                    <td className="py-2 text-right">{entry.quantityGrams.toFixed(0)}</td>
+                    <td className="py-2 text-right">{entry.queuedUsageGrams.toFixed(1)}</td>
+                    <td className={`py-2 text-right ${entry.projectedRemainingGrams <= entry.reorderLevelGrams ? 'text-rose-300' : 'text-slate-200'}`}>
+                      {entry.projectedRemainingGrams.toFixed(1)}
+                    </td>
+                    <td className="py-2 text-right">
+                      {entry.confidenceWindowDays.expected == null
+                        ? 'No baseline'
+                        : `${entry.confidenceWindowDays.min ?? 0}-${entry.confidenceWindowDays.max ?? entry.confidenceWindowDays.expected}d`}
+                    </td>
+                    <td className="py-2">
+                      <div className={`inline-flex rounded-full border px-2 py-1 text-xs capitalize ${riskTone(entry.risk)}`}>
+                        {entry.risk} / {entry.confidence} confidence
+                      </div>
+                      {entry.notes[0] ? <div className="text-xs text-slate-500 mt-2">{entry.notes[0]}</div> : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section className="rounded-2xl border border-white/10 bg-black/20 p-6 space-y-3">
         <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Waste report (last 30 days)</div>

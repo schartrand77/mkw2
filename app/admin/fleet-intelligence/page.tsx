@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { buildFleetIntelligence } from '@/lib/fleet-intelligence'
+import { buildPredictiveDowntimeRisks } from '@/lib/predictive-ops'
 import FleetMaintenancePanel from '@/components/admin/FleetMaintenancePanel'
 import PrinterIdentity from '@/components/admin/PrinterIdentity'
 
@@ -27,6 +28,13 @@ function utilizationTone(utilization: number) {
   return 'bg-white/5'
 }
 
+function riskTone(risk: 'low' | 'medium' | 'high' | 'critical') {
+  if (risk === 'critical') return 'text-rose-300 border-rose-500/30 bg-rose-500/10'
+  if (risk === 'high') return 'text-amber-200 border-amber-500/30 bg-amber-500/10'
+  if (risk === 'medium') return 'text-sky-200 border-sky-500/30 bg-sky-500/10'
+  return 'text-emerald-200 border-emerald-500/30 bg-emerald-500/10'
+}
+
 export default async function FleetIntelligencePage() {
   const cookieStore = await cookies()
   const token = cookieStore.get('mwv2_token')?.value
@@ -36,7 +44,10 @@ export default async function FleetIntelligencePage() {
   const role = user?.role || null
   if (!(user?.isAdmin || role === 'admin' || role === 'staff')) redirect('/')
 
-  const fleet = await buildFleetIntelligence(14)
+  const [fleet, downtimeRisks] = await Promise.all([
+    buildFleetIntelligence(14),
+    buildPredictiveDowntimeRisks().catch(() => []),
+  ])
 
   return (
     <div className="space-y-6">
@@ -83,6 +94,48 @@ export default async function FleetIntelligencePage() {
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-white/10 bg-black/20 p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Downtime risk scoring</div>
+            <p className="text-sm text-slate-400 mt-1">Combines reliability, heartbeat staleness, utilization, and maintenance drift.</p>
+          </div>
+          <div className="text-xs text-slate-500">{downtimeRisks.filter((entry) => ['critical', 'high'].includes(entry.risk)).length} printers need attention</div>
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          {downtimeRisks.map((entry) => (
+            <div key={entry.printerId} className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">{entry.printerName}</div>
+                  <div className="text-xs text-slate-500">Risk score {Math.round(entry.score * 100)}%</div>
+                </div>
+                <div className={`inline-flex rounded-full border px-2 py-1 text-xs capitalize ${riskTone(entry.risk)}`}>{entry.risk}</div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs text-slate-300">
+                <div>
+                  <div className="text-slate-500">Utilization</div>
+                  <div>{Math.round(entry.averageUtilization * 100)}%</div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Heartbeat</div>
+                  <div>{entry.staleHours == null ? 'Live' : `${entry.staleHours.toFixed(1)}h stale`}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Maintenance</div>
+                  <div>{entry.maintenanceOverdueHours == null ? 'On plan' : `${entry.maintenanceOverdueHours.toFixed(1)}h over`}</div>
+                </div>
+              </div>
+              <div className="space-y-1">
+                {entry.topSignals.slice(0, 3).map((signal) => (
+                  <div key={`${entry.printerId}-${signal}`} className="text-xs text-slate-400">{signal}</div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
