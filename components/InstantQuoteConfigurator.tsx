@@ -20,6 +20,7 @@ import QuoteBreakdownCard from '@/components/QuoteBreakdownCard'
 import StatusChip from '@/components/StatusChip'
 import FeasibilityScorecard from '@/components/FeasibilityScorecard'
 import MaterialRecommenderCard from '@/components/MaterialRecommenderCard'
+import PreflightAssistantCard from '@/components/PreflightAssistantCard'
 import { buildFeasibilityScorecard } from '@/lib/feasibility-scorecard'
 import { recommendMaterials } from '@/lib/material-recommender'
 
@@ -68,6 +69,21 @@ type GcodeEstimate = {
       demandSurgeMultiplier?: number
       rushMultiplier?: number
     }
+  }
+}
+
+type PreflightResponse = {
+  preflight: {
+    summary: string
+    confidence: number
+    suggestions: Array<{
+      id: string
+      title: string
+      action: string
+      reason: string
+      confidence: number
+      priority: 'high' | 'medium' | 'low'
+    }>
   }
 }
 
@@ -286,6 +302,7 @@ export default function InstantQuoteConfigurator({
   const [gcodeEstimate, setGcodeEstimate] = useState<GcodeEstimate['estimate'] | null>(null)
   const [gcodeError, setGcodeError] = useState<string | null>(null)
   const [gcodeLoading, setGcodeLoading] = useState(false)
+  const [preflight, setPreflight] = useState<PreflightResponse['preflight'] | null>(null)
   const [activeColorSlot, setActiveColorSlot] = useState<number | null>(null)
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
   const [materialGoals, setMaterialGoals] = useState({
@@ -586,6 +603,34 @@ export default function InstantQuoteConfigurator({
     run()
     return () => { active = false }
   }, [modelId, quoteRequestPayload])
+
+  useEffect(() => {
+    let active = true
+    const run = async () => {
+      try {
+        const res = await fetch(`/api/models/${modelId}/preflight`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...quoteRequestPayload,
+            leadTimeHours: quote?.leadTimeHours,
+            etaConfidenceScore: quote?.etaConfidenceScore,
+          }),
+        })
+        if (!res.ok) {
+          if (active) setPreflight(null)
+          return
+        }
+        const data = await res.json() as PreflightResponse
+        if (!active) return
+        setPreflight(data.preflight)
+      } catch {
+        if (active) setPreflight(null)
+      }
+    }
+    run()
+    return () => { active = false }
+  }, [modelId, quoteRequestPayload, quote?.leadTimeHours, quote?.etaConfidenceScore])
 
   useEffect(() => {
     let active = true
@@ -1021,6 +1066,13 @@ export default function InstantQuoteConfigurator({
         </div>
       </div>
       <FeasibilityScorecard scorecard={feasibilityScorecard} />
+      {preflight ? (
+        <PreflightAssistantCard
+          summary={preflight.summary}
+          confidence={preflight.confidence}
+          suggestions={preflight.suggestions}
+        />
+      ) : null}
       <MaterialRecommenderCard
         recommendations={materialRecommendations}
         currentMaterial={materialChoice}

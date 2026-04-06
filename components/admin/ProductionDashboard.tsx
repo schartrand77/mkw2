@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import OrderStatusBadge from '@/components/orders/OrderStatusBadge'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 import PrinterIdentity from '@/components/admin/PrinterIdentity'
+import type { SmartRoutingPolicy } from '@/lib/smart-routing'
 
 type Printer = {
   id: string
@@ -63,6 +64,16 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
   const [statusSnapshot, setStatusSnapshot] = useState<{ enabled: boolean; statuses: Record<string, any> }>({ enabled: false, statuses: {} })
   const [statusLoading, setStatusLoading] = useState(false)
   const [autoQueueing, setAutoQueueing] = useState(false)
+  const [routingPreviewing, setRoutingPreviewing] = useState(false)
+  const [routingPreview, setRoutingPreview] = useState<Array<{ orderId: string; orderLabel: string; printerName: string; score: number; reasons: string[] }>>([])
+  const [routingPolicy, setRoutingPolicy] = useState<SmartRoutingPolicy>({
+    prioritizeSpeed: 0.4,
+    prioritizeCost: 0.15,
+    prioritizeQueueBalance: 0.25,
+    prioritizeSla: 0.2,
+    requireMaterialCompatibility: true,
+    restrictToPrintLabPrinters: false,
+  })
   const [syncingPrintLab, setSyncingPrintLab] = useState(false)
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null)
 
@@ -169,26 +180,47 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
     }
   }
 
-  const autoAssignQueue = async () => {
-    if (autoQueueing) return
-    setAutoQueueing(true)
+  const applySmartRouting = async (dryRun = false) => {
+    if (autoQueueing || routingPreviewing) return
+    if (dryRun) setRoutingPreviewing(true)
+    else setAutoQueueing(true)
     setError(null)
     try {
-      const res = await fetch('/api/admin/printers/auto-queue', { method: 'POST' })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data?.error || 'Auto-assign failed')
-      pushSessionNotification({
-        type: 'success',
-        title: 'Auto-assign complete',
-        message: `Assigned ${Array.isArray(data?.assignments) ? data.assignments.length : 0} job(s).`,
+      const res = await fetch('/api/admin/printers/auto-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun, policy: routingPolicy }),
       })
-      await refresh()
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Smart routing failed')
+      const assignments = Array.isArray(data?.assignments) ? data.assignments : []
+      if (dryRun) {
+        const byId = new Map(snapshot.orders.map((order) => [order.id, order]))
+        setRoutingPreview(assignments.map((entry: any) => ({
+          orderId: entry.orderId,
+          orderLabel: byId.get(entry.orderId)?.orderNumber
+            ? `MW-${String(byId.get(entry.orderId)?.orderNumber).padStart(5, '0')}`
+            : 'Draft order',
+          printerName: entry.printerName || 'Unknown printer',
+          score: Number(entry.score || 0),
+          reasons: Array.isArray(entry.reasons) ? entry.reasons : [],
+        })))
+      } else {
+        setRoutingPreview([])
+        pushSessionNotification({
+          type: 'success',
+          title: 'Smart routing applied',
+          message: `Assigned ${assignments.length} job(s).`,
+        })
+        await refresh()
+      }
     } catch (err: any) {
-      const message = err?.message || 'Auto-assign failed'
+      const message = err?.message || 'Smart routing failed'
       setError(message)
-      pushSessionNotification({ type: 'error', title: 'Auto-assign failed', message })
+      pushSessionNotification({ type: 'error', title: dryRun ? 'Preview failed' : 'Smart routing failed', message })
     } finally {
-      setAutoQueueing(false)
+      if (dryRun) setRoutingPreviewing(false)
+      else setAutoQueueing(false)
     }
   }
 
@@ -302,8 +334,11 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
           <button className="btn btn-outline text-sm" type="button" onClick={refresh}>
             Refresh
           </button>
-          <button className="btn btn-outline text-sm" type="button" onClick={autoAssignQueue} disabled={autoQueueing}>
-            {autoQueueing ? 'Auto-assigning...' : 'Auto-assign queue'}
+          <button className="btn btn-outline text-sm" type="button" onClick={() => applySmartRouting(true)} disabled={routingPreviewing || autoQueueing}>
+            {routingPreviewing ? 'Previewing...' : 'Preview routing'}
+          </button>
+          <button className="btn btn-outline text-sm" type="button" onClick={() => applySmartRouting(false)} disabled={autoQueueing || routingPreviewing}>
+            {autoQueueing ? 'Routing...' : 'Apply smart routing'}
           </button>
           <button className="btn btn-outline text-sm" type="button" onClick={syncPrintLab} disabled={syncingPrintLab}>
             {syncingPrintLab ? 'Syncing PrintLab...' : 'Sync PrintLab'}
@@ -316,6 +351,73 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
           {error}
         </div>
       ) : null}
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Routing policy</p>
+            <h2 className="mt-1 text-lg font-semibold">Smart routing engine v2</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Balance speed, cost, queue health, and SLA urgency before assigning queued work to printers.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <PolicyField label="Prioritize speed" value={routingPolicy.prioritizeSpeed} onChange={(value) => setRoutingPolicy((prev) => ({ ...prev, prioritizeSpeed: value }))} />
+            <PolicyField label="Prioritize cost" value={routingPolicy.prioritizeCost} onChange={(value) => setRoutingPolicy((prev) => ({ ...prev, prioritizeCost: value }))} />
+            <PolicyField label="Queue balance" value={routingPolicy.prioritizeQueueBalance} onChange={(value) => setRoutingPolicy((prev) => ({ ...prev, prioritizeQueueBalance: value }))} />
+            <PolicyField label="SLA urgency" value={routingPolicy.prioritizeSla} onChange={(value) => setRoutingPolicy((prev) => ({ ...prev, prioritizeSla: value }))} />
+          </div>
+          <div className="grid gap-2 text-sm text-slate-300">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={routingPolicy.requireMaterialCompatibility}
+                onChange={(event) => setRoutingPolicy((prev) => ({ ...prev, requireMaterialCompatibility: event.target.checked }))}
+              />
+              Require material-compatible printers
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={routingPolicy.restrictToPrintLabPrinters}
+                onChange={(event) => setRoutingPolicy((prev) => ({ ...prev, restrictToPrintLabPrinters: event.target.checked }))}
+              />
+              Restrict to PrintLab-connected printers
+            </label>
+          </div>
+          <p className="text-xs text-slate-500">
+            Tip: set per-printer metadata like `supportedMaterials`, `costPerHour`, and `throughputMultiplier` through the printer API to improve recommendation quality.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Recommendation preview</p>
+              <h2 className="mt-1 text-lg font-semibold">Policy-driven assignments</h2>
+            </div>
+            <span className="text-xs text-slate-400">{routingPreview.length} recommendations</span>
+          </div>
+          {routingPreview.length === 0 ? (
+            <p className="rounded-xl border border-white/10 bg-black/30 px-4 py-5 text-sm text-slate-400">
+              Run a preview to see which printer each queued order would land on and why.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {routingPreview.map((entry) => (
+                <div key={`routing-${entry.orderId}`} className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-white">{entry.orderLabel}</span>
+                    <span className="text-xs text-slate-400">Score {entry.score.toFixed(2)}</span>
+                  </div>
+                  <p className="text-sm text-slate-300">Recommended printer: {entry.printerName}</p>
+                  <p className="text-xs text-slate-500">{entry.reasons.join(' · ')}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       <section className="glass rounded-[1.75rem] border border-white/10 p-5 md:p-6 space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -727,6 +829,34 @@ function WatchCard({ title, value, detail }: { title: string; value: number; det
       <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
       <p className="mt-1 text-sm text-slate-400">{detail}</p>
     </div>
+  )
+}
+
+function PolicyField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: number
+  onChange: (value: number) => void
+}) {
+  return (
+    <label className="space-y-2 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-slate-300">{label}</span>
+        <span className="text-xs text-slate-500">{value.toFixed(2)}</span>
+      </div>
+      <input
+        className="w-full accent-brand-500"
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
   )
 }
 

@@ -149,12 +149,14 @@ Exit criteria:
 
 ## Track 3 — Intelligence & Automation (Weeks 8-16)
 
-- Smart routing engine v2 with policy configuration UI.
-- AI-assisted preflight and remediation suggestions.
+- ~~Smart routing engine v2 with policy configuration UI.~~
+- ~~AI-assisted preflight and remediation suggestions.~~
 - Predictive operations:
   - spool depletion forecasting with confidence windows
   - printer downtime risk scoring
   - SLA risk early-warning on queued orders
+- Completed v3 automation slice: production now includes policy-driven smart routing with previewable assignment recommendations, scoring reasons, and operator controls for speed, cost, queue balance, and SLA urgency.
+- Completed v3 automation slice: the quote workspace now includes a preflight assistant that turns manufacturability, risk, support, material, and ETA signals into actionable remediation suggestions with confidence and priority.
 
 Exit criteria:
 
