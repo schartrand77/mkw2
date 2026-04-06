@@ -194,7 +194,12 @@ export default function DiscoverModelList({ cards, viewMode, canLike }: Discover
           </section>
         )
       ) : (
-        <p className="text-slate-400">No results matched your filters.</p>
+        <div className="glass rounded-2xl border border-white/10 px-6 py-10 text-center">
+          <p className="text-lg font-semibold text-white">No results matched this search.</p>
+          <p className="mt-2 text-sm text-slate-400">
+            Try clearing a scope tag, broadening the text query, or switching off Ready to Print.
+          </p>
+        </div>
       )}
     </>
   )

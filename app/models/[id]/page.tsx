@@ -17,6 +17,12 @@ import ModelLineageCard from '@/components/ModelLineageCard'
 import { CACHE_TAGS, CACHE_TTL_SECONDS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
 import { needsModelPreviewConversion } from '@/lib/model-files'
 
+function formatEnvelopeLabel(sizeXmm?: number | null, sizeYmm?: number | null, sizeZmm?: number | null) {
+  const values = [sizeXmm, sizeYmm, sizeZmm]
+  if (values.some((value) => typeof value !== 'number' || !Number.isFinite(value) || value <= 0)) return 'N/A'
+  return `${Math.round(sizeXmm as number)} x ${Math.round(sizeYmm as number)} x ${Math.round(sizeZmm as number)} mm`
+}
+
 async function fetchModel(id: string, baseUrl: string) {
   const res = await fetch(`${baseUrl}/api/models/${id}`, {
     next: {
@@ -105,6 +111,10 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
         }))
         .filter((pin: any) => [pin.x, pin.y, pin.z].every((value: number) => Number.isFinite(value)))
     : []
+  const envelopeLabel = formatEnvelopeLabel(model.sizeXmm, model.sizeYmm, model.sizeZmm)
+  const descriptionPreview = typeof model.description === 'string' && model.description.trim()
+    ? model.description.trim().slice(0, 220)
+    : 'No description provided yet.'
   return (
     <div className="max-w-[1500px] mx-auto min-w-0 space-y-5 px-4 sm:px-6">
       <div>
@@ -113,6 +123,66 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           Back to Discover
         </Link>
       </div>
+      <section className="glass rounded-[1.75rem] border border-white/10 p-5 md:p-7">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.8fr)] lg:items-start">
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.34em] text-brand-300/80">Model workspace</p>
+              <h1 className="text-3xl font-semibold break-words md:text-4xl">{model.title}</h1>
+              <p className="max-w-3xl text-sm text-slate-300 md:text-base">
+                {descriptionPreview}
+                {typeof model.description === 'string' && model.description.trim().length > 220 ? '...' : ''}
+              </p>
+            </div>
+            {model.tags && model.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {model.tags.map((t: any) => (
+                  <Link key={t.slug} href={`/discover?tags=${t.slug}`} className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs">#{t.name}</Link>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-3">
+              {downloadsEnabled ? (
+                <a
+                  href={hasParts ? `/api/models/${model.id}/download.zip` : (fileHref || '#')}
+                  {...(!hasParts && fileHref ? { download: true } : {})}
+                  className="btn"
+                >
+                  {hasParts ? 'Download All Parts (.zip)' : 'Download Model'}
+                </a>
+              ) : (
+                <span className="px-3 py-2 rounded-md border border-amber-400/30 bg-amber-400/10 text-sm text-amber-200">
+                  Downloads disabled
+                </span>
+              )}
+              <a href="#quote-workspace" className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20 text-sm">
+                Jump to quote workspace
+              </a>
+              <ModelShareButton title={model.title} url={shareUrl} />
+              {canEdit && (
+                <Link href={`/models/${model.id}/edit`} className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20">Edit</Link>
+              )}
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Build envelope</p>
+              <p className="mt-2 text-lg font-semibold text-white">{envelopeLabel}</p>
+              <p className="mt-1 text-sm text-slate-400">Live quote scaling updates this target in the workspace below.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Material + file</p>
+              <p className="mt-2 text-lg font-semibold text-white">{model.material || 'Material pending'}</p>
+              <p className="mt-1 text-sm text-slate-400">{model.fileType || 'Unknown format'} • {model.volumeMm3 ? `${(model.volumeMm3 / 1000).toFixed(2)} cm^3` : 'Volume pending'}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Review workflow</p>
+              <p className="mt-2 text-base font-semibold text-white">{hasParts ? `${model.parts.length} part${model.parts.length === 1 ? '' : 's'}` : 'Single-part model'}</p>
+              <p className="mt-1 text-sm text-slate-400">Inspect geometry on the left, then tune the quote and manufacturability settings on the right.</p>
+            </div>
+          </div>
+        </div>
+      </section>
       {canEdit && isProcessing && (
         <div className="glass rounded-xl p-4 text-sm text-slate-200 border border-amber-400/30">
           <div className="font-semibold text-amber-200">Processing uploads</div>
@@ -165,14 +235,38 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
           />
         </div>
         <div className="space-y-3 min-w-0">
-        <h1 className="text-3xl font-semibold break-words">{model.title}</h1>
-        {model.tags && model.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {model.tags.map((t: any) => (
-              <Link key={t.slug} href={`/discover?tags=${t.slug}`} className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20 text-xs">#{t.name}</Link>
-            ))}
+        <section id="quote-workspace" className="glass rounded-[1.5rem] border border-white/10 p-4 md:p-5 space-y-4">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.34em] text-brand-300/80">Quote workspace</p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">Configure production-ready pricing.</h2>
+            <p className="mt-1 max-w-xl text-sm text-slate-300">
+              Tune material, finish, tolerances, dimensions, and color slots in one place, then review manufacturability and lead-time confidence before adding to cart.
+            </p>
           </div>
-        )}
+          <div className="flex flex-wrap gap-2 text-xs">
+            <a href="#model-comments-compose" className="rounded-full border border-white/10 px-3 py-1.5 text-slate-300 hover:border-white/20">
+              Jump to comments
+            </a>
+            <a href="#model-lineage" className="rounded-full border border-white/10 px-3 py-1.5 text-slate-300 hover:border-white/20">
+              Revision lineage
+            </a>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Buyer flow</p>
+            <p className="mt-2 text-sm text-slate-200">Review geometry, configure quote, export manufacturability PDF, then add to cart.</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Confidence tools</p>
+            <p className="mt-2 text-sm text-slate-200">Live feasibility scoring, material recommendations, and lead-time signals stay attached to the quote.</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Part context</p>
+            <p className="mt-2 text-sm text-slate-200">{hasParts ? 'Use part-aware review on the left to target feedback before locking the final configuration.' : 'Single-part review keeps geometry and quoting aligned in one surface.'}</p>
+          </div>
+        </div>
         {creditName && (
           <div className="glass rounded-xl p-4 text-sm text-slate-300">
             <div className="text-xs uppercase tracking-[0.3em] text-slate-400 mb-2">Credited creator</div>
@@ -258,6 +352,7 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             sizeZmm: p.sizeZmm,
           })) : []}
         />
+        </section>
         {model.affiliateUrl && (
           <div className="glass rounded-xl p-4 space-y-3">
             <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Required parts</div>
@@ -302,11 +397,13 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             }))}
           />
         )}
-        <ModelLineageCard
-          modelId={model.id}
-          lineage={model.lineage || null}
-          revisions={Array.isArray(model.revisions) ? model.revisions : []}
-        />
+        <div id="model-lineage">
+          <ModelLineageCard
+            modelId={model.id}
+            lineage={model.lineage || null}
+            revisions={Array.isArray(model.revisions) ? model.revisions : []}
+          />
+        </div>
         {Array.isArray(model.revisions) && model.revisions.length > 0 && (
           <div className="glass rounded-xl p-4 space-y-2">
             <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Revision notes</div>
@@ -327,25 +424,6 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             </div>
           </div>
         )}
-        <div className="flex flex-wrap gap-3">
-          {downloadsEnabled ? (
-            <a
-              href={hasParts ? `/api/models/${model.id}/download.zip` : (fileHref || '#')}
-              {...(!hasParts && fileHref ? { download: true } : {})}
-              className="btn"
-            >
-              {hasParts ? 'Download All Parts (.zip)' : 'Download Model'}
-            </a>
-          ) : (
-            <span className="px-3 py-2 rounded-md border border-amber-400/30 bg-amber-400/10 text-sm text-amber-200">
-              Downloads disabled
-            </span>
-          )}
-          <ModelShareButton title={model.title} url={shareUrl} />
-          {canEdit && (
-            <Link href={`/models/${model.id}/edit`} className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20">Edit</Link>
-          )}
-        </div>
         </div>
       </div>
       <ModelComments

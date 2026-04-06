@@ -24,6 +24,7 @@ export type DiscoverModel = {
   entityType?: DiscoverEntityType | null
   href?: string | null
   title: string
+  description?: string | null
   material?: string | null
   coverImagePath?: string | null
   fileType?: string | null
@@ -53,6 +54,11 @@ export type DiscoverModel = {
   defaultColors?: string[] | null
   recommendationScore?: number | null
   recommendationReasons?: string[] | null
+  tags?: Array<{
+    id: string
+    name: string
+    slug: string
+  }> | null
 }
 
 export type CardInfo = {

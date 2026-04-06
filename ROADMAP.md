@@ -1,6 +1,6 @@
 # MakerWorks Next Major Release Roadmap (v3)
 
-Last updated: 2026-04-04
+Last updated: 2026-04-03
 Planning horizon: Q2 2026 -> Q1 2027
 
 ## 0) Audit Snapshot (Current State)
@@ -56,10 +56,11 @@ Success criteria:
 - Ship a unified design system across storefront, workspace, and admin.
 - Add adaptive dashboards by user role (customer, production operator, manager, finance).
 - Bring advanced interaction quality to parity with modern SaaS leaders:
-  - command palette + global actions
+  - ~~command palette + global actions~~
   - contextual side panels
   - keyboard-first flows for operations
   - optimistic UI + skeleton/loading states tuned by task type
+- Completed v3 shell slice: command palette + global actions shipped in the shared app shell.
 - Accessibility target: WCAG 2.2 AA across all critical flows.
 
 ### Pillar B — Intelligence Everywhere
@@ -124,13 +125,16 @@ Exit criteria:
 - Design token system and component primitives rollout.
 - Navigation overhaul:
   - role-aware left nav
-  - command palette
+  - ~~command palette~~
   - cross-context breadcrumbs and quick-switching
+- Completed v3 shell slice: role-aware command palette trigger, keyboard shortcut, and global action overlay.
 - High-impact surface redesign:
-  - discover/search UX
-  - model detail + quote workspace
+  - ~~discover/search UX~~
+  - ~~model detail + quote workspace~~
   - checkout and order status timeline
   - production queue board + exception handling panels
+- Completed v3 surface slice: Discover now uses the new hero search/filter stack, presets, and improved result states.
+- Completed v3 surface slice: Model detail now uses a clearer review-and-quote workspace with structured buyer guidance and quote flow entry.
 
 Exit criteria:
 
@@ -187,10 +191,12 @@ Exit criteria:
 
 ### Interaction model
 
-- Command palette as universal action layer.
+- ~~Command palette as universal action layer.~~
 - Contextual drawers replacing deep navigation for frequent tasks.
 - Inline "why" explanations for pricing, lead-time, and risk decisions.
 - Real-time collaboration presence on model review + order approval pages.
+
+Completed v3 shell slice: universal command palette is now implemented in the app shell with keyboard access and role-aware actions.
 
 ### Visual analytics
 

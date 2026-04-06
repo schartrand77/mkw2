@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import ViewPreferenceSync from '@/components/discover/ViewPreferenceSync'
 import ViewToggle from '@/components/discover/ViewToggle'
+import DiscoverFilters from '@/components/discover/DiscoverFilters'
+import DiscoverPresetBar from '@/components/discover/DiscoverPresetBar'
 import { buildImageSrc } from '@/lib/public-path'
 import { formatPriceLabel } from '@/lib/price-label'
 import { DiscoverEntityType, DiscoverViewMode, type CardInfo, type DiscoverModel } from '@/types/discover'
@@ -9,7 +11,6 @@ import { resolveBaseUrl } from '@/lib/base-url'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { listActiveCollections } from '@/lib/collections'
 import { CACHE_TAGS, CACHE_TTL_SECONDS } from '@/lib/cache-policy'
-
 type SearchParams = { [key: string]: string | string[] | undefined }
 
 import DiscoverModelList from '@/components/discover/DiscoverModelList'
@@ -74,6 +75,17 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   const collections = await listActiveCollections(4)
   const data = await fetchModels(fetchParams, baseUrl) as { models?: DiscoverModel[]; total?: number }
   const models: DiscoverModel[] = Array.isArray(data.models) ? data.models : []
+  const suggestedMaterials = Array.from(new Set(
+    models
+      .map((model) => model.material?.trim())
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toLowerCase()),
+  )).slice(0, 6)
+  const suggestedTags = Array.from(new Map(
+    models
+      .flatMap((model) => model.tags || [])
+      .map((tag) => [tag.slug, tag]),
+  ).values()).slice(0, 6)
   const total = typeof data.total === 'number' ? data.total : 0
   const safeTotal = total || 0
   const totalPages = Math.max(1, Math.ceil(safeTotal / pageSize))
@@ -100,7 +112,51 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   return (
     <div className="space-y-6">
       <ViewPreferenceSync viewMode={viewMode} storedView={storedView} />
-      <h1 className="page-title text-3xl font-semibold">Discover Models</h1>
+      <section className="glass overflow-hidden rounded-[1.75rem] border border-white/10 p-5 md:p-7">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.8fr)] lg:items-start">
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.34em] text-brand-300/80">Discover v3</p>
+              <h1 className="page-title text-3xl font-semibold md:text-4xl">Search, filter, and route work faster.</h1>
+              <p className="max-w-2xl text-sm text-slate-300 md:text-base">
+                Discover now pulls models, products, and merch into one search flow with smarter scopes, reusable presets, and clearer production-oriented sorting.
+              </p>
+            </div>
+            <DiscoverFilters
+              q={q}
+              sort={sort}
+              pageSize={pageSize}
+              viewMode={viewMode}
+              ready={ready}
+              suggestedMaterials={suggestedMaterials}
+              suggestedTags={suggestedTags}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Result set</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{safeTotal}</p>
+              <p className="mt-1 text-sm text-slate-400">
+                {safeTotal > 0 ? `Showing ${showingStart}-${showingEnd} on page ${page}.` : 'Refine the query to explore the full catalog.'}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Search mode</p>
+              <p className="mt-2 text-base font-semibold text-white">{q ? 'Unified search' : 'Model library focus'}</p>
+              <p className="mt-1 text-sm text-slate-400">
+                {q ? 'Text search spans models, products, and merch unless you scope it.' : 'Browse public models by latest activity, pricing, and readiness.'}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Workflow</p>
+              <div className="mt-2">
+                <ViewToggle viewMode={viewMode} gridHref={gridViewHref} compactHref={compactViewHref} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <DiscoverPresetBar canSave={canLike} />
       {ready && (
         <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
           Ready to Print now requires lower-risk model scores and live in-stock material availability.
@@ -138,9 +194,11 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-400">
-          Showing {safeTotal > 0 ? `${showingStart}-${showingEnd}` : 0} of {safeTotal} models
+          {safeTotal > 0 ? `Showing ${showingStart}-${showingEnd} of ${safeTotal} results` : 'No results in this result set'}
         </p>
-        <ViewToggle viewMode={viewMode} gridHref={gridViewHref} compactHref={compactViewHref} />
+        <div className="text-xs text-slate-500">
+          Sort: <span className="text-slate-300">{sort.replaceAll('_', ' ')}</span>
+        </div>
       </div>
 
       <DiscoverModelList cards={cards} viewMode={viewMode} canLike={canLike} />
@@ -152,14 +210,14 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             className={`px-3 py-1.5 rounded-md border ${page === 1 ? 'opacity-60 cursor-default' : 'hover:border-white/20'} border-white/10`}
             aria-disabled={page === 1}
           >
-            « First
+            First
           </Link>
           <Link
             href={buildQS({ page: Math.max(1, page - 1) }, params)}
             className={`px-3 py-1.5 rounded-md border ${page === 1 ? 'opacity-60 cursor-default' : 'hover:border-white/20'} border-white/10`}
             aria-disabled={page === 1}
           >
-            ‹ Prev
+            Prev
           </Link>
           <div className="px-3 py-1.5 rounded-md border border-white/10 text-sm text-slate-300">
             Page {page} / {totalPages}
@@ -169,14 +227,14 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             className={`px-3 py-1.5 rounded-md border ${page === totalPages ? 'opacity-60 cursor-default' : 'hover:border-white/20'} border-white/10`}
             aria-disabled={page === totalPages}
           >
-            Next ›
+            Next
           </Link>
           <Link
             href={buildQS({ page: totalPages }, params)}
             className={`px-3 py-1.5 rounded-md border ${page === totalPages ? 'opacity-60 cursor-default' : 'hover:border-white/20'} border-white/10`}
             aria-disabled={page === totalPages}
           >
-            Last »
+            Last
           </Link>
         </div>
       )}

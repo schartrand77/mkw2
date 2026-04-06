@@ -102,6 +102,14 @@ export default function DiscoverFilters({
   const activeSortDescription = SORT_EXPLAINERS[sort] || SORT_EXPLAINERS[DiscoverSort.Latest]
   const parsedSearch = useMemo(() => parseSearch(q), [q])
 
+  const pushQuery = (nextQuery: string | null) => {
+    const next = new URLSearchParams(searchParams.toString())
+    if (nextQuery && nextQuery.trim()) next.set('q', nextQuery.trim())
+    else next.delete('q')
+    next.set('page', '1')
+    router.push(`${pathname}?${next.toString()}`)
+  }
+
   const activeChips = useMemo(() => {
     const chips: Array<{ key: string; label: string; clear: () => void }> = []
     const buildHref = (patch: Record<string, string | null>) => {
@@ -188,7 +196,6 @@ export default function DiscoverFilters({
     <form method="get" className="space-y-3">
       <div className="relative mx-auto w-full max-w-3xl transition-all duration-300">
         <div className="rounded-2xl p-3 transition-all duration-300 discover-search-shell space-y-3">
-          <input type="hidden" name="q" value={q} />
           <datalist id="discover-search-suggestions">
             {suggestedMaterials.map((material) => (
               <option key={`material-${material}`} value={`material:${material.toLowerCase()}`} />
@@ -197,6 +204,49 @@ export default function DiscoverFilters({
               <option key={`tag-${tag.slug}`} value={`tag:${tag.slug}`} />
             ))}
           </datalist>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="discover-search-input-wrap flex-1">
+                <label className="sr-only" htmlFor="discover-q">Search discover</label>
+                <input
+                  id="discover-q"
+                  name="q"
+                  type="search"
+                  defaultValue={q}
+                  list="discover-search-suggestions"
+                  className="discover-search-input h-12 w-full rounded-[1rem] border border-white/10 px-4 text-sm focus:outline-none"
+                  placeholder="Search models, products, tags, or use material:pla tag:flexi #products"
+                />
+              </div>
+              <button className="rounded-[1rem] border border-white/10 px-4 py-3 text-sm font-medium discover-filter-chip">
+                Search
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 text-[11px]">
+              {[
+                { label: 'Models', value: '#models' },
+                { label: 'Products', value: '#products' },
+                { label: 'Merch', value: '#merch' },
+              ].map((scope) => {
+                const active = parsedSearch.scopes.includes(scope.value)
+                return (
+                  <button
+                    key={scope.value}
+                    type="button"
+                    onClick={() => {
+                      const scopes = active
+                        ? parsedSearch.scopes.filter((entry) => entry !== scope.value)
+                        : [...parsedSearch.scopes, scope.value]
+                      pushQuery(buildSearchValue({ ...parsedSearch, scopes }) || null)
+                    }}
+                    className={`rounded-full border px-3 py-1 text-slate-300 hover:border-white/20 ${active ? 'border-white/30 bg-white/10 text-white' : 'border-white/10 bg-black/20'}`}
+                  >
+                    {scope.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-2 transition-opacity duration-200">
             <label className="sr-only" htmlFor="discover-sort">Sort</label>
             <select
@@ -234,7 +284,7 @@ export default function DiscoverFilters({
           </div>
           <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
             <p className="text-slate-400">{activeSortDescription}</p>
-            <p className="text-slate-500">Use the top-row search with <span className="text-slate-300">material:</span>, <span className="text-slate-300">tag:</span>, or <span className="text-slate-300">#products</span>.</p>
+            <p className="text-slate-500">Use <span className="text-slate-300">material:</span>, <span className="text-slate-300">tag:</span>, or scope tags like <span className="text-slate-300">#products</span>.</p>
           </div>
           {(suggestedMaterials.length > 0 || suggestedTags.length > 0) && (
             <div className="flex flex-wrap gap-2 text-[11px]">

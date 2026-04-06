@@ -7,6 +7,7 @@ import { pushSessionNotification } from '@/components/notifications/Notification
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BRAND_FULL_NAME, BRAND_LOGO_PREFIX, BRAND_LOGO_SUFFIX, BRAND_VERSION } from '@/lib/brand'
+import CommandPalette from '@/components/CommandPalette'
 
 type Props = {
   authed: boolean
@@ -86,7 +87,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   const [mounted, setMounted] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [avatarSrc, setAvatarSrc] = useState<string | null>(avatarUrl)
-  const [quickSearch, setQuickSearch] = useState('')
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const quickMenuRef = useRef<HTMLDivElement | null>(null)
   const mobileNavRef = useRef<HTMLDivElement | null>(null)
@@ -111,6 +112,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   // Always close the mobile menu after navigation.
   useEffect(() => {
     if (isMobileViewport) setMobileNavOpen(false)
+    setCommandPaletteOpen(false)
   }, [isMobileViewport, pathname])
 
   // If viewport is desktop, ensure mobile menu state is reset.
@@ -349,80 +351,6 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     </div>
   )
 
-  const resolveQuickSearchNavigation = (rawQuery: string) => {
-    const query = rawQuery.trim()
-    const tokens = query.split(/\s+/).filter(Boolean)
-    const navTags = new Set<string>()
-    const contentTokens: string[] = []
-    for (const token of tokens) {
-      if (token.startsWith('#')) navTags.add(token.toLowerCase().replace(/^#+/, ''))
-      else contentTokens.push(token)
-    }
-
-    const routeByTag: Record<string, string> = {
-      home: '/',
-      discover: '/discover',
-      store: '/products',
-      upload: '/upload',
-      cart: '/cart',
-      checkout: '/checkout',
-      orders: '/customer/orders',
-      portal: '/customer/portal',
-      workspace: '/customer/workspaces',
-      workspaces: '/customer/workspaces',
-      profile: '/settings/profile',
-      account: '/settings/account',
-      orgs: '/settings/organizations',
-      organizations: '/settings/organizations',
-      likes: '/likes',
-      me: '/me',
-      admin: '/admin',
-      users: '/admin/users',
-      jobs: '/admin/jobs',
-      inventory: '/admin/inventory',
-      analytics: '/admin/analytics',
-      production: '/admin/production',
-      models: '/discover',
-      merch: '/discover',
-    }
-
-    const preferredNavOrder = [
-      'home', 'discover', 'store', 'upload', 'cart', 'checkout', 'orders', 'portal', 'workspace', 'workspaces', 'profile',
-      'account', 'orgs', 'organizations', 'likes', 'me', 'admin', 'users', 'jobs', 'inventory', 'analytics', 'production',
-    ]
-    const navTag = preferredNavOrder.find((tag) => navTags.has(tag))
-    const navRoute = navTag ? routeByTag[navTag] : null
-    const discoverQuery = [contentTokens.join(' ').trim(), ...Array.from(navTags).filter((tag) => ['models', 'merch', 'products'].includes(tag)).map((tag) => `#${tag}`)]
-      .filter(Boolean)
-      .join(' ')
-      .trim()
-
-    return { navRoute, discoverQuery }
-  }
-
-  const handleQuickSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const raw = quickSearch.trim()
-    if (!raw) {
-      router.push('/discover')
-      return
-    }
-    const { navRoute, discoverQuery } = resolveQuickSearchNavigation(raw)
-
-    if (navRoute?.startsWith('/admin') && !isAdmin) {
-      pushSessionNotification({ type: 'error', title: 'Admin only', message: 'That hashtag route requires admin access.' })
-      return
-    }
-    if (navRoute && navRoute !== '/discover') {
-      router.push(navRoute)
-      return
-    }
-    const qs = new URLSearchParams()
-    if (discoverQuery) qs.set('q', discoverQuery)
-    const href = `/discover${qs.toString() ? `?${qs.toString()}` : ''}`
-    router.push(href)
-  }
-
   return (
     <>
       {mounted && createPortal(
@@ -459,17 +387,15 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       {authed && mounted && createPortal(
         <div className={`app-user-shortcut ${!isMobileViewport && desktopSidebarOpen ? 'app-user-shortcut-open' : ''}`} ref={quickMenuRef}>
           <div className="app-user-shortcut-row">
-            <form className="app-user-search-form" onSubmit={handleQuickSearchSubmit}>
-              <input
-                className="app-user-search-input"
-                type="search"
-                name="quickSearch"
-                value={quickSearch}
-                onChange={(e) => setQuickSearch(e.target.value)}
-                placeholder="Search... (#discover #store #upload)"
-                aria-label="Search and navigate"
-              />
-            </form>
+            <button
+              type="button"
+              className="app-command-trigger"
+              onClick={() => setCommandPaletteOpen(true)}
+              aria-label="Open command palette"
+            >
+              <span className="app-command-trigger-label">Jump to anything</span>
+              <span className="app-command-trigger-hint">Ctrl/Cmd+K</span>
+            </button>
             <Link
               href="/cart"
               className={`app-user-shortcut-link ${isActivePath(pathname, '/cart') ? 'app-user-shortcut-link-active' : ''}`}
@@ -560,6 +486,15 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
         ) : null,
         document.body
       )}
+
+      <CommandPalette
+        authed={authed}
+        isAdmin={isAdmin}
+        cartCount={count}
+        pathname={pathname}
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+      />
 
       <aside
         id="app-sidebar"
