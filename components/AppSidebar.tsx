@@ -1,11 +1,10 @@
-﻿"use client"
+"use client"
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCart } from '@/components/cart/CartProvider'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { BRAND_FULL_NAME, BRAND_LOGO_PREFIX, BRAND_LOGO_SUFFIX, BRAND_VERSION } from '@/lib/brand'
 import CommandPalette from '@/components/CommandPalette'
 
@@ -22,6 +21,16 @@ type AdminNavItem = {
 }
 
 type ThemeMode = 'light' | 'dark' | 'oled'
+
+const PRIMARY_LINKS = [
+  { href: '/discover', label: 'Discover' },
+  { href: '/products', label: 'Store' },
+]
+
+const AUTHED_LINKS = [
+  { href: '/upload', label: 'Upload' },
+  { href: '/checkout', label: 'Checkout' },
+]
 
 const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin', label: 'Overview' },
@@ -63,7 +72,6 @@ function isActivePath(pathname: string, href: string): boolean {
 }
 
 function isActiveAdminPath(pathname: string, item: AdminNavItem): boolean {
-  // Keep Overview active only on the exact /admin route.
   if (item.href === '/admin') return pathname === '/admin'
   if (isActivePath(pathname, item.href)) return true
   return (item.matchPrefixes || []).some((prefix) => pathname.startsWith(prefix))
@@ -71,8 +79,8 @@ function isActiveAdminPath(pathname: string, item: AdminNavItem): boolean {
 
 function GearGlyph() {
   return (
-    <span className="block text-lg md:text-xl leading-none" aria-hidden="true">
-      ⚙️
+    <span className="app-brand-mark" aria-hidden="true">
+      <span className="app-brand-mark-gear">*</span>
     </span>
   )
 }
@@ -80,144 +88,28 @@ function GearGlyph() {
 export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   const pathname = usePathname() || '/'
   const router = useRouter()
+  const { count } = useCart()
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const [desktopCollapsed, setDesktopCollapsed] = useState(false)
-  const [adminOpen, setAdminOpen] = useState(false)
-  const [mobileAdminOpen, setMobileAdminOpen] = useState(false)
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [mobileThemeMenuOpen, setMobileThemeMenuOpen] = useState(false)
-  const [quickMenuOpen, setQuickMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const [theme, setTheme] = useState<ThemeMode>('dark')
   const [avatarSrc, setAvatarSrc] = useState<string | null>(avatarUrl)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
-  const quickMenuRef = useRef<HTMLDivElement | null>(null)
-  const mobileNavRef = useRef<HTMLDivElement | null>(null)
-  const hamburgerRef = useRef<HTMLButtonElement | null>(null)
-  const sidebarRef = useRef<HTMLElement | null>(null)
-  const { count } = useCart()
+  const mobileDrawerRef = useRef<HTMLDivElement | null>(null)
   const inAdmin = pathname.startsWith('/admin')
-  const desktopSidebarOpen = !desktopCollapsed
+
+  const activeAdminLabel = useMemo(() => {
+    const current = ADMIN_NAV_ITEMS.find((item) => isActiveAdminPath(pathname, item))
+    return current?.label || 'Overview'
+  }, [pathname])
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  useEffect(() => {
-    if (typeof document === 'undefined') return
-    document.body.classList.remove('sidebar-open')
-    return () => {
-      document.body.classList.remove('sidebar-open')
-    }
-  }, [])
-
-  // Always close the mobile menu after navigation.
-  useEffect(() => {
-    if (isMobileViewport) setMobileNavOpen(false)
-    setCommandPaletteOpen(false)
-  }, [isMobileViewport, pathname])
-
-  // If viewport is desktop, ensure mobile menu state is reset.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const widthMq = window.matchMedia('(max-width: 1023px)')
-    const coarseMq = window.matchMedia('(pointer: coarse)')
-    const handleChange = () => {
-      const nextMobile = widthMq.matches && coarseMq.matches
-      setIsMobileViewport(nextMobile)
-      if (!nextMobile) setMobileNavOpen(false)
-    }
-    handleChange()
-    widthMq.addEventListener('change', handleChange)
-    coarseMq.addEventListener('change', handleChange)
-    return () => {
-      widthMq.removeEventListener('change', handleChange)
-      coarseMq.removeEventListener('change', handleChange)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (inAdmin) setAdminOpen(true)
-  }, [inAdmin])
-
-  useEffect(() => {
-    if (inAdmin) setMobileAdminOpen(true)
-  }, [inAdmin])
-
-  const logout = async () => {
-    let redirectTarget = '/signed-out'
-    try {
-      const res = await fetch('/api/logout', { method: 'POST', credentials: 'include' })
-      if (!res.ok) {
-        let message = 'Sign out failed. Please try again.'
-        try {
-          const contentType = res.headers.get('content-type') || ''
-          if (contentType.includes('application/json')) {
-            const body = await res.json()
-            if (typeof body?.error === 'string' && body.error.trim()) message = body.error
-          } else {
-            const text = await res.text()
-            if (text.trim()) message = text.trim()
-          }
-        } catch {}
-        pushSessionNotification({ type: 'error', title: 'Sign out failed', message })
-        return
-      }
-      const contentType = res.headers.get('content-type') || ''
-      if (res.ok && contentType.includes('application/json')) {
-        try {
-          const data = await res.json()
-          if (typeof data?.redirect === 'string') redirectTarget = data.redirect
-        } catch {}
-      }
-    } catch {}
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem('mwv2:avatarUrl')
-      } catch {}
-      window.dispatchEvent(new CustomEvent('mwv2:avatar:update', { detail: '' }))
-    }
-    setAvatarSrc(null)
-    pushSessionNotification({ type: 'info', title: 'Signed out', message: 'Come back soon!' })
-    setMenuOpen(false)
-    if (typeof window !== 'undefined') {
-      window.location.href = redirectTarget
-    } else {
-      router.replace(redirectTarget)
-    }
-  }
-
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      const target = e.target as Node
-      if (menuRef.current && !menuRef.current.contains(target)) setMenuOpen(false)
-      if (quickMenuRef.current && !quickMenuRef.current.contains(target)) setQuickMenuOpen(false)
-      if (
-        !isMobileViewport &&
-        desktopSidebarOpen &&
-        sidebarRef.current &&
-        !sidebarRef.current.contains(target) &&
-        hamburgerRef.current &&
-        !hamburgerRef.current.contains(target)
-      ) {
-        setDesktopCollapsed(true)
-      }
-      if (
-        mobileNavRef.current &&
-        !mobileNavRef.current.contains(target) &&
-        hamburgerRef.current &&
-        !hamburgerRef.current.contains(target)
-      ) {
-        setMobileNavOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onDocClick)
-    return () => document.removeEventListener('mousedown', onDocClick)
-  }, [desktopSidebarOpen, isMobileViewport])
-
-  const [theme, setTheme] = useState<ThemeMode>('dark')
   useEffect(() => {
     if (typeof window === 'undefined') return
     const saved = localStorage.getItem('mwv2:theme') as ThemeMode | null
@@ -225,28 +117,14 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
   }, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      setDesktopCollapsed(localStorage.getItem('mwv2:sidebarCollapsed') === '1')
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      localStorage.setItem('mwv2:sidebarCollapsed', desktopCollapsed ? '1' : '0')
-    } catch {}
-  }, [desktopCollapsed])
-
-  useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement
     const body = document.body
     const themeClasses = ['theme-light', 'theme-dark', 'theme-oled']
     root.classList.remove(...themeClasses)
-    body?.classList.remove(...themeClasses)
+    body.classList.remove(...themeClasses)
     root.classList.add(`theme-${theme}`)
-    body?.classList.add(`theme-${theme}`)
+    body.classList.add(`theme-${theme}`)
     try {
       localStorage.setItem('mwv2:theme', theme)
     } catch {}
@@ -268,47 +146,103 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       const detail = (event as CustomEvent<string>).detail
       if (typeof detail === 'string' && detail.length) {
         setAvatarSrc(detail)
-      } else {
-        try {
-          const fallback = localStorage.getItem(storageKey)
-          setAvatarSrc(fallback || null)
-        } catch {}
+        return
+      }
+      try {
+        setAvatarSrc(localStorage.getItem(storageKey) || null)
+      } catch {
+        setAvatarSrc(null)
       }
     }
     window.addEventListener(eventName, onAvatarUpdate as EventListener)
     return () => window.removeEventListener(eventName, onAvatarUpdate as EventListener)
   }, [])
 
-  const navLinkCls = (href: string) => {
-    const active = isActivePath(pathname, href)
-    return active
-      ? 'app-sidebar-link app-sidebar-link-active'
-      : 'app-sidebar-link'
-  }
+  useEffect(() => {
+    setMobileNavOpen(false)
+    setCommandPaletteOpen(false)
+  }, [pathname])
 
-  const adminToggle = () => {
-    setAdminOpen((open) => !open)
-  }
-
-  const toggleSidebar = () => {
-    if (isMobileViewport) {
-      setMobileNavOpen((open) => !open)
-      return
+  useEffect(() => {
+    const onDocClick = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setMenuOpen(false)
+        setThemeMenuOpen(false)
+      }
+      if (mobileDrawerRef.current && !mobileDrawerRef.current.contains(target)) {
+        const insideToggle = target instanceof HTMLElement && !!target.closest('[data-app-drawer-toggle="true"]')
+        if (!insideToggle) {
+          setMobileNavOpen(false)
+          setMobileThemeMenuOpen(false)
+        }
+      }
     }
-    setDesktopCollapsed((collapsed) => !collapsed)
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.body.style.overflow = mobileNavOpen ? 'hidden' : ''
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [mobileNavOpen])
+
+  const logout = async () => {
+    let redirectTarget = '/signed-out'
+    try {
+      const res = await fetch('/api/logout', { method: 'POST', credentials: 'include' })
+      if (!res.ok) {
+        let message = 'Sign out failed. Please try again.'
+        try {
+          const contentType = res.headers.get('content-type') || ''
+          if (contentType.includes('application/json')) {
+            const body = await res.json()
+            if (typeof body?.error === 'string' && body.error.trim()) message = body.error
+          } else {
+            const text = await res.text()
+            if (text.trim()) message = text.trim()
+          }
+        } catch {}
+        pushSessionNotification({ type: 'error', title: 'Sign out failed', message })
+        return
+      }
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('application/json')) {
+        try {
+          const data = await res.json()
+          if (typeof data?.redirect === 'string') redirectTarget = data.redirect
+        } catch {}
+      }
+    } catch {}
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('mwv2:avatarUrl')
+      } catch {}
+      window.dispatchEvent(new CustomEvent('mwv2:avatar:update', { detail: '' }))
+    }
+    setAvatarSrc(null)
+    pushSessionNotification({ type: 'info', title: 'Signed out', message: 'Come back soon!' })
+    setMenuOpen(false)
+    setMobileNavOpen(false)
+    if (typeof window !== 'undefined') {
+      window.location.href = redirectTarget
+    } else {
+      router.replace(redirectTarget)
+    }
   }
 
   const closeMenus = () => {
     setMenuOpen(false)
-    setQuickMenuOpen(false)
-    setMobileNavOpen(false)
-    setMobileAdminOpen(false)
     setThemeMenuOpen(false)
+    setMobileNavOpen(false)
     setMobileThemeMenuOpen(false)
   }
 
   const renderThemeChoices = (mobile = false) => (
-    <div className="border-t border-white/10 py-1">
+    <div className="app-theme-list">
       {(['light', 'dark', 'oled'] as ThemeMode[]).map((option) => {
         const active = theme === option
         return (
@@ -322,173 +256,215 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
               if (mobile) setMobileThemeMenuOpen(false)
               else setThemeMenuOpen(false)
             }}
-            className={`app-sidebar-menu-item w-full text-left ${active ? 'app-sidebar-sub-link-active' : ''}`}
+            className={`app-menu-item ${active ? 'app-menu-item-active' : ''}`}
           >
-            {active ? '✓ ' : ''}{getThemeLabel(option)}
+            {active ? '* ' : ''}{getThemeLabel(option)}
           </button>
         )
       })}
     </div>
   )
 
-  const renderAccountMenu = (className: string) => (
-    <div role="menu" className={className}>
-      {isAdmin && <Link href="/admin" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Admin</Link>}
-      <Link href="/settings/profile" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Edit Profile</Link>
-      <Link href="/me" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">My Page</Link>
-      <Link href="/customer/portal" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Customer Portal</Link>
-      <Link href="/customer/orders" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Orders</Link>
-      <Link href="/customer/workspaces" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Workspaces</Link>
-      <Link href="/settings/organizations" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Organizations</Link>
-      <Link href="/settings/account" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Account</Link>
+  const renderAccountMenu = (mobile = false) => (
+    <div role="menu" className={mobile ? 'app-mobile-section' : 'app-menu-panel'}>
+      {isAdmin && <Link href="/admin" role="menuitem" onClick={closeMenus} className="app-menu-item">Admin</Link>}
+      <Link href="/settings/profile" role="menuitem" onClick={closeMenus} className="app-menu-item">Edit profile</Link>
+      <Link href="/me" role="menuitem" onClick={closeMenus} className="app-menu-item">My page</Link>
+      <Link href="/customer/portal" role="menuitem" onClick={closeMenus} className="app-menu-item">Customer portal</Link>
+      <Link href="/customer/orders" role="menuitem" onClick={closeMenus} className="app-menu-item">Orders</Link>
+      <Link href="/customer/workspaces" role="menuitem" onClick={closeMenus} className="app-menu-item">Workspaces</Link>
+      <Link href="/settings/organizations" role="menuitem" onClick={closeMenus} className="app-menu-item">Organizations</Link>
+      <Link href="/settings/account" role="menuitem" onClick={closeMenus} className="app-menu-item">Account</Link>
       <button
         type="button"
         role="menuitem"
-        aria-expanded={themeMenuOpen}
-        onClick={() => setThemeMenuOpen((open) => !open)}
-        className="app-sidebar-menu-item w-full text-left"
+        aria-expanded={mobile ? mobileThemeMenuOpen : themeMenuOpen}
+        onClick={() => {
+          if (mobile) setMobileThemeMenuOpen((open) => !open)
+          else setThemeMenuOpen((open) => !open)
+        }}
+        className="app-menu-item w-full text-left"
       >
-        Theme: {getThemeLabel(theme)} {themeMenuOpen ? '▾' : '▸'}
+        Theme: {getThemeLabel(theme)} {(mobile ? mobileThemeMenuOpen : themeMenuOpen) ? 'v' : '>'}
       </button>
-      {themeMenuOpen && renderThemeChoices()}
-      <button role="menuitem" onClick={logout} className="app-sidebar-menu-item w-full text-left">Sign out</button>
+      {(mobile ? mobileThemeMenuOpen : themeMenuOpen) && renderThemeChoices(mobile)}
+      <button type="button" role="menuitem" onClick={logout} className="app-menu-item w-full text-left">Sign out</button>
     </div>
   )
 
+  const navLinkClass = (href: string) =>
+    isActivePath(pathname, href) ? 'app-nav-link app-nav-link-active' : 'app-nav-link'
+
   return (
     <>
-      {mounted && createPortal(
-        <button
-          ref={hamburgerRef}
-          type="button"
-          className="app-hamburger-shortcut"
-          onClick={toggleSidebar}
-          aria-expanded={isMobileViewport ? mobileNavOpen : desktopSidebarOpen}
-          aria-controls={isMobileViewport ? 'app-mobile-nav-menu' : 'app-sidebar'}
-          aria-label={isMobileViewport ? 'Toggle navigation menu' : (desktopSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar')}
-        >
-          <span aria-hidden="true">☰</span>
-        </button>,
-        document.body
-      )}
+      <header className="app-shell-top">
+        <div className="app-command-deck">
+          <div className="app-command-deck-row">
+            <div className="app-brand-cluster">
+              <button
+                type="button"
+                className="app-mobile-trigger lg:hidden"
+                aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                aria-expanded={mobileNavOpen}
+                data-app-drawer-toggle="true"
+                onClick={() => setMobileNavOpen((open) => !open)}
+              >
+                {mobileNavOpen ? 'X' : '='}
+              </button>
+              <Link href="/" className="app-brand-lockup" aria-label={BRAND_FULL_NAME}>
+                <GearGlyph />
+                <span className="app-brand-type">
+                  <span className="app-brand-eyebrow">Next Gen Print Platform</span>
+                  <span className="app-brand-name">
+                    <span>{BRAND_LOGO_PREFIX}</span>
+                    {BRAND_LOGO_SUFFIX && <span>{BRAND_LOGO_SUFFIX}</span>}
+                    {BRAND_VERSION && <span className="app-brand-version"> {BRAND_VERSION}</span>}
+                  </span>
+                </span>
+              </Link>
+            </div>
 
-      {mounted && createPortal(
-        <Link
-          href="/"
-          aria-label={BRAND_FULL_NAME}
-          className="app-home-shortcut"
-        >
-          <span>{BRAND_LOGO_PREFIX}</span>
-          <span className="inline-block align-baseline text-brand-500 gear app-brand-gear-tight" aria-hidden="true" style={{ animationDelay: '800ms', animationDuration: '1200ms' }}>
-            <GearGlyph />
-          </span>
-          {BRAND_LOGO_SUFFIX && <span>{BRAND_LOGO_SUFFIX}</span>}
-          {BRAND_VERSION && <span className="text-brand-500"> {BRAND_VERSION}</span>}
-        </Link>,
-        document.body
-      )}
+            <div className="app-command-center">
+              <nav className="app-primary-nav hidden lg:flex" aria-label="Primary navigation">
+                {PRIMARY_LINKS.map((item) => (
+                  <Link key={item.href} href={item.href} className={navLinkClass(item.href)}>
+                    {item.label}
+                  </Link>
+                ))}
+                {authed && AUTHED_LINKS.map((item) => (
+                  <Link key={item.href} href={item.href} className={navLinkClass(item.href)}>
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
 
-      {authed && mounted && createPortal(
-        <div className={`app-user-shortcut ${!isMobileViewport && desktopSidebarOpen ? 'app-user-shortcut-open' : ''}`} ref={quickMenuRef}>
-          <div className="app-user-shortcut-row">
-            <button
-              type="button"
-              className="app-command-trigger"
-              onClick={() => setCommandPaletteOpen(true)}
-              aria-label="Open command palette"
-            >
-              <span className="app-command-trigger-label">Jump to anything</span>
-              <span className="app-command-trigger-hint">Ctrl/Cmd+K</span>
-            </button>
-            <Link
-              href="/cart"
-              className={`app-user-shortcut-link ${isActivePath(pathname, '/cart') ? 'app-user-shortcut-link-active' : ''}`}
-              aria-label="Open cart"
-            >
-              Cart{count > 0 ? ` (${count})` : ''}
-            </Link>
-            <button
-              type="button"
-              aria-haspopup="menu"
-              aria-expanded={quickMenuOpen}
-              onClick={() => setQuickMenuOpen((open) => !open)}
-              className={`app-sidebar-profile ${isActivePath(pathname, '/me') ? 'app-sidebar-profile-active' : ''}`}
-              aria-label="Open account menu"
-            >
-              {avatarSrc ? <img src={avatarSrc} alt="Avatar" className="h-8 w-8 rounded-full border border-white/10 object-cover" /> : <span>Me</span>}
-            </button>
-          </div>
-          {quickMenuOpen && renderAccountMenu('app-sidebar-menu app-user-shortcut-menu')}
-        </div>,
-        document.body
-      )}
+              <button
+                type="button"
+                className="app-command-surface"
+                onClick={() => setCommandPaletteOpen(true)}
+                aria-label="Open command palette"
+              >
+                <span className="app-command-surface-copy">
+                  <span className="app-command-surface-label">Jump to anything</span>
+                  <span className="app-command-surface-subtitle">Routes, admin tools, models, settings</span>
+                </span>
+                <span className="app-command-trigger-hint">Ctrl/Cmd+K</span>
+              </button>
+            </div>
 
-      {mounted && createPortal(
-        isMobileViewport && mobileNavOpen ? (
-          <div id="app-mobile-nav-menu" ref={mobileNavRef} role="menu" className="app-sidebar-menu app-mobile-nav-menu">
-            <Link href="/discover" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Discover</Link>
-            <Link href="/products" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Store</Link>
-            {authed ? (
-              <>
-                <Link href="/upload" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Upload</Link>
-                <Link href="/cart" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Cart{count > 0 ? ` (${count})` : ''}</Link>
-                <Link href="/checkout" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Checkout</Link>
-                {isAdmin && (
-                  <>
+            <div className="app-utility-cluster">
+              {authed ? (
+                <>
+                  <Link href="/cart" className={`app-utility-pill ${isActivePath(pathname, '/cart') ? 'app-utility-pill-active' : ''}`}>
+                    Cart
+                    <span className="app-utility-count">{count}</span>
+                  </Link>
+                  <div className="relative" ref={menuRef}>
                     <button
                       type="button"
-                      role="menuitem"
-                      aria-expanded={mobileAdminOpen}
-                      onClick={() => setMobileAdminOpen((open) => !open)}
-                      className="app-sidebar-menu-item w-full text-left"
+                      aria-haspopup="menu"
+                      aria-expanded={menuOpen}
+                      onClick={() => setMenuOpen((open) => !open)}
+                      className={`app-account-pill ${isActivePath(pathname, '/me') ? 'app-utility-pill-active' : ''}`}
                     >
-                      Admin {mobileAdminOpen ? '▾' : '▸'}
+                      {avatarSrc ? <img src={avatarSrc} alt="Avatar" className="h-9 w-9 rounded-full object-cover" /> : <span className="app-account-pill-fallback">Me</span>}
                     </button>
-                    {mobileAdminOpen && (
-                      <div className="pl-2 pb-1">
-                        {ADMIN_NAV_ITEMS.map((item) => {
-                          const active = isActiveAdminPath(pathname, item)
-                          return (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              role="menuitem"
-                              onClick={closeMenus}
-                              className={`app-sidebar-menu-item ${active ? 'app-sidebar-sub-link-active' : ''}`}
-                            >
-                              {item.label}
-                            </Link>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </>
+                    {menuOpen && renderAccountMenu(false)}
+                  </div>
+                </>
+              ) : (
+                <div className="hidden items-center gap-2 md:flex">
+                  <Link href="/login" className="app-utility-pill">Sign in</Link>
+                  <Link href="/register" className="app-cta-pill">Join</Link>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {inAdmin && (
+            <div className="app-admin-rail">
+              <div className="app-admin-rail-copy">
+                <span className="app-admin-rail-label">Admin mode</span>
+                <span className="app-admin-rail-title">{activeAdminLabel}</span>
+              </div>
+              <div className="app-admin-rail-links">
+                {ADMIN_NAV_ITEMS.slice(0, 8).map((item) => {
+                  const active = isActiveAdminPath(pathname, item)
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={active ? 'app-admin-link app-admin-link-active' : 'app-admin-link'}
+                    >
+                      {item.label}
+                    </Link>
+                  )
+                })}
+                <Link href="/admin" className="app-admin-link">
+                  Full console
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {mounted && mobileNavOpen && (
+        <>
+          <div className="app-mobile-scrim lg:hidden" />
+          <div ref={mobileDrawerRef} className="app-mobile-drawer lg:hidden">
+            <div className="app-mobile-section">
+              <span className="app-mobile-kicker">Navigate</span>
+              {PRIMARY_LINKS.map((item) => (
+                <Link key={item.href} href={item.href} onClick={closeMenus} className={navLinkClass(item.href)}>
+                  {item.label}
+                </Link>
+              ))}
+              {authed && AUTHED_LINKS.map((item) => (
+                <Link key={item.href} href={item.href} onClick={closeMenus} className={navLinkClass(item.href)}>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+
+            {authed ? (
+              <>
+                <div className="app-mobile-section">
+                  <span className="app-mobile-kicker">Workspace</span>
+                  <Link href="/cart" onClick={closeMenus} className={navLinkClass('/cart')}>Cart ({count})</Link>
+                  <Link href="/me" onClick={closeMenus} className={navLinkClass('/me')}>My page</Link>
+                  <Link href="/customer/orders" onClick={closeMenus} className={navLinkClass('/customer/orders')}>Orders</Link>
+                  <Link href="/customer/workspaces" onClick={closeMenus} className={navLinkClass('/customer/workspaces')}>Workspaces</Link>
+                </div>
+                {isAdmin && (
+                  <div className="app-mobile-section">
+                    <span className="app-mobile-kicker">Admin</span>
+                    {ADMIN_NAV_ITEMS.map((item) => {
+                      const active = isActiveAdminPath(pathname, item)
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={closeMenus}
+                          className={active ? 'app-nav-link app-nav-link-active' : 'app-nav-link'}
+                        >
+                          {item.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
                 )}
-                <Link href="/me" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">My Page</Link>
-                <Link href="/customer/orders" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Orders</Link>
-                <Link href="/customer/workspaces" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Workspaces</Link>
-                <Link href="/settings/profile" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Edit Profile</Link>
-                <button
-                  type="button"
-                  role="menuitem"
-                  aria-expanded={mobileThemeMenuOpen}
-                  onClick={() => setMobileThemeMenuOpen((open) => !open)}
-                  className="app-sidebar-menu-item w-full text-left"
-                >
-                  Theme: {getThemeLabel(theme)} {mobileThemeMenuOpen ? '▾' : '▸'}
-                </button>
-                {mobileThemeMenuOpen && renderThemeChoices(true)}
-                <button type="button" role="menuitem" onClick={logout} className="app-sidebar-menu-item w-full text-left">Sign out</button>
+                {renderAccountMenu(true)}
               </>
             ) : (
-              <>
-                <Link href="/login" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Sign in</Link>
-                <Link href="/register" role="menuitem" onClick={closeMenus} className="app-sidebar-menu-item">Join</Link>
-              </>
+              <div className="app-mobile-section">
+                <span className="app-mobile-kicker">Account</span>
+                <Link href="/login" onClick={closeMenus} className={navLinkClass('/login')}>Sign in</Link>
+                <Link href="/register" onClick={closeMenus} className="app-cta-pill justify-center">Join</Link>
+              </div>
             )}
           </div>
-        ) : null,
-        document.body
+        </>
       )}
 
       <CommandPalette
@@ -499,75 +475,6 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
       />
-
-      <aside
-        id="app-sidebar"
-        ref={sidebarRef}
-        className={`app-sidebar ${desktopCollapsed ? 'app-sidebar-collapsed' : ''} ${!isMobileViewport && desktopSidebarOpen ? 'app-sidebar-open' : ''}`}
-        style={isMobileViewport ? { display: 'none' } : undefined}
-      >
-        <div className="app-sidebar-inner">
-          <nav className="space-y-1" aria-label="Main navigation">
-            <Link href="/discover" className={navLinkCls('/discover')}>Discover</Link>
-            <Link href="/products" className={navLinkCls('/products')}>Store</Link>
-            {authed && (
-              <>
-                <Link href="/upload" className={navLinkCls('/upload')}>Upload</Link>
-                <Link href="/cart" className={navLinkCls('/cart')}>Cart{count > 0 ? ` (${count})` : ''}</Link>
-                <Link href="/checkout" className={navLinkCls('/checkout')}>Checkout</Link>
-                {isAdmin && (
-                  <>
-                    <button type="button" className={`${navLinkCls('/admin')} app-sidebar-admin-toggle`} onClick={adminToggle} aria-expanded={adminOpen}>
-                      <span>Admin</span>
-                    </button>
-                    {adminOpen && (
-                      <div className="app-sidebar-admin-list" aria-label="Admin navigation">
-                        {ADMIN_NAV_ITEMS.map((item) => {
-                          const active = isActiveAdminPath(pathname, item)
-                          return (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              className={`app-sidebar-sub-link ${active ? 'app-sidebar-sub-link-active' : ''}`}
-                              aria-current={active ? 'page' : undefined}
-                            >
-                              {item.label}
-                            </Link>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-            {!authed && (
-              <>
-                <Link href="/login" className={navLinkCls('/login')}>Sign in</Link>
-                <Link href="/register" className={navLinkCls('/register')}>Join</Link>
-              </>
-            )}
-          </nav>
-
-          {authed && (
-            <div className="mt-6 border-t border-white/10 pt-4">
-              <div className="relative" ref={menuRef}>
-                <button
-                  type="button"
-                  aria-haspopup="menu"
-                  aria-expanded={menuOpen}
-                  onClick={() => setMenuOpen((open) => !open)}
-                  className={`app-sidebar-profile ${isActivePath(pathname, '/me') ? 'app-sidebar-profile-active' : ''}`}
-                >
-                  {avatarSrc ? <img src={avatarSrc} alt="Avatar" className="h-8 w-8 rounded-full border border-white/10 object-cover" /> : <span>Me</span>}
-                </button>
-                {menuOpen && renderAccountMenu('app-sidebar-menu')}
-              </div>
-            </div>
-          )}
-        </div>
-      </aside>
     </>
   )
 }
-

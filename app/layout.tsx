@@ -77,11 +77,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className={holidayTheme ? `holiday-${holidayTheme}` : undefined}>
         <CartProvider>
           <NotificationsProvider>
-            <div className="mx-auto flex w-full max-w-[1400px] gap-4 px-4 py-4 md:gap-6 md:py-6 safe-padded">
+            <div className="app-shell safe-padded">
               <AppSidebar authed={authed} isAdmin={isAdmin} avatarUrl={avatarUrl} />
-              <div className="app-content-shell min-w-0 flex-1">
+              <div className="app-content-shell">
                 <main className="app-main relative z-0">{children}</main>
-                <footer className="footer-shell app-footer footer-safe py-6 text-center text-sm text-slate-400/80">
+                <footer className="footer-shell app-footer footer-safe text-center text-sm text-slate-400/80">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <span>
                       &copy; {new Date().getFullYear()} {BRAND_FULL_NAME}
