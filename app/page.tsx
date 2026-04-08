@@ -100,9 +100,15 @@ const valuePillars = [
   },
 ]
 
+
+
+const SURFACE_CLASS = 'glass border border-white/10'
+const CARD_CLASS = `${SURFACE_CLASS} rounded-2xl p-4`
+const SECTION_CLASS = `${SURFACE_CLASS} rounded-3xl p-8 md:p-12`
+
 function HomeHero() {
   return (
-    <section className="glass rounded-3xl border border-white/10 p-8 md:p-12">
+    <section className={SECTION_CLASS}>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
         <div className="space-y-6">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-brand-200/80">MakerWorks v2</p>
@@ -136,7 +142,7 @@ function ValuePillars() {
   return (
     <section className="grid gap-4 md:grid-cols-3">
       {valuePillars.map((pillar) => (
-        <article key={pillar.title} className="glass rounded-2xl border border-white/10 p-5">
+        <article key={pillar.title} className={`${CARD_CLASS} p-5`}>
           <h2 className="text-base font-semibold">{pillar.title}</h2>
           <p className="mt-2 text-sm text-slate-300 leading-relaxed">{pillar.text}</p>
         </article>
@@ -147,7 +153,7 @@ function ValuePillars() {
 
 function ContactCta({ contactEmail }: { contactEmail: string }) {
   return (
-    <section className="glass rounded-3xl border border-white/10 p-8 md:p-10">
+    <section className={`${SURFACE_CLASS} rounded-3xl p-8 md:p-10`}>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div>
           <h3 className="text-2xl font-semibold">Need a custom run or production support?</h3>
@@ -193,7 +199,7 @@ export default async function HomePage() {
           <FeaturedMarquee models={featured} />
         </section>
       ) : (
-        <section className="glass rounded-2xl border border-white/10 p-8 text-center py-16">
+        <section className={`${CARD_CLASS} py-16 text-center`}>
           <p className="text-lg font-semibold">Featured models are being refreshed.</p>
           <p className="text-slate-400 mt-2">Browse the full catalog while the new spotlight set is prepared.</p>
           <Link href="/discover" className="btn mt-6">Open Discover</Link>
@@ -208,7 +214,7 @@ export default async function HomePage() {
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             {curatedComments.map((comment) => (
-              <article key={comment.id} className="glass rounded-2xl border border-white/10 p-4 space-y-3">
+              <article key={comment.id} className={`${CARD_CLASS} space-y-3`}>
                 <div className="flex items-center gap-3">
                   {comment.userAvatarUrl ? (
                     <img
