@@ -101,9 +101,9 @@ const valuePillars = [
 ]
 
 
-
 const SURFACE_CLASS = 'glass border border-white/10'
 const CARD_CLASS = `${SURFACE_CLASS} rounded-2xl p-4`
+const PILLAR_CARD_CLASS = `${SURFACE_CLASS} rounded-2xl p-5`
 const SECTION_CLASS = `${SURFACE_CLASS} rounded-3xl p-8 md:p-12`
 
 function HomeHero() {
@@ -142,7 +142,7 @@ function ValuePillars() {
   return (
     <section className="grid gap-4 md:grid-cols-3">
       {valuePillars.map((pillar) => (
-        <article key={pillar.title} className={`${CARD_CLASS} p-5`}>
+        <article key={pillar.title} className={PILLAR_CARD_CLASS}>
           <h2 className="text-base font-semibold">{pillar.title}</h2>
           <p className="mt-2 text-sm text-slate-300 leading-relaxed">{pillar.text}</p>
         </article>
