@@ -1752,3 +1752,51 @@ html.theme-light .command-palette-item-description,
 html.theme-light .command-palette-empty {
   color: #334155;
 }
+
+.home-hero {
+  border: 1px solid rgba(var(--empire-crimson-rgb) / 0.28);
+  background:
+    radial-gradient(120% 90% at 90% -5%, rgba(var(--empire-crimson-rgb) / 0.18), transparent),
+    linear-gradient(155deg, rgba(15, 20, 30, 0.94), rgba(6, 9, 15, 0.92));
+  box-shadow: 0 32px 70px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.home-hero-panel {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 1rem;
+  background: linear-gradient(160deg, rgba(16, 22, 33, 0.9), rgba(10, 14, 22, 0.92));
+  padding: 1rem;
+}
+
+.home-card {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.95rem;
+  background: linear-gradient(170deg, rgba(14, 18, 27, 0.86), rgba(8, 11, 17, 0.88));
+  padding: 1rem;
+  box-shadow: 0 15px 38px rgba(0, 0, 0, 0.35);
+}
+
+.home-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgb(226 232 240);
+  font-weight: 500;
+}
+
+.home-ghost-btn:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.home-cta {
+  border: 1px solid rgba(var(--empire-crimson-rgb) / 0.26);
+  background:
+    radial-gradient(120% 120% at 100% 0, rgba(var(--empire-crimson-rgb) / 0.16), transparent),
+    linear-gradient(160deg, rgba(11, 15, 24, 0.95), rgba(6, 10, 16, 0.9));
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.42);
+}
