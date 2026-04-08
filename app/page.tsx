@@ -85,6 +85,21 @@ const fetchCuratedComments = unstable_cache(async (): Promise<CuratedHomeComment
   tags: [CACHE_TAGS.homePage, CACHE_TAGS.homeCuratedComments],
 })
 
+const valuePillars = [
+  {
+    title: 'Production-grade quoting',
+    text: 'Real-time pricing, material logic, and route-aware fulfillment for serious manufacturing workflows.',
+  },
+  {
+    title: 'Collaborative model pipeline',
+    text: 'Upload, annotate, review, and iterate with teams without losing part history or context.',
+  },
+  {
+    title: 'Operator visibility',
+    text: 'Connectors, queue telemetry, and release health dashboards keep production predictable.',
+  },
+]
+
 export default async function HomePage() {
   const baseUrl = await resolveBaseUrl()
   const [featured, curatedComments] = await Promise.all([
@@ -94,55 +109,72 @@ export default async function HomePage() {
   const defaultContactEmail = `info@${BRAND_SLUG}.app`
   const runtimeContactEmail = process.env['NEXT_PUBLIC_CONTACT_EMAIL']
   const contactEmail = runtimeContactEmail && runtimeContactEmail.trim().length > 0 ? runtimeContactEmail : defaultContactEmail
+
   return (
-    <div className="space-y-8">
-      <section className="text-center py-10">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-          <span aria-label="Dream">
-            Dre<span aria-hidden="true" className="valentines-heart">♥</span><span aria-hidden="true" className="valentines-heart-fallback">a</span>m
-          </span>
-          . Discover. Deliver.
-        </h1>
-        <p className="mt-3 text-slate-300">Bringing your ideas to life, one layer at a time.</p>
-        <div className="mt-6 flex items-center justify-center gap-3">
-          <Link href="/upload" className="btn">Upload a Model</Link>
-          <Link href="/discover" className="px-4 py-2 rounded-md border border-white/10 hover:border-white/20">Browse Library</Link>
+    <div className="space-y-10 md:space-y-14">
+      <section className="home-hero rounded-3xl p-8 md:p-12">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
+          <div className="space-y-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-brand-200/80">MakerWorks v2</p>
+            <h1 className="text-4xl md:text-5xl xl:text-6xl font-semibold tracking-tight text-balance">
+              A modern print operations hub for design-to-delivery teams.
+            </h1>
+            <p className="max-w-2xl text-base md:text-lg text-slate-300">
+              Upload faster, estimate with confidence, and ship quality parts through a single professional workspace.
+            </p>
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <Link href="/upload" className="btn">Start a new upload</Link>
+              <Link href="/discover" className="home-ghost-btn">Explore model library</Link>
+            </div>
+          </div>
+          <div className="home-hero-panel">
+            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Platform focus</p>
+            <ul className="mt-4 space-y-3 text-sm text-slate-200">
+              <li>• Quoting + checkout continuity</li>
+              <li>• Governed publishing flow</li>
+              <li>• Predictable production handoff</li>
+            </ul>
+          </div>
         </div>
       </section>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        {valuePillars.map((pillar) => (
+          <article key={pillar.title} className="home-card">
+            <h2 className="text-base font-semibold">{pillar.title}</h2>
+            <p className="mt-2 text-sm text-slate-300 leading-relaxed">{pillar.text}</p>
+          </article>
+        ))}
+      </section>
+
       {featured.length > 0 ? (
         <section className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-brand-300/80">Spotlight</p>
-              <h2 className="text-xl font-semibold mt-1">Featured models</h2>
+              <p className="text-xs uppercase tracking-[0.3em] text-brand-300/80">Featured</p>
+              <h2 className="text-2xl font-semibold mt-1">Active spotlight models</h2>
             </div>
-            <Link href="/discover" className="text-sm text-slate-400 hover:text-white transition">See full collection</Link>
+            <Link href="/discover" className="text-sm text-slate-400 hover:text-white transition">View all models</Link>
           </div>
           <FeaturedMarquee models={featured} />
         </section>
       ) : (
-        <section className="text-center py-16 glass rounded-2xl border border-white/10">
-          <p className="text-lg font-semibold">Featured models coming soon.</p>
-          <p className="text-slate-400 mt-2">Check out the full library on the Discover page in the meantime.</p>
-          <Link href="/discover" className="btn mt-6">Go to Discover</Link>
+        <section className="home-card text-center py-16">
+          <p className="text-lg font-semibold">Featured models are being refreshed.</p>
+          <p className="text-slate-400 mt-2">Browse the full catalog while the new spotlight set is prepared.</p>
+          <Link href="/discover" className="btn mt-6">Open Discover</Link>
         </section>
       )}
-      <section className="text-center py-8">
-        <h3 className="text-2xl font-semibold mb-3">Ready to explore more?</h3>
-        <p className="text-slate-400 mb-5">Browse hundreds of community models, parts, and curated kits.</p>
-        <Link href="/discover" className="px-4 py-2 rounded-md border border-white/10 hover:border-white/20">Open Discover</Link>
-      </section>
+
       {curatedComments.length > 0 && (
         <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-brand-300/80">Community</p>
-              <h2 className="text-xl font-semibold mt-1">Curated model comments</h2>
-            </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-brand-300/80">Community proof</p>
+            <h2 className="text-2xl font-semibold mt-1">What makers are saying</h2>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             {curatedComments.map((comment) => (
-              <article key={comment.id} className="glass rounded-xl border border-white/10 p-4 space-y-3">
+              <article key={comment.id} className="home-card space-y-3">
                 <div className="flex items-center gap-3">
                   {comment.userAvatarUrl ? (
                     <img
@@ -178,17 +210,22 @@ export default async function HomePage() {
           </div>
         </section>
       )}
-      <section className="glass rounded-2xl border border-white/10 p-8 text-center space-y-4">
-        <h3 className="text-2xl font-semibold">Questions or custom work?</h3>
-        <p className="text-slate-400">
-          Email us anytime for order updates, collaboration requests, or lab availability.
-        </p>
-        <a
-          href={`mailto:${contactEmail}`}
-          className="inline-flex items-center justify-center px-5 py-2 rounded-md border border-white/20 text-base font-medium tracking-wide hover:border-white/40"
-        >
-          {contactEmail}
-        </a>
+
+      <section className="home-cta rounded-3xl p-8 md:p-10">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div>
+            <h3 className="text-2xl font-semibold">Need a custom run or production support?</h3>
+            <p className="text-slate-300 mt-2">
+              Reach the MakerWorks team for fulfillment timelines, material guidance, and enterprise support.
+            </p>
+          </div>
+          <a
+            href={`mailto:${contactEmail}`}
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl border border-white/25 text-base font-medium tracking-wide hover:border-white/45"
+          >
+            {contactEmail}
+          </a>
+        </div>
       </section>
     </div>
   )
