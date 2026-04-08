@@ -100,6 +100,72 @@ const valuePillars = [
   },
 ]
 
+const CARD_CLASS = 'home-card'
+
+function HomeHero() {
+  return (
+    <section className="home-hero rounded-3xl p-8 md:p-12">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
+        <div className="space-y-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-brand-200/80">MakerWorks v2</p>
+          <h1 className="text-4xl md:text-5xl xl:text-6xl font-semibold tracking-tight text-balance">
+            A modern print operations hub for design-to-delivery teams.
+          </h1>
+          <p className="max-w-2xl text-base md:text-lg text-slate-300">
+            Upload faster, estimate with confidence, and ship quality parts through a single professional workspace.
+          </p>
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <Link href="/upload" className="btn">Start a new upload</Link>
+            <Link href="/discover" className="home-ghost-btn">Explore model library</Link>
+          </div>
+        </div>
+        <div className="home-hero-panel">
+          <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Platform focus</p>
+          <ul className="mt-4 ml-5 list-disc space-y-3 text-sm text-slate-200 marker:text-brand-300/80">
+            <li>Quoting + checkout continuity</li>
+            <li>Governed publishing flow</li>
+            <li>Predictable production handoff</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ValuePillars() {
+  return (
+    <section className="grid gap-4 md:grid-cols-3">
+      {valuePillars.map((pillar) => (
+        <article key={pillar.title} className={CARD_CLASS}>
+          <h2 className="text-base font-semibold">{pillar.title}</h2>
+          <p className="mt-2 text-sm text-slate-300 leading-relaxed">{pillar.text}</p>
+        </article>
+      ))}
+    </section>
+  )
+}
+
+function ContactCta({ contactEmail }: { contactEmail: string }) {
+  return (
+    <section className="home-cta rounded-3xl p-8 md:p-10">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div>
+          <h3 className="text-2xl font-semibold">Need a custom run or production support?</h3>
+          <p className="text-slate-300 mt-2">
+            Reach the MakerWorks team for fulfillment timelines, material guidance, and enterprise support.
+          </p>
+        </div>
+        <a
+          href={`mailto:${contactEmail}`}
+          className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl border border-white/25 text-base font-medium tracking-wide hover:border-white/45"
+        >
+          {contactEmail}
+        </a>
+      </div>
+    </section>
+  )
+}
+
 export default async function HomePage() {
   const baseUrl = await resolveBaseUrl()
   const [featured, curatedComments] = await Promise.all([
@@ -112,40 +178,8 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-10 md:space-y-14">
-      <section className="home-hero rounded-3xl p-8 md:p-12">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
-          <div className="space-y-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-brand-200/80">MakerWorks v2</p>
-            <h1 className="text-4xl md:text-5xl xl:text-6xl font-semibold tracking-tight text-balance">
-              A modern print operations hub for design-to-delivery teams.
-            </h1>
-            <p className="max-w-2xl text-base md:text-lg text-slate-300">
-              Upload faster, estimate with confidence, and ship quality parts through a single professional workspace.
-            </p>
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <Link href="/upload" className="btn">Start a new upload</Link>
-              <Link href="/discover" className="home-ghost-btn">Explore model library</Link>
-            </div>
-          </div>
-          <div className="home-hero-panel">
-            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Platform focus</p>
-            <ul className="mt-4 space-y-3 text-sm text-slate-200">
-              <li>• Quoting + checkout continuity</li>
-              <li>• Governed publishing flow</li>
-              <li>• Predictable production handoff</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-3">
-        {valuePillars.map((pillar) => (
-          <article key={pillar.title} className="home-card">
-            <h2 className="text-base font-semibold">{pillar.title}</h2>
-            <p className="mt-2 text-sm text-slate-300 leading-relaxed">{pillar.text}</p>
-          </article>
-        ))}
-      </section>
+      <HomeHero />
+      <ValuePillars />
 
       {featured.length > 0 ? (
         <section className="space-y-4">
@@ -159,7 +193,7 @@ export default async function HomePage() {
           <FeaturedMarquee models={featured} />
         </section>
       ) : (
-        <section className="home-card text-center py-16">
+        <section className={`${CARD_CLASS} py-16 text-center`}>
           <p className="text-lg font-semibold">Featured models are being refreshed.</p>
           <p className="text-slate-400 mt-2">Browse the full catalog while the new spotlight set is prepared.</p>
           <Link href="/discover" className="btn mt-6">Open Discover</Link>
@@ -174,7 +208,7 @@ export default async function HomePage() {
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             {curatedComments.map((comment) => (
-              <article key={comment.id} className="home-card space-y-3">
+              <article key={comment.id} className={`${CARD_CLASS} space-y-3`}>
                 <div className="flex items-center gap-3">
                   {comment.userAvatarUrl ? (
                     <img
@@ -211,22 +245,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section className="home-cta rounded-3xl p-8 md:p-10">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div>
-            <h3 className="text-2xl font-semibold">Need a custom run or production support?</h3>
-            <p className="text-slate-300 mt-2">
-              Reach the MakerWorks team for fulfillment timelines, material guidance, and enterprise support.
-            </p>
-          </div>
-          <a
-            href={`mailto:${contactEmail}`}
-            className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl border border-white/25 text-base font-medium tracking-wide hover:border-white/45"
-          >
-            {contactEmail}
-          </a>
-        </div>
-      </section>
+      <ContactCta contactEmail={contactEmail} />
     </div>
   )
 }
