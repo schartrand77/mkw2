@@ -1,5 +1,4 @@
 "use strict"
-/* eslint-disable no-console */
 const { PrismaClient } = require("@prisma/client")
 const JSZip = require("jszip")
 const { XMLParser } = require("fast-xml-parser")
