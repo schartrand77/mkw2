@@ -1,20 +1,15 @@
 export const dynamic = 'force-dynamic'
 
 import BackupControls from '@/components/admin/BackupControls'
+import { getPendingRestore, listBackups } from '@/lib/backups'
 
 type BackupSummary = { folder: string; createdAt: string }
 type PendingRestore = { relativePath?: string; backupPath?: string; createdAt: string }
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const backupModule = require('@/lib/backups') as {
-  listBackups: () => BackupSummary[]
-  getPendingRestore: () => (PendingRestore & { manifest?: string }) | null
-}
-
 export default function AdminBackupsPage() {
-  const backupList = backupModule.listBackups?.() ?? []
+  const backupList = listBackups() as BackupSummary[]
   const latestBackup = backupList[0] ?? null
-  const pendingRestore = backupModule.getPendingRestore?.() ?? null
+  const pendingRestore = getPendingRestore() as (PendingRestore & { manifest?: string }) | null
 
   return (
     <div className="space-y-6">
