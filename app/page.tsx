@@ -93,26 +93,26 @@ const metrics = [
 
 const featureLanes = [
   {
-    eyebrow: 'Quote Intelligence',
-    title: 'Price logic that feels engineered, not approximate.',
-    copy: 'Surface cost drivers, confidence cues, and route-aware lead time before a buyer hesitates.',
+    eyebrow: 'Fast quoting',
+    title: 'Upload a file and get pricing in minutes.',
+    copy: 'No forms marathon. Just clear options for materials, colors, and turnaround.',
   },
   {
-    eyebrow: 'Team Workflow',
-    title: 'Move from model review to approval without losing context.',
-    copy: 'Workspaces, comments, and fulfillment handoff live in the same product instead of separate tools.',
+    eyebrow: 'Built for teams',
+    title: 'Keep comments, approvals, and orders in one place.',
+    copy: 'Your designer, buyer, and operator stay aligned from prototype to production.',
   },
   {
-    eyebrow: 'Production Signal',
-    title: 'Admin telemetry that actually informs the customer experience.',
-    copy: 'Queue health, manufacturability insight, and operational status feed a calmer ordering flow.',
+    eyebrow: 'Reliable delivery',
+    title: 'Track status without chasing updates.',
+    copy: 'Live order progress and manufacturing checks keep every run predictable.',
   },
 ]
 
 const releaseBullets = [
-  'Editorial top-level navigation instead of the legacy left rail',
-  'Command-deck interaction model for faster movement across the app',
-  'Higher-contrast panels, layered lighting, and a more premium materials system',
+  'Cleaner navigation focused on customer tasks',
+  'Less jargon and shorter paths to quote and checkout',
+  'Polished visuals designed for a public-facing storefront',
 ]
 
 function HomeHero() {
@@ -122,15 +122,15 @@ function HomeHero() {
         <div className="space-y-7">
           <div className="home-kicker-row">
             <span className="home-kicker">Next Gen Release</span>
-            <span className="home-kicker home-kicker-muted">{BRAND_NAME} operating system for print teams</span>
+            <span className="home-kicker home-kicker-muted">{BRAND_NAME} 3D printing</span>
           </div>
 
           <div className="space-y-5">
             <h1 className="home-display">
-              A sharper, faster front end for serious 3D production.
+              3D printing that feels simple from first upload to final part.
             </h1>
             <p className="home-lead">
-              From first upload to production handoff, the platform now reads like a premium operations cockpit instead of a legacy marketplace shell.
+              Upload your model, choose your settings, and place an order with confidence.
             </p>
           </div>
 
@@ -151,7 +151,7 @@ function HomeHero() {
 
         <div className="home-hero-stack">
           <article className="home-hero-panel home-hero-panel-primary">
-            <p className="home-panel-label">Why this release feels different</p>
+            <p className="home-panel-label">What’s new</p>
             <ul className="home-release-list">
               {releaseBullets.map((bullet) => <li key={bullet}>{bullet}</li>)}
             </ul>
@@ -160,24 +160,24 @@ function HomeHero() {
           <article className="home-hero-panel home-hero-panel-secondary">
             <div className="home-signal-topline">
               <span className="home-signal-dot" />
-              <span>Production signal flowing</span>
+              <span>Print lab online</span>
             </div>
             <div className="home-signal-grid">
               <div>
                 <p className="home-signal-value">03</p>
-                <p className="home-signal-copy">active confidence systems</p>
+                <p className="home-signal-copy">quality checkpoints</p>
               </div>
               <div>
                 <p className="home-signal-value">24/7</p>
-                <p className="home-signal-copy">operator visibility</p>
+                <p className="home-signal-copy">order visibility</p>
               </div>
               <div>
-                <p className="home-signal-value">B2B</p>
-                <p className="home-signal-copy">approval-grade workflows</p>
+                <p className="home-signal-value">Team</p>
+                <p className="home-signal-copy">approval workflows</p>
               </div>
               <div>
                 <p className="home-signal-value">Live</p>
-                <p className="home-signal-copy">quote and queue context</p>
+                <p className="home-signal-copy">quote + status updates</p>
               </div>
             </div>
           </article>
@@ -191,8 +191,8 @@ function FeatureLanes() {
   return (
     <section className="space-y-5">
       <div className="home-section-heading">
-        <p className="home-section-kicker">Platform pillars</p>
-        <h2 className="home-section-title">Built like a production product, not a storefront theme.</h2>
+        <p className="home-section-kicker">Why customers choose us</p>
+        <h2 className="home-section-title">Everything you need to order custom parts online.</h2>
       </div>
       <div className="home-lane-grid">
         {featureLanes.map((lane) => (
@@ -211,14 +211,14 @@ function ReleaseStrip() {
   return (
     <section className="home-release-strip">
       <div className="home-release-strip-copy">
-        <p className="home-section-kicker">Release note</p>
-        <h2 className="home-section-title">The interface now leads with control, confidence, and motion.</h2>
+        <p className="home-section-kicker">Website update</p>
+        <h2 className="home-section-title">A cleaner storefront experience for real customers.</h2>
       </div>
       <div className="home-release-strip-tags">
-        <span>Command deck</span>
-        <span>Premium surfaces</span>
-        <span>Editorial hierarchy</span>
-        <span>Mobile drawer</span>
+        <span>Quick upload</span>
+        <span>Easy checkout</span>
+        <span>Clear navigation</span>
+        <span>Mobile friendly</span>
       </div>
     </section>
   )
@@ -230,9 +230,9 @@ function ContactCta({ contactEmail }: { contactEmail: string }) {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div>
           <p className="home-section-kicker">Custom runs</p>
-          <h3 className="home-section-title">Need material guidance, timeline planning, or enterprise support?</h3>
+          <h3 className="home-section-title">Need help choosing materials or planning a production run?</h3>
           <p className="home-cta-copy">
-            Reach the {BRAND_NAME} team for production timelines, procurement help, and specialized print workflows.
+            Reach out and we’ll help with specs, lead times, and the best setup for your order.
           </p>
         </div>
         <a href={`mailto:${contactEmail}`} className="home-cta-link">
