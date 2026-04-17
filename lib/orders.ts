@@ -234,28 +234,6 @@ export async function listOrdersForUser(userId: string, limit = 20): Promise<Ord
 
 export type OrderDetail = PrintOrder & {
   items: PrintOrderItem[]
-  printLabJobs: {
-    id: string
-    sourceJobId: string
-    printLabJobId: string | null
-    status: string
-    printerId: string | null
-    printerName: string | null
-    queueItemId: string | null
-    modelId: string
-    modelName: string | null
-    fileName: string | null
-    filePath: string | null
-    lastSubmittedAt: Date | null
-    lastCallbackAt: Date | null
-    startedAt: Date | null
-    completedAt: Date | null
-    lastError: string | null
-    metadata: unknown
-    history: unknown
-    createdAt: Date
-    updatedAt: Date
-  }[]
   revisions: (PrintOrderRevision & { user?: { id: string; name: string | null; email: string } | null })[]
   messages: (PrintOrderMessage & { user?: { id: string; name: string | null; email: string } | null })[]
   approvalRequests: (PrintOrderApprovalRequest & { requestedBy?: { id: string; name: string | null; email: string } | null })[]
@@ -313,31 +291,6 @@ export async function getOrderForUser(orderId: string, userId: string): Promise<
     },
     include: {
       items: true,
-      printLabJobs: {
-        orderBy: { createdAt: 'asc' },
-        select: {
-          id: true,
-          sourceJobId: true,
-          printLabJobId: true,
-          status: true,
-          printerId: true,
-          printerName: true,
-          queueItemId: true,
-          modelId: true,
-          modelName: true,
-          fileName: true,
-          filePath: true,
-          lastSubmittedAt: true,
-          lastCallbackAt: true,
-          startedAt: true,
-          completedAt: true,
-          lastError: true,
-          metadata: true,
-          history: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      },
       revisions: {
         orderBy: { createdAt: 'desc' },
         include: {

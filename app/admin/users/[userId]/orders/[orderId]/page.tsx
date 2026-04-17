@@ -15,7 +15,6 @@ import PackingChecklist from '@/components/admin/PackingChecklist'
 import ShippingTrackingForm from '@/components/admin/ShippingTrackingForm'
 import SlicerStatsForm from '@/components/admin/SlicerStatsForm'
 import OrderItemQuantityControl from '@/components/admin/OrderItemQuantityControl'
-import { summarizePrintLabJobs } from '@/lib/printlab-jobs'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,7 +104,6 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
         .filter((color): color is string => Boolean(color)),
     ),
   )
-  const printLab = summarizePrintLabJobs(order.printLabJobs)
 
   return (
     <div className="space-y-6">
@@ -165,8 +163,8 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs text-slate-300">
                   <div>
-                    <p className="text-slate-500">PrintLab status</p>
-                    <p className="text-sm font-medium capitalize">{printLab?.latestStatus || 'pending submission'}</p>
+                    <p className="text-slate-500">OrderWorks sync</p>
+                    <p className="text-sm font-medium capitalize">{production?.orderWorksStatus || 'pending'}</p>
                   </div>
                   <div>
                     <p className="text-slate-500">Estimated completion</p>
@@ -186,16 +184,9 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                     <p className="text-slate-500">Queue position</p>
                     <p className="text-sm font-medium">{production?.queuePosition ?? '--'}</p>
                   </div>
-                  <div>
-                    <p className="text-slate-500">Linked printer</p>
-                    <p className="text-sm font-medium">{printLab?.latestPrinterName || '--'}</p>
-                  </div>
                 </div>
-                {printLab?.latestJobId ? (
-                  <p className="text-xs text-slate-400">PrintLab job: {printLab.latestJobId}</p>
-                ) : null}
-                {printLab?.latestError ? (
-                  <p className="text-xs text-rose-200">PrintLab error: {printLab.latestError}</p>
+                {production?.orderWorksLastError ? (
+                  <p className="text-xs text-rose-200">OrderWorks error: {production.orderWorksLastError}</p>
                 ) : null}
                 {order.failedAt ? (
                   <p className="text-xs text-rose-200">
@@ -259,32 +250,6 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                   Print job ticket
                 </Link>
               </div>
-              {order.printLabJobs.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500">PrintLab jobs</p>
-                  <div className="space-y-2">
-                    {order.printLabJobs.map((job) => (
-                      <div key={job.id} className="rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-slate-300">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-medium">{job.modelName || job.modelId}</p>
-                          <span className="uppercase tracking-[0.2em] text-slate-400">{job.status}</span>
-                        </div>
-                        <p className="mt-1 text-slate-400">PrintLab job: {job.printLabJobId || 'pending upstream id'} | Source: {job.sourceJobId}</p>
-                        <p className="mt-1 text-slate-400">Printer: {job.printerName || job.printerId || 'unassigned'}</p>
-                        {job.lastError ? <p className="mt-1 text-rose-200">Error: {job.lastError}</p> : null}
-                        {Array.isArray(job.history) && job.history.length > 0 ? (
-                          <details className="mt-2">
-                            <summary className="cursor-pointer text-slate-400">Callback history ({job.history.length})</summary>
-                            <pre className="mt-2 rounded bg-black/30 p-2 text-[11px] whitespace-pre-wrap break-all">
-                              {JSON.stringify(job.history, null, 2)}
-                            </pre>
-                          </details>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </div>
           </div>
         </div>

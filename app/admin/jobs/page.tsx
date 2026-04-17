@@ -3,13 +3,13 @@ import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { prisma } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
-import PrintLabJobQueue from '@/components/admin/PrintLabJobQueue'
-import { fetchPrintLabJobQueueSnapshot } from '@/lib/admin/queries'
+import JobQueue from '@/components/admin/JobQueue'
+import { fetchJobQueueSnapshot } from '@/lib/admin/queries'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'PrintLab Job Queue',
+  title: 'OrderWorks Job Queue',
 }
 
 export default async function AdminJobsPage() {
@@ -21,16 +21,16 @@ export default async function AdminJobsPage() {
   const role = user?.role || null
   if (!(user?.isAdmin || role === 'admin' || role === 'staff')) redirect('/')
 
-  const { jobs, failedCount, totalCount } = await fetchPrintLabJobQueueSnapshot(100)
+  const { jobs, pendingCount, totalCount } = await fetchJobQueueSnapshot(100)
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs text-brand-400 uppercase tracking-[0.3em]">PrintLab</p>
+          <p className="text-xs text-brand-400 uppercase tracking-[0.3em]">OrderWorks</p>
           <h1 className="text-3xl font-semibold">Job queue</h1>
           <p className="text-sm text-slate-400 mt-1">
-            Monitor upstream PrintLab jobs, inspect callback history, and resubmit failed submissions.
+            Monitor job attempts, resend failed jobs, or remove duplicates.
           </p>
         </div>
         <Link href="/admin" className="px-3 py-1.5 rounded-md border border-white/10 text-sm hover:border-white/20">
@@ -38,9 +38,9 @@ export default async function AdminJobsPage() {
         </Link>
       </div>
       <div className="glass rounded-xl border border-white/10 p-6">
-        <PrintLabJobQueue
+        <JobQueue
           initialJobs={jobs}
-          failedCount={failedCount}
+          pendingCount={pendingCount}
           totalCount={totalCount}
         />
       </div>
