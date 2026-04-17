@@ -8,6 +8,7 @@ import { serializeJob, type JobWithUser } from '@/app/api/admin/orderworks/jobs/
 import { sendAdminPushNotification } from '@/lib/push'
 import { syncOrderStatusFromFulfillment } from '@/lib/orderworks-sync'
 import { createOrderFromJobForm } from '@/lib/orders'
+import { submitPrintLabJobsForOrder } from '@/lib/printlab-jobs'
 import {
   isPaidPaymentStatus,
   isPaymentPromise,
@@ -108,7 +109,10 @@ async function handlePatch(req: Request, { params }: Params) {
       await syncOrderStatusFromFulfillment(paymentIntentId, updated.fulfillmentStatus)
     }
     if (isPaidPaymentStatus(updated.paymentStatus)) {
-      await createOrderFromJobForm(updated)
+      const order = await createOrderFromJobForm(updated)
+      if (order) {
+        await submitPrintLabJobsForOrder(order.id)
+      }
     }
     const paymentStatusChanged = payload.paymentStatus !== undefined && updated.paymentStatus !== previousPaymentStatus
     const paymentMethodChanged = payload.paymentMethod !== undefined && updated.paymentMethod !== previousPaymentMethod

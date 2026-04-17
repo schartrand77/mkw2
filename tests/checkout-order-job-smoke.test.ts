@@ -7,6 +7,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '../lib/db'
 import { POST as quotePost } from '../app/api/models/[id]/quote/route'
 import { POST as checkoutPost } from '../app/api/checkout/route'
+import { POST as makerWorksJobPost } from '../app/api/makerworks/jobs/route'
 
 function jsonRequest(url: string, body: unknown) {
   return new NextRequest(url, {
@@ -363,5 +364,247 @@ test('checkout commit smoke covers orderworks, customer order, artifact persiste
       else process.env[key] = value
     }
     await rm(path.join(process.cwd(), 'storage-test'), { recursive: true, force: true }).catch(() => {})
+  }
+})
+
+test('OrderWorks inbound job creates a customer order and submits a queuable PrintLab job', async () => {
+  const envSnapshot = {
+    MAKERWORKS_INBOUND_SECRET: process.env.MAKERWORKS_INBOUND_SECRET,
+    PRINTLAB_BASE_URL: process.env.PRINTLAB_BASE_URL,
+    PRINTLAB_API_KEY: process.env.PRINTLAB_API_KEY,
+  }
+  process.env.MAKERWORKS_INBOUND_SECRET = 'inbound-secret'
+  process.env.PRINTLAB_BASE_URL = 'https://printlab.local'
+  process.env.PRINTLAB_API_KEY = 'test-key'
+
+  const originalFetch = global.fetch
+  const originalJobFormFindUnique = (prisma.jobForm as any).findUnique
+  const originalJobFormCreate = (prisma.jobForm as any).create
+  const originalPrintOrderFindFirst = (prisma.printOrder as any).findFirst
+  const originalPrintOrderCreate = (prisma.printOrder as any).create
+  const originalPrintOrderFindUnique = (prisma.printOrder as any).findUnique
+  const originalPrintLabJobFindMany = (prisma.printLabJob as any).findMany
+  const originalPrintLabJobCreate = (prisma.printLabJob as any).create
+  const originalPrintLabJobUpdate = (prisma.printLabJob as any).update
+  const originalPushSubscriptionFindMany = (prisma.pushSubscription as any).findMany
+  const originalTransaction = (prisma as any).$transaction
+
+  const createdAt = new Date('2026-04-17T15:00:00.000Z')
+  const printLabJobs: any[] = []
+  const recorded: {
+    createdJob: any
+    createdOrder: any
+    printLabPayloads: any[]
+  } = {
+    createdJob: null,
+    createdOrder: null,
+    printLabPayloads: [],
+  }
+  let persistedOrder: any = null
+
+  ;(prisma.jobForm as any).findUnique = async () => null
+  ;(prisma.jobForm as any).create = async (payload: any) => {
+    recorded.createdJob = payload.data
+    return {
+      id: 'job_orderworks_1',
+      paymentIntentId: payload.data.paymentIntentId,
+      totalCents: payload.data.totalCents,
+      currency: payload.data.currency,
+      lineItems: payload.data.lineItems,
+      shipping: payload.data.shipping,
+      metadata: payload.data.metadata,
+      userId: payload.data.userId ?? null,
+      customerEmail: payload.data.customerEmail ?? null,
+      paymentMethod: payload.data.paymentMethod,
+      paymentStatus: payload.data.paymentStatus,
+      fulfillmentStatus: payload.data.fulfillmentStatus ?? 'pending',
+      fulfilledAt: payload.data.fulfilledAt ?? null,
+      status: payload.data.status || 'pending',
+      createdAt,
+      updatedAt: createdAt,
+      user: null,
+    }
+  }
+  ;(prisma.printOrder as any).findFirst = async () => null
+  ;(prisma.printOrder as any).create = async (payload: any) => {
+    recorded.createdOrder = payload.data
+    persistedOrder = {
+      id: 'order_orderworks_1',
+      orderNumber: 2002,
+      paymentMethod: payload.data.paymentMethod,
+      shippingMethod: payload.data.shippingMethod,
+      status: payload.data.status,
+      metadata: payload.data.metadata || {},
+      printerId: null,
+      items: (payload.data.items.create || []).map((item: any, index: number) => ({
+        id: `order_item_${index + 1}`,
+        modelId: item.modelId,
+        modelTitle: item.modelTitle,
+        partId: item.partId ?? null,
+        partName: item.partName ?? null,
+        material: item.material,
+        colors: item.colors ?? null,
+        finish: item.finish ?? null,
+        configuration: item.configuration ?? {},
+        viewerPath: item.viewerPath ?? null,
+        createdAt,
+      })),
+    }
+    return persistedOrder
+  }
+  ;(prisma.printOrder as any).findUnique = async () => persistedOrder
+  ;(prisma.printLabJob as any).findMany = async () => printLabJobs
+  ;(prisma.printLabJob as any).create = async (payload: any) => {
+    const created = {
+      id: `printlab_local_${printLabJobs.length + 1}`,
+      orderId: payload.data.orderId,
+      orderItemId: payload.data.orderItemId,
+      paymentIntentId: payload.data.paymentIntentId ?? null,
+      sourceJobId: payload.data.sourceJobId,
+      printLabJobId: null,
+      idempotencyKey: payload.data.idempotencyKey,
+      status: 'pending_submission',
+      printerId: null,
+      printerName: null,
+      queueItemId: null,
+      successfulGcodeId: null,
+      modelId: payload.data.modelId,
+      modelName: payload.data.modelName ?? null,
+      modelUrl: null,
+      downloadUrl: null,
+      filePath: payload.data.filePath ?? null,
+      fileName: null,
+      plateGcode: null,
+      startAt: null,
+      lastSubmittedAt: null,
+      lastCallbackAt: null,
+      startedAt: null,
+      completedAt: null,
+      submitAttempts: 0,
+      callbackCount: 0,
+      lastError: null,
+      metadata: payload.data.metadata ?? {},
+      lastCallbackPayload: null,
+      history: [],
+      createdAt,
+      updatedAt: createdAt,
+    }
+    printLabJobs.push(created)
+    return created
+  }
+  ;(prisma.printLabJob as any).update = async (payload: any) => {
+    const job = printLabJobs.find((entry) => entry.id === payload.where.id)
+    if (!job) throw new Error(`Missing local PrintLab job ${payload.where.id}`)
+    const data = payload.data || {}
+    if (data.submitAttempts?.increment) {
+      job.submitAttempts += Number(data.submitAttempts.increment)
+    }
+    for (const [key, value] of Object.entries(data)) {
+      if (key === 'submitAttempts') continue
+      ;(job as any)[key] = value
+    }
+    job.updatedAt = new Date()
+    return job
+  }
+  ;(prisma.pushSubscription as any).findMany = async () => []
+  ;(prisma as any).$transaction = async (operations: Promise<unknown>[]) => Promise.all(operations)
+
+  global.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const requestUrl = String(url)
+    if (requestUrl === 'https://printlab.local/api/works/makerworks/jobs') {
+      const payload = JSON.parse(String(init?.body || '{}'))
+      recorded.printLabPayloads.push(payload)
+      return new Response(
+        JSON.stringify({
+          id: 'printlab_remote_1',
+          status: 'queued',
+          model_id: payload.model_id,
+          printer_id: 'printer_orderworks_1',
+          printer_name: 'P1S',
+          queue_item_id: 'queue_orderworks_1',
+          history: [{ status: 'queued' }],
+        }),
+        { status: 200 },
+      )
+    }
+    throw new Error(`Unexpected fetch in OrderWorks inbound test: ${requestUrl}`)
+  }) as typeof fetch
+
+  try {
+    const req = new NextRequest('http://localhost/api/makerworks/jobs', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer inbound-secret',
+      },
+      body: JSON.stringify({
+        paymentIntentId: 'pi_orderworks_queued',
+        status: 'sent',
+        totalCents: 4200,
+        currency: 'USD',
+        paymentMethod: 'card',
+        paymentStatus: 'paid',
+        customerEmail: 'buyer@example.com',
+        shipping: { method: 'pickup' },
+        lineItems: [
+          {
+            modelId: 'model_orderworks_1',
+            title: 'OrderWorks Bracket',
+            qty: 1,
+            unitPrice: 42,
+            lineTotal: 42,
+            material: 'PLA',
+            colors: ['#ffffff'],
+            scale: 1,
+            storagePath: '/models/orderworks-bracket.3mf',
+            storageUrl: 'http://localhost:3000/files/models/orderworks-bracket.3mf',
+          },
+        ],
+        metadata: { source: 'orderworks-test' },
+      }),
+    })
+
+    const res = await makerWorksJobPost(req)
+    assert.equal(res.status, 200)
+    const payload = await res.json()
+    assert.equal(payload.ok, true)
+
+    assert.ok(recorded.createdJob)
+    assert.equal(recorded.createdJob.paymentIntentId, 'pi_orderworks_queued')
+    assert.equal(recorded.createdJob.paymentStatus, 'paid')
+
+    assert.ok(recorded.createdOrder)
+    assert.equal(recorded.createdOrder.status, 'queued')
+    assert.equal(recorded.createdOrder.items.create.length, 1)
+    assert.equal(recorded.createdOrder.items.create[0].modelId, 'model_orderworks_1')
+
+    assert.equal(recorded.printLabPayloads.length, 1)
+    assert.equal(recorded.printLabPayloads[0].source_order_id, 'order_orderworks_1')
+    assert.equal(recorded.printLabPayloads[0].source_job_id, 'mw:order_orderworks_1:order_item_1')
+    assert.equal(recorded.printLabPayloads[0].model_id, 'model_orderworks_1')
+    assert.equal(recorded.printLabPayloads[0].metadata.payment_intent_id, 'pi_orderworks_queued')
+    assert.equal(recorded.printLabPayloads[0].metadata.source, 'makerworks')
+
+    assert.equal(printLabJobs.length, 1)
+    assert.equal(printLabJobs[0].printLabJobId, 'printlab_remote_1')
+    assert.equal(printLabJobs[0].status, 'queued')
+    assert.equal(printLabJobs[0].queueItemId, 'queue_orderworks_1')
+    assert.equal(printLabJobs[0].submitAttempts, 1)
+  } finally {
+    global.fetch = originalFetch
+    ;(prisma.jobForm as any).findUnique = originalJobFormFindUnique
+    ;(prisma.jobForm as any).create = originalJobFormCreate
+    ;(prisma.printOrder as any).findFirst = originalPrintOrderFindFirst
+    ;(prisma.printOrder as any).create = originalPrintOrderCreate
+    ;(prisma.printOrder as any).findUnique = originalPrintOrderFindUnique
+    ;(prisma.printLabJob as any).findMany = originalPrintLabJobFindMany
+    ;(prisma.printLabJob as any).create = originalPrintLabJobCreate
+    ;(prisma.printLabJob as any).update = originalPrintLabJobUpdate
+    ;(prisma.pushSubscription as any).findMany = originalPushSubscriptionFindMany
+    ;(prisma as any).$transaction = originalTransaction
+    for (const [key, value] of Object.entries(envSnapshot)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
   }
 })
