@@ -26,6 +26,7 @@
     "backfill:3mf-previews": "node scripts/backfill-3mf-previews.js",
     "bulk:upload-models": "tsx scripts/bulk-upload-models.ts",
     "retention:run": "tsx scripts/data-retention.ts",
+    "suite:status": "powershell -ExecutionPolicy Bypass -File scripts/suite-status.ps1",
     "stockworks:import-bambu-filaments": "tsx scripts/import-bambu-filaments.ts"
   },
   "dependencies": {

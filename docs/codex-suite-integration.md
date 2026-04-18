@@ -34,6 +34,8 @@ SlicerWorks is currently a separate iPad-focused product concept. Treat it as re
 6. Run the smallest meaningful verification set.
 7. Report changed files, verification results, and any residual risk.
 
+For production containers, read `docs/production-ops.md` before running remote Docker, SSH, deploy, migration, restore, rollback, or printer-related commands.
+
 ## Ownership Guide
 
 Use MakerWorks for:

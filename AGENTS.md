@@ -22,6 +22,7 @@ Read these before making suite-level changes:
 - `docs/wiki/Architecture.md` for MakerWorks boundaries.
 - `docs/wiki/Developer-Guide.md` for repo conventions and commands.
 - `docs/codex-suite-integration.md` for suite-wide assistant workflows, safety rules, and verification commands.
+- `docs/production-ops.md` for production container access, GitOps deployment, rollback, and approval boundaries.
 
 ## MakerWorks Conventions
 
@@ -52,4 +53,3 @@ Use the smallest relevant set:
 - `npm run build`
 
 Known local caveat: backup tests may fail without PostgreSQL client tooling such as `pg_dump`.
-
