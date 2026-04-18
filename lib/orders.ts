@@ -28,6 +28,22 @@ type PersistOrderPayload = {
   metadata?: Prisma.InputJsonValue
 }
 
+type InitialOrderStatusInput = {
+  amountCents: number
+  paymentMethod: CheckoutPaymentMethod
+  shipping: ShippingSelection
+}
+
+export function resolveInitialOrderStatus({ amountCents, paymentMethod, shipping }: InitialOrderStatusInput): OrderStatus {
+  if (amountCents <= 0) return 'queued'
+  if (paymentMethod === 'quote') return 'awaiting_review'
+  if (paymentMethod === 'cash') {
+    return shipping.method === 'pickup' ? 'queued' : 'awaiting_payment'
+  }
+  if (paymentMethod === 'invoice' || paymentMethod === 'po') return 'awaiting_payment'
+  return 'queued'
+}
+
 function normalizeCurrency(code: string) {
   if (!code) return 'USD'
   return code.toUpperCase()
@@ -65,14 +81,11 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
   const subtotalCents = Math.max(0, Math.round((subtotal > 0 ? subtotal : payload.amountCents / 100) * 100))
   const shippingData = payload.shipping || { method: 'pickup' }
   const isQuote = payload.paymentMethod === 'quote'
-  const isDeferred = payload.paymentMethod === 'cash' || payload.paymentMethod === 'invoice' || payload.paymentMethod === 'po'
-  const status: OrderStatus = payload.amountCents <= 0
-    ? 'queued'
-    : isQuote
-      ? 'awaiting_review'
-      : isDeferred
-        ? 'awaiting_payment'
-        : 'queued'
+  const status = resolveInitialOrderStatus({
+    amountCents: payload.amountCents,
+    paymentMethod: payload.paymentMethod,
+    shipping: shippingData,
+  })
   const itemsData: Prisma.PrintOrderItemCreateWithoutOrderInput[] = payload.lineItems.map((item) => ({
     modelId: item.modelId,
     modelTitle: item.title,
