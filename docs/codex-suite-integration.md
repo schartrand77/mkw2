@@ -74,6 +74,48 @@ Use OrderWorks for:
 
 ## Command Playbook
 
+### Docker Desktop Ownership
+
+The Windows dev PC currently runs the MakerWorks suite in Docker Desktop with these local ports:
+
+| Service | Container | URL |
+| --- | --- | --- |
+| MakerWorks | `mkwv2-web-1` | `http://localhost:3000` |
+| MakerWorks Postgres | `mkwv2-db-1` | `localhost:5432` |
+| MakerWorks Redis | `mkwv2-redis-1` | `localhost:6379` |
+| StockWorks | `stockworks-api-1` | `http://localhost:8000` |
+| PrintLab | `printlab` | `http://localhost:8289` |
+| OrderWorks | `orderworks-app-1` | `http://localhost:3001` |
+
+MakerWorks and StockWorks are compose-managed from their repo roots. OrderWorks is compose-managed but uses the `node:20-bookworm` image and runs install/generate/migrate/dev at container start. PrintLab is currently a standalone Docker container, not root-compose-managed.
+
+PrintLab is recreated with:
+
+```powershell
+docker build -t printlab-standalone:local .
+docker stop printlab
+docker rm printlab
+docker run -d --name printlab --restart unless-stopped --env-file .env -p 8289:8080 -v "C:\Users\steph\OneDrive\Documents\GitHub\printlab\data:/data" -v "cefed55a2814b90b2990090bbcde8f831ee989aa76af83b48bee780efe3c507b:/config" printlab-standalone:local
+```
+
+Important PrintLab env note: `docker run --env-file` preserves quote characters. `ADMIN_PASSWORD_HASH` must start with `scrypt`, not `'scrypt` or `"scrypt`.
+
+Standard suite status check:
+
+```powershell
+docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+```
+
+Standard HTTP smoke checks:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing -Uri http://localhost:3000/api/health
+Invoke-WebRequest -UseBasicParsing -Uri http://localhost:8000/
+Invoke-WebRequest -UseBasicParsing -Uri http://localhost:3001/
+```
+
+PrintLab may return `401 Unauthorized` on unauthenticated endpoints when auth is enabled. Treat that as reachable but protected, then use configured credentials for authenticated checks.
+
 ### MakerWorks
 
 Run from `C:\Users\steph\OneDrive\Documents\GitHub\mkwV2`.
@@ -210,4 +252,3 @@ When Codex completes suite work, report:
 - which verification commands ran and whether they passed
 - what was not run and why
 - any real operational risk, especially around printers, databases, or secrets
-
