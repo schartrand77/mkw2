@@ -22,6 +22,7 @@ model User {
   isSuspended  Boolean  @default(false)
   isAdmin      Boolean  @default(false)
   role         UserRole @default(customer)
+  stripeCustomerId String? @unique
   discountPercent        Float   @default(0)
   isFriendsAndFamily     Boolean @default(false)
   friendsAndFamilyPercent Float   @default(0)
@@ -629,6 +630,12 @@ model PrintOrder {
   customerName    String?
   status          String   @default("awaiting_review")
   paymentMethod   String   @default("card")
+  paymentStatus   String   @default("pending")
+  stripePaymentIntentId String? @unique
+  stripeChargeId  String?
+  stripeCustomerId String?
+  refundedCents   Int      @default(0)
+  receiptUrl      String?
   shippingMethod  String   @default("pickup")
   shippingAddress Json?
   subtotalCents   Int
@@ -659,6 +666,20 @@ model PrintOrder {
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
+  @@index([stripeCustomerId])
+  @@index([paymentStatus])
+}
+
+model StripeEvent {
+  id              String   @id
+  type            String
+  paymentIntentId String?
+  payload         Json?
+  processedAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@index([type])
+  @@index([paymentIntentId])
 }
 
 model Organization {

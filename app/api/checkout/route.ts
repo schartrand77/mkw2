@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { estimatePricingDetails, resolveModelPricing, type PricingDetails } from '@/lib/pricing'
 import { formatCurrency, getCurrency, type Currency } from '@/lib/currency'
 import { getStripe } from '@/lib/stripe'
+import { createMakerWorksPaymentIntent, normalizeStripePaymentStatus } from '@/lib/stripe-payments'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { z } from 'zod'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
@@ -565,6 +566,9 @@ async function handlePost(req: NextRequest) {
     let paymentIntentId: string | null = providedPaymentIntentId || null
     let clientSecret: string | null = null
     let finalizedPaymentStatus: string | null = null
+    let stripeChargeId: string | null = null
+    let stripeCustomerId: string | null = null
+    let stripeReceiptUrl: string | null = null
 
     if (isFreeOrder) {
       if (!commit) {
@@ -575,14 +579,16 @@ async function handlePost(req: NextRequest) {
       }
     } else if (paymentMethod === 'card') {
       if (!commit) {
-        const stripe = getStripe()
-        const intent = await stripe.paymentIntents.create({
+        const intent = await createMakerWorksPaymentIntent({
           amount,
           currency,
-          automatic_payment_methods: { enabled: true },
-          receipt_email: customerEmail || undefined,
+          checkoutId,
+          userId,
+          customerEmail,
+          customerName,
           metadata: {
-            checkoutId,
+            makerworksCurrency: currencyCode,
+            makerworksShippingMethod: shippingPayload.method,
           },
         })
         paymentIntentId = intent.id
@@ -604,7 +610,14 @@ async function handlePost(req: NextRequest) {
           return NextResponse.json({ error: `Payment not completed (${intent.status}).` }, { status: 400 })
         }
         clientSecret = intent.client_secret || null
-        finalizedPaymentStatus = normalizePaymentStatusForQueue(paymentMethod, intent.status || null)
+        finalizedPaymentStatus = normalizePaymentStatusForQueue(paymentMethod, normalizeStripePaymentStatus(intent.status) || intent.status || null)
+        stripeCustomerId = typeof intent.customer === 'string' ? intent.customer : intent.customer?.id || null
+        if (intent.latest_charge && typeof intent.latest_charge !== 'string') {
+          stripeChargeId = intent.latest_charge.id
+          stripeReceiptUrl = intent.latest_charge.receipt_url || null
+        } else if (typeof intent.latest_charge === 'string') {
+          stripeChargeId = intent.latest_charge
+        }
       }
     } else if (!commit) {
       paymentIntentId = `${paymentMethod}_preview_${randomUUID()}`
@@ -648,6 +661,13 @@ async function handlePost(req: NextRequest) {
             paymentDetails,
             adminFreeCheckout: isAdminFreeCheckout,
             estimatedTotalCents,
+            stripe: {
+              paymentIntentId,
+              customerId: stripeCustomerId,
+              chargeId: stripeChargeId,
+              receiptUrl: stripeReceiptUrl,
+              paymentStatus: finalizedPaymentStatus,
+            },
           },
           paymentMethod,
           paymentStatus: finalizedPaymentStatus || (paymentMethod === 'cash' ? 'pending' : null),
@@ -676,6 +696,10 @@ async function handlePost(req: NextRequest) {
           customerName,
           discountPercent: discountSummary.totalPercent ?? null,
           organizationId: organizationMembership?.organization.id || null,
+          paymentStatus: finalizedPaymentStatus || (paymentMethod === 'card' ? 'paid' : 'pending'),
+          stripeChargeId,
+          stripeCustomerId,
+          receiptUrl: stripeReceiptUrl,
           metadata: {
             cartItems: items,
             shipping,
@@ -692,6 +716,13 @@ async function handlePost(req: NextRequest) {
             paymentDetails,
             adminFreeCheckout: isAdminFreeCheckout,
             estimatedTotalCents,
+            stripe: {
+              paymentIntentId,
+              customerId: stripeCustomerId,
+              chargeId: stripeChargeId,
+              receiptUrl: stripeReceiptUrl,
+              paymentStatus: finalizedPaymentStatus,
+            },
           },
         })
         if (order) {

@@ -15,6 +15,7 @@ import PackingChecklist from '@/components/admin/PackingChecklist'
 import ShippingTrackingForm from '@/components/admin/ShippingTrackingForm'
 import SlicerStatsForm from '@/components/admin/SlicerStatsForm'
 import OrderItemQuantityControl from '@/components/admin/OrderItemQuantityControl'
+import StripePaymentPanel from '@/components/admin/StripePaymentPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -104,6 +105,12 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
         .filter((color): color is string => Boolean(color)),
     ),
   )
+  const stripeMetadata = metadata?.stripe && typeof metadata.stripe === 'object' && !Array.isArray(metadata.stripe)
+    ? metadata.stripe as Record<string, any>
+    : null
+  const paymentIntentId = order.stripePaymentIntentId
+    || (typeof metadata?.paymentIntentId === 'string' ? metadata.paymentIntentId : null)
+    || (typeof stripeMetadata?.paymentIntentId === 'string' ? stripeMetadata.paymentIntentId : null)
 
   return (
     <div className="space-y-6">
@@ -213,6 +220,17 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
               )}
               <ShippingTrackingForm orderId={order.id} initial={shippingInfo} />
             </div>
+            <StripePaymentPanel
+              orderId={order.id}
+              paymentIntentId={paymentIntentId}
+              paymentStatus={order.paymentStatus || (typeof stripeMetadata?.paymentStatus === 'string' ? stripeMetadata.paymentStatus : null)}
+              chargeId={order.stripeChargeId || (typeof stripeMetadata?.chargeId === 'string' ? stripeMetadata.chargeId : null)}
+              customerId={order.stripeCustomerId || (typeof stripeMetadata?.customerId === 'string' ? stripeMetadata.customerId : null)}
+              receiptUrl={order.receiptUrl || (typeof stripeMetadata?.receiptUrl === 'string' ? stripeMetadata.receiptUrl : null)}
+              totalCents={order.totalCents}
+              refundedCents={order.refundedCents}
+              currency={order.currency}
+            />
             <div className="rounded-xl border border-white/10 p-4 bg-black/20 space-y-2">
               <h2 className="text-lg font-semibold">Actions</h2>
               <p className="text-sm text-slate-400">Customer actions are disabled in admin view.</p>

@@ -64,6 +64,7 @@ export async function GET() {
   const adjustments = getPricingAdjustmentConfig(cfg || undefined)
   const res = NextResponse.json({
     stripePublishableKey,
+    stripeTaxEnabled: isEnabled(getEnvValue('STRIPE_TAX_ENABLED')),
     maxCartColors,
     materialPrices: Object.keys(materialPrices).length ? materialPrices : null,
     colorSurchargeRate,
@@ -76,6 +77,11 @@ export async function GET() {
   })
   res.headers.set('Cache-Control', 'no-store, max-age=0')
   return res
+}
+
+function isEnabled(raw?: string): boolean {
+  const value = (raw || '').trim().toLowerCase()
+  return value === '1' || value === 'true' || value === 'yes'
 }
 
 function getEnvValue(name: string): string | undefined {

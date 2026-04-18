@@ -21,6 +21,10 @@ type PersistOrderPayload = {
   customerName?: string | null
   discountPercent?: number | null
   organizationId?: string | null
+  paymentStatus?: string | null
+  stripeChargeId?: string | null
+  stripeCustomerId?: string | null
+  receiptUrl?: string | null
   metadata?: Prisma.InputJsonValue
 }
 
@@ -128,6 +132,11 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
       discountPercent: payload.discountPercent ?? undefined,
       totalCents: payload.amountCents,
       currency: normalizeCurrency(payload.currency),
+      paymentStatus: payload.paymentStatus || (payload.paymentMethod === 'card' ? 'paid' : 'pending'),
+      stripePaymentIntentId: payload.paymentIntentId.startsWith('pi_') ? payload.paymentIntentId : undefined,
+      stripeChargeId: payload.stripeChargeId || undefined,
+      stripeCustomerId: payload.stripeCustomerId || undefined,
+      receiptUrl: payload.receiptUrl || undefined,
       metadata: metadataPayload,
       organizationId: payload.organizationId || undefined,
       userId: payload.userId || undefined,

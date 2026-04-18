@@ -45,6 +45,24 @@ async function checkHttp(name: string, url: string, timeoutMs = 3000, init?: Req
   }
 }
 
+function resolveEnv(primary: string, legacy?: string) {
+  const value = (process.env[primary] || '').trim()
+  if (value) return value
+  return legacy ? (process.env[legacy] || '').trim() : ''
+}
+
+export function buildPrintLabHealthRequestInit(): RequestInit | undefined {
+  const headers: Record<string, string> = {}
+  const authHeader = resolveEnv('PRINTLAB_AUTH_HEADER', 'BAMBU_VIEW_AUTH_HEADER')
+  const sessionCookie = resolveEnv('PRINTLAB_SESSION_COOKIE', 'BAMBU_VIEW_SESSION_COOKIE')
+  const apiKey = resolveEnv('PRINTLAB_API_KEY', 'BAMBU_VIEW_API_KEY')
+  const apiKeyHeader = resolveEnv('PRINTLAB_API_KEY_HEADER', 'BAMBU_VIEW_API_KEY_HEADER') || 'X-API-Key'
+  if (authHeader) headers.Authorization = authHeader
+  if (sessionCookie) headers.Cookie = sessionCookie
+  if (apiKey) headers[apiKeyHeader] = apiKey
+  return Object.keys(headers).length > 0 ? { headers } : undefined
+}
+
 export async function runDependencyChecks() {
   const checks: DependencyCheck[] = []
 
@@ -90,7 +108,7 @@ export async function runDependencyChecks() {
   checks.push(stockworksBase ? await checkHttp('stockworks', stockworksBase) : { name: 'stockworks', status: 'skipped', detail: 'STOCKWORKS_BASE_URL not configured' })
 
   const printLabBase = normalizeServiceBaseUrl(process.env.PRINTLAB_BASE_URL || process.env.BAMBU_VIEW_BASE_URL || '')
-  checks.push(printLabBase ? await checkHttp('printlab', printLabBase) : { name: 'printlab', status: 'skipped', detail: 'PRINTLAB_BASE_URL not configured' })
+  checks.push(printLabBase ? await checkHttp('printlab', printLabBase, 3000, buildPrintLabHealthRequestInit()) : { name: 'printlab', status: 'skipped', detail: 'PRINTLAB_BASE_URL not configured' })
 
   const failing = checks.filter((entry) => entry.status === 'fail').length
   const warning = checks.filter((entry) => entry.status === 'warn').length

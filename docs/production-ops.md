@@ -195,7 +195,7 @@ Compose/appdata path: /mnt/cache/appdata/makerworks
 Current production suite containers and ports on Unraid:
 
 ```text
-MakerWorks-dev -> ghcr.io/schartrand77/mkw2:dev          -> http://localhost:3997
+MakerWorks-v2  -> ghcr.io/schartrand77/mkw2:latest       -> http://localhost:3777
 stockworks     -> ghcr.io/schartrand77/stockworks:latest -> http://localhost:8256
 PrintLab       -> ghcr.io/schartrand77/printlab:latest   -> http://localhost:8983
 orderworks     -> ghcr.io/schartrand77/orderworks:latest -> http://localhost:3202

@@ -20,6 +20,7 @@ const REQUIRED_CHECKS: Array<{ key: string; label: string; required: boolean; al
 
 const OPTIONAL_CHECKS: Array<{ key: string; label: string; required: boolean; alt?: string[] }> = [
   { key: 'STRIPE_SECRET_KEY', label: 'Stripe payments', required: false },
+  { key: 'STRIPE_WEBHOOK_SECRET', label: 'Stripe webhook signing secret', required: false },
   { key: 'STRIPE_SHIPPING_RATE_ID', label: 'Stripe shipping rate', required: false },
   { key: 'ORDERWORKS_BASE_URL', label: 'OrderWorks inbound base URL', required: false },
   { key: 'ORDERWORKS_USERNAME', label: 'OrderWorks username', required: false },

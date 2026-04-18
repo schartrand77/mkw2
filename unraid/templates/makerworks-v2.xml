@@ -75,8 +75,17 @@ MakerWorks v2 is a self-hosted 3D model hub with STL previews, price estimation,
 
   <Config Name="STRIPE_SECRET_KEY" Target="STRIPE_SECRET_KEY" Default="" Mode="" Description="Stripe secret key (starts with sk_live_ or sk_test_)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
   <Config Name="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" Target="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" Default="" Mode="" Description="Stripe publishable key used by the in-app checkout UI" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="STRIPE_WEBHOOK_SECRET" Target="STRIPE_WEBHOOK_SECRET" Default="" Mode="" Description="Stripe webhook signing secret for /api/stripe/webhook" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="STRIPE_SHIPPING_RATE_ID" Target="STRIPE_SHIPPING_RATE_ID" Default="" Mode="" Description="Stripe shipping rate ID required when shipped checkout is enabled" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="STRIPE_TAX_ENABLED" Target="STRIPE_TAX_ENABLED" Default="0" Mode="" Description="Set to 1 after Stripe Tax registrations and product tax settings are configured" Type="Variable" Display="advanced" Required="false" Mask="false">0</Config>
 
+  <Config Name="PRINTLAB_BASE_URL" Target="PRINTLAB_BASE_URL" Default="http://PrintLab:8080" Mode="" Description="Internal PrintLab URL reachable from the MakerWorks container on the shared Docker network" Type="Variable" Display="always" Required="false" Mask="false">http://PrintLab:8080</Config>
+  <Config Name="PRINTLAB_AUTH_HEADER" Target="PRINTLAB_AUTH_HEADER" Default="" Mode="" Description="Optional Authorization header for MakerWorks-to-PrintLab admin API calls, for example a Basic or Bearer value" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="PRINTLAB_SESSION_COOKIE" Target="PRINTLAB_SESSION_COOKIE" Default="" Mode="" Description="Optional PrintLab session cookie for MakerWorks-to-PrintLab admin API calls" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="PRINTLAB_API_KEY" Target="PRINTLAB_API_KEY" Default="" Mode="" Description="Optional PrintLab API key for MakerWorks-to-PrintLab API calls when PrintLab is configured to accept one" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="PRINTLAB_API_KEY_HEADER" Target="PRINTLAB_API_KEY_HEADER" Default="X-API-Key" Mode="" Description="Header name used with PRINTLAB_API_KEY" Type="Variable" Display="advanced" Required="false" Mask="false">X-API-Key</Config>
   <Config Name="MAKERWORKS_INBOUND_SECRET" Target="MAKERWORKS_INBOUND_SECRET" Default="" Mode="" Description="Shared secret MakerWorks expects for inbound job updates to /api/makerworks/jobs (send via Authorization Bearer token or MakerWorks signature header)" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="PRINTLAB_WEBHOOK_SECRET" Target="PRINTLAB_WEBHOOK_SECRET" Default="" Mode="" Description="Shared secret expected on PrintLab callbacks into MakerWorks" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
 
   <Config Name="HOLIDAY_THEME" Target="HOLIDAY_THEME" Default="" Mode="" Description="Optional seasonal theme: christmas, halloween, easter, valentines, or maythefourth" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
 
