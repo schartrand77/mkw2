@@ -771,7 +771,14 @@ export default function InstantQuoteConfigurator({
       <div className="grid gap-3 md:grid-cols-2">
         <label className="text-sm space-y-1">
           <span className="text-slate-400">Material</span>
-          <select className="input" value={materialChoice} onChange={(e) => setMaterialChoice(e.target.value as MaterialType)}>
+          <select
+            className="input"
+            value={materialChoice}
+            onChange={(e) => {
+              setMaterialChoice(e.target.value as MaterialType)
+              setColors([])
+            }}
+          >
             {materialOptions.map((option) => (
               <option key={option} value={option}>{option}</option>
             ))}

@@ -11,6 +11,7 @@ import { z } from 'zod'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { getColorMultiplier, normalizeColors, normalizeMaterialName, resolveScaleFromDimensions, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
 import { buildAllowedColorTokenSet, isColorAllowed, normalizeModelColorSlotCount } from '@/lib/color-constraints'
+import { isColorAvailableForMaterial, type FilamentPaletteResponse } from '@/lib/filament-palette-validation'
 import { recordOrderWorksJob } from '@/lib/orderworks'
 import { summarizeDiscount } from '@/lib/discounts'
 import { recordCustomerOrder } from '@/lib/orders'
@@ -276,6 +277,9 @@ async function handlePost(req: NextRequest) {
 
     const publicBaseUrl = resolvePublicBaseUrl(req)
     const checkoutId = randomUUID()
+    const filamentPalette = await fetch(`${publicBaseUrl}/api/stockworks/filament-colors`, { cache: 'no-store' })
+      .then(async (res) => (res.ok ? await res.json() as FilamentPaletteResponse : null))
+      .catch(() => null)
 
     const lineItems: CheckoutLineItem[] = await Promise.all(items.map(async (entry) => {
       const model = modelMap.get(entry.modelId)!
@@ -295,6 +299,9 @@ async function handlePost(req: NextRequest) {
       }
       if (allowedTokens && rawColors.some((color) => !isColorAllowed(color, allowedTokens))) {
         throw new Error('One or more selected colors are not allowed for this model')
+      }
+      if (rawColors.some((color) => !isColorAvailableForMaterial(color, filamentPalette, materialChoice))) {
+        throw new Error('One or more selected colors are not available for the selected material')
       }
       const colors = normalizeColors(rawColors, slotLimit)
       const colorCountForPricing = model.flatRatePricing ? 1 : colors.length
@@ -841,6 +848,7 @@ async function handlePost(req: NextRequest) {
     if (typeof err?.message === 'string' && (
       err.message === 'Too many colors selected for model'
       || err.message === 'One or more selected colors are not allowed for this model'
+      || err.message === 'One or more selected colors are not available for the selected material'
     )) {
       return NextResponse.json({ error: err.message }, { status: 400 })
     }

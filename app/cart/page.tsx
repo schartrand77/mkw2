@@ -1180,7 +1180,7 @@ export default function CartPage() {
                           className="w-32 input"
                           value={normalizeMaterialName(item.options.material)}
                           disabled={isLockedProduct}
-                          onChange={(e) => update(item.modelId, { material: e.target.value as MaterialType }, item.partId, item.cartItemId)}
+                          onChange={(e) => update(item.modelId, { material: e.target.value as MaterialType, colors: [] }, item.partId, item.cartItemId)}
                         >
                           {(() => {
                             const normalized = normalizeMaterialName(item.options.material)
