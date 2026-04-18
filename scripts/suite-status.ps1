@@ -18,6 +18,11 @@ function Write-Section {
   Write-Host "== $Title =="
 }
 
+function ConvertTo-ShellSingleQuoted {
+  param([string]$Value)
+  return "'" + ($Value -replace "'", "'\''") + "'"
+}
+
 function Invoke-StatusCommand {
   param([string]$Command)
 
@@ -25,16 +30,12 @@ function Invoke-StatusCommand {
     if ([string]::IsNullOrWhiteSpace($SshHost)) {
       throw "SshHost is required when Target is production."
     }
-    ssh $SshHost $Command
+    $quotedCommand = ConvertTo-ShellSingleQuoted $Command
+    ssh $SshHost "sh -lc $quotedCommand"
     return
   }
 
   Invoke-Expression $Command
-}
-
-function ConvertTo-ShellSingleQuoted {
-  param([string]$Value)
-  return "'" + ($Value -replace "'", "'\''") + "'"
 }
 
 function Test-HttpEndpoint {
@@ -65,12 +66,16 @@ function Test-HttpEndpoint {
 }
 
 Write-Section "Docker Containers"
-Invoke-StatusCommand 'docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"'
+if ($Target -eq "production") {
+  Invoke-StatusCommand 'docker ps'
+} else {
+  Invoke-StatusCommand 'docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"'
+}
 
 if ($Target -eq "production" -and -not [string]::IsNullOrWhiteSpace($ProductionComposePath)) {
   Write-Section "Production Compose"
   $quotedPath = ConvertTo-ShellSingleQuoted $ProductionComposePath
-  Invoke-StatusCommand "cd $quotedPath && docker compose ps"
+  Invoke-StatusCommand "cd $quotedPath && if command -v docker-compose >/dev/null 2>&1; then docker-compose ps; elif docker compose version >/dev/null 2>&1; then docker compose ps; else echo 'Docker Compose is not available on this host or PATH.'; fi"
 }
 
 if (-not $SkipHttp) {

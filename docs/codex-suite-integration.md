@@ -106,6 +106,8 @@ Standard suite status check:
 
 ```powershell
 docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+npm run suite:status
+npm run suite:status:prod
 ```
 
 Standard HTTP smoke checks:

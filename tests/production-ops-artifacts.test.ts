@@ -26,3 +26,14 @@ test('suite status script supports local and remote production checks without em
   assert.match(script, /Invoke-WebRequest/)
   assert.doesNotMatch(script, /ADMIN_PASSWORD|DATABASE_URL|SECRET_KEY|API_KEY|ACCESS_CODE/)
 })
+
+test('package scripts include production suite status shortcut', async () => {
+  const pkg = JSON.parse(await readFile('package.json', 'utf8')) as { scripts: Record<string, string> }
+
+  assert.match(pkg.scripts['suite:status:prod'], /makerworks-prod/)
+  assert.match(pkg.scripts['suite:status:prod'], /3997/)
+  assert.match(pkg.scripts['suite:status:prod'], /8256/)
+  assert.match(pkg.scripts['suite:status:prod'], /8983/)
+  assert.match(pkg.scripts['suite:status:prod'], /3202/)
+  assert.doesNotMatch(pkg.scripts['suite:status:prod'], /ADMIN_PASSWORD|DATABASE_URL|SECRET_KEY|API_KEY|ACCESS_CODE/)
+})

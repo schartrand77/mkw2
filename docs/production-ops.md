@@ -177,9 +177,32 @@ Use the local script from this repo:
 .\scripts\suite-status.ps1
 .\scripts\suite-status.ps1 -Target production -SshHost makerworks-prod
 .\scripts\suite-status.ps1 -Target production -SshHost makerworks-prod -ProductionComposePath /mnt/cache/appdata/makerworks
+npm run suite:status:prod
 ```
 
 The script performs status checks without embedding credentials. It can run locally or through SSH.
+
+Current production SSH and Docker context:
+
+```text
+SSH alias: makerworks-prod
+Docker context: makerworks-prod
+Host: 192.168.1.170
+User: root
+Compose/appdata path: /mnt/cache/appdata/makerworks
+```
+
+Current production suite containers and ports:
+
+```text
+MakerWorks-dev -> ghcr.io/schartrand77/mkw2:dev          -> http://localhost:3997
+stockworks     -> ghcr.io/schartrand77/stockworks:latest -> http://localhost:8256
+PrintLab       -> ghcr.io/schartrand77/printlab:latest   -> http://localhost:8983
+orderworks     -> ghcr.io/schartrand77/orderworks:latest -> http://localhost:3202
+postgres       -> postgres:15                            -> localhost:5432
+```
+
+The production host currently does not expose Docker Compose on `PATH`. Use `docker --context makerworks-prod ps` for read-only container inspection unless a Compose installation or Unraid template workflow is added.
 
 ## Production Details To Record
 
