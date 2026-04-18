@@ -18,9 +18,11 @@ test('suite status script supports local and remote production checks without em
 
   assert.match(script, /param\(/)
   assert.match(script, /\$Target/)
+  assert.match(script, /\$ProductionComposePath/)
   assert.match(script, /ssh /)
   assert.match(script, /docker ps/)
+  assert.match(script, /docker compose ps/)
+  assert.match(script, /curl -/)
   assert.match(script, /Invoke-WebRequest/)
   assert.doesNotMatch(script, /ADMIN_PASSWORD|DATABASE_URL|SECRET_KEY|API_KEY|ACCESS_CODE/)
 })
-

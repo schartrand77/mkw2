@@ -2,6 +2,7 @@ param(
   [ValidateSet("local", "production")]
   [string]$Target = "local",
   [string]$SshHost = "",
+  [string]$ProductionComposePath = "",
   [string]$MakerWorksUrl = "http://localhost:3000/api/health",
   [string]$StockWorksUrl = "http://localhost:8000/",
   [string]$PrintLabUrl = "http://localhost:8289/health",
@@ -31,11 +32,23 @@ function Invoke-StatusCommand {
   Invoke-Expression $Command
 }
 
+function ConvertTo-ShellSingleQuoted {
+  param([string]$Value)
+  return "'" + ($Value -replace "'", "'\''") + "'"
+}
+
 function Test-HttpEndpoint {
   param(
     [string]$Name,
     [string]$Url
   )
+
+  if ($Target -eq "production") {
+    $quotedUrl = ConvertTo-ShellSingleQuoted $Url
+    $command = "code=`$(curl -k -s -o /dev/null -w '%{http_code}' --max-time 10 $quotedUrl || true); echo '$Name' `$code $quotedUrl"
+    Invoke-StatusCommand $command
+    return
+  }
 
   try {
     $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 10
@@ -54,6 +67,12 @@ function Test-HttpEndpoint {
 Write-Section "Docker Containers"
 Invoke-StatusCommand 'docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"'
 
+if ($Target -eq "production" -and -not [string]::IsNullOrWhiteSpace($ProductionComposePath)) {
+  Write-Section "Production Compose"
+  $quotedPath = ConvertTo-ShellSingleQuoted $ProductionComposePath
+  Invoke-StatusCommand "cd $quotedPath && docker compose ps"
+}
+
 if (-not $SkipHttp) {
   Write-Section "HTTP Checks"
   Test-HttpEndpoint "MakerWorks" $MakerWorksUrl
@@ -63,6 +82,5 @@ if (-not $SkipHttp) {
 }
 
 Write-Section "Next Steps"
-Write-Host "For production, use -Target production -SshHost <ssh-alias>."
+Write-Host "For production, use -Target production -SshHost <ssh-alias> -ProductionComposePath <path>."
 Write-Host "Mutating production actions still require explicit human approval."
-

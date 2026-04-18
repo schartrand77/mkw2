@@ -176,6 +176,7 @@ Use the local script from this repo:
 ```powershell
 .\scripts\suite-status.ps1
 .\scripts\suite-status.ps1 -Target production -SshHost makerworks-prod
+.\scripts\suite-status.ps1 -Target production -SshHost makerworks-prod -ProductionComposePath /mnt/cache/appdata/makerworks
 ```
 
 The script performs status checks without embedding credentials. It can run locally or through SSH.
