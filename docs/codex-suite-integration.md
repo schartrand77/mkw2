@@ -91,6 +91,8 @@ The Windows dev PC currently runs the MakerWorks suite in Docker Desktop with th
 
 MakerWorks and StockWorks are compose-managed from their repo roots. OrderWorks is compose-managed but uses the `node:20-bookworm` image and runs install/generate/migrate/dev at container start. PrintLab is currently a standalone Docker container, not root-compose-managed.
 
+Production runs on Unraid host `echobase` through SSH alias and Docker context `makerworks-prod`. The production suite containers are standalone Unraid/Docker containers, not Compose-managed on PATH.
+
 PrintLab is recreated with:
 
 ```powershell

@@ -192,7 +192,7 @@ User: root
 Compose/appdata path: /mnt/cache/appdata/makerworks
 ```
 
-Current production suite containers and ports:
+Current production suite containers and ports on Unraid:
 
 ```text
 MakerWorks-dev -> ghcr.io/schartrand77/mkw2:dev          -> http://localhost:3997
@@ -203,6 +203,17 @@ postgres       -> postgres:15                            -> localhost:5432
 ```
 
 The production host currently does not expose Docker Compose on `PATH`. Use `docker --context makerworks-prod ps` for read-only container inspection unless a Compose installation or Unraid template workflow is added.
+
+Read-only PostgreSQL status is included in `npm run suite:status:prod`. The current production database target is:
+
+```text
+Container: postgres
+Database: makerworks
+User: postgres
+Schemas observed: public, orderworks, and PostgreSQL system schemas
+```
+
+Do not run migrations, restores, destructive SQL, or data-changing SQL without explicit approval and a current backup.
 
 ## Production Details To Record
 

@@ -7,6 +7,10 @@ param(
   [string]$StockWorksUrl = "http://localhost:8000/",
   [string]$PrintLabUrl = "http://localhost:8289/health",
   [string]$OrderWorksUrl = "http://localhost:3001/",
+  [string]$DatabaseContainer = "postgres",
+  [string]$DatabaseName = "makerworks",
+  [string]$DatabaseUser = "postgres",
+  [switch]$IncludeDatabase,
   [switch]$SkipHttp
 )
 
@@ -65,6 +69,16 @@ function Test-HttpEndpoint {
   }
 }
 
+function Test-Database {
+  $container = ConvertTo-ShellSingleQuoted $DatabaseContainer
+  $database = ConvertTo-ShellSingleQuoted $DatabaseName
+  $user = ConvertTo-ShellSingleQuoted $DatabaseUser
+  $sql = "select 'database=' || current_database(); select 'user=' || current_user; select 'schemas=' || count(*) from information_schema.schemata; select 'tables=' || count(*) from information_schema.tables;"
+  $quotedSql = ConvertTo-ShellSingleQuoted $sql
+
+  Invoke-StatusCommand "docker exec $container psql -U $user -d $database -Atc $quotedSql"
+}
+
 Write-Section "Docker Containers"
 if ($Target -eq "production") {
   Invoke-StatusCommand 'docker ps'
@@ -84,6 +98,11 @@ if (-not $SkipHttp) {
   Test-HttpEndpoint "StockWorks" $StockWorksUrl
   Test-HttpEndpoint "PrintLab" $PrintLabUrl
   Test-HttpEndpoint "OrderWorks" $OrderWorksUrl
+}
+
+if ($IncludeDatabase) {
+  Write-Section "PostgreSQL"
+  Test-Database
 }
 
 Write-Section "Next Steps"
