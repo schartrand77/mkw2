@@ -8,6 +8,7 @@ import { saveBuffer } from '@/lib/storage'
 import type { OrderStatus } from '@/lib/order-status'
 import { normalizePaymentMethod as normalizeOrderWorksPaymentMethod } from '@/lib/orderworks-status'
 import { listOrganizationIdsForUser } from '@/lib/organizations'
+import { autoSubmitOrderToPrintLab } from '@/lib/printlab-order-submit'
 
 type PersistOrderPayload = {
   paymentIntentId: string
@@ -281,7 +282,7 @@ export async function createOrderFromJobForm(job: JobForm & { user?: { id: strin
   const shipping = normalizeShippingSelection(job.shipping)
   const paymentMethod = normalizePaymentMethod(job.paymentMethod)
 
-  return recordCustomerOrder({
+  const order = await recordCustomerOrder({
     paymentIntentId: job.paymentIntentId,
     amountCents: job.totalCents,
     currency: normalizeCurrency(job.currency),
@@ -298,6 +299,10 @@ export async function createOrderFromJobForm(job: JobForm & { user?: { id: strin
       ...(job.metadata && typeof job.metadata === 'object' && !Array.isArray(job.metadata) ? job.metadata : {}),
     },
   })
+  if (order.status === 'queued') {
+    await autoSubmitOrderToPrintLab(order.id, 'makerworks_job_webhook')
+  }
+  return order
 }
 
 export async function getOrderForUser(orderId: string, userId: string): Promise<OrderDetail | null> {

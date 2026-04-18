@@ -62,7 +62,14 @@ async function printLabJson(path: string, init?: RequestInit) {
   const res = await printLabFetch(path, init)
   const body = await res.json().catch(() => null)
   if (!res.ok) {
-    throw Object.assign(new Error(body?.error || `PrintLab request failed (${res.status})`), { status: res.status, payload: body })
+    const message = typeof body?.error === 'string'
+      ? body.error
+      : typeof body?.error?.message === 'string'
+        ? body.error.message
+        : typeof body?.detail === 'string'
+          ? body.detail
+          : `PrintLab request failed (${res.status})`
+    throw Object.assign(new Error(message), { status: res.status, payload: body })
   }
   return body
 }
@@ -108,4 +115,31 @@ export async function fetchPrintLabSpools(printerId: string) {
       active: Boolean(slot?.active),
     })),
   }
+}
+
+export type PrintLabMakerWorksSubmitPayload = {
+  model_id: string
+  printer_id?: string | null
+  idempotency_key: string
+  source_job_id: string
+  source_order_id: string
+  start_at?: string | null
+  plate_gcode?: string
+  use_ams?: boolean
+  ams_mapping?: number[] | null
+  bed_type?: string
+  timelapse?: boolean
+  bed_leveling?: boolean
+  flow_cali?: boolean
+  vibration_cali?: boolean
+  layer_inspect?: boolean
+  metadata?: Record<string, unknown>
+}
+
+export async function submitPrintLabMakerWorksJob(payload: PrintLabMakerWorksSubmitPayload) {
+  return printLabJson('/api/works/makerworks/jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
 }

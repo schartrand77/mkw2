@@ -26,6 +26,7 @@ import { saveBuffer } from '@/lib/storage'
 import { buildManufacturabilitySnapshot, renderManufacturabilityReportPdf, type ManufacturabilityModelInput } from '@/lib/manufacturability-report'
 import { getOrganizationMembership, isPrivilegedOrgRole } from '@/lib/organizations'
 import { estimateLeadTimeHours } from '@/lib/lead-time-estimator'
+import { autoSubmitOrderToPrintLab } from '@/lib/printlab-order-submit'
 
 export const dynamic = 'force-dynamic'
 
@@ -783,8 +784,11 @@ async function handlePost(req: NextRequest) {
             data: { metadata: metadataPatch },
           })
         }
+        if (order?.status === 'queued') {
+          await autoSubmitOrderToPrintLab(order.id, 'makerworks_checkout')
+        }
       } catch (err) {
-        console.error('Failed to persist customer order', err)
+        console.error('Failed to persist customer order or submit it to PrintLab', err)
       }
       try {
         const itemLines = lineItems.slice(0, 4).map((item) => `${item.qty}x ${item.title}${item.partName ? ` (${item.partName})` : ''}`)

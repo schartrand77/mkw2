@@ -16,6 +16,7 @@ import ShippingTrackingForm from '@/components/admin/ShippingTrackingForm'
 import SlicerStatsForm from '@/components/admin/SlicerStatsForm'
 import OrderItemQuantityControl from '@/components/admin/OrderItemQuantityControl'
 import StripePaymentPanel from '@/components/admin/StripePaymentPanel'
+import PrintLabSubmitButton from '@/components/admin/PrintLabSubmitButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -107,6 +108,9 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
   )
   const stripeMetadata = metadata?.stripe && typeof metadata.stripe === 'object' && !Array.isArray(metadata.stripe)
     ? metadata.stripe as Record<string, any>
+    : null
+  const lastPrintLabSubmission = metadata?.lastPrintLabSubmission && typeof metadata.lastPrintLabSubmission === 'object' && !Array.isArray(metadata.lastPrintLabSubmission)
+    ? metadata.lastPrintLabSubmission as Record<string, any>
     : null
   const paymentIntentId = order.stripePaymentIntentId
     || (typeof metadata?.paymentIntentId === 'string' ? metadata.paymentIntentId : null)
@@ -261,6 +265,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                 <SlicerStatsForm orderId={order.id} initial={slicerStats} />
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <PrintLabSubmitButton orderId={order.id} />
                 <Link
                   href={`/admin/users/${userId}/orders/${orderId}/ticket`}
                   className="text-sm px-3 py-1.5 rounded-md border border-white/10 hover:border-white/30"
@@ -268,6 +273,15 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                   Print job ticket
                 </Link>
               </div>
+              {lastPrintLabSubmission ? (
+                <p className={`text-xs ${lastPrintLabSubmission.status === 'failed' ? 'text-rose-200' : 'text-emerald-300'}`}>
+                  PrintLab: {String(lastPrintLabSubmission.status || 'submitted')}
+                  {lastPrintLabSubmission.printerName ? ` - ${lastPrintLabSubmission.printerName}` : ''}
+                  {lastPrintLabSubmission.error ? ` - ${lastPrintLabSubmission.error}` : ''}
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500">PrintLab: not submitted yet.</p>
+              )}
             </div>
           </div>
         </div>
