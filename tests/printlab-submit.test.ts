@@ -29,6 +29,7 @@ test('PrintLab submit payload uses order item material and StockWorks color name
   assert.equal(payloads[0].source_job_id, 'job-1')
   assert.equal(payloads[0].source_order_id, 'order-1')
   assert.equal(payloads[0].idempotency_key, 'makerworks-order:order-1:item:item-1')
+  assert.equal(payloads[0].route_only, true)
   assert.equal(payloads[0].metadata?.material, 'PETG')
   assert.deepEqual(payloads[0].metadata?.colors, ['Black #000000', 'White #FFFFFF'])
   assert.equal(payloads[0].metadata?.order_label, 'MW-00016')

@@ -60,6 +60,7 @@ export function buildPrintLabSubmitPayloads(
         idempotency_key: `makerworks-order:${order.id}:item:${item.id}`,
         source_job_id: jobId,
         source_order_id: order.id,
+        route_only: true,
         metadata: {
           source: 'makerworks_admin',
           order_id: order.id,

@@ -133,6 +133,7 @@ export type PrintLabMakerWorksSubmitPayload = {
   flow_cali?: boolean
   vibration_cali?: boolean
   layer_inspect?: boolean
+  route_only?: boolean
   metadata?: Record<string, unknown>
 }
 
