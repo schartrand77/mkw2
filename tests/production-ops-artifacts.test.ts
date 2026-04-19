@@ -51,6 +51,21 @@ test('Unraid web template exposes the full Stripe checkout configuration', async
   assert.match(template, /Target="STRIPE_TAX_ENABLED"/)
 })
 
+test('local environment templates expose Stripe webhook and PrintLab auth configuration', async () => {
+  const envExample = await readFile('.env.example', 'utf8')
+  const compose = await readFile('docker-compose.yml', 'utf8')
+
+  for (const target of [envExample, compose]) {
+    assert.match(target, /STRIPE_WEBHOOK_SECRET/)
+    assert.match(target, /PRINTLAB_BASE_URL/)
+    assert.match(target, /PRINTLAB_AUTH_HEADER/)
+    assert.match(target, /PRINTLAB_SESSION_COOKIE/)
+    assert.match(target, /PRINTLAB_API_KEY/)
+    assert.match(target, /PRINTLAB_API_KEY_HEADER/)
+    assert.match(target, /PRINTLAB_WEBHOOK_SECRET/)
+  }
+})
+
 test('Unraid web template exposes primary PrintLab integration configuration', async () => {
   const template = await readFile('unraid/templates/makerworks-v2.xml', 'utf8')
 
