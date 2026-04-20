@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { BRAND_NAME } from '@/lib/brand'
+import { LOGIN_FAILED_MESSAGE } from '@/lib/login-errors'
 
 async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
   try {
@@ -42,7 +43,10 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
         credentials: 'include',
       })
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) {
+        const message = res.status === 429 ? 'Too many login attempts. Try again later.' : LOGIN_FAILED_MESSAGE
+        throw new Error(message)
+      }
       await notify({ type: 'success', title: 'Signed in', message: 'Welcome back!' })
       setEmail('')
       setPassword('')
@@ -53,7 +57,7 @@ export default function LoginPage() {
         router.replace(nextTarget)
       }
     } catch (err: any) {
-      await notify({ type: 'error', title: 'Login failed', message: err.message || 'Login failed' })
+      await notify({ type: 'error', title: 'Login failed', message: err.message || LOGIN_FAILED_MESSAGE })
     } finally {
       setLoading(false)
     }

@@ -8,6 +8,7 @@ import { POST as registerPost } from '../app/api/register/route'
 import { POST as customerOrderMessagePost } from '../app/api/customer/orders/[orderId]/messages/route'
 import { PATCH as updateJobPatch } from '../app/api/jobs/[paymentIntentId]/route'
 import { prisma } from '../lib/db'
+import { hashPassword } from '../lib/auth'
 
 function jsonRequest(url: string, body: unknown) {
   return new NextRequest(url, {
@@ -71,6 +72,52 @@ test('login returns 400 for invalid payload', async () => {
   })
   const res = await loginPost(req)
   assert.equal(res.status, 400)
+})
+
+test('login failure responses do not reveal account state', async () => {
+  const originalUserFindUnique = (prisma.user as any).findUnique
+  const originalRateLimitFindUnique = (prisma.rateLimit as any).findUnique
+  const originalRateLimitCreate = (prisma.rateLimit as any).create
+  const passwordHash = await hashPassword('correct-password')
+  const baseUser = {
+    id: 'user_1',
+    email: 'member@example.com',
+    name: 'Member',
+    passwordHash,
+    isSuspended: false,
+    emailVerified: true,
+  }
+
+  ;(prisma.rateLimit as any).findUnique = async () => null
+  ;(prisma.rateLimit as any).create = async () => ({ key: 'login:test', count: 1 })
+
+  try {
+    const cases = [
+      { user: null, password: 'wrong-password' },
+      { user: baseUser, password: 'wrong-password' },
+      { user: { ...baseUser, isSuspended: true }, password: 'correct-password' },
+      { user: { ...baseUser, emailVerified: false }, password: 'correct-password' },
+    ]
+    const responses = []
+
+    for (const testCase of cases) {
+      ;(prisma.user as any).findUnique = async () => testCase.user
+      const res = await loginPost(jsonRequest('http://localhost/api/login', {
+        email: 'member@example.com',
+        password: testCase.password,
+      }))
+      responses.push({ status: res.status, body: await res.json() })
+    }
+
+    assert.deepEqual(
+      responses,
+      responses.map(() => ({ status: 401, body: { error: 'Invalid email or password' } })),
+    )
+  } finally {
+    ;(prisma.user as any).findUnique = originalUserFindUnique
+    ;(prisma.rateLimit as any).findUnique = originalRateLimitFindUnique
+    ;(prisma.rateLimit as any).create = originalRateLimitCreate
+  }
 })
 
 test('register rejects mismatched passwords', async () => {

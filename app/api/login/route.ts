@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { verifyPassword, setAuthCookie } from '@/lib/auth'
 import { ensureUserPage } from '@/lib/userpage'
 import { checkRateLimit, clearRateLimit, consumeRateLimit, getAuthRateLimitConfig, getRequestIp } from '@/lib/rate-limit'
+import { LOGIN_FAILED_MESSAGE } from '@/lib/login-errors'
 
 const schema = z.object({
   email: z.string().email(),
@@ -31,20 +32,20 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
     if (!user) {
       await consumeRateLimit(rateKey, loginConfig)
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+      return NextResponse.json({ error: LOGIN_FAILED_MESSAGE }, { status: 401 })
     }
     if (user.isSuspended) {
       await consumeRateLimit(rateKey, loginConfig)
-      return NextResponse.json({ error: 'Account suspended. Contact support.' }, { status: 403 })
+      return NextResponse.json({ error: LOGIN_FAILED_MESSAGE }, { status: 401 })
     }
     if (!user.emailVerified) {
       await consumeRateLimit(rateKey, loginConfig)
-      return NextResponse.json({ error: 'Please verify your email before signing in.' }, { status: 403 })
+      return NextResponse.json({ error: LOGIN_FAILED_MESSAGE }, { status: 401 })
     }
     const ok = await verifyPassword(password, user.passwordHash)
     if (!ok) {
       await consumeRateLimit(rateKey, loginConfig)
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+      return NextResponse.json({ error: LOGIN_FAILED_MESSAGE }, { status: 401 })
     }
     // Ensure the user has a profile page before responding
     await ensureUserPage(user.id, user.email, user.name)
