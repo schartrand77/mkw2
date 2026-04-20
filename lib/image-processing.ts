@@ -5,6 +5,18 @@ type BufferInfo = { filename?: string | null; mimeType?: string | null }
 
 export type PreparedImageBuffer = { buffer: Buffer; orientation?: number }
 const DEFAULT_HEIC_MAX_SOURCE_BYTES = 40 * 1024 * 1024
+const HEIF_BRANDS = new Set([
+  'heic',
+  'heix',
+  'hevc',
+  'hevx',
+  'heim',
+  'heis',
+  'hevm',
+  'hevs',
+  'mif1',
+  'msf1',
+])
 
 function readPositiveIntEnv(name: string, fallback: number) {
   const raw = process.env[name]
@@ -16,6 +28,18 @@ function readPositiveIntEnv(name: string, fallback: number) {
 function toErrorMessage(err: unknown) {
   if (err instanceof Error && typeof err.message === 'string') return err.message
   return String(err || '')
+}
+
+function looksLikeHeifContainer(buffer: Buffer) {
+  if (buffer.length < 12) return false
+  if (buffer.subarray(4, 8).toString('ascii') !== 'ftyp') return false
+  const end = Math.min(buffer.length, 64)
+  for (let offset = 8; offset + 4 <= end; offset += 4) {
+    if (HEIF_BRANDS.has(buffer.subarray(offset, offset + 4).toString('ascii'))) {
+      return true
+    }
+  }
+  return false
 }
 
 async function readOrientation(buffer: Buffer): Promise<number | undefined> {
@@ -33,7 +57,7 @@ async function readOrientation(buffer: Buffer): Promise<number | undefined> {
 
 export async function ensureProcessableImageBuffer(buffer: Buffer, info?: BufferInfo): Promise<PreparedImageBuffer> {
   if (!buffer || buffer.length === 0) return { buffer }
-  const isHeic = Boolean(info && isHeicLikeSource(info.filename, info.mimeType))
+  const isHeic = Boolean(info && isHeicLikeSource(info.filename, info.mimeType) && looksLikeHeifContainer(buffer))
   const orientation = isHeic ? await readOrientation(buffer) : undefined
   if (!isHeic) return { buffer, orientation }
   const maxSourceBytes = readPositiveIntEnv('HEIC_MAX_SOURCE_BYTES', DEFAULT_HEIC_MAX_SOURCE_BYTES)
