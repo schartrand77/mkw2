@@ -74,8 +74,9 @@ If `REDIS_URL` is unset, queue-backed background processing is disabled.
 - `STRIPE_SECRET_KEY`
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - `STRIPE_SHIPPING_RATE_ID`
+- `STRIPE_INVOICE_DAYS_UNTIL_DUE`
 
-Required for card-based checkout.
+`STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` are required for card-based checkout. `STRIPE_SECRET_KEY` also enables Stripe invoices for deferred invoice checkout. `STRIPE_INVOICE_DAYS_UNTIL_DUE` is optional and defaults to 14.
 
 ## PrintLab
 

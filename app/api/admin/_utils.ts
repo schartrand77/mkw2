@@ -17,3 +17,7 @@ export async function requireRole(allowedRoles: ApiRole[]): Promise<string> {
 export async function requireAdmin(): Promise<string> {
   return requireRole(['admin', 'staff'])
 }
+
+export const adminRouteGuards = {
+  requireAdmin,
+}

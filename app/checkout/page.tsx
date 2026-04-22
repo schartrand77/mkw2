@@ -71,6 +71,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(cardPaymentAvailable ? 'card' : 'cash')
   const [cashConfirmationId, setCashConfirmationId] = useState<string | null>(null)
   const [adminFreeConfirmation, setAdminFreeConfirmation] = useState(false)
+  const [deferredInvoice, setDeferredInvoice] = useState<CheckoutIntentResponse['stripeInvoice']>(null)
   const [cashProcessing, setCashProcessing] = useState(false)
   const [finalizingJob, setFinalizingJob] = useState(false)
   const [applePayAvailable, setApplePayAvailable] = useState(false)
@@ -411,6 +412,7 @@ export default function CheckoutPage() {
       const data = await finalizeJob({ method: paymentMethod })
       setCashConfirmationId(data.paymentIntentId)
       setAdminFreeConfirmation(Boolean(data.adminFreeCheckout))
+      setDeferredInvoice(data.stripeInvoice || null)
       setSuccessIntent(null)
       setIntent(null)
       clear()
@@ -426,7 +428,9 @@ export default function CheckoutPage() {
       pushSessionNotification({
         type: 'success',
         title: label,
-        message: `Confirmation: ${data.paymentIntentId}`,
+        message: data.stripeInvoice?.hostedInvoiceUrl
+          ? `Invoice sent: ${data.stripeInvoice.invoiceId}`
+          : `Confirmation: ${data.paymentIntentId}`,
       })
     } catch (err: any) {
       const msg = err.message || 'Unable to submit order.'
@@ -871,6 +875,11 @@ export default function CheckoutPage() {
                       : 'Quote request sent!'}
             </p>
             <p>Confirmation: {successIntent ? successIntent.id : cashConfirmationId}</p>
+            {deferredInvoice?.hostedInvoiceUrl ? (
+              <a href={deferredInvoice.hostedInvoiceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block underline underline-offset-4">
+                Open invoice
+              </a>
+            ) : null}
           </div>
         )}
       </div>

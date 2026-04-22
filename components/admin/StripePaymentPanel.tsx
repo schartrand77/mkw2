@@ -9,6 +9,9 @@ type StripePaymentPanelProps = {
   chargeId?: string | null
   customerId?: string | null
   receiptUrl?: string | null
+  invoiceId?: string | null
+  hostedInvoiceUrl?: string | null
+  invoicePdfUrl?: string | null
   totalCents: number
   refundedCents?: number | null
   currency: string
@@ -25,6 +28,9 @@ export default function StripePaymentPanel({
   chargeId,
   customerId,
   receiptUrl,
+  invoiceId,
+  hostedInvoiceUrl,
+  invoicePdfUrl,
   totalCents,
   refundedCents,
   currency,
@@ -32,7 +38,29 @@ export default function StripePaymentPanel({
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [amount, setAmount] = useState('')
+  const [attachPaymentIntentId, setAttachPaymentIntentId] = useState(paymentIntentId || '')
   const remainingCents = Math.max(0, totalCents - (refundedCents || 0))
+
+  async function attachPaymentIntent() {
+    setBusy('attach')
+    setMessage(null)
+    try {
+      const trimmed = attachPaymentIntentId.trim()
+      const res = await fetch(`/api/admin/orders/${orderId}/stripe-attach`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentIntentId: trimmed }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Stripe attach failed')
+      setMessage(`Attached: ${data.paymentIntentId}`)
+      window.location.reload()
+    } catch (err: any) {
+      setMessage(err?.message || 'Stripe attach failed')
+    } finally {
+      setBusy(null)
+    }
+  }
 
   async function sync() {
     setBusy('sync')
@@ -93,16 +121,51 @@ export default function StripePaymentPanel({
           <p className="text-slate-500">Customer</p>
           <p className="break-all">{customerId || 'Not recorded'}</p>
         </div>
+        <div>
+          <p className="text-slate-500">Invoice</p>
+          <p className="break-all">{invoiceId || 'Not recorded'}</p>
+        </div>
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-slate-500">Refunded</p>
             <p>{formatMoney(refundedCents || 0, currency)} of {formatMoney(totalCents, currency)}</p>
           </div>
-          {receiptUrl ? (
-            <a className="text-xs underline underline-offset-4 hover:text-white" href={receiptUrl} target="_blank" rel="noreferrer">
-              Receipt
-            </a>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {receiptUrl ? (
+              <a className="text-xs underline underline-offset-4 hover:text-white" href={receiptUrl} target="_blank" rel="noreferrer">
+                Receipt
+              </a>
+            ) : null}
+            {hostedInvoiceUrl ? (
+              <a className="text-xs underline underline-offset-4 hover:text-white" href={hostedInvoiceUrl} target="_blank" rel="noreferrer">
+                Invoice
+              </a>
+            ) : null}
+            {invoicePdfUrl ? (
+              <a className="text-xs underline underline-offset-4 hover:text-white" href={invoicePdfUrl} target="_blank" rel="noreferrer">
+                PDF
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Attach PaymentIntent</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={attachPaymentIntentId}
+            onChange={(event) => setAttachPaymentIntentId(event.target.value)}
+            placeholder="pi_..."
+            className="min-w-[16rem] flex-1 rounded-md border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white"
+          />
+          <button
+            type="button"
+            onClick={attachPaymentIntent}
+            disabled={busy !== null || !attachPaymentIntentId.trim()}
+            className="rounded-md border border-white/15 px-3 py-1.5 text-xs hover:border-white/40 disabled:opacity-50"
+          >
+            {busy === 'attach' ? 'Attaching...' : 'Attach PaymentIntent'}
+          </button>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">

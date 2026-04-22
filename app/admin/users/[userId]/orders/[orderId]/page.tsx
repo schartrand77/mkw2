@@ -109,6 +109,9 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
   const stripeMetadata = metadata?.stripe && typeof metadata.stripe === 'object' && !Array.isArray(metadata.stripe)
     ? metadata.stripe as Record<string, any>
     : null
+  const stripeInvoiceMetadata = metadata?.stripeInvoice && typeof metadata.stripeInvoice === 'object' && !Array.isArray(metadata.stripeInvoice)
+    ? metadata.stripeInvoice as Record<string, any>
+    : null
   const lastPrintLabSubmission = metadata?.lastPrintLabSubmission && typeof metadata.lastPrintLabSubmission === 'object' && !Array.isArray(metadata.lastPrintLabSubmission)
     ? metadata.lastPrintLabSubmission as Record<string, any>
     : null
@@ -231,6 +234,9 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
               chargeId={order.stripeChargeId || (typeof stripeMetadata?.chargeId === 'string' ? stripeMetadata.chargeId : null)}
               customerId={order.stripeCustomerId || (typeof stripeMetadata?.customerId === 'string' ? stripeMetadata.customerId : null)}
               receiptUrl={order.receiptUrl || (typeof stripeMetadata?.receiptUrl === 'string' ? stripeMetadata.receiptUrl : null)}
+              invoiceId={(order as any).stripeInvoiceId || (typeof stripeInvoiceMetadata?.invoiceId === 'string' ? stripeInvoiceMetadata.invoiceId : null)}
+              hostedInvoiceUrl={(order as any).hostedInvoiceUrl || (typeof stripeInvoiceMetadata?.hostedInvoiceUrl === 'string' ? stripeInvoiceMetadata.hostedInvoiceUrl : null)}
+              invoicePdfUrl={(order as any).invoicePdfUrl || (typeof stripeInvoiceMetadata?.invoicePdfUrl === 'string' ? stripeInvoiceMetadata.invoicePdfUrl : null)}
               totalCents={order.totalCents}
               refundedCents={order.refundedCents}
               currency={order.currency}

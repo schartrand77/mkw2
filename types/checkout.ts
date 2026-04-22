@@ -111,6 +111,14 @@ export type CheckoutIntentResponse = {
   committed: boolean
   discount?: DiscountSummary
   adminFreeCheckout?: boolean
+  stripeInvoice?: {
+    invoiceId: string
+    customerId: string
+    hostedInvoiceUrl: string | null
+    invoicePdfUrl: string | null
+    invoiceStatus: string | null
+  } | null
+  stripeInvoiceError?: string | null
 }
 
 export type CheckoutOrganization = {

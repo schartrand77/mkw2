@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db'
 import { estimatePricingDetails, resolveModelPricing, type PricingDetails } from '@/lib/pricing'
 import { formatCurrency, getCurrency, type Currency } from '@/lib/currency'
 import { getStripe } from '@/lib/stripe'
-import { createMakerWorksPaymentIntent, normalizeStripePaymentStatus } from '@/lib/stripe-payments'
+import { createAndSendStripeInvoice, createMakerWorksPaymentIntent, normalizeStripePaymentStatus, resolveStripeInvoiceDaysUntilDue } from '@/lib/stripe-payments'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { z } from 'zod'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
@@ -577,6 +577,14 @@ async function handlePost(req: NextRequest) {
     let stripeChargeId: string | null = null
     let stripeCustomerId: string | null = null
     let stripeReceiptUrl: string | null = null
+    let stripeInvoice: {
+      invoiceId: string
+      customerId: string
+      hostedInvoiceUrl: string | null
+      invoicePdfUrl: string | null
+      invoiceStatus: string | null
+    } | null = null
+    let stripeInvoiceError: string | null = null
 
     if (isFreeOrder) {
       if (!commit) {
@@ -733,6 +741,77 @@ async function handlePost(req: NextRequest) {
             },
           },
         })
+        if (order && paymentMethod === 'invoice' && amount > 0 && process.env.STRIPE_SECRET_KEY) {
+          const invoiceCustomerEmail = paymentDetails?.billingEmail || customerEmail || null
+          const invoiceCustomerName = paymentDetails?.billingContact || customerName || null
+          const invoiceLineItems = [
+            ...lineItems,
+            ...(shippingAmountCents > 0
+              ? [{
+                title: shippingRate?.label || 'Shipping',
+                qty: 1,
+                lineTotal: Number((shippingAmountCents / 100).toFixed(2)),
+              }]
+              : []),
+          ]
+          try {
+            stripeInvoice = await createAndSendStripeInvoice({
+              orderId: order.id,
+              orderNumber: order.orderNumber,
+              amountCents: amount,
+              currency,
+              lineItems: invoiceLineItems,
+              userId,
+              customerEmail: invoiceCustomerEmail,
+              customerName: invoiceCustomerName,
+              daysUntilDue: resolveStripeInvoiceDaysUntilDue(),
+            })
+            const metadataPatch = {
+              ...(order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+                ? order.metadata as Record<string, unknown>
+                : {}),
+              stripeInvoice: {
+                invoiceId: stripeInvoice.invoiceId,
+                hostedInvoiceUrl: stripeInvoice.hostedInvoiceUrl,
+                invoicePdfUrl: stripeInvoice.invoicePdfUrl,
+                status: stripeInvoice.invoiceStatus,
+                sentAt: new Date().toISOString(),
+              },
+              stripe: {
+                ...(((order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+                  ? (order.metadata as Record<string, unknown>).stripe
+                  : null) as Record<string, unknown> | null) || {}),
+                customerId: stripeInvoice.customerId,
+              },
+            }
+            order = await prisma.printOrder.update({
+              where: { id: order.id },
+              data: {
+                stripeCustomerId: stripeInvoice.customerId,
+                stripeInvoiceId: stripeInvoice.invoiceId,
+                hostedInvoiceUrl: stripeInvoice.hostedInvoiceUrl || undefined,
+                invoicePdfUrl: stripeInvoice.invoicePdfUrl || undefined,
+                metadata: metadataPatch,
+              } as any,
+            })
+          } catch (invoiceErr: any) {
+            stripeInvoiceError = invoiceErr?.message || 'Stripe invoice send failed'
+            console.error('Failed to create or send Stripe invoice', invoiceErr)
+            const metadataPatch = {
+              ...(order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+                ? order.metadata as Record<string, unknown>
+                : {}),
+              stripeInvoice: {
+                error: stripeInvoiceError,
+                failedAt: new Date().toISOString(),
+              },
+            }
+            order = await prisma.printOrder.update({
+              where: { id: order.id },
+              data: { metadata: metadataPatch },
+            })
+          }
+        }
         if (order) {
           const modelsById = new Map<string, ManufacturabilityModelInput>(
             models.map((model) => [
@@ -847,6 +926,8 @@ async function handlePost(req: NextRequest) {
       discount: discountSummary,
       adminFreeCheckout: isAdminFreeCheckout,
       estimatedTotal: Number((estimatedTotalCents / 100).toFixed(2)),
+      stripeInvoice,
+      stripeInvoiceError,
     })
   } catch (err: any) {
     if (typeof err?.message === 'string' && (

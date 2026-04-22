@@ -634,6 +634,9 @@ model PrintOrder {
   stripePaymentIntentId String? @unique
   stripeChargeId  String?
   stripeCustomerId String?
+  stripeInvoiceId String? @unique
+  hostedInvoiceUrl String?
+  invoicePdfUrl   String?
   refundedCents   Int      @default(0)
   receiptUrl      String?
   shippingMethod  String   @default("pickup")
