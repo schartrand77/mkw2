@@ -169,6 +169,43 @@ Enforcement behavior:
 
 Use these settings when running MakerWorks as a single container on Unraid (non-compose runtime).
 
+## Unraid Restart Behavior
+
+On Unraid, the container "autostart" toggle and Docker restart behavior are separate concerns.
+
+- `Autostart` means Unraid starts the container when the array or Docker service starts.
+- It does not guarantee the container will be relaunched after the app process exits.
+- For crash recovery, set the container restart policy to `unless-stopped`.
+
+If MakerWorks still stops instead of staying up, the container is usually exiting during startup rather than failing a health check. This image does not define a Docker `HEALTHCHECK`; the main process exits only when a startup command fails.
+
+Current startup chain inside the container:
+
+```bash
+node scripts/restore.js && npx prisma migrate deploy && node scripts/bootstrap-admin.js && npm run start
+```
+
+Most common reasons the container exits on Unraid:
+
+- PostgreSQL is not reachable from `DATABASE_URL`
+- `npx prisma migrate deploy` fails against the target database
+- `ADMIN_PASSWORD` is weak/invalid in production and `bootstrap-admin.js` refuses to continue
+- a pending restore manifest exists but `psql` or the referenced backup is missing
+
+Useful checks from inside the MakerWorks container:
+
+```bash
+printenv DATABASE_URL | sed 's#://.*:.*@#://***:***@#'
+which psql
+which pg_dump
+node scripts/restore.js
+npx prisma migrate deploy
+node scripts/bootstrap-admin.js
+curl -fsS http://127.0.0.1:3000/api/health
+```
+
+If the container is stopping, inspect its last logs in Unraid first. A restart policy will only help if Docker is configured to restart the container after a non-zero exit.
+
 ### Required container mappings
 
 - Map your storage share to `/app/storage` (example host path: `/mnt/user/makerworks/storage`)
