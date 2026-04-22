@@ -9,6 +9,7 @@ import { formatCurrency, type Currency } from '@/lib/currency'
 import UserOrderJobControls from '@/components/admin/UserOrderJobControls'
 import DeleteOrderButton from '@/components/admin/DeleteOrderButton'
 import { normalizePaymentMethod, normalizePaymentStatus } from '@/lib/orderworks-status'
+import { resolvePaymentIntentIdFromOrder } from '@/lib/stripe-payments'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,12 +32,6 @@ function formatDate(value: Date) {
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(value)
 }
 
-function extractPaymentIntentId(metadata: unknown): string | null {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
-  const raw = (metadata as { paymentIntentId?: unknown }).paymentIntentId
-  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null
-}
-
 type AdminOrdersProps = { params: Promise<{ userId: string }> }
 
 export default async function AdminUserOrdersPage({ params }: AdminOrdersProps) {
@@ -54,7 +49,7 @@ export default async function AdminUserOrdersPage({ params }: AdminOrdersProps) 
   const paymentIntentIds = Array.from(
     new Set(
       orders
-        .map((order) => extractPaymentIntentId(order.metadata))
+        .map((order) => resolvePaymentIntentIdFromOrder(order))
         .filter((value): value is string => Boolean(value)),
     ),
   )
@@ -94,7 +89,7 @@ export default async function AdminUserOrdersPage({ params }: AdminOrdersProps) 
       ) : (
         <div className="grid gap-4">
           {orders.map((order) => {
-            const paymentIntentId = extractPaymentIntentId(order.metadata)
+            const paymentIntentId = resolvePaymentIntentIdFromOrder(order)
             const linkedJob = paymentIntentId ? jobsByPaymentIntentId.get(paymentIntentId) : undefined
             return (
               <div

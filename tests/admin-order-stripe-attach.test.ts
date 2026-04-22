@@ -86,7 +86,10 @@ test('admin stripe attach route stores the payment intent and syncs Stripe metad
   const originalOrderFindUnique = (prisma.printOrder as any).findUnique
   const originalOrderFindFirst = (prisma.printOrder as any).findFirst
   const originalOrderUpdate = (prisma.printOrder as any).update
+  const originalJobFindFirst = (prisma.jobForm as any).findFirst
+  const originalJobUpdate = (prisma.jobForm as any).update
   let updateArgs: any = null
+  let jobUpdateArgs: any = null
   let syncArgs: any[] | null = null
 
   adminRouteGuards.requireAdmin = async () => 'admin_1'
@@ -99,12 +102,21 @@ test('admin stripe attach route stores the payment intent and syncs Stripe metad
   }
   ;(prisma.printOrder as any).findUnique = async () => ({
     id: 'order_123',
-    metadata: { cartItems: [{ modelId: 'model_1' }], stripe: { chargeId: 'ch_old' } },
+    metadata: { paymentIntentId: 'cash_order_123', cartItems: [{ modelId: 'model_1' }], stripe: { chargeId: 'ch_old' } },
   }) as any
   ;(prisma.printOrder as any).findFirst = async () => null as any
   ;(prisma.printOrder as any).update = async (args: any) => {
     updateArgs = args
     return { id: 'order_123', stripePaymentIntentId: args.data.stripePaymentIntentId } as any
+  }
+  ;(prisma.jobForm as any).findFirst = async () => ({
+    id: 'job_123',
+    paymentIntentId: 'cash_order_123',
+    paymentMethod: 'cash',
+  }) as any
+  ;(prisma.jobForm as any).update = async (args: any) => {
+    jobUpdateArgs = args
+    return { id: 'job_123', paymentIntentId: args.data.paymentIntentId, paymentMethod: args.data.paymentMethod } as any
   }
 
   try {
@@ -120,8 +132,12 @@ test('admin stripe attach route stores the payment intent and syncs Stripe metad
     assert.equal(payload.paymentIntentId, 'pi_3TOcQ9KDk5eLYEvN1CcNe2UG')
     assert.equal(payload.paymentStatus, 'paid')
     assert.equal(updateArgs.data.stripePaymentIntentId, 'pi_3TOcQ9KDk5eLYEvN1CcNe2UG')
+    assert.equal(updateArgs.data.metadata.paymentIntentId, 'pi_3TOcQ9KDk5eLYEvN1CcNe2UG')
     assert.equal(updateArgs.data.metadata.stripe.paymentIntentId, 'pi_3TOcQ9KDk5eLYEvN1CcNe2UG')
     assert.deepEqual(updateArgs.data.metadata.cartItems, [{ modelId: 'model_1' }])
+    assert.equal(jobUpdateArgs.where.id, 'job_123')
+    assert.equal(jobUpdateArgs.data.paymentIntentId, 'pi_3TOcQ9KDk5eLYEvN1CcNe2UG')
+    assert.equal(jobUpdateArgs.data.paymentMethod, 'card')
     assert.deepEqual(syncArgs, ['pi_3TOcQ9KDk5eLYEvN1CcNe2UG', 'admin.attach'])
   } finally {
     adminRouteGuards.requireAdmin = originalRequireAdmin
@@ -129,5 +145,7 @@ test('admin stripe attach route stores the payment intent and syncs Stripe metad
     ;(prisma.printOrder as any).findUnique = originalOrderFindUnique
     ;(prisma.printOrder as any).findFirst = originalOrderFindFirst
     ;(prisma.printOrder as any).update = originalOrderUpdate
+    ;(prisma.jobForm as any).findFirst = originalJobFindFirst
+    ;(prisma.jobForm as any).update = originalJobUpdate
   }
 })

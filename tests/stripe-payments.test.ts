@@ -76,7 +76,7 @@ test('Stripe payment intent reference merge preserves unrelated metadata and nes
     'pi_attach_123',
   ) as Record<string, any>
 
-  assert.equal(merged.paymentIntentId, 'job_legacy')
+  assert.equal(merged.paymentIntentId, 'pi_attach_123')
   assert.deepEqual(merged.cartItems, [{ modelId: 'model_1' }])
   assert.equal(merged.stripe.paymentIntentId, 'pi_attach_123')
   assert.equal(merged.stripe.chargeId, 'ch_123')

@@ -87,6 +87,7 @@ export function mergeStripePaymentIntentReference(existing: unknown, paymentInte
     : {}
   return {
     ...base,
+    paymentIntentId,
     stripe: {
       ...priorStripe,
       paymentIntentId,

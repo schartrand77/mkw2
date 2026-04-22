@@ -13,6 +13,12 @@ const payloadSchema = z.object({
 
 type Context = { params: Promise<{ orderId: string }> }
 
+function extractLegacyPaymentIntentId(metadata: unknown) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null
+  const raw = (metadata as Record<string, unknown>).paymentIntentId
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null
+}
+
 async function handlePost(req: NextRequest, { params }: Context) {
   try { await adminRouteGuards.requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
 
@@ -45,6 +51,18 @@ async function handlePost(req: NextRequest, { params }: Context) {
     return NextResponse.json({ error: 'That Stripe PaymentIntent is already linked to another order.' }, { status: 409 })
   }
 
+  const priorPaymentIntentId = extractLegacyPaymentIntentId(order.metadata)
+  const linkedJob = await prisma.jobForm.findFirst({
+    where: {
+      OR: [
+        { metadata: { path: ['orderId'], equals: orderId } },
+        ...(priorPaymentIntentId ? [{ paymentIntentId: priorPaymentIntentId }] : []),
+      ],
+    },
+    select: { id: true, paymentIntentId: true, paymentMethod: true },
+    orderBy: { createdAt: 'desc' },
+  } as any)
+
   await prisma.printOrder.update({
     where: { id: orderId },
     data: {
@@ -52,6 +70,23 @@ async function handlePost(req: NextRequest, { params }: Context) {
       metadata: mergeStripePaymentIntentReference(order.metadata, payload.paymentIntentId),
     },
   } as any)
+
+  if (linkedJob && linkedJob.paymentIntentId !== payload.paymentIntentId) {
+    await prisma.jobForm.update({
+      where: { id: linkedJob.id },
+      data: {
+        paymentIntentId: payload.paymentIntentId,
+        paymentMethod: 'card',
+      },
+    } as any)
+  } else if (linkedJob && linkedJob.paymentMethod !== 'card') {
+    await prisma.jobForm.update({
+      where: { id: linkedJob.id },
+      data: {
+        paymentMethod: 'card',
+      },
+    } as any)
+  }
 
   try {
     const result = await stripePaymentAdminOps.syncStripePaymentIntent(payload.paymentIntentId, 'admin.attach')
