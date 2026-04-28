@@ -218,6 +218,7 @@ export default function ModelManager() {
                     <img
                       src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`}
                       className="w-16 h-12 object-cover rounded border border-white/10"
+                      alt={`${m.title} cover`}
                     />
                   ) : (
                     <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
@@ -254,7 +255,7 @@ export default function ModelManager() {
           <div className="p-3 grid md:grid-cols-12 gap-3 items-center">
             <div className="md:col-span-1">
               {activeModel.coverImagePath ? (
-                <img src={buildImageSrc(activeModel.coverImagePath, activeModel.updatedAt) || `/files${activeModel.coverImagePath}`} className="w-16 h-12 object-cover rounded border border-white/10" />
+                <img src={buildImageSrc(activeModel.coverImagePath, activeModel.updatedAt) || `/files${activeModel.coverImagePath}`} className="w-16 h-12 object-cover rounded border border-white/10" alt={`${activeModel.title} cover`} />
               ) : (
                 <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
               )}

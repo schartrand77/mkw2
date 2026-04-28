@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type BeforeInstallPromptEvent = Event & {
   readonly platforms?: string[]
@@ -36,21 +36,21 @@ export default function PWAInstallPrompt() {
     return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
   }
 
-  const persistDismissed = () => {
+  const persistDismissed = useCallback(() => {
     setDismissed(true)
     dismissedRef.current = true
     setShowIosPrompt(false)
     try { localStorage.setItem(STORAGE_KEY, '1') } catch {}
-  }
+  }, [])
 
-  const promptInstall = async (installEvent: BeforeInstallPromptEvent) => {
+  const promptInstall = useCallback(async (installEvent: BeforeInstallPromptEvent) => {
     await installEvent.prompt()
     const choice = await installEvent.userChoice
     setEvent(null)
     if (choice.outcome === 'accepted' || choice.outcome === 'dismissed') {
       persistDismissed()
     }
-  }
+  }, [persistDismissed])
 
   useEffect(() => {
     try {
@@ -84,7 +84,7 @@ export default function PWAInstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', onBeforeInstall)
     return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall)
-  }, [])
+  }, [promptInstall])
 
   const handleInstall = async () => {
     if (!event) return

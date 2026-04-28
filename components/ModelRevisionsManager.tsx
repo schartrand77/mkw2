@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { MODEL_ACCEPT_ATTRIBUTE, MODEL_FILE_LABEL } from '@/lib/model-files'
 
 type RevisionEntry = {
@@ -17,7 +17,7 @@ export default function ModelRevisionsManager({ modelId }: { modelId: string }) 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/models/${modelId}/revisions`, { cache: 'no-store' })
       if (!res.ok) return
@@ -26,11 +26,11 @@ export default function ModelRevisionsManager({ modelId }: { modelId: string }) 
     } catch {
       // ignore
     }
-  }
+  }, [modelId])
 
   useEffect(() => {
-    load()
-  }, [modelId])
+    void load()
+  }, [load])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
