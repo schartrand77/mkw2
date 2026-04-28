@@ -7,6 +7,7 @@ import { readFile, unlink, writeFile } from 'fs/promises'
 import sharp from 'sharp'
 import { serializeModelImage } from '@/lib/model-images'
 import { revalidatePath } from 'next/cache'
+import { validateAdminModelImageAlt } from '@/lib/model-media-contract'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +61,8 @@ export async function PATCH(req: NextRequest, { params }: AdminModelImageContext
   const rotateTurns = extractRotateTurns(body, rotateDirection)
   if ('caption' in body) {
     const raw = typeof body.caption === 'string' ? body.caption : ''
+    const altCheck = validateAdminModelImageAlt(raw)
+    if (!altCheck.ok) return NextResponse.json({ error: altCheck.error }, { status: 400 })
     updates.caption = raw ? raw.slice(0, 160) : null
   }
   if ('sortOrder' in body && body.sortOrder != null) {

@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { resolveColorStops } from '@/lib/color-swatch'
 
 type ThreeLib = typeof import('three')
@@ -763,12 +763,12 @@ export default function ModelViewer({
   const has3mfRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [loadedTargetRevision, setLoadedTargetRevision] = useState(0)
-  const resolveHeight = (element?: HTMLDivElement | null) => Math.max(
+  const resolveHeight = useCallback((element?: HTMLDivElement | null) => Math.max(
     1,
     typeof height === 'number'
       ? height
       : (element?.clientHeight || element?.offsetHeight || 540),
-  )
+  ), [height])
   // Keep async loader callbacks synchronized with the latest props immediately.
   colorOverridesRef.current = colorOverrides
   colorOverridesByPartKeyRef.current = colorOverridesByPartKey
@@ -1222,7 +1222,7 @@ export default function ModelViewer({
         cleanupFn = null
       }
     }
-  }, [fileEntries, height, autoRotate])
+  }, [fileEntries, height, autoRotate, resolveHeight])
 
   useEffect(() => {
     const THREE = threeRef.current

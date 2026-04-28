@@ -5,7 +5,6 @@ import BackupControls from '@/components/admin/BackupControls'
 type BackupSummary = { folder: string; createdAt: string }
 type PendingRestore = { relativePath?: string; backupPath?: string; createdAt: string }
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const backupModule = require('@/lib/backups') as {
   listBackups: () => BackupSummary[]
   getPendingRestore: () => (PendingRestore & { manifest?: string }) | null

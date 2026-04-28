@@ -291,7 +291,7 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
           onChange={(e) => setFile(e.target.files?.[0] || null)}
           disabled={limitReached}
         />
-        <input className="input" placeholder="Caption (optional)" value={caption} onChange={(e) => setCaption(e.target.value)} />
+        <input className="input" placeholder={resourceBase.includes('/admin/') ? 'Alt text for model cards' : 'Caption (optional)'} value={caption} onChange={(e) => setCaption(e.target.value)} />
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={setCover} onChange={(e) => setSetCover(e.target.checked)} />
           Use as cover thumbnail
@@ -384,6 +384,8 @@ export default function ModelImagesManager({ modelId, initialCover, resourceBase
                   {img.status === 'failed' && <p className="text-[11px] text-red-300">{img.error || 'Processing failed for this image.'}</p>}
                   <input
                     className="input"
+                    aria-label={resourceBase.includes('/admin/') ? 'Model card alt text' : 'Image caption'}
+                    placeholder={resourceBase.includes('/admin/') ? 'Alt text for model cards' : 'Caption'}
                     value={captionDrafts[img.id] ?? ''}
                     onChange={(e) => setCaptionDrafts((prev) => ({ ...prev, [img.id]: e.target.value }))}
                   />

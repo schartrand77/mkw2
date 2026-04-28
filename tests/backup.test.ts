@@ -4,7 +4,6 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { runBackup, listBackups, scheduleRestore, getPendingRestore, pruneBackups, getNextScheduledBackupAt } = require('../lib/backups')
 
 function makeTempDir() {

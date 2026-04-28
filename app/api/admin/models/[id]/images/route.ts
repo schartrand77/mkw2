@@ -5,6 +5,7 @@ import path from 'path'
 import { saveBuffer } from '@/lib/storage'
 import { MODEL_IMAGE_LIMIT, serializeModelImage, serializeModelImages } from '@/lib/model-images'
 import { enqueueImageProcessing } from '@/lib/processing-jobs'
+import { validateAdminModelImageAlt } from '@/lib/model-media-contract'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,6 +58,8 @@ export async function POST(req: NextRequest, { params }: AdminModelImagesContext
   const image = getUploadFile(form)
   if (!image) return NextResponse.json({ error: 'Image file required' }, { status: 400 })
   const caption = ((form.get('caption') as string | null) || '').slice(0, 160) || null
+  const altCheck = validateAdminModelImageAlt(caption)
+  if (!altCheck.ok) return NextResponse.json({ error: altCheck.error }, { status: 400 })
   const setCover = normalizeFlag(form.get('setCover'))
 
   const buf = Buffer.from(await image.arrayBuffer())

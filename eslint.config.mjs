@@ -6,7 +6,8 @@ export default [
     rules: {
       '@next/next/no-img-element': 'off',
       'react/no-unescaped-entities': 'off',
-      'react-hooks/rules-of-hooks': 'warn',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'error',
       'react-hooks/set-state-in-effect': 'off',
       'react-hooks/preserve-manual-memoization': 'off',
       'react-hooks/immutability': 'off',

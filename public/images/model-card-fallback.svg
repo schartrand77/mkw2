@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">Model image fallback</title>
+  <desc id="desc">A neutral placeholder for model cards without a ready image.</desc>
+  <rect width="640" height="360" fill="#111827"/>
+  <path d="M160 246 320 114l160 132v42H160z" fill="#334155"/>
+  <path d="M320 114v174" stroke="#64748b" stroke-width="18" stroke-linecap="round"/>
+  <path d="M160 246 320 288l160-42" fill="none" stroke="#94a3b8" stroke-width="18" stroke-linejoin="round"/>
+  <circle cx="476" cy="96" r="34" fill="#0f766e"/>
+</svg>

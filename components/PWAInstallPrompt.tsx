@@ -1,5 +1,6 @@
 "use client"
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { trackPwaInstallEvent } from '@/lib/pwa-install-analytics'
 
 type BeforeInstallPromptEvent = Event & {
   readonly platforms?: string[]
@@ -47,6 +48,7 @@ export default function PWAInstallPrompt() {
     await installEvent.prompt()
     const choice = await installEvent.userChoice
     setEvent(null)
+    trackPwaInstallEvent(choice.outcome, { platform: choice.platform || installEvent.platforms?.join(',') || 'web', source: 'prompt' })
     if (choice.outcome === 'accepted' || choice.outcome === 'dismissed') {
       persistDismissed()
     }
@@ -60,7 +62,7 @@ export default function PWAInstallPrompt() {
         dismissedRef.current = true
       }
     } catch {}
-  }, [dismissedRef])
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -69,6 +71,7 @@ export default function PWAInstallPrompt() {
     if (isIosLikeDevice()) {
       if (!dismissedRef.current) {
         setShowIosPrompt(true)
+        trackPwaInstallEvent('ios_instruction_shown', { platform: 'ios', source: 'ios-instructions' })
       }
       return
     }
@@ -97,6 +100,7 @@ export default function PWAInstallPrompt() {
 
   const handleDismiss = () => {
     setEvent(null)
+    trackPwaInstallEvent('dismissed', { platform: showIosPrompt ? 'ios' : 'web', source: showIosPrompt ? 'ios-instructions' : 'prompt' })
     persistDismissed()
   }
 

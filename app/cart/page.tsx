@@ -875,7 +875,7 @@ export default function CartPage() {
       }
       update(slot.modelId, { colors: applyColorRulesForItem(item, next) }, slot.partId, slot.cartItemId)
     },
-    [items, update, applyColorRulesForItem, partPreviewKey, resolvePreviewHexFromValue],
+    [items, update, applyColorRulesForItem, partPreviewKey],
   )
 
   const applyPreset = (preset: CustomerPreset, item: (typeof items)[number]) => {

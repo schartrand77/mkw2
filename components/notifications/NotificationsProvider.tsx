@@ -1,8 +1,6 @@
 "use client"
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-
-type NoticeType = 'success' | 'error' | 'info'
-export type Notice = { id: string; type: NoticeType; title?: string; message: string; timeout?: number }
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createNotificationStore, type Notice } from '@/lib/session-notifications'
 
 type Ctx = {
   notify: (n: Omit<Notice, 'id'>) => void
@@ -11,8 +9,6 @@ type Ctx = {
 const NotificationsCtx = createContext<Ctx | null>(null)
 const SESSION_KEY = 'mwv2:notify'
 const EVENT_KEY = 'mwv2:notify:event'
-
-function rndId() { return Math.random().toString(36).slice(2) }
 
 export function useNotifications() {
   const ctx = useContext(NotificationsCtx)
@@ -30,24 +26,18 @@ export function pushSessionNotification(n: Omit<Notice, 'id'>) {
 
 export default function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<Notice[]>([])
-  const timers = useRef<Record<string, any>>({})
+  const [store] = useState(() => createNotificationStore({ onChange: setItems }))
 
   const dismiss = useCallback((id: string) => {
-    setItems(prev => prev.filter(i => i.id !== id))
-    const t = timers.current[id]
-    if (t) { clearTimeout(t); delete timers.current[id] }
-  }, [])
+    store.dismiss(id)
+  }, [store])
 
   const notify = useCallback((n: Omit<Notice, 'id'>) => {
-    const id = rndId()
-    const notice: Notice = { id, ...n }
-    setItems(prev => [...prev, notice])
-    const t = setTimeout(() => dismiss(id), n.timeout ?? (n.type === 'error' ? 8000 : 4000))
-    timers.current[id] = t
-  }, [dismiss])
+    store.enqueue(n)
+  }, [store])
 
   useEffect(() => {
-    const currentTimers = timers.current
+    const currentStore = store
     const flushSessionQueue = () => {
       try {
         const raw = sessionStorage.getItem(SESSION_KEY)
@@ -80,9 +70,9 @@ export default function NotificationsProvider({ children }: { children: React.Re
     return () => {
       window.removeEventListener('storage', onStorage)
       window.removeEventListener(EVENT_KEY, onCustom as EventListener)
-      Object.values(currentTimers).forEach(clearTimeout)
+      currentStore.clearAll()
     }
-  }, [notify])
+  }, [notify, store])
 
   const value = useMemo(() => ({ notify }), [notify])
 

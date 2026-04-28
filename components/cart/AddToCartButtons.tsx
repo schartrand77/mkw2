@@ -37,13 +37,13 @@ export default function AddToCartButtons({ model }: { model: ModelPreview }) {
   }> | null>(null)
   const partItems = useMemo(() => items.filter((i) => i.modelId === model.id && i.partId), [items, model.id])
   const isMultipart = (parts?.length || 0) > 0 || partItems.length > 0
-  const partIds = parts?.map((p) => p.id) || []
   const setQty = useMemo(() => {
+    const partIds = parts?.map((p) => p.id) || []
     if (!isMultipart) return 0
     if (partIds.length === 0) return partItems.length ? Math.min(...partItems.map((i) => i.options.qty || 0)) : 0
     const quantities = partIds.map((id) => partItems.find((i) => i.partId === id)?.options.qty ?? 0)
     return quantities.length ? Math.min(...quantities) : 0
-  }, [isMultipart, partIds, partItems])
+  }, [isMultipart, parts, partItems])
   const inCart = items.find(i => i.modelId === model.id && !i.partId)
   const qty = isMultipart ? setQty : (inCart?.options.qty || 0)
   const thumbnail = useMemo(() => buildImageSrc(model.coverImagePath ?? null, model.updatedAt ?? null), [model.coverImagePath, model.updatedAt])
