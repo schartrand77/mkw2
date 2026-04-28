@@ -32,21 +32,22 @@ export default function NotificationsProvider({ children }: { children: React.Re
   const [items, setItems] = useState<Notice[]>([])
   const timers = useRef<Record<string, any>>({})
 
-  const notify = useCallback((n: Omit<Notice, 'id'>) => {
-    const id = rndId()
-    const notice: Notice = { id, ...n }
-    setItems(prev => [...prev, notice])
-    const t = setTimeout(() => dismiss(id), n.timeout ?? (n.type === 'error' ? 8000 : 4000))
-    timers.current[id] = t
-  }, [])
-
   const dismiss = useCallback((id: string) => {
     setItems(prev => prev.filter(i => i.id !== id))
     const t = timers.current[id]
     if (t) { clearTimeout(t); delete timers.current[id] }
   }, [])
 
+  const notify = useCallback((n: Omit<Notice, 'id'>) => {
+    const id = rndId()
+    const notice: Notice = { id, ...n }
+    setItems(prev => [...prev, notice])
+    const t = setTimeout(() => dismiss(id), n.timeout ?? (n.type === 'error' ? 8000 : 4000))
+    timers.current[id] = t
+  }, [dismiss])
+
   useEffect(() => {
+    const currentTimers = timers.current
     const flushSessionQueue = () => {
       try {
         const raw = sessionStorage.getItem(SESSION_KEY)
@@ -79,7 +80,7 @@ export default function NotificationsProvider({ children }: { children: React.Re
     return () => {
       window.removeEventListener('storage', onStorage)
       window.removeEventListener(EVENT_KEY, onCustom as EventListener)
-      Object.values(timers.current).forEach(clearTimeout)
+      Object.values(currentTimers).forEach(clearTimeout)
     }
   }, [notify])
 

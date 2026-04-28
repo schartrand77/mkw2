@@ -177,9 +177,9 @@ export default function EditProfilePage() {
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-full overflow-hidden border border-white/10 bg-slate-900/40">
                 {avatarPreviewUrl ? (
-                  <img className="w-full h-full object-cover" src={avatarPreviewUrl} />
+                  <img className="w-full h-full object-cover" src={avatarPreviewUrl} alt="Profile avatar preview" />
                 ) : avatarUrl ? (
-                  <img className="w-full h-full object-cover" src={avatarUrl} />
+                  <img className="w-full h-full object-cover" src={avatarUrl} alt="Current profile avatar" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">No avatar</div>
                 )}
