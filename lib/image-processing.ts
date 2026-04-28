@@ -55,11 +55,21 @@ async function readOrientation(buffer: Buffer): Promise<number | undefined> {
   }
 }
 
+async function canSharpDecode(buffer: Buffer) {
+  try {
+    await sharp(buffer).metadata()
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function ensureProcessableImageBuffer(buffer: Buffer, info?: BufferInfo): Promise<PreparedImageBuffer> {
   if (!buffer || buffer.length === 0) return { buffer }
   const isHeic = Boolean(info && isHeicLikeSource(info.filename, info.mimeType) && looksLikeHeifContainer(buffer))
   const orientation = isHeic ? await readOrientation(buffer) : undefined
   if (!isHeic) return { buffer, orientation }
+  if (await canSharpDecode(buffer)) return { buffer, orientation }
   const maxSourceBytes = readPositiveIntEnv('HEIC_MAX_SOURCE_BYTES', DEFAULT_HEIC_MAX_SOURCE_BYTES)
   if (buffer.length > maxSourceBytes) {
     throw new Error(`HEIC source file too large (${buffer.length} bytes). Limit is ${maxSourceBytes} bytes.`)
