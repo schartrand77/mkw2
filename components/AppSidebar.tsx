@@ -7,6 +7,7 @@ import { pushSessionNotification } from '@/components/notifications/Notification
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BRAND_FULL_NAME, BRAND_LOGO_PREFIX, BRAND_LOGO_SUFFIX, BRAND_VERSION } from '@/lib/brand'
+import { THEME_CLASSES, THEME_STORAGE_KEY, resolveInitialThemeMode, type ThemeMode } from '@/lib/theme-mode'
 
 type Props = {
   authed: boolean
@@ -19,8 +20,6 @@ type AdminNavItem = {
   label: string
   matchPrefixes?: string[]
 }
-
-type ThemeMode = 'light' | 'dark' | 'oled'
 
 const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin', label: 'Overview' },
@@ -211,12 +210,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [desktopSidebarOpen, isMobileViewport])
 
-  const [theme, setTheme] = useState<ThemeMode>('dark')
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const saved = localStorage.getItem('mwv2:theme') as ThemeMode | null
-    if (saved === 'light' || saved === 'dark' || saved === 'oled') setTheme(saved)
-  }, [])
+  const [theme, setTheme] = useState<ThemeMode>(() => resolveInitialThemeMode())
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -236,13 +230,12 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     if (typeof document === 'undefined') return
     const root = document.documentElement
     const body = document.body
-    const themeClasses = ['theme-light', 'theme-dark', 'theme-oled']
-    root.classList.remove(...themeClasses)
-    body?.classList.remove(...themeClasses)
+    root.classList.remove(...THEME_CLASSES)
+    body?.classList.remove(...THEME_CLASSES)
     root.classList.add(`theme-${theme}`)
     body?.classList.add(`theme-${theme}`)
     try {
-      localStorage.setItem('mwv2:theme', theme)
+      localStorage.setItem(THEME_STORAGE_KEY, theme)
     } catch {}
   }, [theme])
 

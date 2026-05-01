@@ -35,6 +35,20 @@ export const viewport = {
   viewportFit: 'cover' as const,
 }
 
+const themeBootstrapScript = `
+(function(){
+  try {
+    var theme = localStorage.getItem('mwv2:theme');
+    if (theme !== 'light' && theme !== 'dark' && theme !== 'oled') theme = 'dark';
+    var root = document.documentElement;
+    root.classList.remove('theme-light', 'theme-dark', 'theme-oled');
+    root.classList.add('theme-' + theme);
+  } catch (error) {
+    document.documentElement.classList.add('theme-dark');
+  }
+})();
+`
+
 function resolveHolidayTheme(): HolidayTheme | null {
   const rawInput = process.env.HOLIDAY_THEME || ''
   const raw = rawInput.trim().replace(/^['"]|['"]$/g, '').toLowerCase()
@@ -76,7 +90,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const showGooglePayBadge = !!siteConfig?.showGooglePayBadge
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+      </head>
       <body className={holidayTheme ? `holiday-${holidayTheme}` : undefined}>
         <CartProvider>
           <NotificationsProvider>
