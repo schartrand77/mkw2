@@ -4,13 +4,13 @@ import test from 'node:test'
 
 import { coerceThemeMode, resolveInitialThemeMode } from '../lib/theme-mode'
 
-test('Canada Day particles are styled as maple leaves instead of square confetti', async () => {
+test('Canada Day particles are styled as Canadian flags instead of maple leaves', async () => {
   const css = await readFile('app/globals.css', 'utf8')
   const match = css.match(/\.holiday-canada-confetti\s*\{(?<rules>[\s\S]*?)\n\}/)
 
   assert.ok(match?.groups?.rules, 'Canada Day particle rules should exist')
-  assert.match(match.groups.rules, /clip-path:\s*polygon\(/)
-  assert.doesNotMatch(match.groups.rules, /border-radius:\s*2px/)
+  assert.match(match.groups.rules, /linear-gradient\(90deg,\s*rgba\(220,\s*38,\s*38/)
+  assert.doesNotMatch(match.groups.rules, /clip-path:\s*polygon\(/)
 })
 
 test('theme mode parser accepts only supported stored values', () => {

@@ -263,6 +263,7 @@ export default function HolidayEffects({ theme }: { theme: HolidayTheme | null }
   }
   if (particles.length === 0) return null
   const { className } = CONFIG[theme]
+  const isCanadaDay = theme === 'canadaday'
 
   return (
     <div className="holiday-effects" aria-hidden="true">
@@ -276,8 +277,8 @@ export default function HolidayEffects({ theme }: { theme: HolidayTheme | null }
             left: `${particle.left}%`,
             animationDelay: `${particle.delay}s`,
             animationDuration: `${particle.duration}s`,
-            width: `${particle.size}px`,
-            height: `${particle.size}px`,
+            width: `${isCanadaDay ? particle.size * 1.65 : particle.size}px`,
+            height: `${isCanadaDay ? particle.size * 0.9 : particle.size}px`,
             opacity: particle.opacity,
           }}
         />
