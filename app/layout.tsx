@@ -41,7 +41,10 @@ function resolveHolidayTheme(): HolidayTheme | null {
   if (raw === 'may the fourth' || raw === 'may-the-fourth' || raw === 'may_the_fourth') {
     return 'maythefourth'
   }
-  if (raw === 'christmas' || raw === 'halloween' || raw === 'easter' || raw === 'valentines' || raw === 'maythefourth') {
+  if (raw === 'canada day' || raw === 'canada-day' || raw === 'canada_day') {
+    return 'canadaday'
+  }
+  if (raw === 'christmas' || raw === 'halloween' || raw === 'easter' || raw === 'valentines' || raw === 'maythefourth' || raw === 'canadaday') {
     return raw
   }
   return null

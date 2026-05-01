@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
-export type HolidayTheme = 'christmas' | 'halloween' | 'easter' | 'valentines' | 'maythefourth'
+export type HolidayTheme = 'christmas' | 'halloween' | 'easter' | 'valentines' | 'maythefourth' | 'canadaday'
 type ParticleTheme = Exclude<HolidayTheme, 'maythefourth'>
 type Ship = 'xwing' | 'tie'
 
@@ -54,6 +54,7 @@ const CONFIG: Record<ParticleTheme, ParticleConfig> = {
   halloween: { count: 26, className: 'holiday-halloween-candy', minSize: 6, maxSize: 14 },
   easter: { count: 3, className: 'holiday-easter-egg', minSize: 72, maxSize: 132 },
   valentines: { count: 34, className: 'holiday-valentines-candy', minSize: 8, maxSize: 18 },
+  canadaday: { count: 30, className: 'holiday-canada-confetti', minSize: 8, maxSize: 20 },
 }
 
 function rand(min: number, max: number): number {
