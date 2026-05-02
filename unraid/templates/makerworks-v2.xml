@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <Container version="2">
-  <Name>MakerWorks v2</Name>
+  <Name>MakerWorks-v2</Name>
   <Repository>ghcr.io/schartrand77/mkw2:latest</Repository>
   <Registry>https://ghcr.io/schartrand77/mkw2</Registry>
-  <Network>bridge</Network>
+  <Network>makerworks-net</Network>
   <Shell>bash</Shell>
   <Privileged>false</Privileged>
   <Support>https://forums.unraid.net/topic/195232-support-makerw%E2%9A%99%EF%B8%8Frks-3d-print-hub/</Support>
@@ -89,6 +89,13 @@ Unraid note: "Autostart" starts the container when the array/Docker service star
   <Config Name="PRINTLAB_API_KEY_HEADER" Target="PRINTLAB_API_KEY_HEADER" Default="X-API-Key" Mode="" Description="Header name used with PRINTLAB_API_KEY" Type="Variable" Display="advanced" Required="false" Mask="false">X-API-Key</Config>
   <Config Name="MAKERWORKS_INBOUND_SECRET" Target="MAKERWORKS_INBOUND_SECRET" Default="" Mode="" Description="Shared secret MakerWorks expects for inbound job updates to /api/makerworks/jobs (send via Authorization Bearer token or MakerWorks signature header)" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
   <Config Name="PRINTLAB_WEBHOOK_SECRET" Target="PRINTLAB_WEBHOOK_SECRET" Default="" Mode="" Description="Shared secret expected on PrintLab callbacks into MakerWorks" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+
+  <Config Name="STOCKWORKS_BASE_URL" Target="STOCKWORKS_BASE_URL" Default="http://StockWorks:8000" Mode="" Description="Internal StockWorks URL reachable from the MakerWorks container on the shared Docker network" Type="Variable" Display="always" Required="false" Mask="false">http://StockWorks:8000</Config>
+  <Config Name="STOCKWORKS_ADMIN_USERNAME" Target="STOCKWORKS_ADMIN_USERNAME" Default="" Mode="" Description="Optional StockWorks admin username for MakerWorks-to-StockWorks inventory checks" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="STOCKWORKS_ADMIN_PASSWORD" Target="STOCKWORKS_ADMIN_PASSWORD" Default="" Mode="" Description="Optional StockWorks admin password for MakerWorks-to-StockWorks inventory checks" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="STOCKWORKS_USERNAME" Target="STOCKWORKS_USERNAME" Default="" Mode="" Description="Optional StockWorks username fallback" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="STOCKWORKS_PASSWORD" Target="STOCKWORKS_PASSWORD" Default="" Mode="" Description="Optional StockWorks password fallback" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="STOCKWORKS_COLOR_OVERRIDES" Target="STOCKWORKS_COLOR_OVERRIDES" Default="" Mode="" Description="Optional JSON color override map for StockWorks filament availability" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
 
   <Config Name="HOLIDAY_THEME" Target="HOLIDAY_THEME" Default="" Mode="" Description="Optional seasonal theme: christmas, halloween, easter, valentines, or maythefourth" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
 
