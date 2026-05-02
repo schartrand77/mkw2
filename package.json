@@ -29,6 +29,9 @@
     "retention:run": "tsx scripts/data-retention.ts",
     "suite:status": "powershell -ExecutionPolicy Bypass -File scripts/suite-status.ps1",
     "suite:status:prod": "powershell -ExecutionPolicy Bypass -File scripts/suite-status.ps1 -Target production -SshHost makerworks-prod -ProductionComposePath /mnt/cache/appdata/makerworks -MakerWorksUrl http://localhost:3777/api/health -StockWorksUrl http://localhost:8256/ -PrintLabUrl http://localhost:8983/health -OrderWorksUrl http://localhost:3202/ -IncludeDatabase",
+    "suite:demo:seed": "tsx scripts/suite-demo-seed.ts",
+    "suite:demo:screenshots": "tsx scripts/capture-suite-screenshots.ts",
+    "suite:demo:wiki": "tsx scripts/generate-suite-demo-wiki.ts",
     "stockworks:import-bambu-filaments": "tsx scripts/import-bambu-filaments.ts"
   },
   "dependencies": {
