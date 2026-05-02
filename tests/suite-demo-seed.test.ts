@@ -5,7 +5,10 @@ import path from 'node:path'
 import test from 'node:test'
 
 import {
+  buildDemoModelFiles,
+  buildPrintLabPrintersFixture,
   buildPrintLabFixtures,
+  buildStockWorksDemoPayloads,
   explainDatabaseTarget,
   resolveSiblingRepoPath,
   resolveSuiteDemoPaths,
@@ -40,6 +43,42 @@ test('buildPrintLabFixtures creates deterministic demo job files', () => {
   ])
   assert.match(JSON.stringify(fixtures), /MW-DEMO-1001/)
   assert.match(JSON.stringify(fixtures), /PL-DEMO-1001/)
+})
+
+test('buildPrintLabPrintersFixture creates a large synthetic printer fleet', () => {
+  const printers = buildPrintLabPrintersFixture()
+
+  assert.ok(printers.length >= 8)
+  assert.ok(printers.every((printer) => String(printer.id).startsWith('demo-')))
+  assert.match(JSON.stringify(printers), /Demo X1 Carbon/)
+})
+
+test('buildStockWorksDemoPayloads creates rich inventory and transaction samples', () => {
+  const payloads = buildStockWorksDemoPayloads()
+
+  assert.ok(payloads.materials.length >= 10)
+  assert.ok(payloads.inventory.length >= 10)
+  assert.ok(payloads.hardware.length >= 10)
+  assert.ok(payloads.movements.length >= 20)
+  assert.match(JSON.stringify(payloads), /MW-DEMO-1001/)
+})
+
+test('buildDemoModelFiles creates a real STL preview target for the model viewer', () => {
+  const files = buildDemoModelFiles()
+
+  assert.equal(files.modelPath, 'demo/suite/parametric-enclosure-kit.stl')
+  assert.equal(files.viewerPath, files.modelPath)
+  assert.match(files.stlContent, /^solid makerworks_demo_enclosure/)
+  assert.match(files.stlContent, /endsolid makerworks_demo_enclosure\s*$/)
+})
+
+test('buildDemoModelFiles includes legacy cached viewer paths with STL content', () => {
+  const files = buildDemoModelFiles()
+
+  assert.deepEqual(files.compatibilityPaths.sort(), [
+    'demo/parametric-enclosure-kit.3mf',
+    'demo/parametric-enclosure-kit.glb',
+  ])
 })
 
 test('explainDatabaseTarget identifies Docker-only database hostnames', () => {

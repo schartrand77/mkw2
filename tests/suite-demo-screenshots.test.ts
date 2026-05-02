@@ -6,6 +6,7 @@ import test from 'node:test'
 
 import {
   buildCaptureTargets,
+  buildSyntheticPrintLabHtml,
   isOptionalCapture,
   resolveCaptureConfig,
   resolveScreenshotPath,
@@ -40,4 +41,16 @@ test('isOptionalCapture follows manifest optional flag', () => {
   assert.equal(isOptionalCapture({ optional: true }), true)
   assert.equal(isOptionalCapture({ optional: false }), false)
   assert.equal(isOptionalCapture({}), false)
+})
+
+test('buildSyntheticPrintLabHtml renders a large fake printer fleet without live identifiers', () => {
+  const config = resolveCaptureConfig({ makerworksRoot: process.cwd(), env: {} })
+  const target = buildCaptureTargets(config).find((item) => item.filename === 'printlab-01-printers.png')
+  assert.ok(target)
+
+  const html = buildSyntheticPrintLabHtml(target)
+
+  assert.ok((html.match(/Demo /g) || []).length >= 8)
+  assert.doesNotMatch(html, /serial/i)
+  assert.match(html, /No live printer controls/)
 })

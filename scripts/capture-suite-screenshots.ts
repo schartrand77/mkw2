@@ -11,7 +11,7 @@ import {
   type SuiteDemoApp,
   type SuiteDemoScreenshot,
 } from '@/lib/suite-demo/manifest'
-import { resolveSuiteDemoPaths } from './suite-demo-seed'
+import { buildPrintLabPrintersFixture, resolveSuiteDemoPaths } from './suite-demo-seed'
 
 type Env = Record<string, string | undefined>
 
@@ -145,16 +145,55 @@ async function prepareMakerWorksCart(page: Page) {
   }, SUITE_DEMO_SAMPLE)
 }
 
+async function dismissTransientOverlays(page: Page) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const dismissButtons = await page.getByRole('button', { name: /^Dismiss$/ }).all()
+    if (dismissButtons.length === 0) break
+    for (const button of dismissButtons) {
+      await button.click({ timeout: 1_000 }).catch(() => null)
+    }
+    await page.waitForTimeout(150)
+  }
+}
+
 async function preparePageForTarget(page: Page, target: CaptureTarget) {
   if (target.app === 'MakerWorks') {
     await prepareMakerWorksCart(page)
   }
 }
 
-function buildSyntheticPrintLabHtml(target: CaptureTarget) {
+export function buildSyntheticPrintLabHtml(target: CaptureTarget) {
   const isDetail = target.filename.includes('detail')
   const isLibrary = target.filename.includes('library')
   const isRouting = target.filename.includes('preflight') || target.filename.includes('jobs')
+  const printers = buildPrintLabPrintersFixture()
+  const printerRows = printers.map((printer, index) => {
+    const config = printer.config as Record<string, unknown>
+    const material = String(config.demo_material || (printer.id === SUITE_DEMO_SAMPLE.printerId ? SUITE_DEMO_SAMPLE.primaryMaterial : 'PLA Basic White'))
+    const queueDepth = Number(config.demo_queue_depth ?? (printer.id === SUITE_DEMO_SAMPLE.printerId ? 1 : index % 4))
+    const state = String(config.demo_state || (index % 3 === 0 ? 'Ready' : index % 3 === 1 ? 'Queued' : 'Printing'))
+    return { printer, material, queueDepth, state }
+  })
+  const fleetCards = printerRows.map(({ printer, material, queueDepth, state }) => `
+    <section class="card">
+      <h2>${printer.name}</h2>
+      <div class="status">${state}</div>
+      <p>Fixture printer profile for routing, queue depth, and loaded filament demos.</p>
+      <div class="metrics">
+        <div class="metric"><span>Health</span><strong>${state === 'Maintenance due' ? '72' : '100'}</strong></div>
+        <div class="metric"><span>Queue</span><strong>${queueDepth}</strong></div>
+        <div class="metric"><span>Material</span><strong>${material.split(' ')[0]}</strong></div>
+      </div>
+    </section>
+  `).join('')
+  const routingRows = printerRows.map(({ printer, material, queueDepth, state }, index) => `
+    <tr>
+      <td>${printer.name}</td>
+      <td>${material}</td>
+      <td>${queueDepth} jobs</td>
+      <td>${index < 3 ? 'Qualified' : state === 'Maintenance due' ? 'Blocked: maintenance' : 'Approval required'}</td>
+    </tr>
+  `).join('')
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -162,11 +201,11 @@ function buildSyntheticPrintLabHtml(target: CaptureTarget) {
   <title>${target.title}</title>
   <style>
     body { margin: 0; font-family: Inter, Segoe UI, Arial, sans-serif; background: #eaf4ff; color: #08213f; }
-    main { max-width: 1080px; margin: 0 auto; padding: 48px; }
+    main { max-width: 1180px; margin: 0 auto; padding: 48px; }
     .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
     .logo { font-size: 34px; font-weight: 800; }
     .pill { border: 1px solid #9ac7f0; border-radius: 999px; padding: 8px 12px; background: #fff; font-weight: 700; color: #174a7c; }
-    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
     .card { background: #fff; border: 1px solid #c7def2; border-radius: 16px; padding: 22px; box-shadow: 0 18px 45px rgba(22, 74, 124, 0.12); }
     h1, h2, h3 { margin: 0; }
     h1 { font-size: 32px; }
@@ -187,7 +226,7 @@ function buildSyntheticPrintLabHtml(target: CaptureTarget) {
     <div class="top">
       <div>
         <div class="logo">PrintLab</div>
-        <p>Synthetic local demo view. No live printer controls or real printer identity data.</p>
+        <p>Synthetic local demo view. No live printer controls or real printer private data.</p>
       </div>
       <div class="pill">${SUITE_DEMO_SAMPLE.printLabJobId}</div>
     </div>
@@ -202,21 +241,9 @@ function buildSyntheticPrintLabHtml(target: CaptureTarget) {
           ? `<section class="card">
               <h1>Preflight Routing</h1>
               <p>Printer candidates are ranked for compatibility, loaded filament, health, and queue wait. This is a safe synthetic hold, not a submitted print.</p>
-              <table><thead><tr><th>Printer</th><th>Filament</th><th>Queue</th><th>Decision</th></tr></thead><tbody><tr><td>${SUITE_DEMO_SAMPLE.printerName}</td><td>Loaded</td><td>1 job</td><td>Qualified</td></tr><tr><td>${SUITE_DEMO_SAMPLE.backupPrinterName}</td><td>Needs swap</td><td>0 jobs</td><td>Approval required</td></tr></tbody></table>
+              <table><thead><tr><th>Printer</th><th>Filament</th><th>Queue</th><th>Decision</th></tr></thead><tbody>${routingRows}</tbody></table>
             </section>`
-          : `<div class="grid">
-              <section class="card">
-                <h2>${isDetail ? SUITE_DEMO_SAMPLE.printerName : 'Demo X1 Carbon'}</h2>
-                <div class="status">READY</div>
-                <p>Fake printer profile used for documentation screenshots. Live controls are intentionally absent.</p>
-                <div class="metrics"><div class="metric"><span>Health</span><strong>100</strong></div><div class="metric"><span>Queue</span><strong>1</strong></div><div class="metric"><span>Material</span><strong>PLA</strong></div></div>
-              </section>
-              <section class="card">
-                <h2>${SUITE_DEMO_SAMPLE.printLabJobId}</h2>
-                <p>Queued from ${SUITE_DEMO_SAMPLE.orderLabel} for ${SUITE_DEMO_SAMPLE.modelTitle}.</p>
-                <div class="metrics"><div class="metric"><span>Status</span><strong>Queued</strong></div><div class="metric"><span>AMS</span><strong>Slot 1</strong></div><div class="metric"><span>ETA</span><strong>3h 15m</strong></div></div>
-              </section>
-            </div>`
+          : `<div class="grid">${isDetail ? fleetCards : fleetCards}</div>`
     }
   </main>
 </body>
@@ -247,6 +274,7 @@ async function captureTarget(page: Page, target: CaptureTarget, config: CaptureC
     await preparePageForTarget(page, target)
     await page.goto(target.url, { waitUntil: 'networkidle', timeout: 25_000 })
     await finishTargetNavigation(page, target)
+    await dismissTransientOverlays(page)
     await page.screenshot({ path: target.outputPath, fullPage: true })
     console.log(`captured ${target.filename}`)
   } catch (error) {

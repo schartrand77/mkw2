@@ -19,6 +19,13 @@ type DemoFixture = {
   payload: unknown
 }
 
+type StockWorksDemoPayloads = {
+  materials: Array<Record<string, unknown>>
+  inventory: Array<Record<string, unknown> & { materialIndex: number }>
+  movements: Array<Record<string, unknown> & { inventoryIndex: number }>
+  hardware: Array<Record<string, unknown>>
+}
+
 export type DatabaseTargetExplanation = {
   host: string
   reachableFromLocalShell: boolean
@@ -160,8 +167,8 @@ export function buildPrintLabFixtures(): DemoFixture[] {
   ]
 }
 
-function buildPrintLabPrintersFixture() {
-  return [
+export function buildPrintLabPrintersFixture() {
+  const basePrinters = [
     {
       id: SUITE_DEMO_SAMPLE.printerId,
       name: SUITE_DEMO_SAMPLE.printerName,
@@ -191,9 +198,210 @@ function buildPrintLabPrintersFixture() {
       },
     },
   ]
+  const extraPrinters = [
+    ['demo-a1-mini', 'Demo A1 Mini', 'a1mini', 'PLA Basic White', 0, 'Ready'],
+    ['demo-x1-carbon-02', 'Demo X1 Carbon 02', 'x1c', 'PETG Translucent Blue', 2, 'Printing'],
+    ['demo-p1s-02', 'Demo P1S 02', 'p1s', 'ASA Charcoal', 1, 'Maintenance due'],
+    ['demo-h2d', 'Demo H2D', 'h2d', 'PLA Matte Black', 4, 'Queued'],
+    ['demo-a1', 'Demo A1', 'a1', 'TPU 95A Red', 0, 'Ready'],
+    ['demo-x1e', 'Demo X1E', 'x1e', 'PA-CF Engineering', 3, 'Reserved'],
+  ].map(([id, name, deviceType, material, queueDepth, state], index) => ({
+    id,
+    name,
+    config: {
+      name,
+      host: `192.0.2.${20 + index}`,
+      serial: `DEMO${String(index + 2).padStart(4, '0')}`,
+      access_code: 'demo-only',
+      device_type: deviceType,
+      local_mqtt: true,
+      enable_camera: false,
+      disable_ssl_verify: true,
+      demo_material: material,
+      demo_queue_depth: queueDepth,
+      demo_state: state,
+    },
+  }))
+  return [...basePrinters, ...extraPrinters]
+}
+
+export function buildDemoModelFiles() {
+  const modelPath = 'demo/suite/parametric-enclosure-kit.stl'
+  const compatibilityPaths = [
+    'demo/parametric-enclosure-kit.glb',
+    'demo/parametric-enclosure-kit.3mf',
+  ]
+  const stlContent = `solid makerworks_demo_enclosure
+  facet normal 0 0 -1
+    outer loop
+      vertex -45 -30 0
+      vertex 45 -30 0
+      vertex 45 30 0
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex -45 -30 0
+      vertex 45 30 0
+      vertex -45 30 0
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex -45 -30 0
+      vertex -45 -30 18
+      vertex 45 -30 18
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex -45 -30 0
+      vertex 45 -30 18
+      vertex 45 -30 0
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 45 -30 0
+      vertex 45 -30 18
+      vertex 45 30 18
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 45 -30 0
+      vertex 45 30 18
+      vertex 45 30 0
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 45 30 0
+      vertex 45 30 18
+      vertex -45 30 18
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 45 30 0
+      vertex -45 30 18
+      vertex -45 30 0
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex -45 30 0
+      vertex -45 30 18
+      vertex -45 -30 18
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex -45 30 0
+      vertex -45 -30 18
+      vertex -45 -30 0
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -36 -21 18
+      vertex 36 -21 18
+      vertex 36 21 18
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -36 -21 18
+      vertex 36 21 18
+      vertex -36 21 18
+    endloop
+  endfacet
+endsolid makerworks_demo_enclosure
+`
+  return { modelPath, viewerPath: modelPath, compatibilityPaths, stlContent }
+}
+
+export function buildStockWorksDemoPayloads(): StockWorksDemoPayloads {
+  const materialRows = [
+    ['Demo PLA Matte Black', 'DemoFil', 'PLA', 'matte', 'Matte Black', '#111827', 0.026, 1000],
+    ['Demo PETG Translucent Blue', 'DemoFil', 'PETG', 'translucent', 'Translucent Blue', '#3B82F6', 0.034, 1000],
+    ['Demo PLA Galaxy Purple', 'Orbit', 'PLA', 'silk', 'Galaxy Purple', '#7C3AED', 0.031, 1000],
+    ['Demo ASA Charcoal', 'Forge', 'ASA', 'engineering', 'Charcoal', '#374151', 0.052, 1000],
+    ['Demo TPU 95A Signal Red', 'FlexWorks', 'TPU', 'flexible', 'Signal Red', '#DC2626', 0.061, 750],
+    ['Demo PLA Safety Orange', 'DemoFil', 'PLA', 'basic', 'Safety Orange', '#F97316', 0.024, 1000],
+    ['Demo PETG Clear', 'DemoFil', 'PETG', 'clear', 'Clear', '#D8F3FF', 0.036, 1000],
+    ['Demo PA-CF Engineering Black', 'Forge', 'PA-CF', 'carbon fiber', 'Engineering Black', '#020617', 0.118, 500],
+    ['Demo PLA Marble White', 'StoneSpool', 'PLA', 'marble', 'Marble White', '#F8FAFC', 0.044, 1000],
+    ['Demo Support Interface Natural', 'SupportCo', 'Support', 'interface', 'Natural', '#FDE68A', 0.082, 500],
+    ['Demo PLA Forest Green', 'DemoFil', 'PLA', 'matte', 'Forest Green', '#166534', 0.027, 1000],
+    ['Demo PETG Smoke Gray', 'DemoFil', 'PETG', 'translucent', 'Smoke Gray', '#64748B', 0.035, 1000],
+  ]
+  const materials = materialRows.map(([name, brand, filamentType, category, color, colorHex, pricePerGram, spoolWeight], index) => ({
+    name,
+    brand,
+    filament_type: filamentType,
+    category,
+    color,
+    color_hex: colorHex,
+    color_hexes: [colorHex],
+    supplier: index % 2 === 0 ? 'Synthetic Supply Co.' : 'Demo Materials Ltd.',
+    price_per_gram: pricePerGram,
+    spool_weight_grams: spoolWeight,
+    barcode: `MW-DEMO-MAT-${String(index + 1).padStart(3, '0')}`,
+    notes: `Synthetic suite demo material ${index + 1}.`,
+  }))
+  const inventory = materials.map((_, index) => ({
+    materialIndex: index,
+    location: `Demo Rack ${String.fromCharCode(65 + (index % 4))} - Bin ${(index % 6) + 1}`,
+    quantity_grams: Math.max(120, 980 - index * 63),
+    reorder_level: index % 3 === 0 ? 650 : 350,
+    spool_serial: `MW-DEMO-SPOOL-${String(index + 1).padStart(3, '0')}`,
+    unit_cost_override: index % 4 === 0 ? 0.03 + index / 1000 : undefined,
+  }))
+  const movements = Array.from({ length: 28 }, (_, index) => ({
+    inventoryIndex: index % inventory.length,
+    movement_type: index % 5 === 0 ? 'incoming' : (index % 7 === 0 ? 'adjustment' : 'outgoing'),
+    change_grams: index === 0
+      ? -SUITE_DEMO_SAMPLE.reservedGrams
+      : (index % 5 === 0 ? 1000 : -1 * (35 + index * 4)),
+    reference: index === 0 ? SUITE_DEMO_SAMPLE.orderLabel : `MW-DEMO-TXN-${String(index + 1).padStart(3, '0')}`,
+    note: index === 0
+      ? `Reserved ${SUITE_DEMO_SAMPLE.reservedGrams}g for ${SUITE_DEMO_SAMPLE.orderLabel}.`
+      : 'Synthetic usage, receipt, or adjustment for documentation screenshots.',
+  }))
+  const hardware = [
+    ['MakerWorks Demo Shop Shirt', 'merch', 'piece', 18, 6, 'Demo Front Shelf'],
+    ['M3 Heat-Set Inserts', 'inserts', 'piece', 840, 250, 'Rack H - Drawer 1'],
+    ['M4 Socket Screws 12mm', 'screws', 'piece', 1260, 300, 'Rack H - Drawer 2'],
+    ['6x3 Magnets', 'magnets', 'piece', 390, 150, 'Rack H - Drawer 3'],
+    ['Shipping Boxes Small', 'packaging', 'piece', 74, 40, 'Packing Wall'],
+    ['Desiccant Packs', 'storage', 'pack', 220, 75, 'Dry Cabinet'],
+    ['Nozzle 0.4 Hardened', 'printer spares', 'piece', 11, 4, 'Maintenance Bin'],
+    ['Build Plate Stickers', 'printer spares', 'piece', 7, 3, 'Maintenance Bin'],
+    ['Label Rolls', 'operations', 'roll', 5, 2, 'Office Shelf'],
+    ['MakerWorks Sticker Pack', 'merch', 'pack', 96, 25, 'Demo Front Shelf'],
+    ['USB-C Cable 1m', 'electronics', 'piece', 22, 8, 'Rack E - Bin 2'],
+    ['Threaded Standoffs', 'hardware', 'piece', 310, 120, 'Rack H - Drawer 4'],
+  ].map(([name, category, unit, quantity, reorder, location], index) => ({
+    name,
+    category,
+    merch_color: category === 'merch' ? 'Black' : undefined,
+    merch_size: name === 'MakerWorks Demo Shop Shirt' ? 'L' : undefined,
+    merch_style: category === 'merch' ? 'Suite demo merch' : undefined,
+    merch_sku: category === 'merch' ? `MW-DEMO-MERCH-${String(index + 1).padStart(3, '0')}` : undefined,
+    unit_of_measure: unit,
+    unit_cost: 0.12 + index * 0.71,
+    quantity_on_hand: quantity,
+    reorder_level: reorder,
+    bin_location: location,
+    notes: 'Synthetic suite demo hardware or merch item.',
+  }))
+  return { materials, inventory, movements, hardware }
 }
 
 async function seedMakerWorks() {
+  const demoFiles = buildDemoModelFiles()
+  await writeDemoModelFiles(demoFiles)
   const passwordHash = await hashPassword('SuiteDemoPassword123!')
   const admin = await prisma.user.upsert({
     where: { email: SUITE_DEMO_SAMPLE.adminEmail },
@@ -295,9 +503,9 @@ async function seedMakerWorks() {
       title: SUITE_DEMO_SAMPLE.modelTitle,
       description: 'Synthetic enclosure kit used to document the MakerWorks to StockWorks to PrintLab flow.',
       material: 'PLA',
-      filePath: 'demo/parametric-enclosure-kit.3mf',
-      viewerFilePath: 'demo/parametric-enclosure-kit.glb',
-      fileType: '3mf',
+      filePath: demoFiles.modelPath,
+      viewerFilePath: demoFiles.viewerPath,
+      fileType: 'stl',
       visibility: 'public',
       volumeMm3: 82000,
       sizeXmm: 142,
@@ -320,9 +528,9 @@ async function seedMakerWorks() {
       title: SUITE_DEMO_SAMPLE.modelTitle,
       description: 'Synthetic enclosure kit used to document the MakerWorks to StockWorks to PrintLab flow.',
       creditName: 'MakerWorks Demo Library',
-      filePath: 'demo/parametric-enclosure-kit.3mf',
-      viewerFilePath: 'demo/parametric-enclosure-kit.glb',
-      fileType: '3mf',
+      filePath: demoFiles.modelPath,
+      viewerFilePath: demoFiles.viewerPath,
+      fileType: 'stl',
       material: 'PLA',
       visibility: 'public',
       volumeMm3: 82000,
@@ -493,6 +701,14 @@ async function seedMakerWorks() {
   })
 }
 
+async function writeDemoModelFiles(files: ReturnType<typeof buildDemoModelFiles>) {
+  for (const storagePath of [files.modelPath, ...files.compatibilityPaths]) {
+    const fullPath = path.join(process.cwd(), 'storage', storagePath)
+    await mkdir(path.dirname(fullPath), { recursive: true })
+    await writeFile(fullPath, files.stlContent, 'utf-8')
+  }
+}
+
 async function postStockWorks(baseUrl: string, pathName: string, body: unknown, authHeader: string) {
   const response = await fetch(new URL(pathName, baseUrl), {
     method: 'POST',
@@ -520,73 +736,27 @@ async function seedStockWorks(env: Env = process.env) {
     return 'skipped: missing demo StockWorks credentials'
   }
   const authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
-  const material = await postStockWorks(
-    baseUrl,
-    '/materials',
-    {
-      name: 'Demo PLA Matte Black',
-      brand: 'DemoFil',
-      filament_type: 'PLA',
-      category: 'matte',
-      color: 'Matte Black',
-      color_hex: '#111827',
-      color_hexes: ['#111827'],
-      supplier: 'Synthetic Supply Co.',
-      price_per_gram: 0.026,
-      spool_weight_grams: 1000,
-      barcode: 'MW-DEMO-PLA-BLK',
-      notes: 'Synthetic suite demo material.',
-    },
-    authHeader,
-  )
-  const materialId = material?.id
-  if (materialId) {
-    const inventory = await postStockWorks(
-      baseUrl,
-      '/inventory',
-      {
-        material_id: materialId,
-        location: 'Demo Rack A - Bin 1',
-        quantity_grams: 780,
-        reorder_level: 500,
-        spool_serial: 'MW-DEMO-SPOOL-001',
-      },
-      authHeader,
-    )
-    if (inventory?.id) {
-      await postStockWorks(
-        baseUrl,
-        '/movements',
-        {
-          inventory_item_id: inventory.id,
-          movement_type: 'outgoing',
-          change_grams: -SUITE_DEMO_SAMPLE.reservedGrams,
-          reference: SUITE_DEMO_SAMPLE.orderLabel,
-          note: `Reserved ${SUITE_DEMO_SAMPLE.reservedGrams}g for ${SUITE_DEMO_SAMPLE.orderLabel}.`,
-        },
-        authHeader,
-      )
-    }
+  const payloads = buildStockWorksDemoPayloads()
+  const createdMaterials = []
+  for (const materialPayload of payloads.materials) {
+    createdMaterials.push(await postStockWorks(baseUrl, '/materials', materialPayload, authHeader))
   }
-  await postStockWorks(
-    baseUrl,
-    '/hardware',
-    {
-      name: 'MakerWorks Demo Shop Shirt',
-      category: 'merch',
-      merch_color: 'Black',
-      merch_size: 'L',
-      merch_style: 'Unisex tee',
-      merch_sku: 'MW-DEMO-SHIRT-BLK-L',
-      unit_of_measure: 'piece',
-      unit_cost: 12,
-      quantity_on_hand: 18,
-      reorder_level: 6,
-      bin_location: 'Demo Front Shelf',
-      notes: 'Synthetic merch row for suite screenshots.',
-    },
-    authHeader,
-  )
+  const createdInventory = []
+  for (const inventoryPayload of payloads.inventory) {
+    const material = createdMaterials[inventoryPayload.materialIndex]
+    if (!material?.id) continue
+    const { materialIndex, ...body } = inventoryPayload
+    createdInventory.push(await postStockWorks(baseUrl, '/inventory', { ...body, material_id: material.id }, authHeader))
+  }
+  for (const movementPayload of payloads.movements) {
+    const inventory = createdInventory[movementPayload.inventoryIndex]
+    if (!inventory?.id) continue
+    const { inventoryIndex, ...body } = movementPayload
+    await postStockWorks(baseUrl, '/movements', { ...body, inventory_item_id: inventory.id }, authHeader)
+  }
+  for (const hardwarePayload of payloads.hardware) {
+    await postStockWorks(baseUrl, '/hardware', hardwarePayload, authHeader)
+  }
   return 'seeded'
 }
 
