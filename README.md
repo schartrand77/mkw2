@@ -79,7 +79,7 @@ MakerWorks includes Orderworks-compatible job sync surfaces for external product
 ### Stockworks (inventory + material intelligence)
 MakerWorks includes Stockworks integration for filament/material inventory, consumption, and warnings.
 
-![MakerWorks inventory intelligence backed by StockWorks](docs/wiki/assets/suite-screenshots/makerworks-09-admin-inventory.png)
+![MakerWorks inventory intelligence backed by StockWorks](docs/wiki/assets/suite-screenshots/makerworks-10-admin-inventory.png)
 
 - Core client: [`lib/stockworks-client.ts`](lib/stockworks-client.ts)
 - Inventory domain modules:
@@ -97,7 +97,7 @@ MakerWorks includes Stockworks integration for filament/material inventory, cons
 ### PrintLab (printer routing + production handoff)
 MakerWorks can hand production context to PrintLab for printer-aware routing and job tracking. The demo walkthrough captures this with synthetic printer fixtures only.
 
-![PrintLab preflight routing with synthetic printer candidates](docs/wiki/assets/suite-screenshots/printlab-04-preflight.png)
+![PrintLab synthetic printer fleet](docs/wiki/assets/suite-screenshots/printlab-01-printers.png)
 
 - Demo fixtures: [`scripts/suite-demo-seed.ts`](scripts/suite-demo-seed.ts)
 - Screenshot capture: [`scripts/capture-suite-screenshots.ts`](scripts/capture-suite-screenshots.ts)

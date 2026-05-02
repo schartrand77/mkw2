@@ -93,8 +93,8 @@ MakerWorks:
 - `makerworks-06-customer-order.png` - customer order timeline
 - `makerworks-07-admin-dashboard.png` - admin overview
 - `makerworks-08-admin-production.png` - production/job queue
-- `makerworks-09-admin-inventory.png` - StockWorks-backed inventory warning or status surface
-- `makerworks-10-printlab-job.png` - PrintLab job/callback surface if present
+- `makerworks-09-print-job-detail.png` - admin print job detail page with PrintLab submission/callback context
+- `makerworks-10-admin-inventory.png` - StockWorks-backed inventory warning or status surface
 
 StockWorks:
 
@@ -108,14 +108,7 @@ StockWorks:
 
 PrintLab:
 
-- `printlab-01-login-or-dashboard.png` - login page when auth is enabled, otherwise printer dashboard
-- `printlab-02-printers.png` - multi-printer dashboard with fake printer states
-- `printlab-03-printer-detail.png` - printer detail
-- `printlab-04-makerworks-library.png` - MakerWorks library/search handoff if available
-- `printlab-05-preflight.png` - safe fake preflight/routing result
-- `printlab-06-jobs.png` - submitted job queue
-- `printlab-07-job-detail.png` - job history/status detail
-- `printlab-08-successful-gcodes.png` - successful G-code/sync surface if available
+- `printlab-01-printers.png` - one representative multi-printer dashboard screenshot with fake printer states, mirrored into PrintLab's own repo
 
 Cross-app flow diagrams or composite docs references:
 

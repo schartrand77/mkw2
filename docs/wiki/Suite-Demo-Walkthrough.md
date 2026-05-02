@@ -83,11 +83,17 @@ Production queue and printer assignment view for the demo order.
 
 ![Production Queue](assets/suite-screenshots/makerworks-08-admin-production.png)
 
+### Print Job Detail
+
+Admin print job detail page showing the demo order, production controls, and PrintLab submission status.
+
+![Print Job Detail](assets/suite-screenshots/makerworks-09-print-job-detail.png)
+
 ### Inventory Intelligence
 
 StockWorks-backed material availability and low-stock signal surfaced in MakerWorks.
 
-![Inventory Intelligence](assets/suite-screenshots/makerworks-09-admin-inventory.png)
+![Inventory Intelligence](assets/suite-screenshots/makerworks-10-admin-inventory.png)
 
 ## StockWorks
 
@@ -137,33 +143,9 @@ PrintLab loaded tray context inside StockWorks settings.
 
 ### Printer Fleet
 
-Safe fake printer fleet with queue, status, and health context.
+Representative safe fake printer fleet screenshot mirrored into the PrintLab repo.
 
 ![Printer Fleet](assets/suite-screenshots/printlab-01-printers.png)
-
-### Printer Detail
-
-Demo X1 Carbon detail page with synthetic state and queued MakerWorks job context.
-
-![Printer Detail](assets/suite-screenshots/printlab-02-printer-detail.png)
-
-### MakerWorks Library Handoff
-
-MakerWorks library browsing and one-click handoff context from PrintLab.
-
-![MakerWorks Library Handoff](assets/suite-screenshots/printlab-03-makerworks-library.png)
-
-### Preflight Routing
-
-Safe routing board showing printer qualification and approval requirements.
-
-![Preflight Routing](assets/suite-screenshots/printlab-04-preflight.png)
-
-### Submitted Jobs
-
-Submitted job ledger for PL-DEMO-1001 without sending real printer actions.
-
-![Submitted Jobs](assets/suite-screenshots/printlab-05-jobs.png)
 
 ## Suite Flow
 
