@@ -4,6 +4,32 @@ MakerWorks Storefront is a production-grade 3D printing commerce platform: custo
 
 It is built for print labs and shops that need one system for sales, manufacturing, and inventory-aware planning.
 
+## Suite Demo Walkthrough
+
+A fully synthetic demo walkthrough is available for documenting the end-to-end MakerWorks, StockWorks, and PrintLab flow:
+
+- Full walkthrough: [`docs/wiki/Suite-Demo-Walkthrough.md`](docs/wiki/Suite-Demo-Walkthrough.md)
+- Screenshot assets: [`docs/wiki/assets/suite-screenshots/`](docs/wiki/assets/suite-screenshots/)
+- Demo data scripts: `npm run suite:demo:seed`, `npm run suite:demo:screenshots`, `npm run suite:demo:wiki`
+
+The demo uses sample data only. PrintLab screenshots default to synthetic fixture views so printer controls, live serials, camera feeds, and private printer state are not captured.
+
+### MakerWorks Model-to-Cart Flow
+
+The walkthrough covers discovery, model detail, instant quote, checkout, customer order tracking, and admin production views.
+
+![MakerWorks model detail with rendered demo model](docs/wiki/assets/suite-screenshots/makerworks-03-model-detail.png)
+
+![MakerWorks cart quote configurator](docs/wiki/assets/suite-screenshots/makerworks-04-cart-quote.png)
+
+### Suite Operations Views
+
+StockWorks and PrintLab screenshots show the same synthetic order context moving through inventory planning, material transactions, printer routing, and submitted job tracking.
+
+![StockWorks inventory with synthetic sample stock](docs/wiki/assets/suite-screenshots/stockworks-02-inventory.png)
+
+![PrintLab synthetic printer fleet](docs/wiki/assets/suite-screenshots/printlab-01-printers.png)
+
 ## What This App Does
 
 - Runs a public 3D print storefront (discover, product pages, upload, cart, checkout).
@@ -53,6 +79,8 @@ MakerWorks includes Orderworks-compatible job sync surfaces for external product
 ### Stockworks (inventory + material intelligence)
 MakerWorks includes Stockworks integration for filament/material inventory, consumption, and warnings.
 
+![MakerWorks inventory intelligence backed by StockWorks](docs/wiki/assets/suite-screenshots/makerworks-09-admin-inventory.png)
+
 - Core client: [`lib/stockworks-client.ts`](lib/stockworks-client.ts)
 - Inventory domain modules:
   - [`lib/stockworks-products.ts`](lib/stockworks-products.ts)
@@ -65,6 +93,15 @@ MakerWorks includes Stockworks integration for filament/material inventory, cons
   - [`app/api/stockworks/material-warnings/route.ts`](app/api/stockworks/material-warnings/route.ts)
   - [`app/api/stockworks/filament-colors/route.ts`](app/api/stockworks/filament-colors/route.ts)
   - [`app/api/stockworks/predictions/route.ts`](app/api/stockworks/predictions/route.ts)
+
+### PrintLab (printer routing + production handoff)
+MakerWorks can hand production context to PrintLab for printer-aware routing and job tracking. The demo walkthrough captures this with synthetic printer fixtures only.
+
+![PrintLab preflight routing with synthetic printer candidates](docs/wiki/assets/suite-screenshots/printlab-04-preflight.png)
+
+- Demo fixtures: [`scripts/suite-demo-seed.ts`](scripts/suite-demo-seed.ts)
+- Screenshot capture: [`scripts/capture-suite-screenshots.ts`](scripts/capture-suite-screenshots.ts)
+- Full PrintLab walkthrough: [`docs/wiki/Suite-Demo-Walkthrough.md#printlab`](docs/wiki/Suite-Demo-Walkthrough.md#printlab)
 
 ## Repo Audit Snapshot (2026-03-03)
 
