@@ -103,29 +103,6 @@ MakerWorks can hand production context to PrintLab for printer-aware routing and
 - Screenshot capture: [`scripts/capture-suite-screenshots.ts`](scripts/capture-suite-screenshots.ts)
 - Full PrintLab walkthrough: [`docs/wiki/Suite-Demo-Walkthrough.md#printlab`](docs/wiki/Suite-Demo-Walkthrough.md#printlab)
 
-## Repo Audit Snapshot (2026-03-03)
-
-Current quality-check results from this repository:
-
-- `npm run lint`: passes with warnings (no errors).
-- `npm run typecheck`: passes.
-- `npm test`: partially fails in backup tests due to missing `pg_dump` in local environment.
-
-Frontend audit progress now includes:
-
-- Quote explainability and lead-time confidence rendering in configurator, checkout, and order views.
-- Manufacturability and printability guidance, including PDF export and a first-pass feasibility scorecard.
-- Creator trust surfaces (quality score), remix/lineage display, and part-pinned review comments.
-- Discover preset sharing, typed search chips, recommendation reasons, and live inventory-backed ready-to-print filtering.
-- Procurement-grade organization settings with department budgets and approval routing.
-
-Failing tests:
-- [`tests/backup.test.ts`](tests/backup.test.ts) `runBackup writes db.sql and copies storage contents`
-- [`tests/backup.test.ts`](tests/backup.test.ts) `scheduleRestore creates pending restore manifest`
-
-Root cause observed:
-- Backup tests require PostgreSQL client tooling (`pg_dump`) or a Docker-backed DB utility path.
-
 ## Upgrade Planning
 
 - See [`UPGRADE_RECOMMENDATIONS.md`](UPGRADE_RECOMMENDATIONS.md) for a prioritized backlog covering PostgreSQL, Node.js, and dependency migration waves.
