@@ -228,7 +228,6 @@ export default function CartPage() {
   const [activeColorAnchor, setActiveColorAnchor] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
   const [paletteWidth, setPaletteWidth] = useState<number | null>(null)
   const [paletteMaxHeight, setPaletteMaxHeight] = useState<number | null>(null)
-  const [palettePlacement, setPalettePlacement] = useState<'above' | 'below'>('below')
   const [isMobilePalette, setIsMobilePalette] = useState(false)
   const [stockworksPalette, setStockworksPalette] = useState<StockworksPalette | null>(null)
   const [materialWarnings, setMaterialWarnings] = useState<StockworksWarningResponse | null>(null)
@@ -365,28 +364,27 @@ export default function CartPage() {
       setPaletteMaxHeight(null)
       return
     }
-    if (!activeColorAnchor) return
     const updateLayout = () => {
-      const rect = activeColorAnchor
+      const anchorEl = document.querySelector<HTMLElement>(`[data-color-slot="${activeColorSlot.id}"]`)
+      const rect = anchorEl?.getBoundingClientRect()
+      if (!rect) return
       const containerRect = containerRef.current?.getBoundingClientRect()
       const availableWidth = Math.max(0, window.innerWidth - PALETTE_MARGIN * 2)
       const targetWidth = Math.max(320, Math.min(containerRect?.width ?? availableWidth, availableWidth))
       const verticalGap = 12
       const availableBelow = Math.max(0, window.innerHeight - (rect.top + rect.height + verticalGap) - PALETTE_MARGIN)
-      const availableAbove = Math.max(0, rect.top - verticalGap - PALETTE_MARGIN)
-      const nextPlacement = availableAbove > availableBelow ? 'above' : 'below'
       setActiveColorAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
       setPaletteWidth(targetWidth)
-      const available = nextPlacement === 'above' ? availableAbove : availableBelow
-      setPaletteMaxHeight(Math.max(220, Math.min(320, available)))
-      setPalettePlacement(nextPlacement)
+      setPaletteMaxHeight(Math.max(220, Math.min(320, availableBelow)))
     }
     updateLayout()
     window.addEventListener('resize', updateLayout)
+    window.addEventListener('scroll', updateLayout, true)
     return () => {
       window.removeEventListener('resize', updateLayout)
+      window.removeEventListener('scroll', updateLayout, true)
     }
-  }, [activeColorSlot, activeColorAnchor])
+  }, [activeColorSlot])
 
   const activeSlotItem = activeColorSlot
     ? items.find((item) => item.cartItemId === activeColorSlot.cartItemId)
@@ -1547,17 +1545,8 @@ export default function CartPage() {
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/50" />
           {(() => {
-            const estimatedPaletteHeight = Math.min(320, paletteMaxHeight || 320)
             const desktopTop = activeColorAnchor
-              ? palettePlacement === 'above'
-                ? Math.max(PALETTE_MARGIN, activeColorAnchor.top - 12 - estimatedPaletteHeight)
-                : Math.max(
-                  PALETTE_MARGIN,
-                  Math.min(
-                    activeColorAnchor.top + activeColorAnchor.height + 12,
-                    window.innerHeight - estimatedPaletteHeight - PALETTE_MARGIN,
-                  ),
-                )
+              ? activeColorAnchor.top + activeColorAnchor.height + 12
               : undefined
             return (
           <div
