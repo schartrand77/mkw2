@@ -63,7 +63,7 @@ function normalizeShippingSelection(raw: unknown): ShippingSelection {
 
 function normalizePaymentMethod(raw?: string | null): CheckoutPaymentMethod {
   const normalized = normalizeOrderWorksPaymentMethod(raw)
-  if (normalized === 'cash' || normalized === 'invoice' || normalized === 'po' || normalized === 'quote') {
+  if (normalized === 'paypal' || normalized === 'cash' || normalized === 'invoice' || normalized === 'po' || normalized === 'quote') {
     return normalized
   }
   return 'card'
@@ -146,7 +146,7 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
       discountPercent: payload.discountPercent ?? undefined,
       totalCents: payload.amountCents,
       currency: normalizeCurrency(payload.currency),
-      paymentStatus: payload.paymentStatus || (payload.paymentMethod === 'card' ? 'paid' : 'pending'),
+      paymentStatus: payload.paymentStatus || (payload.paymentMethod === 'card' || payload.paymentMethod === 'paypal' ? 'paid' : 'pending'),
       stripePaymentIntentId: payload.paymentIntentId.startsWith('pi_') ? payload.paymentIntentId : undefined,
       stripeChargeId: payload.stripeChargeId || undefined,
       stripeCustomerId: payload.stripeCustomerId || undefined,

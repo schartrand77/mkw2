@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Elements } from '@stripe/react-stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
 import CheckoutForm from '@/components/checkout/CheckoutForm'
+import PayPalCheckoutButton from '@/components/checkout/PayPalCheckoutButton'
 import OrderSummary from '@/components/checkout/OrderSummary'
 import TrustBadge from '@/components/checkout/TrustBadge'
 import CheckoutMiniSummary from '@/components/checkout/CheckoutMiniSummary'
@@ -59,8 +60,10 @@ type OrganizationsResponse = {
 export default function CheckoutPage() {
   const { items, clear, minimumOrder } = useCart()
   const [publishableKey, setPublishableKey] = useState<string>('')
+  const [paypalClientId, setPaypalClientId] = useState<string>('')
   const stripePromise = useMemo(() => (publishableKey ? loadStripe(publishableKey) : null), [publishableKey])
   const cardPaymentAvailable = Boolean(stripePromise)
+  const paypalPaymentAvailable = Boolean(paypalClientId)
   const [checkoutItemsState, setCheckoutItemsState] = useState(items)
   const [intent, setIntent] = useState<CheckoutIntentResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -215,9 +218,9 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (shippingMethod === 'ship' && paymentMethod === 'cash') {
-      setPaymentMethod(cardPaymentAvailable ? 'card' : 'invoice')
+      setPaymentMethod(cardPaymentAvailable ? 'card' : paypalPaymentAvailable ? 'paypal' : 'invoice')
     }
-  }, [shippingMethod, paymentMethod, cardPaymentAvailable])
+  }, [shippingMethod, paymentMethod, cardPaymentAvailable, paypalPaymentAvailable])
 
   useEffect(() => {
     if (!selectedOrganization) return
@@ -243,19 +246,30 @@ export default function CheckoutPage() {
       try {
         const res = await fetch('/api/public-config', { cache: 'no-store' })
         if (!res.ok) return
-        const data = await res.json().catch(() => null) as { stripePublishableKey?: string; rushMultiplier?: number } | null
+        const data = await res.json().catch(() => null) as { stripePublishableKey?: string; paypalClientId?: string; rushMultiplier?: number } | null
         const runtimeKey = data?.stripePublishableKey || ''
+        const runtimePayPalClientId = data?.paypalClientId || ''
         if (typeof data?.rushMultiplier === 'number') {
           setRushMultiplier(data.rushMultiplier)
         }
-        if (cancelled || !runtimeKey || runtimeKey === publishableKey) return
-        setPublishableKey(runtimeKey)
-        setPaymentMethod((current) => (current === 'cash' ? 'card' : current))
+        if (cancelled) return
+        if (runtimePayPalClientId && runtimePayPalClientId !== paypalClientId) {
+          setPaypalClientId(runtimePayPalClientId)
+        }
+        if (runtimeKey && runtimeKey !== publishableKey) {
+          setPublishableKey(runtimeKey)
+        }
+        setPaymentMethod((current) => {
+          if (current !== 'cash') return current
+          if (runtimeKey) return 'card'
+          if (runtimePayPalClientId) return 'paypal'
+          return current
+        })
       } catch {}
     }
     loadKey()
     return () => { cancelled = true }
-  }, [publishableKey])
+  }, [paypalClientId, publishableKey])
 
   useEffect(() => {
     if (checkoutItemsState.length > 0 && cashConfirmationId) {
@@ -402,9 +416,29 @@ export default function CheckoutPage() {
     }
   }, [clear, finalizeJob])
 
+  const handlePayPalSuccess = useCallback(async (paypalOrderId: string) => {
+    setFinalizingJob(true)
+    setCashConfirmationId(null)
+    setSuccessIntent(null)
+    setError(null)
+    try {
+      const data = await finalizeJob({ paymentIntentId: paypalOrderId, method: 'paypal' })
+      setCashConfirmationId(data.paymentIntentId)
+      setIntent(null)
+      clear()
+      pushSessionNotification({
+        type: 'success',
+        title: 'Payment received',
+        message: `Confirmation: ${data.paymentIntentId}`,
+      })
+    } finally {
+      setFinalizingJob(false)
+    }
+  }, [clear, finalizeJob])
+
   const handleDeferredConfirm = async () => {
     if (!checkoutItems.length) return
-    if (paymentMethod === 'card' && !intent?.adminFreeCheckout) return
+    if ((paymentMethod === 'card' || paymentMethod === 'paypal') && !intent?.adminFreeCheckout) return
     setCashProcessing(true)
     setFinalizingJob(true)
     setError(null)
@@ -420,6 +454,8 @@ export default function CheckoutPage() {
         ? 'Admin free order placed'
         : paymentMethod === 'cash'
         ? 'Cash order placed'
+        : paymentMethod === 'paypal'
+        ? 'Payment received'
         : paymentMethod === 'invoice'
           ? 'Invoice request sent'
           : paymentMethod === 'po'
@@ -455,15 +491,21 @@ export default function CheckoutPage() {
   const isInvoicePayment = paymentMethod === 'invoice'
   const isPoPayment = paymentMethod === 'po'
   const isQuotePayment = paymentMethod === 'quote'
-  const isDeferredPayment = paymentMethod !== 'card'
+  const isDeferredPayment = paymentMethod !== 'card' && paymentMethod !== 'paypal'
   const isAdminFreeCheckout = Boolean(intent?.adminFreeCheckout)
-  const trustBadgeProviders = !isAdminFreeCheckout && paymentMethod === 'card' && cardPaymentAvailable
-    ? (applePayAvailable ? ['Stripe', 'Apple Pay'] : ['Stripe'])
+  const trustBadgeProviders = !isAdminFreeCheckout
+    ? paymentMethod === 'card' && cardPaymentAvailable
+      ? (applePayAvailable ? ['Stripe', 'Apple Pay'] : ['Stripe'])
+      : paymentMethod === 'paypal' && paypalPaymentAvailable
+        ? ['PayPal']
+        : []
     : []
   const trustBadgeNote = isAdminFreeCheckout
     ? 'Admin free checkout: this order skips payment processing and still enters the job queue.'
     : paymentMethod === 'cash'
     ? 'No card details are required for cash orders.'
+    : paymentMethod === 'paypal'
+    ? 'PayPal processes your payment securely before the order enters production.'
     : paymentMethod === 'invoice'
       ? 'We will invoice you before production begins.'
       : paymentMethod === 'po'
@@ -691,8 +733,8 @@ export default function CheckoutPage() {
         <div className="glass rounded-xl border border-white/10 p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">Payment</h2>
-            {!cardPaymentAvailable && (
-              <span className="text-xs text-amber-300">Stripe key missing</span>
+            {!cardPaymentAvailable && !paypalPaymentAvailable && (
+              <span className="text-xs text-amber-300">Online payments unavailable</span>
             )}
           </div>
           <div className="space-y-2 text-sm">
@@ -706,6 +748,17 @@ export default function CheckoutPage() {
                 disabled={!cardPaymentAvailable || Boolean(selectedOrganization?.quoteApprovalRequired && selectedOrganization.role === 'requester')}
               />
               Pay now (card)
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="payment"
+                value="paypal"
+                checked={paymentMethod === 'paypal'}
+                onChange={() => setPaymentMethod('paypal')}
+                disabled={!paypalPaymentAvailable || Boolean(selectedOrganization?.quoteApprovalRequired && selectedOrganization.role === 'requester')}
+              />
+              Pay now (PayPal)
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -760,6 +813,14 @@ export default function CheckoutPage() {
           {paymentMethod === 'card' && cardPaymentAvailable && (
             <p className="text-xs text-slate-400">
               Card details are handled securely by the payment processor.
+            </p>
+          )}
+          {paymentMethod === 'paypal' && !paypalPaymentAvailable && (
+            <p className="text-xs text-amber-300">PayPal client ID is not configured. Set PAYPAL_CLIENT_ID to enable PayPal payments.</p>
+          )}
+          {paymentMethod === 'paypal' && paypalPaymentAvailable && (
+            <p className="text-xs text-slate-400">
+              PayPal will open a secure payment step before we finalize your order.
             </p>
           )}
           {isDeferredPayment && (
@@ -866,6 +927,8 @@ export default function CheckoutPage() {
                 ? 'Admin free order placed!'
                 : successIntent
                 ? 'Payment received!'
+                : paymentMethod === 'paypal'
+                  ? 'Payment received!'
                 : paymentMethod === 'cash'
                   ? 'Cash order placed!'
                   : paymentMethod === 'invoice'
@@ -913,6 +976,23 @@ export default function CheckoutPage() {
         {paymentMethod === 'card' && !isAdminFreeCheckout && (!stripePromise || !cardPaymentAvailable) && (
           <p className="text-sm text-amber-300">Stripe publishable key is not configured. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to enable card payments.</p>
         )}
+        {paymentMethod === 'paypal' && intent?.paymentIntentId && paypalPaymentAvailable && !cashConfirmationId && !isAdminFreeCheckout && meetsMinimumOrder && (
+          <PayPalCheckoutButton
+            clientId={paypalClientId}
+            currency={intent.currency}
+            orderId={intent.paymentIntentId}
+            disabled={finalizingJob}
+            onApprove={handlePayPalSuccess}
+          />
+        )}
+        {paymentMethod === 'paypal' && !meetsMinimumOrder && !isAdminFreeCheckout && (
+          <p className="text-sm text-amber-300">
+            Minimum order subtotal is {formatCurrency(minimumOrderSubtotal || 0)}.
+          </p>
+        )}
+        {paymentMethod === 'paypal' && !isAdminFreeCheckout && !paypalPaymentAvailable && (
+          <p className="text-sm text-amber-300">PayPal client ID is not configured. Set PAYPAL_CLIENT_ID to enable PayPal payments.</p>
+        )}
         {isAdminFreeCheckout && intent && !cashConfirmationId && !successIntent && (
           <div className="space-y-3 text-sm text-slate-300">
             <p>No payment step is required for this admin checkout. Confirm to send it to the queue.</p>
@@ -931,7 +1011,7 @@ export default function CheckoutPage() {
             </button>
           </div>
         )}
-        {paymentMethod !== 'card' && intent && !cashConfirmationId && !isAdminFreeCheckout && (
+        {isDeferredPayment && intent && !cashConfirmationId && !isAdminFreeCheckout && (
           <div className="space-y-3 text-sm text-slate-300">
             <p>
               {paymentMethod === 'cash'

@@ -23,6 +23,10 @@ export async function GET() {
   const stripePublishableKey = getEnvValue('STRIPE_PUBLISHABLE_KEY')
     || getEnvValue('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY')
     || ''
+  const configuredPayPalClientId = getEnvValue('NEXT_PUBLIC_PAYPAL_CLIENT_ID')
+    || getEnvValue('PAYPAL_CLIENT_ID')
+    || ''
+  const paypalClientId = configuredPayPalClientId && getEnvValue('PAYPAL_CLIENT_SECRET') ? configuredPayPalClientId : ''
   const maxCartColors = getMaxCartColors()
   const cfg = await prisma.siteConfig.findUnique({
     where: { id: 'main' },
@@ -65,6 +69,7 @@ export async function GET() {
   const res = NextResponse.json({
     stripePublishableKey,
     stripeTaxEnabled: isEnabled(getEnvValue('STRIPE_TAX_ENABLED')),
+    paypalClientId,
     maxCartColors,
     materialPrices: Object.keys(materialPrices).length ? materialPrices : null,
     colorSurchargeRate,

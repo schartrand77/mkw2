@@ -17,6 +17,7 @@ export const FULFILLMENT_STATUS_OPTIONS: Array<{ value: FulfillmentStatus; label
 
 export const PAYMENT_METHOD_OPTIONS: Array<{ value: CheckoutPaymentMethod; label: string }> = [
   { value: 'card', label: 'Card' },
+  { value: 'paypal', label: 'PayPal' },
   { value: 'cash', label: 'Cash' },
   { value: 'invoice', label: 'Invoice' },
   { value: 'po', label: 'Purchase order' },
@@ -45,6 +46,7 @@ export function normalizePaymentMethod(value: string | null | undefined): string
   if (!normalized) return null
   if (normalized === 'purchase_order' || normalized === 'purchase order' || normalized === 'p.o.' || normalized === 'p/o') return 'po'
   if (normalized === 'credit_card' || normalized === 'credit card' || normalized === 'stripe') return 'card'
+  if (normalized === 'paypal' || normalized === 'pay_pal') return 'paypal'
   if (normalized === 'quotation' || normalized === 'rfq') return 'quote'
   return normalized
 }

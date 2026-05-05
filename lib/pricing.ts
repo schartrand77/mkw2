@@ -291,6 +291,8 @@ export function estimatePricingDetails({
   const extraHourlyRateEnv = parseFloat(
     currency === 'CAD'
       ? (process.env.EXTRA_HOURLY_AFTER_FIRST_CAD || process.env.EXTRA_HOURLY_AFTER_FIRST_USD || '0')
+      : currency === 'AUD'
+        ? (process.env.EXTRA_HOURLY_AFTER_FIRST_AUD || process.env.EXTRA_HOURLY_AFTER_FIRST_USD || '0')
       : (process.env.EXTRA_HOURLY_AFTER_FIRST_USD || '0')
   )
   const extraHourlyRate = cfg?.extraHourlyUsdAfterFirst != null && Number.isFinite(Number(cfg.extraHourlyUsdAfterFirst))
@@ -301,7 +303,9 @@ export function estimatePricingDetails({
   const envEnergyRate = parseFloat(
     currency === 'CAD'
       ? (process.env.ENERGY_CAD_PER_HOUR || process.env.ENERGY_USD_PER_HOUR || '0')
-      : (process.env.ENERGY_USD_PER_HOUR || '0')
+      : currency === 'AUD'
+        ? (process.env.ENERGY_AUD_PER_HOUR || process.env.ENERGY_USD_PER_HOUR || '0')
+        : (process.env.ENERGY_USD_PER_HOUR || '0')
   )
   const profileEnergy = printerProfile.energyUsdPerHour
   const energyRate = cfg?.energyUsdPerHour != null && !Number.isNaN(Number(cfg.energyUsdPerHour))
@@ -312,7 +316,9 @@ export function estimatePricingDetails({
   const machineRateEnv = parseFloat(
     currency === 'CAD'
       ? (process.env.MACHINE_CAD_PER_HOUR || process.env.MACHINE_USD_PER_HOUR || '0')
-      : (process.env.MACHINE_USD_PER_HOUR || '0')
+      : currency === 'AUD'
+        ? (process.env.MACHINE_AUD_PER_HOUR || process.env.MACHINE_USD_PER_HOUR || '0')
+        : (process.env.MACHINE_USD_PER_HOUR || '0')
   )
   const machineRate = cfg?.machineUsdPerHour != null && Number.isFinite(Number(cfg.machineUsdPerHour))
     ? Number(cfg.machineUsdPerHour)
@@ -322,7 +328,9 @@ export function estimatePricingDetails({
   const laborRateEnv = parseFloat(
     currency === 'CAD'
       ? (process.env.LABOR_CAD_PER_HOUR || process.env.LABOR_USD_PER_HOUR || '0')
-      : (process.env.LABOR_USD_PER_HOUR || '0')
+      : currency === 'AUD'
+        ? (process.env.LABOR_AUD_PER_HOUR || process.env.LABOR_USD_PER_HOUR || '0')
+        : (process.env.LABOR_USD_PER_HOUR || '0')
   )
   const laborRate = cfg?.laborUsdPerHour != null && Number.isFinite(Number(cfg.laborUsdPerHour))
     ? Number(cfg.laborUsdPerHour)
@@ -336,7 +344,9 @@ export function estimatePricingDetails({
   const minPriceEnv = parseFloat(
     currency === 'CAD'
       ? (process.env.MINIMUM_PRICE_CAD || process.env.MINIMUM_PRICE_USD || '0')
-      : (process.env.MINIMUM_PRICE_USD || '0')
+      : currency === 'AUD'
+        ? (process.env.MINIMUM_PRICE_AUD || process.env.MINIMUM_PRICE_USD || '0')
+        : (process.env.MINIMUM_PRICE_USD || '0')
   )
   const minPriceConfig = cfg?.minimumPriceUsd != null ? Number(cfg.minimumPriceUsd) : NaN
   const minPrice = Number.isFinite(minPriceConfig) ? Math.max(0, minPriceConfig) : Math.max(0, minPriceEnv)
@@ -385,9 +395,12 @@ function resolveMaterialPricePerKg(material: MaterialKey, currency: string, cfg?
 
   const envUsdKey = `${material}_PRICE_PER_KG_USD`
   const envCadKey = `${material}_PRICE_PER_KG_CAD`
+  const envAudKey = `${material}_PRICE_PER_KG_AUD`
   const envValue = currency === 'CAD'
     ? (process.env[envCadKey] || process.env[envUsdKey])
-    : process.env[envUsdKey]
+    : currency === 'AUD'
+      ? (process.env[envAudKey] || process.env[envUsdKey])
+      : process.env[envUsdKey]
   const envParsed = envValue != null ? Number(envValue) : NaN
   if (Number.isFinite(envParsed) && envParsed >= 0) return envParsed
 

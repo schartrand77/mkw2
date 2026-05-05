@@ -6,6 +6,7 @@ import { estimatePricingDetails, resolveModelPricing, type PricingDetails } from
 import { formatCurrency, getCurrency, type Currency } from '@/lib/currency'
 import { getStripe } from '@/lib/stripe'
 import { createAndSendStripeInvoice, createMakerWorksPaymentIntent, normalizeStripePaymentStatus, resolveStripeInvoiceDaysUntilDue } from '@/lib/stripe-payments'
+import { capturePayPalOrder, createPayPalOrder } from '@/lib/paypal'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { z } from 'zod'
 import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
@@ -72,7 +73,7 @@ const itemSchema = z.object({
 const payloadSchema = z.object({
   items: z.array(itemSchema).min(1),
   shipping: shippingSchema,
-  paymentMethod: z.enum(['card', 'cash', 'invoice', 'po', 'quote']).default('card'),
+  paymentMethod: z.enum(['card', 'paypal', 'cash', 'invoice', 'po', 'quote']).default('card'),
   rush: z.boolean().optional(),
   commit: z.boolean().optional(),
   paymentIntentId: z.string().max(200).optional(),
@@ -118,7 +119,7 @@ function normalizePaymentStatusForQueue(paymentMethod: string, status: string | 
   if (!status) return status
   const normalized = normalizePaymentStatus(status)
   if (!normalized) return null
-  if (paymentMethod === 'card' && normalized === 'paid') return 'paid'
+  if ((paymentMethod === 'card' || paymentMethod === 'paypal') && normalized === 'paid') return 'paid'
   return normalized
 }
 
@@ -248,9 +249,12 @@ async function handlePost(req: NextRequest) {
       if (cfg?.minimumPriceUsd != null && !Number.isNaN(Number(cfg.minimumPriceUsd))) {
         return Math.max(1, Number(cfg.minimumPriceUsd))
       }
-      const fromEnv = getCurrency() === 'CAD'
+      const activeCurrency = getCurrency()
+      const fromEnv = activeCurrency === 'CAD'
         ? parseFloat(process.env.MINIMUM_PRICE_CAD || process.env.MINIMUM_PRICE_USD || '1')
-        : parseFloat(process.env.MINIMUM_PRICE_USD || '1')
+        : activeCurrency === 'AUD'
+          ? parseFloat(process.env.MINIMUM_PRICE_AUD || process.env.MINIMUM_PRICE_USD || '1')
+          : parseFloat(process.env.MINIMUM_PRICE_USD || '1')
       return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : 1
     })()
     const organizationMembership = organizationId && userId
@@ -566,6 +570,9 @@ async function handlePost(req: NextRequest) {
     if (!isFreeOrder && paymentMethod === 'card' && !process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 })
     }
+    if (!isFreeOrder && paymentMethod === 'paypal' && (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET)) {
+      return NextResponse.json({ error: 'PayPal is not configured' }, { status: 500 })
+    }
 
     const metadataItems = lineItems.slice(0, 20).map((item) => `${item.qty}x ${item.title}${item.partName ? ` (${item.partName})` : ''}`).join(', ')
     const customerEmail = userForCheckout?.email || undefined
@@ -585,6 +592,7 @@ async function handlePost(req: NextRequest) {
       invoiceStatus: string | null
     } | null = null
     let stripeInvoiceError: string | null = null
+    let paypalCaptureId: string | null = null
 
     if (isFreeOrder) {
       if (!commit) {
@@ -635,6 +643,28 @@ async function handlePost(req: NextRequest) {
           stripeChargeId = intent.latest_charge
         }
       }
+    } else if (paymentMethod === 'paypal') {
+      if (!commit) {
+        const order = await createPayPalOrder({
+          amountCents: amount,
+          currency: currencyCode,
+          checkoutId,
+        })
+        paymentIntentId = order.id
+      } else {
+        if (!paymentIntentId) {
+          incrementMetric('payment_failures_total', 1, { source: 'checkout_finalize', reason: 'missing_paypal_order_id' })
+          return NextResponse.json({ error: 'paymentIntentId is required to finalize PayPal checkout.' }, { status: 400 })
+        }
+        const capture = await capturePayPalOrder({
+          orderId: paymentIntentId,
+          expectedAmountCents: amount,
+          expectedCurrency: currencyCode,
+        })
+        paymentIntentId = capture.orderId
+        paypalCaptureId = capture.captureId
+        finalizedPaymentStatus = normalizePaymentStatusForQueue(paymentMethod, capture.paymentStatus)
+      }
     } else if (!commit) {
       paymentIntentId = `${paymentMethod}_preview_${randomUUID()}`
     } else {
@@ -684,6 +714,13 @@ async function handlePost(req: NextRequest) {
               receiptUrl: stripeReceiptUrl,
               paymentStatus: finalizedPaymentStatus,
             },
+            paypal: paymentMethod === 'paypal'
+              ? {
+                orderId: paymentIntentId,
+                captureId: paypalCaptureId,
+                paymentStatus: finalizedPaymentStatus,
+              }
+              : undefined,
           },
           paymentMethod,
           paymentStatus: finalizedPaymentStatus || (paymentMethod === 'cash' ? 'pending' : null),
@@ -712,7 +749,7 @@ async function handlePost(req: NextRequest) {
           customerName,
           discountPercent: discountSummary.totalPercent ?? null,
           organizationId: organizationMembership?.organization.id || null,
-          paymentStatus: finalizedPaymentStatus || (paymentMethod === 'card' ? 'paid' : 'pending'),
+          paymentStatus: finalizedPaymentStatus || (paymentMethod === 'card' || paymentMethod === 'paypal' ? 'paid' : 'pending'),
           stripeChargeId,
           stripeCustomerId,
           receiptUrl: stripeReceiptUrl,
@@ -739,6 +776,13 @@ async function handlePost(req: NextRequest) {
               receiptUrl: stripeReceiptUrl,
               paymentStatus: finalizedPaymentStatus,
             },
+            paypal: paymentMethod === 'paypal'
+              ? {
+                orderId: paymentIntentId,
+                captureId: paypalCaptureId,
+                paymentStatus: finalizedPaymentStatus,
+              }
+              : undefined,
           },
         })
         if (order && paymentMethod === 'invoice' && amount > 0 && process.env.STRIPE_SECRET_KEY) {
