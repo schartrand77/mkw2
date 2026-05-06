@@ -25,3 +25,8 @@ test('filament palette accepts colors scoped to the selected material', () => {
   assert.equal(isColorAvailableForMaterial('Black #000000', palette, 'PETG'), true)
   assert.equal(isColorAvailableForMaterial('Charcoal #000000', palette, 'PLA'), true)
 })
+
+test('filament palette accepts raw hex colors when the selected material has available colors', () => {
+  assert.equal(isColorAvailableForMaterial('#161616', palette, 'PLA'), true)
+  assert.equal(isColorAvailableForMaterial('#fd8008', palette, 'PLA'), true)
+})
