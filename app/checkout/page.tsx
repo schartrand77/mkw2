@@ -17,6 +17,7 @@ import { DIMENSION_AXES, normalizeColors, resolveAxisScale, normalizeMaterialNam
 import { formatCurrency } from '@/lib/currency'
 import { BRAND_LAB_NAME } from '@/lib/brand'
 import StatusChip from '@/components/StatusChip'
+import { resolveCheckoutPanelPrompt } from '@/lib/checkout-payment-availability'
 
 type ProfileResponse = {
   profile: {
@@ -522,6 +523,14 @@ export default function CheckoutPage() {
     : null
   const meetsMinimumOrder = isAdminFreeCheckout || !minimumOrderSubtotal || (intentSubtotal != null && intentSubtotal >= minimumOrderSubtotal)
   const disableFinalize = hasMissingColors || !meetsMinimumOrder
+  const checkoutPanelPrompt = resolveCheckoutPanelPrompt({
+    hasCartItems: checkoutItemsState.length > 0,
+    hasIntent: Boolean(intent),
+    loading,
+    hasSuccessIntent: Boolean(successIntent),
+    hasConfirmation: Boolean(cashConfirmationId),
+    error,
+  })
 
   if (!checkoutItemsState.length && !successIntent && !cashConfirmationId) {
     return (
@@ -960,8 +969,8 @@ export default function CheckoutPage() {
           providers={trustBadgeProviders}
           note={trustBadgeNote}
         />
-        {!intent && !loading && !successIntent && !cashConfirmationId && (
-          <p className="text-sm text-slate-400">Add items to your cart to start checkout.</p>
+        {checkoutPanelPrompt && (
+          <p className="text-sm text-slate-400">{checkoutPanelPrompt}</p>
         )}
         {paymentMethod === 'card' && intent?.clientSecret && stripePromise && !successIntent && meetsMinimumOrder && (
           <Elements stripe={stripePromise} options={{ clientSecret: intent.clientSecret, appearance }}>
