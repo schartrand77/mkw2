@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { parseProcurementConfig } from '@/lib/procurement-config'
+import { normalizeOrganizationCategory } from '@/lib/community-contributions'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +27,9 @@ export async function GET() {
           id: true,
           name: true,
           slug: true,
+          category: true,
+          charitableRegistrationNumber: true,
+          communityNotes: true,
           billingEmail: true,
           billingContact: true,
           quoteApprovalRequired: true,
@@ -43,6 +47,9 @@ export async function GET() {
       id: membership.organization.id,
       name: membership.organization.name,
       slug: membership.organization.slug,
+      category: normalizeOrganizationCategory(membership.organization.category),
+      charitableRegistrationNumber: membership.organization.charitableRegistrationNumber,
+      communityNotes: membership.organization.communityNotes,
       role: membership.role,
       billingEmail: membership.organization.billingEmail,
       billingContact: membership.organization.billingContact,
@@ -65,6 +72,11 @@ export async function POST(req: NextRequest) {
 
   const billingEmail = typeof body.billingEmail === 'string' ? body.billingEmail.trim() : ''
   const billingContact = typeof body.billingContact === 'string' ? body.billingContact.trim() : ''
+  const category = normalizeOrganizationCategory(body.category)
+  const charitableRegistrationNumber = typeof body.charitableRegistrationNumber === 'string'
+    ? body.charitableRegistrationNumber.trim()
+    : ''
+  const communityNotes = typeof body.communityNotes === 'string' ? body.communityNotes.trim() : ''
   const quoteApprovalRequired = body.quoteApprovalRequired !== false
   const requirePoAboveCents = Number(body.requirePoAboveCents)
   const slugBase = slugify(typeof body.slug === 'string' ? body.slug : name)
@@ -77,6 +89,9 @@ export async function POST(req: NextRequest) {
     data: {
       name,
       slug,
+      category,
+      charitableRegistrationNumber: charitableRegistrationNumber || null,
+      communityNotes: communityNotes || null,
       billingEmail: billingEmail || null,
       billingContact: billingContact || null,
       quoteApprovalRequired,

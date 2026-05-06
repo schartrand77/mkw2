@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { getOrganizationMembership } from '@/lib/organizations'
 import { parseProcurementConfig } from '@/lib/procurement-config'
+import { buildContributionSummary } from '@/lib/community-contributions'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,6 +39,12 @@ export async function GET(req: NextRequest, { params }: Context) {
     select: {
       id: true,
       totalCents: true,
+      subtotalCents: true,
+      contributionType: true,
+      donatedAmountCents: true,
+      materialCostCents: true,
+      machineTimeMinutes: true,
+      receiptStatus: true,
       createdAt: true,
       metadata: true,
       items: {
@@ -96,6 +103,16 @@ export async function GET(req: NextRequest, { params }: Context) {
       orders: orders.length,
       spendCents: orders.reduce((sum, order) => sum + toCents(order.totalCents), 0),
     },
+    contributions: buildContributionSummary(orders.map((order) => ({
+      organizationCategory: membership.organization.category,
+      contributionType: order.contributionType,
+      totalCents: order.totalCents,
+      subtotalCents: order.subtotalCents,
+      donatedAmountCents: order.donatedAmountCents,
+      materialCostCents: order.materialCostCents,
+      machineTimeMinutes: order.machineTimeMinutes,
+      receiptStatus: order.receiptStatus,
+    }))),
     procurement: {
       departments: procurementConfig.departments.map((department) => {
         const spendCents = spendByDepartment.get(department.code) || 0
