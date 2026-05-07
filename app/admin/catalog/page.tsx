@@ -16,9 +16,15 @@ async function requireAdminServer() {
   return (user?.isAdmin || role === 'admin' || role === 'staff') ? payload.sub : null
 }
 
-export default async function AdminCatalogPage() {
+type AdminCatalogPageProps = {
+  searchParams?: Promise<{ q?: string | string[] }>
+}
+
+export default async function AdminCatalogPage({ searchParams }: AdminCatalogPageProps) {
   const adminId = await requireAdminServer()
   if (!adminId) redirect('/login')
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  const q = Array.isArray(resolvedSearchParams.q) ? resolvedSearchParams.q[0] : resolvedSearchParams.q
 
   const [config, merch] = await Promise.all([
     prisma.siteConfig.upsert({
@@ -41,7 +47,7 @@ export default async function AdminCatalogPage() {
         <h1 className="text-3xl font-semibold">Catalog Manager</h1>
         <p className="mt-1 text-sm text-slate-400">Manage storefront categories and merch for your business.</p>
       </div>
-      <CatalogManager initialLabels={config as any} initialMerch={merch as any} />
+      <CatalogManager initialLabels={config as any} initialMerch={merch as any} initialSearch={q || ''} />
     </div>
   )
 }

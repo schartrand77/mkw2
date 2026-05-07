@@ -18,9 +18,15 @@ async function requireAdminServer() {
   return (user?.isAdmin || role === 'admin' || role === 'staff') ? payload.sub : null
 }
 
-export default async function AdminProductsPage() {
+type AdminProductsPageProps = {
+  searchParams?: Promise<{ q?: string | string[] }>
+}
+
+export default async function AdminProductsPage({ searchParams }: AdminProductsPageProps) {
   const adminId = await requireAdminServer()
   if (!adminId) redirect('/login')
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  const q = Array.isArray(resolvedSearchParams.q) ? resolvedSearchParams.q[0] : resolvedSearchParams.q
   try { await syncStockworksModelsToProductTemplates() } catch {}
 
   const [allProducts, models] = await Promise.all([
@@ -49,5 +55,5 @@ export default async function AdminProductsPage() {
   ])
   const products = filterLinkedVariantTemplates(allProducts)
 
-  return <ProductBuilder initialProducts={products as any} models={models as any} />
+  return <ProductBuilder initialProducts={products as any} models={models as any} initialSearch={q || ''} />
 }

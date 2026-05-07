@@ -30,6 +30,7 @@ type MerchItem = {
 type Props = {
   initialLabels: CatalogLabels
   initialMerch: MerchItem[]
+  initialSearch?: string
 }
 
 type MerchDraft = Omit<MerchItem, 'id'>
@@ -49,9 +50,10 @@ const emptyDraft = (): MerchDraft => ({
   updatedAt: null,
 })
 
-export default function CatalogManager({ initialLabels, initialMerch }: Props) {
+export default function CatalogManager({ initialLabels, initialMerch, initialSearch = '' }: Props) {
   const [labels, setLabels] = useState<CatalogLabels>(initialLabels)
   const [items, setItems] = useState<MerchItem[]>(initialMerch)
+  const [search, setSearch] = useState(initialSearch)
   const [draft, setDraft] = useState<MerchDraft>(emptyDraft())
   const [sizeOptionsInput, setSizeOptionsInput] = useState('')
   const [colorOptionsInput, setColorOptionsInput] = useState('')
@@ -87,6 +89,27 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([name, count]) => ({ name, count }))
   }, [items])
+  const filteredItems = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase()
+    if (!normalizedSearch) return items
+    return items.filter((item) => {
+      const haystack = [
+        item.id,
+        item.title,
+        item.description,
+        item.category,
+        item.availability,
+        item.externalUrl,
+        item.ctaLabel,
+        ...(Array.isArray(item.sizeOptions) ? item.sizeOptions : []),
+        ...(Array.isArray(item.colorOptions) ? item.colorOptions : []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(normalizedSearch)
+    })
+  }, [items, search])
 
   const saveLabels = async () => {
     setSavingLabels(true)
@@ -466,6 +489,14 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
 
       <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-3">
         <h2 className="text-lg font-semibold">Merch Inventory</h2>
+        <input
+          className="input"
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search merch..."
+          aria-label="Search merch"
+        />
         {categoryPreview.length > 0 && (
           <div className="flex flex-wrap gap-2 text-xs">
             {categoryPreview.map((entry) => (
@@ -475,11 +506,11 @@ export default function CatalogManager({ initialLabels, initialMerch }: Props) {
             ))}
           </div>
         )}
-        {items.length === 0 ? (
-          <div className="text-sm text-slate-500">No merch items yet.</div>
+        {filteredItems.length === 0 ? (
+          <div className="text-sm text-slate-500">No merch items match that search.</div>
         ) : (
           <div className="space-y-2">
-            {items.map((item) => (
+            {filteredItems.map((item) => (
               <div key={item.id} className="rounded-lg border border-white/10 bg-black/30 p-3 flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="font-semibold">{item.title}</div>

@@ -77,6 +77,7 @@ type ProductTemplate = {
 type Props = {
   initialProducts: ProductTemplate[]
   models: ModelSummary[]
+  initialSearch?: string
 }
 
 const emptyProduct = (): ProductTemplate => ({
@@ -134,11 +135,35 @@ const sanitizeColorOptions = (rows: OptionRow[] | null | undefined, fallbackColo
   return output
 }
 
-export default function ProductBuilder({ initialProducts, models }: Props) {
+function productMatchesSearch(product: ProductTemplate, rawSearch: string) {
+  const search = rawSearch.trim().toLowerCase()
+  if (!search) return true
+  const haystack = [
+    product.id,
+    product.title,
+    product.description,
+    product.stockworksCategory,
+    product.stockworksSku,
+    product.stockworksDesigner,
+    product.stockworksMarketplace,
+    product.stockworksFileLocation,
+    product.stockworksVersion,
+    product.stockworksStatus,
+    product.baseModel?.title,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(search)
+}
+
+export default function ProductBuilder({ initialProducts, models, initialSearch = '' }: Props) {
+  const initialActiveProduct = initialProducts.find((product) => productMatchesSearch(product, initialSearch)) || initialProducts[0]
   const [products, setProducts] = useState<ProductTemplate[]>(initialProducts)
-  const [activeId, setActiveId] = useState<string>(initialProducts[0]?.id || '')
+  const [search, setSearch] = useState(initialSearch)
+  const [activeId, setActiveId] = useState<string>(initialActiveProduct?.id || '')
   const [form, setForm] = useState<ProductTemplate>(() => {
-    const first = initialProducts[0]
+    const first = initialActiveProduct
     return first ? { ...first } : emptyProduct()
   })
   const [saving, setSaving] = useState(false)
@@ -161,6 +186,10 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
   const selectedModel = useMemo(
     () => models.find((m) => m.id === form.baseModelId) || null,
     [models, form.baseModelId],
+  )
+  const filteredProducts = useMemo(
+    () => products.filter((product) => productMatchesSearch(product, search)),
+    [products, search],
   )
 
   const basePrice = selectedModel
@@ -395,11 +424,19 @@ export default function ProductBuilder({ initialProducts, models }: Props) {
             New
           </button>
         </div>
+        <input
+          className="input"
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search products..."
+          aria-label="Search products"
+        />
         <div className="space-y-2">
-          {products.length === 0 && (
-            <p className="text-xs text-slate-500">No products yet.</p>
+          {filteredProducts.length === 0 && (
+            <p className="text-xs text-slate-500">No products match that search.</p>
           )}
-          {products.map((product) => (
+          {filteredProducts.map((product) => (
             <button
               key={product.id}
               type="button"

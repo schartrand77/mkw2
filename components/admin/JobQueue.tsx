@@ -36,6 +36,7 @@ type Props = {
   initialJobs: JobRecord[]
   pendingCount: number
   totalCount: number
+  initialSearch?: string
 }
 
 type Summary = Pick<Props, 'pendingCount' | 'totalCount'>
@@ -220,10 +221,11 @@ function JobStatusControls({ job, onUpdated }: StatusFormProps) {
   )
 }
 
-export default function JobQueue({ initialJobs, pendingCount, totalCount }: Props) {
+export default function JobQueue({ initialJobs, pendingCount, totalCount, initialSearch = '' }: Props) {
   const [jobs, setJobs] = useState<JobRecord[]>(initialJobs)
   const [summary, setSummary] = useState<Summary>({ pendingCount, totalCount })
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'sent'>('all')
+  const [search, setSearch] = useState(initialSearch)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -301,7 +303,36 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount }: Prop
     refresh(value).catch(() => {})
   }
 
-  const pendingJobs = useMemo(() => jobs.filter((job) => job.status === 'pending').length, [jobs])
+  const normalizedSearch = search.trim().toLowerCase()
+  const filteredJobs = useMemo(() => {
+    if (!normalizedSearch) return jobs
+    return jobs.filter((job) => {
+      const lineItems = Array.isArray(job.lineItems) ? job.lineItems : []
+      const lineItemText = lineItems.map((item: any) => [
+        item?.title,
+        item?.modelId,
+        item?.material,
+        item?.storagePath,
+      ].filter(Boolean).join(' ')).join(' ')
+      const haystack = [
+        job.id,
+        job.paymentIntentId,
+        job.customerEmail,
+        job.status,
+        job.paymentMethod,
+        job.paymentStatus,
+        job.fulfillmentStatus,
+        job.user?.name,
+        job.user?.email,
+        lineItemText,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(normalizedSearch)
+    })
+  }, [jobs, normalizedSearch])
+  const pendingJobs = useMemo(() => filteredJobs.filter((job) => job.status === 'pending').length, [filteredJobs])
 
   return (
     <div className="space-y-4">
@@ -309,7 +340,7 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount }: Prop
         <div>
           <p className="text-sm text-slate-400">Queue size</p>
           <p className="text-2xl font-semibold">
-            {jobs.length} <span className="text-base text-slate-500">loaded</span>
+            {filteredJobs.length} <span className="text-base text-slate-500">shown</span>
           </p>
         </div>
         <div>
@@ -322,6 +353,14 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount }: Prop
         </div>
         <div className="flex-1 min-w-[200px]" />
         <div className="flex flex-wrap items-center gap-2">
+          <input
+            className="input w-48"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search jobs..."
+            aria-label="Search jobs"
+          />
           <select
             className="input w-32"
             value={statusFilter}
@@ -340,12 +379,12 @@ export default function JobQueue({ initialJobs, pendingCount, totalCount }: Prop
       {error && <div className="text-sm text-amber-400">{error}</div>}
       {message && <div className="text-sm text-emerald-300">{message}</div>}
       <div className="space-y-3">
-        {jobs.length === 0 && (
+        {filteredJobs.length === 0 && (
           <div className="rounded-lg border border-white/10 bg-black/20 px-4 py-6 text-center text-sm text-slate-400">
             No jobs match this filter.
           </div>
         )}
-        {jobs.map((job) => {
+        {filteredJobs.map((job) => {
           const isExpanded = !!expanded[job.id]
           const busyState = busy[job.id]
           const lineItems = Array.isArray(job.lineItems) ? job.lineItems : []

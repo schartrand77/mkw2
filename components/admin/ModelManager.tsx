@@ -68,10 +68,14 @@ function PaginationControls({
   )
 }
 
-export default function ModelManager() {
+type Props = {
+  initialQuery?: string
+}
+
+export default function ModelManager({ initialQuery = '' }: Props) {
   const router = useRouter()
   const { add } = useCart()
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialQuery)
   const [items, setItems] = useState<Model[]>([])
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)

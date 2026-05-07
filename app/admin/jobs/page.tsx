@@ -12,7 +12,11 @@ export const metadata = {
   title: 'OrderWorks Job Queue',
 }
 
-export default async function AdminJobsPage() {
+type AdminJobsPageProps = {
+  searchParams?: Promise<{ q?: string | string[] }>
+}
+
+export default async function AdminJobsPage({ searchParams }: AdminJobsPageProps) {
   const cookieStore = await cookies()
   const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
@@ -22,6 +26,8 @@ export default async function AdminJobsPage() {
   if (!(user?.isAdmin || role === 'admin' || role === 'staff')) redirect('/')
 
   const { jobs, pendingCount, totalCount } = await fetchJobQueueSnapshot(100)
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  const q = Array.isArray(resolvedSearchParams.q) ? resolvedSearchParams.q[0] : resolvedSearchParams.q
 
   return (
     <div className="space-y-6">
@@ -42,6 +48,7 @@ export default async function AdminJobsPage() {
           initialJobs={jobs}
           pendingCount={pendingCount}
           totalCount={totalCount}
+          initialSearch={q || ''}
         />
       </div>
     </div>

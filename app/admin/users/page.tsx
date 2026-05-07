@@ -19,9 +19,15 @@ async function requireAdminServer() {
   return (user?.isAdmin || role === 'admin' || role === 'staff') ? payload.sub : null
 }
 
-export default async function AdminUsersPage() {
+type AdminUsersPageProps = {
+  searchParams?: Promise<{ q?: string | string[] }>
+}
+
+export default async function AdminUsersPage({ searchParams }: AdminUsersPageProps) {
   const adminId = await requireAdminServer()
   if (!adminId) return (<div className="text-slate-400">Forbidden</div>)
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  const q = Array.isArray(resolvedSearchParams.q) ? resolvedSearchParams.q[0] : resolvedSearchParams.q
 
   const now = new Date()
   const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
@@ -98,7 +104,7 @@ export default async function AdminUsersPage() {
       </div>
       <InviteUserForm />
       <div className="glass rounded-xl border border-white/10">
-        <UsersAndBadgesPanel users={usersWithStats as any} />
+        <UsersAndBadgesPanel users={usersWithStats as any} initialSearch={q || ''} />
       </div>
     </div>
   )
