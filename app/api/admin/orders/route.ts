@@ -7,6 +7,7 @@ import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { requireAdmin } from '@/app/api/admin/_utils'
 import { ORDER_STATUSES, mapOrderStatusToFulfillment } from '@/lib/order-status'
 import { normalizePaymentMethod, normalizePaymentStatus } from '@/lib/orderworks-status'
+import { normalizeContributionType, normalizeReceiptStatus } from '@/lib/community-contributions'
 
 const orderStatusKeys = ORDER_STATUSES.map((entry) => entry.key) as [string, ...string[]]
 
@@ -46,6 +47,12 @@ const payloadSchema = z.object({
   shippingMethod: z.enum(['pickup', 'ship']).optional(),
   shippingAddress: addressSchema.optional(),
   discountPercent: z.number().min(0).max(100).optional(),
+  contributionType: z.string().optional(),
+  donatedAmountCents: z.number().int().min(0).optional(),
+  materialCostCents: z.number().int().min(0).optional(),
+  machineTimeMinutes: z.number().int().min(0).optional(),
+  receiptStatus: z.string().optional(),
+  contributionNotes: z.string().optional(),
   notes: z.string().optional(),
   currency: z.string().min(1).optional(),
   items: z.array(itemSchema).min(1),
@@ -96,6 +103,8 @@ export async function POST(req: NextRequest) {
       ? Math.max(0, Math.round(subtotalCents * (1 - discountPercent / 100)))
       : subtotalCents
     const paymentIntentId = `admin_${randomUUID()}`
+    const contributionType = normalizeContributionType(payload.contributionType)
+    const receiptStatus = normalizeReceiptStatus(payload.receiptStatus)
 
     const order = await prisma.printOrder.create({
       data: {
@@ -110,6 +119,12 @@ export async function POST(req: NextRequest) {
         discountPercent,
         totalCents,
         currency: payload.currency?.toUpperCase() || 'USD',
+        contributionType,
+        donatedAmountCents: typeof payload.donatedAmountCents === 'number' ? payload.donatedAmountCents : undefined,
+        materialCostCents: typeof payload.materialCostCents === 'number' ? payload.materialCostCents : undefined,
+        machineTimeMinutes: typeof payload.machineTimeMinutes === 'number' ? payload.machineTimeMinutes : undefined,
+        receiptStatus,
+        contributionNotes: payload.contributionNotes || undefined,
         notes: payload.notes || undefined,
         metadata: {
           paymentIntentId,

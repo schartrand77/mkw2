@@ -266,9 +266,9 @@ export default function ModelManager() {
             </div>
             <div className="md:col-span-2">
               <select className="input" value={activeModel.visibility} onChange={(e) => updateModel(activeModel.id, { visibility: e.target.value })}>
-                <option value="public">public</option>
-                <option value="unlisted">unlisted</option>
-                <option value="private">private</option>
+                <option value="public">public - Discover and checkout</option>
+                <option value="unlisted">unlisted - direct checkout only</option>
+                <option value="private">private - restricted</option>
               </select>
             </div>
             <div className="md:col-span-2 space-y-2">

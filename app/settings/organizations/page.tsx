@@ -7,6 +7,9 @@ type Org = {
   id: string
   name: string
   slug: string
+  category?: string | null
+  charitableRegistrationNumber?: string | null
+  communityNotes?: string | null
   role: string
   billingEmail?: string | null
   billingContact?: string | null
@@ -35,7 +38,14 @@ export default function OrganizationSettingsPage() {
   const [orgs, setOrgs] = useState<Org[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [createForm, setCreateForm] = useState({ name: '', billingEmail: '', billingContact: '' })
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    category: 'customer',
+    charitableRegistrationNumber: '',
+    communityNotes: '',
+    billingEmail: '',
+    billingContact: '',
+  })
   const [createBusy, setCreateBusy] = useState(false)
   const [activeOrgId, setActiveOrgId] = useState('')
   const [usage, setUsage] = useState<any>(null)
@@ -45,6 +55,9 @@ export default function OrganizationSettingsPage() {
   const [policyBusy, setPolicyBusy] = useState(false)
   const [policyForm, setPolicyForm] = useState({
     name: '',
+    category: 'customer',
+    charitableRegistrationNumber: '',
+    communityNotes: '',
     billingEmail: '',
     billingContact: '',
     quoteApprovalRequired: true,
@@ -92,6 +105,9 @@ export default function OrganizationSettingsPage() {
     if (!activeOrg) return
     setPolicyForm({
       name: activeOrg.name || '',
+      category: activeOrg.category || 'customer',
+      charitableRegistrationNumber: activeOrg.charitableRegistrationNumber || '',
+      communityNotes: activeOrg.communityNotes || '',
       billingEmail: activeOrg.billingEmail || '',
       billingContact: activeOrg.billingContact || '',
       quoteApprovalRequired: activeOrg.quoteApprovalRequired !== false,
@@ -158,7 +174,14 @@ export default function OrganizationSettingsPage() {
       setOrgs(next)
       const createdId = data?.organization?.id
       if (createdId) setActiveOrgId(createdId)
-      setCreateForm({ name: '', billingEmail: '', billingContact: '' })
+      setCreateForm({
+        name: '',
+        category: 'customer',
+        charitableRegistrationNumber: '',
+        communityNotes: '',
+        billingEmail: '',
+        billingContact: '',
+      })
     } catch (err: any) {
       setError(err?.message || 'Unable to create organization.')
     } finally {
@@ -177,6 +200,9 @@ export default function OrganizationSettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: policyForm.name,
+          category: policyForm.category,
+          charitableRegistrationNumber: policyForm.charitableRegistrationNumber,
+          communityNotes: policyForm.communityNotes,
           billingEmail: policyForm.billingEmail,
           billingContact: policyForm.billingContact,
           quoteApprovalRequired: policyForm.quoteApprovalRequired,
@@ -235,8 +261,20 @@ export default function OrganizationSettingsPage() {
         <h2 className="text-lg font-semibold">Create organization</h2>
         <div className="grid md:grid-cols-3 gap-3">
           <input className="input" placeholder="Organization name" value={createForm.name} onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))} />
+          <select className="input" value={createForm.category} onChange={(e) => setCreateForm((prev) => ({ ...prev, category: e.target.value }))}>
+            <option value="customer">Customer</option>
+            <option value="business">Business</option>
+            <option value="school">School</option>
+            <option value="charity">Charity</option>
+            <option value="community">Community</option>
+            <option value="internal">Internal</option>
+          </select>
           <input className="input" placeholder="Billing email" value={createForm.billingEmail} onChange={(e) => setCreateForm((prev) => ({ ...prev, billingEmail: e.target.value }))} />
           <input className="input" placeholder="Billing contact" value={createForm.billingContact} onChange={(e) => setCreateForm((prev) => ({ ...prev, billingContact: e.target.value }))} />
+        </div>
+        <div className="grid md:grid-cols-2 gap-3">
+          <input className="input" placeholder="Charity registration number" value={createForm.charitableRegistrationNumber} onChange={(e) => setCreateForm((prev) => ({ ...prev, charitableRegistrationNumber: e.target.value }))} />
+          <input className="input" placeholder="Community notes" value={createForm.communityNotes} onChange={(e) => setCreateForm((prev) => ({ ...prev, communityNotes: e.target.value }))} />
         </div>
         <button className="btn" disabled={createBusy}>{createBusy ? 'Creating...' : 'Create organization'}</button>
       </form>
@@ -260,6 +298,8 @@ export default function OrganizationSettingsPage() {
         <div className="grid md:grid-cols-2 gap-4">
           <div className="glass rounded-xl border border-white/10 p-4 space-y-2 text-sm">
             <h3 className="text-base font-semibold">Billing & approval policy</h3>
+            <p><span className="text-slate-400">Category:</span> {activeOrg.category || 'customer'}</p>
+            <p><span className="text-slate-400">Charity registration:</span> {activeOrg.charitableRegistrationNumber || 'Not set'}</p>
             <p><span className="text-slate-400">Billing email:</span> {activeOrg.billingEmail || 'Not set'}</p>
             <p><span className="text-slate-400">Billing contact:</span> {activeOrg.billingContact || 'Not set'}</p>
             <p><span className="text-slate-400">Quote approval:</span> {activeOrg.quoteApprovalRequired ? 'Required' : 'Optional'}</p>
@@ -271,12 +311,31 @@ export default function OrganizationSettingsPage() {
             <h3 className="text-base font-semibold">Usage summary (90d)</h3>
             <p><span className="text-slate-400">Orders:</span> {usage?.totals?.orders ?? '--'}</p>
             <p><span className="text-slate-400">Spend:</span> {typeof usage?.totals?.spendCents === 'number' ? formatCurrency(usage.totals.spendCents / 100) : '--'}</p>
+            <p><span className="text-slate-400">Contributed value:</span> {typeof usage?.contributions?.donatedAmountCents === 'number' ? formatCurrency(usage.contributions.donatedAmountCents / 100) : '--'}</p>
+            <p><span className="text-slate-400">Material cost:</span> {typeof usage?.contributions?.materialCostCents === 'number' ? formatCurrency(usage.contributions.materialCostCents / 100) : '--'}</p>
+            <p><span className="text-slate-400">Machine time:</span> {typeof usage?.contributions?.machineTimeMinutes === 'number' ? `${usage.contributions.machineTimeMinutes} min` : '--'}</p>
+            <p><span className="text-slate-400">Receipts:</span> {usage?.contributions?.receiptCounts ? `${usage.contributions.receiptCounts.received || 0} received / ${usage.contributions.receiptCounts.requested || 0} requested` : '--'}</p>
             <p><span className="text-slate-400">Departments tracked:</span> {usage?.procurement?.departments?.length ?? 0}</p>
             <p className="text-xs text-slate-400">Project/material/department breakdown is available via `/api/customer/organizations/{activeOrg.id}/usage`.</p>
           </div>
           <form onSubmit={savePolicy} className="glass rounded-xl border border-white/10 p-4 space-y-3 text-sm">
             <h3 className="text-base font-semibold">Procurement controls</h3>
             <input className="input" value={policyForm.name} onChange={(e) => setPolicyForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Organization name" />
+            <select className="input" value={policyForm.category} onChange={(e) => setPolicyForm((prev) => ({ ...prev, category: e.target.value }))}>
+              <option value="customer">Customer</option>
+              <option value="business">Business</option>
+              <option value="school">School</option>
+              <option value="charity">Charity</option>
+              <option value="community">Community</option>
+              <option value="internal">Internal</option>
+            </select>
+            <input className="input" value={policyForm.charitableRegistrationNumber} onChange={(e) => setPolicyForm((prev) => ({ ...prev, charitableRegistrationNumber: e.target.value }))} placeholder="Charity registration number" />
+            <textarea
+              className="input min-h-[80px]"
+              value={policyForm.communityNotes}
+              onChange={(e) => setPolicyForm((prev) => ({ ...prev, communityNotes: e.target.value }))}
+              placeholder="Community tracking notes"
+            />
             <input className="input" value={policyForm.billingEmail} onChange={(e) => setPolicyForm((prev) => ({ ...prev, billingEmail: e.target.value }))} placeholder="Billing email" />
             <input className="input" value={policyForm.billingContact} onChange={(e) => setPolicyForm((prev) => ({ ...prev, billingContact: e.target.value }))} placeholder="Billing contact" />
             <label className="flex items-center justify-between gap-3">

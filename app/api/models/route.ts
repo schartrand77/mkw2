@@ -5,6 +5,7 @@ import { DiscoverEntityType, DiscoverSort, type ModelWithPartsCountAndTags } fro
 import { getMaterialAvailabilitySnapshot, normalizeAvailabilityMaterialKey } from '@/lib/material-availability'
 import { filterLinkedVariantTemplates } from '@/lib/product-template-variants'
 import { resolveModelPricing } from '@/lib/pricing'
+import { discoverVisibleModelWhere } from '@/lib/model-visibility'
 
 export const dynamic = 'force-dynamic'
 
@@ -150,7 +151,7 @@ export async function GET(req: NextRequest) {
     ? (parsedQuery.scopes.size > 0 ? parsedQuery.scopes : new Set<DiscoverScope>(['models', 'products', 'merch']))
     : new Set<DiscoverScope>(['models'])
 
-  let where: Prisma.ModelWhereInput = { visibility: 'public' }
+  let where: Prisma.ModelWhereInput = discoverVisibleModelWhere()
   if (q) {
     where = {
       ...where,

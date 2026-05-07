@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { getOrganizationMembership, isPrivilegedOrgRole } from '@/lib/organizations'
 import { parseProcurementConfig } from '@/lib/procurement-config'
+import { normalizeOrganizationCategory } from '@/lib/community-contributions'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,6 +41,11 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   const name = typeof body.name === 'string' ? body.name.trim() : null
   const billingEmail = typeof body.billingEmail === 'string' ? body.billingEmail.trim() : null
   const billingContact = typeof body.billingContact === 'string' ? body.billingContact.trim() : null
+  const category = body.category !== undefined ? normalizeOrganizationCategory(body.category) : null
+  const charitableRegistrationNumber = typeof body.charitableRegistrationNumber === 'string'
+    ? body.charitableRegistrationNumber.trim()
+    : null
+  const communityNotes = typeof body.communityNotes === 'string' ? body.communityNotes.trim() : null
   const quoteApprovalRequired = typeof body.quoteApprovalRequired === 'boolean' ? body.quoteApprovalRequired : null
   const requirePoAboveCentsRaw = Number(body.requirePoAboveCents)
   const procurementConfig = body.procurementConfig
@@ -48,6 +54,9 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     where: { id: organizationId },
     data: {
       ...(name ? { name } : {}),
+      ...(category !== null ? { category } : {}),
+      ...(charitableRegistrationNumber !== null ? { charitableRegistrationNumber: charitableRegistrationNumber || null } : {}),
+      ...(communityNotes !== null ? { communityNotes: communityNotes || null } : {}),
       ...(billingEmail !== null ? { billingEmail: billingEmail || null } : {}),
       ...(billingContact !== null ? { billingContact: billingContact || null } : {}),
       ...(quoteApprovalRequired !== null ? { quoteApprovalRequired } : {}),
@@ -62,6 +71,9 @@ export async function PATCH(req: NextRequest, { params }: Context) {
       id: true,
       name: true,
       slug: true,
+      category: true,
+      charitableRegistrationNumber: true,
+      communityNotes: true,
       billingEmail: true,
       billingContact: true,
       quoteApprovalRequired: true,

@@ -645,6 +645,12 @@ model PrintOrder {
   discountPercent Float?
   totalCents      Int
   currency        String   @default("USD")
+  contributionType String   @default("paid")
+  donatedAmountCents Int?
+  materialCostCents Int?
+  machineTimeMinutes Int?
+  receiptStatus   String   @default("none")
+  contributionNotes String?
   notes           String?
   metadata        Json?
   printerId       String?
@@ -669,6 +675,8 @@ model PrintOrder {
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
+  @@index([contributionType])
+  @@index([receiptStatus])
   @@index([stripeCustomerId])
   @@index([paymentStatus])
 }
@@ -689,6 +697,9 @@ model Organization {
   id                       String   @id @default(cuid())
   name                     String
   slug                     String   @unique
+  category                 String   @default("customer")
+  charitableRegistrationNumber String?
+  communityNotes           String?
   billingEmail             String?
   billingContact           String?
   quoteApprovalRequired    Boolean  @default(true)
@@ -703,6 +714,7 @@ model Organization {
   orders  PrintOrder[]
 
   @@index([createdById])
+  @@index([category])
   @@index([name])
 }
 

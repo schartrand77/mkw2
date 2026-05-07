@@ -70,6 +70,12 @@ export default function UserOrderCreator({ userId, userEmail, userName }: Props)
   const [shippingPostal, setShippingPostal] = useState('')
   const [shippingCountry, setShippingCountry] = useState('')
   const [discountPercent, setDiscountPercent] = useState('')
+  const [contributionType, setContributionType] = useState('paid')
+  const [donatedAmount, setDonatedAmount] = useState('')
+  const [materialCost, setMaterialCost] = useState('')
+  const [machineTimeMinutes, setMachineTimeMinutes] = useState('')
+  const [receiptStatus, setReceiptStatus] = useState('none')
+  const [contributionNotes, setContributionNotes] = useState('')
   const [notes, setNotes] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -110,6 +116,12 @@ export default function UserOrderCreator({ userId, userEmail, userName }: Props)
     setShippingPostal('')
     setShippingCountry('')
     setDiscountPercent('')
+    setContributionType('paid')
+    setDonatedAmount('')
+    setMaterialCost('')
+    setMachineTimeMinutes('')
+    setReceiptStatus('none')
+    setContributionNotes('')
     setNotes('')
   }
 
@@ -148,6 +160,14 @@ export default function UserOrderCreator({ userId, userEmail, userName }: Props)
       if (discount != null && (!Number.isFinite(discount) || discount < 0 || discount > 100)) {
         throw new Error('Discount percent must be between 0 and 100.')
       }
+      const donatedAmountCents = toCents(donatedAmount)
+      const materialCostCents = toCents(materialCost)
+      const machineMinutes = machineTimeMinutes.trim() ? Number(machineTimeMinutes) : undefined
+      if (donatedAmount.trim() && donatedAmountCents == null) throw new Error('Donated amount must be a valid amount.')
+      if (materialCost.trim() && materialCostCents == null) throw new Error('Material cost must be a valid amount.')
+      if (machineMinutes != null && (!Number.isFinite(machineMinutes) || machineMinutes < 0)) {
+        throw new Error('Machine time must be a positive number of minutes.')
+      }
 
       if (shippingMethod === 'ship') {
         if (!shippingName.trim() || !shippingLine1.trim() || !shippingCity.trim()) {
@@ -177,6 +197,12 @@ export default function UserOrderCreator({ userId, userEmail, userName }: Props)
             }
             : undefined,
           discountPercent: discount == null ? undefined : discount,
+          contributionType,
+          donatedAmountCents: donatedAmountCents == null ? undefined : donatedAmountCents,
+          materialCostCents: materialCostCents == null ? undefined : materialCostCents,
+          machineTimeMinutes: machineMinutes == null ? undefined : Math.round(machineMinutes),
+          receiptStatus,
+          contributionNotes: contributionNotes.trim() || undefined,
           notes: notes.trim() || undefined,
           items: payloadItems,
         }),
@@ -365,6 +391,91 @@ export default function UserOrderCreator({ userId, userEmail, userName }: Props)
               </div>
             </div>
           ) : null}
+
+          <div className="rounded-lg border border-white/10 bg-black/40 p-3 space-y-3">
+            <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Community contribution</p>
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="space-y-1 text-xs text-slate-400">
+                <span>Contribution type</span>
+                <select
+                  className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-2 text-sm text-white"
+                  value={contributionType}
+                  onChange={(e) => setContributionType(e.target.value)}
+                  disabled={pending}
+                >
+                  <option value="paid">Paid</option>
+                  <option value="discounted">Discounted</option>
+                  <option value="donated">Donated</option>
+                  <option value="cost_only">Cost only</option>
+                  <option value="sponsored">Sponsored</option>
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-400">
+                <span>Receipt status</span>
+                <select
+                  className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-2 text-sm text-white"
+                  value={receiptStatus}
+                  onChange={(e) => setReceiptStatus(e.target.value)}
+                  disabled={pending}
+                >
+                  <option value="none">None</option>
+                  <option value="requested">Requested</option>
+                  <option value="received">Received</option>
+                  <option value="not_eligible">Not eligible</option>
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-slate-400">
+                <span>Machine minutes</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  className="w-full rounded-md border border-white/10 bg-black/40 px-3 py-2 text-sm text-white"
+                  value={machineTimeMinutes}
+                  onChange={(e) => setMachineTimeMinutes(e.target.value)}
+                  placeholder="0"
+                  disabled={pending}
+                />
+              </label>
+              <label className="space-y-1 text-xs text-slate-400">
+                <span>Donated amount</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  className="w-full rounded-md border border-white/10 bg-black/40 px-3 py-2 text-sm text-white"
+                  value={donatedAmount}
+                  onChange={(e) => setDonatedAmount(e.target.value)}
+                  placeholder="0.00"
+                  disabled={pending}
+                />
+              </label>
+              <label className="space-y-1 text-xs text-slate-400">
+                <span>Material cost</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  className="w-full rounded-md border border-white/10 bg-black/40 px-3 py-2 text-sm text-white"
+                  value={materialCost}
+                  onChange={(e) => setMaterialCost(e.target.value)}
+                  placeholder="0.00"
+                  disabled={pending}
+                />
+              </label>
+              <label className="space-y-1 text-xs text-slate-400 md:col-span-3">
+                <span>Contribution notes</span>
+                <textarea
+                  className="w-full rounded-md border border-white/10 bg-black/40 px-3 py-2 text-sm text-white"
+                  rows={2}
+                  value={contributionNotes}
+                  onChange={(e) => setContributionNotes(e.target.value)}
+                  placeholder="Receipt, valuation, or delivery notes"
+                  disabled={pending}
+                />
+              </label>
+            </div>
+          </div>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
