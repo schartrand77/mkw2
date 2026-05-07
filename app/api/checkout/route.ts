@@ -28,6 +28,7 @@ import { buildManufacturabilitySnapshot, renderManufacturabilityReportPdf, type 
 import { getOrganizationMembership, isPrivilegedOrgRole } from '@/lib/organizations'
 import { estimateLeadTimeHours } from '@/lib/lead-time-estimator'
 import { autoSubmitOrderToPrintLab } from '@/lib/printlab-order-submit'
+import { checkoutVisibleModelWhere, checkoutVisiblePartWhere } from '@/lib/model-visibility'
 
 export const dynamic = 'force-dynamic'
 
@@ -185,16 +186,8 @@ async function handlePost(req: NextRequest) {
       || userForCheckout?.role === 'admin'
       || userForCheckout?.role === 'staff',
     )
-    const modelWhere = hasElevatedModelAccess
-      ? { id: { in: ids } }
-      : userId
-        ? { id: { in: ids }, OR: [{ visibility: 'public' }, { userId }] }
-        : { id: { in: ids }, visibility: 'public' }
-    const partWhere = hasElevatedModelAccess
-      ? { id: { in: partIds } }
-      : userId
-        ? { id: { in: partIds }, model: { OR: [{ visibility: 'public' }, { userId }] } }
-        : { id: { in: partIds }, model: { visibility: 'public' } }
+    const modelWhere = checkoutVisibleModelWhere(ids, userId, hasElevatedModelAccess)
+    const partWhere = checkoutVisiblePartWhere(partIds, userId, hasElevatedModelAccess)
     const [models, cfg, parts] = await Promise.all([
       prisma.model.findMany({
         where: modelWhere,
