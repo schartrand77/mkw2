@@ -351,6 +351,13 @@ npm run backup:scheduler
 
 `backup:scheduler` is intended to run as a separate long-lived process/container and uses UTC schedule + retention env vars from `.env`.
 
+### Order Receipt PDFs
+
+MakerWorks generates plain-English transaction PDFs for customer orders under `STORAGE_DIR/orders/{orderId}/receipts/`.
+Customers can download receipts from `/api/customer/orders/{orderId}/receipt`.
+Admins and staff can download or regenerate receipts from `/api/admin/orders/{orderId}/receipt`.
+Receipt generation runs best-effort during checkout, admin order creation, and payment sync; download routes regenerate the PDF on demand.
+
 ## Architecture
 
 - Frontend/API: Next.js App Router + React + TypeScript

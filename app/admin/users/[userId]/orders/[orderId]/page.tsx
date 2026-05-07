@@ -278,6 +278,12 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                 >
                   Print job ticket
                 </Link>
+                <Link
+                  href={`/api/admin/orders/${order.id}/receipt`}
+                  className="text-sm px-3 py-1.5 rounded-md border border-white/10 hover:border-white/30"
+                >
+                  Download receipt PDF
+                </Link>
               </div>
               {lastPrintLabSubmission ? (
                 <p className={`text-xs ${lastPrintLabSubmission.status === 'failed' ? 'text-rose-200' : 'text-emerald-300'}`}>

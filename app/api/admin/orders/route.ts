@@ -8,6 +8,7 @@ import { requireAdmin } from '@/app/api/admin/_utils'
 import { ORDER_STATUSES, mapOrderStatusToFulfillment } from '@/lib/order-status'
 import { normalizePaymentMethod, normalizePaymentStatus } from '@/lib/orderworks-status'
 import { normalizeContributionType, normalizeReceiptStatus } from '@/lib/community-contributions'
+import { generateOrderReceiptBestEffort } from '@/lib/receipts/order-receipts'
 
 const orderStatusKeys = ORDER_STATUSES.map((entry) => entry.key) as [string, ...string[]]
 
@@ -181,6 +182,8 @@ export async function POST(req: NextRequest) {
       jobError = err?.message || 'Failed to queue OrderWorks job.'
       console.error('Admin order queue failed:', err)
     }
+
+    await generateOrderReceiptBestEffort(order.id, 'adminOrderCreate')
 
     return NextResponse.json({ order, jobError })
   } catch (e: any) {

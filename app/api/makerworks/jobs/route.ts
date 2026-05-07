@@ -16,6 +16,7 @@ import {
 } from '@/lib/orderworks-status'
 import { incrementMetric } from '@/lib/observability-metrics'
 import { withRequestObservability } from '@/lib/request-observability'
+import { generateOrderReceiptBestEffort } from '@/lib/receipts/order-receipts'
 
 const webhookPayloadSchema = z.object({
   paymentIntentId: z.string().min(4).max(200),
@@ -187,15 +188,33 @@ async function handlePost(req: NextRequest) {
   }
 
   try {
+    const paymentStatusChanged = paymentStatus !== undefined && job?.paymentStatus !== previousPaymentStatus
+    const paymentMethodChanged = paymentMethod !== undefined && job?.paymentMethod !== previousPaymentMethod
     if (job && job.fulfillmentStatus) {
       await syncOrderStatusFromFulfillment(job.paymentIntentId, job.fulfillmentStatus)
     }
+    let linkedOrderId: string | null = null
     if (job && isPaidPaymentStatus(job.paymentStatus)) {
-      await createOrderFromJobForm(job)
+      const order = await createOrderFromJobForm(job)
+      linkedOrderId = order?.id || null
+    }
+    if (!linkedOrderId && job && (paymentStatusChanged || paymentMethodChanged)) {
+      const linkedOrder = await prisma.printOrder.findFirst({
+        where: {
+          OR: [
+            { stripePaymentIntentId: job.paymentIntentId },
+            { metadata: { path: ['paymentIntentId'], equals: job.paymentIntentId } },
+            { metadata: { path: ['stripe', 'paymentIntentId'], equals: job.paymentIntentId } },
+          ],
+        },
+        select: { id: true },
+      } as any)
+      linkedOrderId = linkedOrder?.id || null
+    }
+    if (linkedOrderId && (created || paymentStatusChanged || paymentMethodChanged)) {
+      await generateOrderReceiptBestEffort(linkedOrderId, 'makerworksJobWebhookPaymentUpdate')
     }
     if (job) {
-      const paymentStatusChanged = paymentStatus !== undefined && job.paymentStatus !== previousPaymentStatus
-      const paymentMethodChanged = paymentMethod !== undefined && job.paymentMethod !== previousPaymentMethod
       if (created || paymentStatusChanged || paymentMethodChanged) {
         const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
         const isPromise = isPaymentPromise(job.paymentMethod, job.paymentStatus)

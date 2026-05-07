@@ -243,6 +243,12 @@ export default async function CustomerOrderDetail({ params }: CustomerOrderDetai
             </div>
             <div className="rounded-xl border border-white/10 p-4 bg-black/20 space-y-3">
               <h2 className="text-lg font-semibold">Actions</h2>
+              <Link
+                href={`/api/customer/orders/${order.id}/receipt`}
+                className="inline-flex text-sm px-3 py-1.5 rounded-md border border-white/10 hover:border-white/30"
+              >
+                Download receipt PDF
+              </Link>
               {reportArtifact ? (
                 <a
                   href={`/api/customer/orders/${order.id}/manufacturability-report`}

@@ -9,6 +9,7 @@ import type { OrderStatus } from '@/lib/order-status'
 import { normalizePaymentMethod as normalizeOrderWorksPaymentMethod } from '@/lib/orderworks-status'
 import { listOrganizationIdsForUser } from '@/lib/organizations'
 import { autoSubmitOrderToPrintLab } from '@/lib/printlab-order-submit'
+import { generateOrderReceiptBestEffort } from '@/lib/receipts/order-receipts'
 
 type PersistOrderPayload = {
   paymentIntentId: string
@@ -136,7 +137,7 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
   const organizationRole = typeof metadataRecord.organizationRole === 'string' ? metadataRecord.organizationRole : null
   const orgRequiresApproval = metadataRecord.quoteApprovalRequired === true
 
-  return prisma.printOrder.create({
+  const order = await prisma.printOrder.create({
     data: {
       paymentMethod: payload.paymentMethod,
       shippingMethod: shippingData.method || 'pickup',
@@ -172,6 +173,8 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
         : {}),
     },
   })
+  await generateOrderReceiptBestEffort(order.id, 'recordCustomerOrder')
+  return order
 }
 
 export type OrderListEntry = PrintOrder & { items: Pick<PrintOrderItem, 'id' | 'modelTitle' | 'quantity' | 'totalCents' | 'thumbnailPath'>[] }

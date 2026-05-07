@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { getStripe } from '@/lib/stripe'
 import { normalizePaymentStatus } from '@/lib/orderworks-status'
+import { generateOrderReceiptBestEffort } from '@/lib/receipts/order-receipts'
 import type { CheckoutLineItem } from '@/types/checkout'
 
 type StripePaymentRecord = {
@@ -351,6 +352,7 @@ export async function syncStripePaymentIntent(paymentIntentId: string, eventType
         metadata: mergeStripePaymentMetadata(order.metadata, record),
       },
     } as any)
+    await generateOrderReceiptBestEffort(order.id, 'syncStripePaymentIntent')
   }
 
   return { intent, updatedOrders: orders.length, paymentStatus }
@@ -411,6 +413,7 @@ export async function syncStripeInvoice(invoiceId: string, eventType?: string | 
         metadata: mergeStripeInvoiceMetadata(order.metadata, record),
       } as any,
     })
+    await generateOrderReceiptBestEffort(order.id, 'syncStripeInvoice')
   }
   return { invoice, updatedOrders: orders.length, paymentStatus }
 }
