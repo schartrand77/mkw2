@@ -75,3 +75,25 @@ test('Unraid web template exposes primary PrintLab integration configuration', a
   assert.match(template, /Target="PRINTLAB_API_KEY"[^>]*Mask="true"/)
   assert.match(template, /Target="PRINTLAB_WEBHOOK_SECRET"[^>]*Mask="true"/)
 })
+
+test('Unraid Redis and worker templates use the shared production queue wiring', async () => {
+  const webTemplate = await readFile('unraid/templates/makerworks-v2.xml', 'utf8')
+  const workerTemplate = await readFile('unraid/templates/makerworks-v2-worker.xml', 'utf8')
+
+  assert.match(webTemplate, /<Network>makerworks-net<\/Network>/)
+  assert.match(workerTemplate, /<Network>makerworks-net<\/Network>/)
+  assert.match(webTemplate, /Target="REDIS_URL"[^>]*>redis:\/\/makerworks-redis:6379<\/Config>/)
+  assert.match(workerTemplate, /Target="REDIS_URL"[^>]*>redis:\/\/makerworks-redis:6379<\/Config>/)
+  assert.match(workerTemplate, /npm run worker:processing/)
+})
+
+test('Unraid web and worker templates share the same storage host path', async () => {
+  const webTemplate = await readFile('unraid/templates/makerworks-v2.xml', 'utf8')
+  const workerTemplate = await readFile('unraid/templates/makerworks-v2-worker.xml', 'utf8')
+
+  const webStorage = webTemplate.match(/<Config Name="Storage"[^>]*>([^<]+)<\/Config>/)?.[1]
+  const workerStorage = workerTemplate.match(/<Config Name="Storage"[^>]*>([^<]+)<\/Config>/)?.[1]
+
+  assert.equal(webStorage, '/mnt/user/makerworks/storage')
+  assert.equal(workerStorage, webStorage)
+})
