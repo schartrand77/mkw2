@@ -37,17 +37,19 @@ const OPTIONAL_CHECKS: Array<{ key: string; label: string; required: boolean; al
   { key: 'ADMIN_PASSWORD', label: 'Admin bootstrap password', required: false },
 ]
 
-function resolveValue(keys: string[]): string | null {
+type EnvSource = Record<string, string | undefined>
+
+function resolveValue(keys: string[], env: EnvSource): string | null {
   for (const key of keys) {
-    const value = process.env[key]
+    const value = env[key]
     if (value && value.trim()) return value
   }
   return null
 }
 
-function buildCheck(entry: { key: string; label: string; required: boolean; alt?: string[] }): Check {
+function buildCheck(entry: { key: string; label: string; required: boolean; alt?: string[] }, env: EnvSource): Check {
   const keys = [entry.key, ...(entry.alt || [])]
-  const value = resolveValue(keys)
+  const value = resolveValue(keys, env)
   let detail = value ? null : `Missing ${entry.key}${entry.alt?.length ? ` (or ${entry.alt.join(', ')})` : ''}`
   let ok = Boolean(value)
 
@@ -70,9 +72,17 @@ function buildCheck(entry: { key: string; label: string; required: boolean; alt?
   }
 }
 
+export function buildEnvChecks(env: EnvSource = process.env): Check[] {
+  const requiredChecks = REQUIRED_CHECKS.map((entry) => buildCheck(entry, env))
+  const optionalChecks = OPTIONAL_CHECKS
+    .filter((entry) => resolveValue([entry.key, ...(entry.alt || [])], env))
+    .map((entry) => buildCheck(entry, env))
+  return [...requiredChecks, ...optionalChecks]
+}
+
 async function handleGet() {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
-  const checks = [...REQUIRED_CHECKS, ...OPTIONAL_CHECKS].map(buildCheck)
+  const checks = buildEnvChecks()
   const requiredOk = checks.filter((c) => c.required).every((c) => c.ok)
   return NextResponse.json({ ok: requiredOk, checks })
 }
