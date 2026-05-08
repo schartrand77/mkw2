@@ -44,7 +44,7 @@ const payloadSchema = z.object({
   customerName: z.string().optional(),
   customerEmail: z.string().email().optional(),
   status: z.enum(orderStatusKeys).optional(),
-  paymentMethod: z.enum(['card', 'cash', 'invoice', 'po', 'quote']).optional(),
+  paymentMethod: z.enum(['card', 'cash', 'invoice', 'po', 'quote', 'comped']).optional(),
   shippingMethod: z.enum(['pickup', 'ship']).optional(),
   shippingAddress: addressSchema.optional(),
   discountPercent: z.number().min(0).max(100).optional(),
@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
     const paymentIntentId = `admin_${randomUUID()}`
     const contributionType = normalizeContributionType(payload.contributionType)
     const receiptStatus = normalizeReceiptStatus(payload.receiptStatus)
+    const paymentMethod = payload.paymentMethod ?? (totalCents === 0 ? 'comped' : 'cash')
 
     const order = await prisma.printOrder.create({
       data: {
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest) {
         customerEmail: payload.customerEmail || user.email || undefined,
         customerName: payload.customerName || user.name || undefined,
         status: payload.status ?? 'queued',
-        paymentMethod: payload.paymentMethod ?? 'cash',
+        paymentMethod,
         shippingMethod: payload.shippingMethod ?? 'pickup',
         shippingAddress: payload.shippingMethod === 'ship' ? payload.shippingAddress : undefined,
         subtotalCents,
@@ -174,8 +175,8 @@ export async function POST(req: NextRequest) {
           adminCreatedAt: new Date().toISOString(),
           adminCreatedBy: adminId,
         },
-        paymentMethod: normalizePaymentMethod(payload.paymentMethod ?? 'cash') ?? 'cash',
-        paymentStatus: normalizePaymentStatus(payload.paymentMethod === 'quote' ? 'quote' : 'pending') ?? 'pending',
+        paymentMethod: normalizePaymentMethod(paymentMethod) ?? paymentMethod,
+        paymentStatus: normalizePaymentStatus(paymentMethod === 'quote' ? 'quote' : paymentMethod === 'comped' ? 'free' : 'pending') ?? 'pending',
         fulfillmentStatus: mapOrderStatusToFulfillment(order.status),
       })
     } catch (err: any) {

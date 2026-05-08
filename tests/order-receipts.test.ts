@@ -20,6 +20,7 @@ test('classifies deferred payment methods as acknowledgements', () => {
 
 test('classifies contribution and free orders before normal payment methods', () => {
   assert.equal(classifyReceiptDocument({ paymentMethod: 'cash', paymentStatus: 'pending', totalCents: 0 }).kind, 'complimentary_receipt')
+  assert.equal(classifyReceiptDocument({ paymentMethod: 'comped', paymentStatus: 'free', totalCents: 2500 }).kind, 'complimentary_receipt')
   assert.equal(classifyReceiptDocument({ paymentMethod: 'cash', paymentStatus: 'pending', totalCents: 2500, contributionType: 'donated' }).kind, 'community_contribution')
   assert.equal(classifyReceiptDocument({ paymentMethod: 'card', paymentStatus: 'paid', totalCents: 2500, contributionType: 'discounted' }).kind, 'community_contribution')
 })
@@ -171,6 +172,43 @@ test('receipt PDF text model uses plain-English labels', () => {
   assert.match(visibleText, /Payment method: Card/)
   assert.match(visibleText, /Payment status: Paid/)
   assert.doesNotMatch(visibleText, /paymentIntentId|stripePaymentIntentId|receiptStatus|metadata|machineTimeMinutes/)
+})
+
+test('receipt PDF text describes comped payment without cash wording', () => {
+  const lines = buildReceiptPdfLines({
+    orderId: 'order_1',
+    orderNumber: 'MW-00042',
+    title: 'Complimentary Order Receipt',
+    kind: 'complimentary_receipt',
+    generatedAt: '2026-05-02T12:00:00.000Z',
+    issuedAt: '2026-05-01T12:00:00.000Z',
+    customerName: 'Turtles Kingston',
+    customerEmail: '',
+    organizationName: 'Turtles Kingston',
+    currency: 'CAD',
+    subtotalCents: 5000,
+    discountPercent: 100,
+    totalCents: 0,
+    refundedCents: 0,
+    netPaidCents: 0,
+    paymentMethod: 'comped',
+    paymentStatus: 'free',
+    processorReference: null,
+    purchaseOrderNumber: null,
+    billingEmail: null,
+    billingContact: null,
+    contributionType: 'paid',
+    donatedAmountCents: 0,
+    materialCostCents: 0,
+    machineTimeMinutes: null,
+    contributionNotes: null,
+    shippingSummary: 'Pickup',
+    items: [],
+    notes: [],
+  }).join('\n')
+
+  assert.match(lines, /Payment method: No-charge contribution/)
+  assert.doesNotMatch(lines, /Cash at pickup/)
 })
 
 test('uses stable storage path for generated order receipt PDF', () => {

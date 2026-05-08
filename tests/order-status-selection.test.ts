@@ -11,6 +11,14 @@ test('cash pickup orders enter the production queue while payment remains pendin
   }), 'queued')
 })
 
+test('comped orders enter the production queue without payment collection', () => {
+  assert.equal(resolveInitialOrderStatus({
+    amountCents: 0,
+    paymentMethod: 'comped',
+    shipping: { method: 'pickup' },
+  }), 'queued')
+})
+
 test('invoiced and quoted orders still wait for their approval gates', () => {
   assert.equal(resolveInitialOrderStatus({
     amountCents: 1496,

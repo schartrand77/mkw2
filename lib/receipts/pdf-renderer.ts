@@ -20,6 +20,7 @@ function humanPaymentMethod(value: string) {
   if (key === 'invoice') return 'Invoice'
   if (key === 'po') return 'Purchase order'
   if (key === 'quote') return 'Quote request'
+  if (key === 'comped') return 'No-charge contribution'
   return 'Payment'
 }
 

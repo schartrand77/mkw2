@@ -74,7 +74,7 @@ const itemSchema = z.object({
 const payloadSchema = z.object({
   items: z.array(itemSchema).min(1),
   shipping: shippingSchema,
-  paymentMethod: z.enum(['card', 'paypal', 'cash', 'invoice', 'po', 'quote']).default('card'),
+  paymentMethod: z.enum(['card', 'paypal', 'cash', 'invoice', 'po', 'quote', 'comped']).default('card'),
   rush: z.boolean().optional(),
   commit: z.boolean().optional(),
   paymentIntentId: z.string().max(200).optional(),
@@ -132,7 +132,7 @@ async function handlePost(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid cart payload' }, { status: 400 })
     }
 
-    const paymentMethod = parsed.data.paymentMethod || 'card'
+    let paymentMethod = parsed.data.paymentMethod || 'card'
     const commit = Boolean(parsed.data.commit)
     if (commit) {
       incrementMetric('checkout_committed_total')
@@ -501,6 +501,12 @@ async function handlePost(req: NextRequest) {
     const currencyCode = getCurrency().toUpperCase() as Currency
     const currency = currencyCode.toLowerCase()
     const isAdminFreeCheckout = isAdmin
+    if (paymentMethod === 'comped' && !isAdminFreeCheckout) {
+      return NextResponse.json({ error: 'No-charge contribution checkout is only available to admins.' }, { status: 403 })
+    }
+    if (isAdminFreeCheckout) {
+      paymentMethod = 'comped'
+    }
     const minimumOrderSubtotal = cfg?.minimumOrderSubtotalUsd != null && Number.isFinite(Number(cfg.minimumOrderSubtotalUsd))
       ? Number(cfg.minimumOrderSubtotalUsd)
       : null
@@ -662,7 +668,7 @@ async function handlePost(req: NextRequest) {
       paymentIntentId = `${paymentMethod}_preview_${randomUUID()}`
     } else {
       paymentIntentId = paymentIntentId || `${paymentMethod}_${randomUUID()}`
-      finalizedPaymentStatus = paymentMethod === 'quote' ? 'quote' : 'pending'
+      finalizedPaymentStatus = paymentMethod === 'quote' ? 'quote' : paymentMethod === 'comped' ? 'free' : 'pending'
     }
 
     if (commit) {

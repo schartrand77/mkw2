@@ -39,6 +39,7 @@ type InitialOrderStatusInput = {
 export function resolveInitialOrderStatus({ amountCents, paymentMethod, shipping }: InitialOrderStatusInput): OrderStatus {
   if (amountCents <= 0) return 'queued'
   if (paymentMethod === 'quote') return 'awaiting_review'
+  if (paymentMethod === 'comped') return 'queued'
   if (paymentMethod === 'cash') {
     return shipping.method === 'pickup' ? 'queued' : 'awaiting_payment'
   }
@@ -64,7 +65,7 @@ function normalizeShippingSelection(raw: unknown): ShippingSelection {
 
 function normalizePaymentMethod(raw?: string | null): CheckoutPaymentMethod {
   const normalized = normalizeOrderWorksPaymentMethod(raw)
-  if (normalized === 'paypal' || normalized === 'cash' || normalized === 'invoice' || normalized === 'po' || normalized === 'quote') {
+  if (normalized === 'paypal' || normalized === 'cash' || normalized === 'invoice' || normalized === 'po' || normalized === 'quote' || normalized === 'comped') {
     return normalized
   }
   return 'card'

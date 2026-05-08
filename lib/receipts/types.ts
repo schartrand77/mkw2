@@ -37,6 +37,7 @@ export function classifyReceiptDocument(input: ReceiptClassificationInput): Rece
   if (totalCents === 0) {
     return { kind: 'complimentary_receipt', title: 'Complimentary Order Receipt', refunded }
   }
+  if (method === 'comped') return { kind: 'complimentary_receipt', title: 'Complimentary Order Receipt', refunded }
   if (method === 'cash') return { kind: 'cash_receipt', title: 'Cash Pickup Receipt', refunded }
   if (method === 'invoice') return { kind: 'invoice_acknowledgement', title: 'Invoice Acknowledgement', refunded }
   if (method === 'po') return { kind: 'purchase_order_acknowledgement', title: 'Purchase Order Acknowledgement', refunded }
