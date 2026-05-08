@@ -13,7 +13,6 @@ import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { getColorMultiplier, normalizeColors, normalizeMaterialName, resolveScaleFromDimensions, type MaterialType, MAX_CART_COLORS } from '@/lib/cartPricing'
 import { buildAllowedColorTokenSet, isColorAllowed, normalizeModelColorSlotCount } from '@/lib/color-constraints'
 import { isColorAvailableForMaterial, type FilamentPaletteResponse } from '@/lib/filament-palette-validation'
-import { recordOrderWorksJob } from '@/lib/orderworks'
 import { summarizeDiscount } from '@/lib/discounts'
 import { recordCustomerOrder } from '@/lib/orders'
 import { consumeProductTemplateInventoryOnCheckout } from '@/lib/stockworks-product-consumption'
@@ -504,7 +503,7 @@ async function handlePost(req: NextRequest) {
     if (paymentMethod === 'comped' && !isAdminFreeCheckout) {
       return NextResponse.json({ error: 'No-charge contribution checkout is only available to admins.' }, { status: 403 })
     }
-    if (isAdminFreeCheckout) {
+    if (isAdminFreeCheckout && paymentMethod === 'card') {
       paymentMethod = 'comped'
     }
     const minimumOrderSubtotal = cfg?.minimumOrderSubtotalUsd != null && Number.isFinite(Number(cfg.minimumOrderSubtotalUsd))
@@ -678,59 +677,6 @@ async function handlePost(req: NextRequest) {
         console.error('Failed to consume StockWorks product inventory', stockErr)
         return NextResponse.json(
           { error: 'Failed to update product inventory in StockWorks. Please retry checkout.' },
-          { status: 502 },
-        )
-      }
-      try {
-        await recordOrderWorksJob({
-          paymentIntentId: paymentIntentId!,
-          amountCents: amount,
-          currency: currencyCode,
-          lineItems,
-          shipping: shippingPayload,
-          userId,
-          customerEmail,
-          metadata: {
-            cartItems: items,
-            shipping,
-            paymentMethod,
-            rush,
-            organizationId: organizationMembership?.organization.id || null,
-            organizationName: organizationMembership?.organization.name || null,
-            organizationRole: orgRole,
-            projectCode: projectCode || null,
-            departmentCode: departmentCode || null,
-            quoteApprovalRequired: orgRequiresApproval,
-            demandSurgeMultiplier: pricingAdjustments.demandSurgeMultiplier,
-            rushMultiplier: pricingAdjustments.rushMultiplier,
-            paymentDetails,
-            adminFreeCheckout: isAdminFreeCheckout,
-            estimatedTotalCents,
-            stripe: {
-              paymentIntentId,
-              customerId: stripeCustomerId,
-              chargeId: stripeChargeId,
-              receiptUrl: stripeReceiptUrl,
-              paymentStatus: finalizedPaymentStatus,
-            },
-            paypal: paymentMethod === 'paypal'
-              ? {
-                orderId: paymentIntentId,
-                captureId: paypalCaptureId,
-                paymentStatus: finalizedPaymentStatus,
-              }
-              : undefined,
-          },
-          paymentMethod,
-          paymentStatus: finalizedPaymentStatus || (paymentMethod === 'cash' ? 'pending' : null),
-          fulfillmentStatus: 'pending',
-        })
-      } catch (jobErr) {
-        console.error('Failed to record OrderWorks job', jobErr)
-        return NextResponse.json(
-          {
-            error: 'Failed to submit the job to OrderWorks. Please try again once the connection is restored.',
-          },
           { status: 502 },
         )
       }
@@ -919,8 +865,9 @@ async function handlePost(req: NextRequest) {
         }
         const totalLabel = formatCurrency(amount / 100, currencyCode as Currency)
         const orderUrl = order && publicBaseUrl ? `${publicBaseUrl}/customer/orders/${order.id}` : undefined
+        const adminOrderUrl = order && userId && publicBaseUrl ? `${publicBaseUrl}/admin/users/${userId}/orders/${order.id}` : undefined
         await sendAdminDiscordNotification({
-          title: isAdminFreeCheckout ? 'New admin free order' : paymentMethod === 'cash' ? 'New cash order' : 'New paid order',
+          title: paymentMethod === 'comped' ? 'New no-charge order' : paymentMethod === 'cash' ? 'New cash order' : 'New paid order',
           body: [
             `Total: ${totalLabel}`,
             `Fulfillment: ${shippingPayload.method === 'pickup' ? 'pickup' : 'ship'}`,
@@ -928,7 +875,7 @@ async function handlePost(req: NextRequest) {
             customerName ? `Customer: ${customerName}` : null,
             customerEmail ? `Email: ${customerEmail}` : null,
             itemLines.length ? `Items: ${itemLines.join(', ')}` : null,
-            orderUrl || null,
+            adminOrderUrl || orderUrl || null,
           ],
           meta: {
             orderId: order?.id,
@@ -943,10 +890,13 @@ async function handlePost(req: NextRequest) {
         const totalLabel = formatCurrency(amount / 100, currencyCode as Currency)
         const isPromise = isPaymentPromise(paymentMethod, finalizedPaymentStatus)
         const baseUrl = publicBaseUrl || (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '')
+        const notificationUrl = order && userId
+          ? `${baseUrl}/admin/users/${userId}/orders/${order.id}`
+          : `${baseUrl}/admin`
         await sendAdminPushNotification({
-          title: isPromise ? 'Payment promise received' : 'Payment received',
+          title: paymentMethod === 'comped' ? 'No-charge order received' : isPromise ? 'Payment promise received' : 'Payment received',
           body: `${totalLabel} - ${shippingPayload.method === 'pickup' ? 'pickup' : 'ship'}`,
-          url: `${baseUrl}/admin/jobs`,
+          url: notificationUrl,
           tag: `payment:${paymentIntentId}`,
           data: { paymentIntentId, paymentMethod, paymentStatus: finalizedPaymentStatus || undefined },
         })

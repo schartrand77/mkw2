@@ -38,7 +38,7 @@ type ProfileResponse = {
     shippingPostal?: string | null
     shippingCountry?: string | null
   }
-  user: { name?: string | null, email: string }
+  user: { name?: string | null, email: string, isAdmin?: boolean, role?: string | null }
 }
 
 type StockworksWarning = {
@@ -405,7 +405,7 @@ export default function CheckoutPage() {
         message: `Confirmation: ${pi.id}`,
       })
     } catch (err: any) {
-      console.error('Payment succeeded but OrderWorks job failed', err)
+      console.error('Payment succeeded but order finalization failed', err)
       const msg = err?.message || 'Payment completed but we could not queue your job. Contact support.'
       setError(msg)
       pushSessionNotification({ type: 'error', title: 'Order finalization failed', message: msg })
@@ -451,8 +451,8 @@ export default function CheckoutPage() {
       setSuccessIntent(null)
       setIntent(null)
       clear()
-      const label = data.adminFreeCheckout
-        ? 'Admin free order placed'
+      const label = data.adminFreeCheckout || paymentMethod === 'comped'
+        ? 'No-charge order placed'
         : paymentMethod === 'cash'
         ? 'Cash order placed'
         : paymentMethod === 'paypal'
@@ -492,8 +492,16 @@ export default function CheckoutPage() {
   const isInvoicePayment = paymentMethod === 'invoice'
   const isPoPayment = paymentMethod === 'po'
   const isQuotePayment = paymentMethod === 'quote'
+  const isCompedPayment = paymentMethod === 'comped'
   const isDeferredPayment = paymentMethod !== 'card' && paymentMethod !== 'paypal'
   const isAdminFreeCheckout = Boolean(intent?.adminFreeCheckout)
+  const canUseCompedPayment = Boolean(profile?.user?.isAdmin || profile?.user?.role === 'admin' || profile?.user?.role === 'staff')
+
+  useEffect(() => {
+    if (canUseCompedPayment && (paymentMethod === 'card' || paymentMethod === 'cash')) {
+      setPaymentMethod('comped')
+    }
+  }, [canUseCompedPayment, paymentMethod])
   const trustBadgeProviders = !isAdminFreeCheckout
     ? paymentMethod === 'card' && cardPaymentAvailable
       ? (applePayAvailable ? ['Stripe', 'Apple Pay'] : ['Stripe'])
@@ -507,6 +515,8 @@ export default function CheckoutPage() {
     ? 'No card details are required for cash orders.'
     : paymentMethod === 'paypal'
     ? 'PayPal processes your payment securely before the order enters production.'
+    : paymentMethod === 'comped'
+    ? 'No payment will be collected. Use this for donated, sponsored, or complimentary work.'
     : paymentMethod === 'invoice'
       ? 'We will invoice you before production begins.'
       : paymentMethod === 'po'
@@ -780,6 +790,19 @@ export default function CheckoutPage() {
               />
               Pay cash at pickup
             </label>
+            {canUseCompedPayment && (
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="payment"
+                  value="comped"
+                  checked={paymentMethod === 'comped'}
+                  onChange={() => setPaymentMethod('comped')}
+                  disabled={Boolean(selectedOrganization?.quoteApprovalRequired && selectedOrganization.role === 'requester')}
+                />
+                No-charge contribution
+              </label>
+            )}
             <label className="flex items-center gap-2">
               <input
                 type="radio"
@@ -871,6 +894,11 @@ export default function CheckoutPage() {
                   />
                 </>
               )}
+              {isCompedPayment && (
+                <p className="text-xs text-slate-300">
+                  Use this for donated, sponsored, or complimentary production work. No payment will be collected.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -940,6 +968,8 @@ export default function CheckoutPage() {
                   ? 'Payment received!'
                 : paymentMethod === 'cash'
                   ? 'Cash order placed!'
+                  : paymentMethod === 'comped'
+                    ? 'No-charge order placed!'
                   : paymentMethod === 'invoice'
                     ? 'Invoice request sent!'
                     : paymentMethod === 'po'
@@ -1025,6 +1055,8 @@ export default function CheckoutPage() {
             <p>
               {paymentMethod === 'cash'
                 ? `Bring exact cash to ${BRAND_LAB_NAME} when you pick up your order.`
+                : paymentMethod === 'comped'
+                  ? 'No payment will be collected. Confirm to send this no-charge contribution to the queue.'
                 : paymentMethod === 'invoice'
                   ? 'We will review your request and send an invoice before production.'
                   : paymentMethod === 'po'
@@ -1041,6 +1073,8 @@ export default function CheckoutPage() {
                 ? 'Submitting...'
                 : paymentMethod === 'cash'
                   ? 'Confirm cash order'
+                  : paymentMethod === 'comped'
+                    ? 'Confirm no-charge order'
                   : paymentMethod === 'invoice'
                     ? 'Submit invoice request'
                     : paymentMethod === 'po'

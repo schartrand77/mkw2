@@ -14,7 +14,7 @@ export async function GET() {
   const userId = await getUserIdFromCookie()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const profile = await ensureUserPage(userId)
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true } })
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true, isAdmin: true, role: true } })
   return NextResponse.json({ profile, user })
 }
 
@@ -124,12 +124,12 @@ export async function PATCH(req: NextRequest) {
   if (Object.keys(updatesUser).length === 0 && Object.keys(updatesProfile).length === 0) {
     // Nothing to update
     const fresh = await prisma.profile.findUnique({ where: { userId } })
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true } })
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true, isAdmin: true, role: true } })
     return NextResponse.json({ profile: fresh, user })
   }
 
   const [user, profile] = await prisma.$transaction([
-    Object.keys(updatesUser).length ? prisma.user.update({ where: { id: userId }, data: updatesUser, select: { id: true, email: true, name: true } }) : prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true } }) as any,
+    Object.keys(updatesUser).length ? prisma.user.update({ where: { id: userId }, data: updatesUser, select: { id: true, email: true, name: true, isAdmin: true, role: true } }) : prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true, isAdmin: true, role: true } }) as any,
     Object.keys(updatesProfile).length ? prisma.profile.update({ where: { userId }, data: updatesProfile }) : prisma.profile.findUnique({ where: { userId } }) as any,
   ])
   try { await refreshUserAchievements(prisma, userId) } catch {}

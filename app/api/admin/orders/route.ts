@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
-import { recordOrderWorksJob } from '@/lib/orderworks'
 import { randomUUID } from 'crypto'
-import type { CheckoutLineItem, ShippingSelection } from '@/types/checkout'
 import { requireAdmin } from '@/app/api/admin/_utils'
-import { ORDER_STATUSES, mapOrderStatusToFulfillment } from '@/lib/order-status'
-import { normalizePaymentMethod, normalizePaymentStatus } from '@/lib/orderworks-status'
+import { ORDER_STATUSES } from '@/lib/order-status'
 import { normalizeContributionType, normalizeReceiptStatus } from '@/lib/community-contributions'
 import { generateOrderReceiptBestEffort } from '@/lib/receipts/order-receipts'
 
@@ -138,55 +135,9 @@ export async function POST(req: NextRequest) {
       select: { id: true, orderNumber: true, status: true },
     })
 
-    const shippingPayload: ShippingSelection | undefined = payload.shippingMethod === 'ship'
-      ? { method: 'ship', address: payload.shippingAddress }
-      : { method: 'pickup' }
-    const lineItems: CheckoutLineItem[] = items.map((item, index) => ({
-      modelId: item.modelId || `manual-${order.id}-${index + 1}`,
-      partId: item.partId || undefined,
-      partName: item.partName || undefined,
-      title: item.modelTitle,
-      qty: item.quantity,
-      scale: 1,
-      unitPrice: Number((item.unitPriceCents / 100).toFixed(2)),
-      lineTotal: Number((item.totalCents / 100).toFixed(2)),
-      material: item.material,
-      colors: Array.isArray(item.colors) ? item.colors as string[] : undefined,
-      finish: item.finish || undefined,
-      infillPct: item.infillPct ?? undefined,
-      customText: item.customNotes || undefined,
-      storagePath: item.viewerPath ?? undefined,
-      thumbnailPath: item.thumbnailPath ?? undefined,
-    }))
-
-    let jobError: string | null = null
-    try {
-      await recordOrderWorksJob({
-        paymentIntentId,
-        amountCents: totalCents,
-        currency: payload.currency?.toUpperCase() || 'USD',
-        lineItems,
-        shipping: shippingPayload,
-        userId: user.id,
-        customerEmail: payload.customerEmail || user.email || undefined,
-        metadata: {
-          orderId: order.id,
-          orderNumber: order.orderNumber ?? undefined,
-          adminCreatedAt: new Date().toISOString(),
-          adminCreatedBy: adminId,
-        },
-        paymentMethod: normalizePaymentMethod(paymentMethod) ?? paymentMethod,
-        paymentStatus: normalizePaymentStatus(paymentMethod === 'quote' ? 'quote' : paymentMethod === 'comped' ? 'free' : 'pending') ?? 'pending',
-        fulfillmentStatus: mapOrderStatusToFulfillment(order.status),
-      })
-    } catch (err: any) {
-      jobError = err?.message || 'Failed to queue OrderWorks job.'
-      console.error('Admin order queue failed:', err)
-    }
-
     await generateOrderReceiptBestEffort(order.id, 'adminOrderCreate')
 
-    return NextResponse.json({ order, jobError })
+    return NextResponse.json({ order })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Invalid request.' }, { status: 400 })
   }
