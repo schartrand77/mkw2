@@ -23,6 +23,7 @@ import { enqueueImageProcessing, enqueuePreviewProcessing } from '@/lib/processi
 import { scaleStatsToTargetDimensions } from '@/lib/model-dimensions'
 import { isSupportedModelFile, needsModelPreviewConversion } from '@/lib/model-files'
 import { getAllowedUploadOrigins, isLanRequestHost, readUploadByteEnv } from '@/lib/upload-config'
+import { canChooseUploadVisibility, resolveUploadVisibility } from '@/lib/upload-visibility'
 
 type UploadLimits = {
   fileSize: number | null
@@ -343,7 +344,7 @@ export async function POST(req: NextRequest) {
     const userId = uidFromCookie || (await ensureAnonymousUser())
     const uploader = await prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true, name: true, profile: { select: { slug: true } } },
+      select: { email: true, name: true, isAdmin: true, role: true, profile: { select: { slug: true } } },
     })
 
     const parsed = await parseMultipartUpload(req, userId, getUploadLimitsForRequest(req))
@@ -353,6 +354,10 @@ export async function POST(req: NextRequest) {
     const creditName = String(parsed.fields.creditName || '').slice(0, 200) || null
     const creditUrl = String(parsed.fields.creditUrl || '').slice(0, 500) || null
     const material = String(parsed.fields.material || 'PLA').slice(0, 40)
+    const visibility = resolveUploadVisibility(
+      parsed.fields.visibility,
+      canChooseUploadVisibility(uploader),
+    )
     const tagsRaw = String(parsed.fields.tags || '')
     const parsePositive = (value: string | undefined) => {
       if (!value) return null
@@ -556,6 +561,7 @@ export async function POST(req: NextRequest) {
         description,
         creditName: creditName || undefined,
         creditUrl: creditUrl || undefined,
+        visibility,
         material,
         filePath: firstPath!,
         viewerFilePath: firstViewerPath || firstPath!,

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
 import { MODEL_ACCEPT_ATTRIBUTE, MODEL_FILE_LABEL } from '@/lib/model-files'
 import { MATERIAL_OPTIONS, normalizeMaterialName } from '@/lib/cartPricing'
+import { UPLOAD_VISIBILITIES, type UploadVisibility } from '@/lib/upload-visibility'
 
 async function notify(payload: { type: 'success' | 'error' | 'info'; title?: string; message: string }) {
   try {
@@ -41,16 +42,19 @@ export default function UploadForm({
   directUploadUrl,
   maxFileBytes,
   maxTotalBytes,
+  canChooseVisibility = false,
 }: {
   directUploadUrl?: string | null
   maxFileBytes: number | null
   maxTotalBytes: number | null
+  canChooseVisibility?: boolean
 }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [creditName, setCreditName] = useState('')
   const [creditUrl, setCreditUrl] = useState('')
   const [material, setMaterial] = useState('PLA')
+  const [visibility, setVisibility] = useState<UploadVisibility>('public')
   const [sizeXmm, setSizeXmm] = useState('')
   const [sizeYmm, setSizeYmm] = useState('')
   const [sizeZmm, setSizeZmm] = useState('')
@@ -109,6 +113,7 @@ export default function UploadForm({
       fd.append('description', description)
       fd.append('material', material)
       fd.append('tags', tags)
+      if (canChooseVisibility) fd.append('visibility', visibility)
       if (sizeXmm) fd.append('sizeXmm', sizeXmm)
       if (sizeYmm) fd.append('sizeYmm', sizeYmm)
       if (sizeZmm) fd.append('sizeZmm', sizeZmm)
@@ -201,6 +206,20 @@ export default function UploadForm({
             ))}
           </select>
         </div>
+        {canChooseVisibility && (
+          <div>
+            <label className="block text-sm mb-1">Visibility</label>
+            <select
+              className="input"
+              value={visibility}
+              onChange={(e) => setVisibility(e.target.value as UploadVisibility)}
+            >
+              {UPLOAD_VISIBILITIES.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-sm mb-1">Target size (mm, optional)</label>
           <div className="grid grid-cols-3 gap-2">
