@@ -37,6 +37,16 @@ type OrderQueueEntry = {
   createdAt: Date
   customerName?: string | null
   customerEmail?: string | null
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  totalCents?: number | null
+  currency?: string | null
+  contributionType?: string | null
+  donatedAmountCents?: number | null
+  receiptStatus?: string | null
+  contributionNotes?: string | null
+  lineItems?: ProductionLineItemSummary[]
+  lastPrintLabSubmission?: PrintLabSubmissionSummary | null
   paymentIntentId?: string | null
   orderWorksStatus?: string | null
   orderWorksLastError?: string | null
@@ -49,6 +59,20 @@ type OrderQueueEntry = {
   estimatedCompletionAt: Date | null
   etaConfidenceScore: number | null
   milestones?: ProductionMilestone[]
+}
+
+export type ProductionLineItemSummary = {
+  modelTitle: string
+  material: string | null
+  quantity: number
+  totalCents: number
+}
+
+export type PrintLabSubmissionSummary = {
+  status: string | null
+  printerName: string | null
+  printLabJobId: string | null
+  error: string | null
 }
 
 export type ProductionMilestone = {
@@ -82,6 +106,53 @@ function clamp(value: number, min: number, max: number) {
 function asRecord(value: unknown): Record<string, any> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   return value as Record<string, any>
+}
+
+function readString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+export function formatProductionMoney(cents?: number | null, currency?: string | null) {
+  const amount = Math.max(0, Number.isFinite(Number(cents)) ? Number(cents) : 0) / 100
+  const code = (currency || 'USD').toUpperCase()
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(amount)
+  } catch {
+    return `${code} ${amount.toFixed(2)}`
+  }
+}
+
+export function describeProductionContribution(order: {
+  contributionType?: string | null
+  paymentMethod?: string | null
+  donatedAmountCents?: number | null
+  totalCents?: number | null
+  currency?: string | null
+}) {
+  const type = String(order.contributionType || 'paid').trim().toLowerCase()
+  const valueCents = typeof order.donatedAmountCents === 'number' ? order.donatedAmountCents : order.totalCents
+  const value = formatProductionMoney(valueCents, order.currency)
+  if (type === 'paid' && (String(order.paymentMethod || '').trim().toLowerCase() === 'comped' || Number(order.totalCents) === 0)) {
+    return `No-charge contribution: ${value}`
+  }
+  if (type === 'paid') return null
+  if (type === 'donated') return `Donated production work: ${value}`
+  if (type === 'discounted') return `Discounted community work: ${value}`
+  if (type === 'cost_only') return `Cost-only production: ${value}`
+  if (type === 'sponsored') return `Sponsored production: ${value}`
+  return `Community contribution: ${value}`
+}
+
+export function extractPrintLabSubmissionSummary(metadata: unknown): PrintLabSubmissionSummary | null {
+  const record = asRecord(metadata)
+  const submission = asRecord(record?.lastPrintLabSubmission)
+  if (!submission) return null
+  return {
+    status: readString(submission.status),
+    printerName: readString(submission.printerName),
+    printLabJobId: readString(submission.printLabJobId),
+    error: readString(submission.error),
+  }
 }
 
 function parseDateValue(value: unknown): Date | null {
@@ -377,6 +448,14 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
       createdAt: true,
       customerName: includeCustomer ? true : false,
       customerEmail: includeCustomer ? true : false,
+      paymentMethod: true,
+      paymentStatus: true,
+      totalCents: true,
+      currency: true,
+      contributionType: true,
+      donatedAmountCents: true,
+      receiptStatus: true,
+      contributionNotes: true,
       metadata: true,
       printerId: true,
       printer: { select: { id: true, name: true } },
@@ -390,6 +469,8 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
           infillPct: true,
           finish: true,
           quantity: true,
+          modelTitle: true,
+          totalCents: true,
         },
       },
     },
@@ -469,6 +550,21 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
         createdAt: order.createdAt,
         customerName: includeCustomer ? (order as any).customerName : undefined,
         customerEmail: includeCustomer ? (order as any).customerEmail : undefined,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
+        totalCents: order.totalCents,
+        currency: order.currency,
+        contributionType: order.contributionType,
+        donatedAmountCents: order.donatedAmountCents,
+        receiptStatus: order.receiptStatus,
+        contributionNotes: order.contributionNotes,
+        lineItems: order.items.map((item) => ({
+          modelTitle: item.modelTitle,
+          material: item.material ?? null,
+          quantity: item.quantity,
+          totalCents: item.totalCents,
+        })),
+        lastPrintLabSubmission: extractPrintLabSubmissionSummary(order.metadata),
         paymentIntentId,
         orderWorksStatus: jobForm?.status ?? null,
         orderWorksLastError: jobForm?.lastError ?? null,
