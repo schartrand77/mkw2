@@ -141,6 +141,39 @@ test('PrintLab client sends configured auth headers', async () => {
   }
 })
 
+test('PrintLab client explains upstream network fetch failures', async () => {
+  const envSnapshot = {
+    PRINTLAB_BASE_URL: process.env.PRINTLAB_BASE_URL,
+    PRINTLAB_SESSION_COOKIE: process.env.PRINTLAB_SESSION_COOKIE,
+    PRINTLAB_AUTH_HEADER: process.env.PRINTLAB_AUTH_HEADER,
+    PRINTLAB_API_KEY: process.env.PRINTLAB_API_KEY,
+    PRINTLAB_API_KEY_HEADER: process.env.PRINTLAB_API_KEY_HEADER,
+  }
+  process.env.PRINTLAB_BASE_URL = 'http://PrintLab:8080'
+  delete process.env.PRINTLAB_SESSION_COOKIE
+  delete process.env.PRINTLAB_AUTH_HEADER
+  delete process.env.PRINTLAB_API_KEY
+  delete process.env.PRINTLAB_API_KEY_HEADER
+
+  global.fetch = (async () => {
+    throw new TypeError('fetch failed')
+  }) as typeof fetch
+
+  try {
+    await assert.rejects(
+      () => fetchPrintLabPrinters(),
+      (err: any) => (
+        err?.message?.includes('Unable to reach PrintLab at http://printlab:8080') &&
+        err?.message?.includes('shared Docker network') &&
+        err?.cause instanceof TypeError
+      ),
+    )
+  } finally {
+    global.fetch = originalFetch
+    restoreEnv(envSnapshot)
+  }
+})
+
 test('OrderWorks job contract normalizes payment metadata before persistence', async () => {
   const originalUpsert = (prisma.jobForm as any).upsert
   let capturedPayload: any = null

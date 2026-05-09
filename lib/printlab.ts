@@ -55,7 +55,16 @@ async function printLabFetch(path: string, init?: RequestInit) {
   if (cfg.sessionCookie) headers.set('Cookie', cfg.sessionCookie)
   if (cfg.authHeader) headers.set('Authorization', cfg.authHeader)
   if (cfg.apiKey && cfg.apiKeyHeader) headers.set(cfg.apiKeyHeader, cfg.apiKey)
-  return fetch(url, { ...init, headers, cache: 'no-store' })
+  try {
+    return await fetch(url, { ...init, headers, cache: 'no-store' })
+  } catch (cause: any) {
+    throw Object.assign(
+      new Error(
+        `Unable to reach PrintLab at ${cfg.baseUrl}. Confirm PRINTLAB_BASE_URL is reachable from the MakerWorks container, both containers are on the shared Docker network, and PrintLab is listening on the configured internal port.`,
+      ),
+      { status: 502, cause },
+    )
+  }
 }
 
 async function printLabJson(path: string, init?: RequestInit) {
