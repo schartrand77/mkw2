@@ -82,7 +82,7 @@ test('merges PrintLab callback state into production metadata', () => {
 test('maps PrintLab printer status to MakerWorks production status', () => {
   assert.equal(deriveOrderStatusFromPrintLabStatus('queued', 'queued'), 'queued')
   assert.equal(deriveOrderStatusFromPrintLabStatus('started', 'queued'), 'printing')
-  assert.equal(deriveOrderStatusFromPrintLabStatus('completed', 'queued'), 'post_process')
+  assert.equal(deriveOrderStatusFromPrintLabStatus('completed', 'queued'), 'completed')
   assert.equal(deriveOrderStatusFromPrintLabStatus('failed', 'printing'), 'failed')
   assert.equal(deriveOrderStatusFromPrintLabStatus('cancelled', 'printing'), 'failed')
   assert.equal(deriveOrderStatusFromPrintLabStatus('submit_failed', 'queued'), 'failed')

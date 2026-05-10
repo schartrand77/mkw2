@@ -219,7 +219,7 @@ export function deriveOrderStatusFromPrintLabStatus(printLabStatus: unknown, cur
   if (current === 'completed' || current === 'shipped' || current === 'cancelled') return current
   const status = String(printLabStatus || '').trim().toLowerCase()
   if (status === 'started') return 'printing'
-  if (status === 'completed') return 'post_process'
+  if (status === 'completed') return 'completed'
   if (status === 'failed' || status === 'cancelled' || status === 'submit_failed') return 'failed'
   return current
 }
