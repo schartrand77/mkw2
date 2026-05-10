@@ -464,6 +464,24 @@ function resolveOrderStatusFromFulfillment(
   return orderStatus
 }
 
+export function resolveProductionStatusFromSignals(args: {
+  orderStatus: string
+  printLabStatus?: string | null
+  fulfillmentStatus?: FulfillmentStatusKey | null
+  fulfilledAt?: Date | null
+  jobStatus?: string | null
+  paymentStatus?: string | null
+}) {
+  const fulfilledStatus = resolveOrderStatusFromFulfillment(
+    args.orderStatus,
+    args.fulfillmentStatus,
+    args.fulfilledAt,
+    args.jobStatus,
+    args.paymentStatus,
+  )
+  return deriveOrderStatusFromPrintLabStatus(args.printLabStatus, fulfilledStatus)
+}
+
 async function loadVolumeMaps(orderItems: { modelId?: string | null; partId?: string | null }[]) {
   const modelIds = Array.from(new Set(orderItems.map((item) => item.modelId).filter((id): id is string => Boolean(id))))
   const partIds = Array.from(new Set(orderItems.map((item) => item.partId).filter((id): id is string => Boolean(id))))
@@ -652,13 +670,15 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
     .map((order) => {
       const paymentIntentId = extractPaymentIntentId(order.metadata)
       const jobForm = getLatestJobForOrder(order.id, order.metadata)
-      const status = resolveOrderStatusFromFulfillment(
-        order.status,
-        jobForm?.fulfillmentStatus ?? null,
-        jobForm?.fulfilledAt ?? null,
-        jobForm?.status ?? null,
-        jobForm?.paymentStatus ?? null,
-      )
+      const lastPrintLabSubmission = extractPrintLabSubmissionSummary(order.metadata)
+      const status = resolveProductionStatusFromSignals({
+        orderStatus: order.status,
+        printLabStatus: lastPrintLabSubmission?.status ?? null,
+        fulfillmentStatus: jobForm?.fulfillmentStatus ?? null,
+        fulfilledAt: jobForm?.fulfilledAt ?? null,
+        jobStatus: jobForm?.status ?? null,
+        paymentStatus: jobForm?.paymentStatus ?? null,
+      })
       return {
         id: order.id,
         orderNumber: order.orderNumber,
@@ -680,7 +700,7 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
           quantity: item.quantity,
           totalCents: item.totalCents,
         })),
-        lastPrintLabSubmission: extractPrintLabSubmissionSummary(order.metadata),
+        lastPrintLabSubmission,
         paymentIntentId,
         orderWorksStatus: jobForm?.status ?? null,
         orderWorksLastError: jobForm?.lastError ?? null,
@@ -805,13 +825,15 @@ export async function getOrderProductionDetail(order: {
   })
   const volumeMaps = await loadVolumeMaps(order.items)
   const totalHours = estimateOrderHours(order.items, volumeMaps, cfg)
-  const effectiveStatus = resolveOrderStatusFromFulfillment(
-    order.status,
-    jobForm?.fulfillmentStatus ?? null,
-    jobForm?.fulfilledAt ?? null,
-    jobForm?.status ?? null,
-    jobForm?.paymentStatus ?? null,
-  )
+  const metadataForStatus = liveOrder?.metadata || order.metadata
+  const effectiveStatus = resolveProductionStatusFromSignals({
+    orderStatus: order.status,
+    printLabStatus: extractPrintLabSubmissionSummary(metadataForStatus)?.status ?? null,
+    fulfillmentStatus: jobForm?.fulfillmentStatus ?? null,
+    fulfilledAt: jobForm?.fulfilledAt ?? null,
+    jobStatus: jobForm?.status ?? null,
+    paymentStatus: jobForm?.paymentStatus ?? null,
+  })
 
   if (QUEUE_STATUSES.has(order.status)) {
     const snapshot = await getProductionSnapshot()

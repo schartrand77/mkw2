@@ -8,6 +8,7 @@ import {
   extractPrintLabSubmissionSummary,
   formatProductionMoney,
   mergePrintLabCallbackMetadata,
+  resolveProductionStatusFromSignals,
 } from '../lib/production'
 
 test('formats no-charge contribution value for production queue display', () => {
@@ -87,6 +88,17 @@ test('maps PrintLab printer status to MakerWorks production status', () => {
   assert.equal(deriveOrderStatusFromPrintLabStatus('cancelled', 'printing'), 'failed')
   assert.equal(deriveOrderStatusFromPrintLabStatus('submit_failed', 'queued'), 'failed')
   assert.equal(deriveOrderStatusFromPrintLabStatus('unknown', 'queued'), 'queued')
+})
+
+test('resolved production status honors terminal PrintLab completion over stale queue state', () => {
+  assert.equal(resolveProductionStatusFromSignals({
+    orderStatus: 'queued',
+    printLabStatus: 'completed',
+  }), 'completed')
+  assert.equal(resolveProductionStatusFromSignals({
+    orderStatus: 'post_process',
+    printLabStatus: 'completed',
+  }), 'completed')
 })
 
 test('serializes PrintLab-backed production jobs for the admin job queue', () => {
