@@ -61,6 +61,42 @@ type OrderQueueEntry = {
   milestones?: ProductionMilestone[]
 }
 
+export type ProductionQueueClientJob = {
+  id: string
+  orderNumber: number | null
+  orderLabel: string
+  status: string
+  createdAt: string
+  customerName?: string | null
+  customerEmail?: string | null
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  totalCents?: number | null
+  currency?: string | null
+  contributionType?: string | null
+  donatedAmountCents?: number | null
+  contributionSummary: string | null
+  lineItems?: ProductionLineItemSummary[]
+  printLabStatus: string | null
+  printLabPrinterName: string | null
+  printLabJobId: string | null
+  printLabError: string | null
+  legacyJobStatus: string | null
+  legacyJobError: string | null
+  printerName?: string | null
+  totalHours: number
+  queuePosition: number | null
+  estimatedCompletionAt: string | null
+}
+
+export type ProductionQueueClientSnapshot = {
+  generatedAt: string
+  jobs: ProductionQueueClientJob[]
+  activeCount: number
+  totalCount: number
+  queueHours: number
+}
+
 export type ProductionLineItemSummary = {
   modelTitle: string
   material: string | null
@@ -73,6 +109,25 @@ export type PrintLabSubmissionSummary = {
   printerName: string | null
   printLabJobId: string | null
   error: string | null
+}
+
+type PrintLabCallbackPayload = {
+  job_id?: unknown
+  status?: unknown
+  printer_id?: unknown
+  printer_name?: unknown
+  queue_item_id?: unknown
+  successful_gcode_id?: unknown
+  idempotency_key?: unknown
+  source_job_id?: unknown
+  source_order_id?: unknown
+  model_id?: unknown
+  model_name?: unknown
+  completed_at?: unknown
+  started_at?: unknown
+  updated_at?: unknown
+  last_error?: unknown
+  progress_percent?: unknown
 }
 
 export type ProductionMilestone = {
@@ -152,6 +207,67 @@ export function extractPrintLabSubmissionSummary(metadata: unknown): PrintLabSub
     printerName: readString(submission.printerName),
     printLabJobId: readString(submission.printLabJobId),
     error: readString(submission.error),
+  }
+}
+
+function readNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+export function deriveOrderStatusFromPrintLabStatus(printLabStatus: unknown, currentStatus: string) {
+  const current = normalizeOrderStatus(currentStatus)
+  if (current === 'completed' || current === 'shipped' || current === 'cancelled') return current
+  const status = String(printLabStatus || '').trim().toLowerCase()
+  if (status === 'started') return 'printing'
+  if (status === 'completed') return 'post_process'
+  if (status === 'failed' || status === 'cancelled' || status === 'submit_failed') return 'failed'
+  return current
+}
+
+export function mergePrintLabCallbackMetadata(
+  metadata: unknown,
+  payload: PrintLabCallbackPayload,
+  receivedAt = new Date().toISOString(),
+): Record<string, unknown> {
+  const prior = asRecord(metadata) || {}
+  const jobId = readString(payload.job_id)
+  const entry = {
+    at: receivedAt,
+    source: 'printlab_callback',
+    printLabJobId: jobId,
+    status: readString(payload.status),
+    printerId: readString(payload.printer_id),
+    printerName: readString(payload.printer_name),
+    queueItemId: readString(payload.queue_item_id),
+    successfulGcodeId: readString(payload.successful_gcode_id),
+    idempotencyKey: readString(payload.idempotency_key),
+    sourceJobId: readString(payload.source_job_id),
+    sourceOrderId: readString(payload.source_order_id),
+    modelId: readString(payload.model_id),
+    modelName: readString(payload.model_name),
+    startedAt: readString(payload.started_at),
+    completedAt: readString(payload.completed_at),
+    updatedAt: readString(payload.updated_at),
+    progressPercent: readNumber(payload.progress_percent),
+    error: readString(payload.last_error),
+  }
+  const priorSubmissions = Array.isArray(prior.printLabSubmissions) ? prior.printLabSubmissions : []
+  let matched = false
+  const printLabSubmissions = priorSubmissions.map((item) => {
+    const record = asRecord(item)
+    if (!record) return item
+    const existingId = readString(record.printLabJobId) || readString(record.jobId) || readString(record.id)
+    if (jobId && existingId === jobId) {
+      matched = true
+      return { ...record, ...entry }
+    }
+    return item
+  })
+  if (!matched) printLabSubmissions.push(entry)
+  return {
+    ...prior,
+    printLabSubmissions,
+    lastPrintLabSubmission: entry,
   }
 }
 
@@ -606,6 +722,48 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
     queueHours: runningHours,
     orderWorks,
     orders: queueWithEstimates,
+  }
+}
+
+function productionOrderLabel(orderNumber: number | null) {
+  return orderNumber ? `MW-${orderNumber.toString().padStart(5, '0')}` : 'Draft order'
+}
+
+export function buildProductionQueueClientSnapshot(snapshot: ProductionSnapshot): ProductionQueueClientSnapshot {
+  const jobs = snapshot.orders.map((order) => ({
+    id: order.id,
+    orderNumber: order.orderNumber,
+    orderLabel: productionOrderLabel(order.orderNumber),
+    status: order.status,
+    createdAt: order.createdAt.toISOString(),
+    customerName: order.customerName ?? null,
+    customerEmail: order.customerEmail ?? null,
+    paymentMethod: order.paymentMethod ?? null,
+    paymentStatus: order.paymentStatus ?? null,
+    totalCents: order.totalCents ?? null,
+    currency: order.currency ?? null,
+    contributionType: order.contributionType ?? null,
+    donatedAmountCents: order.donatedAmountCents ?? null,
+    contributionSummary: describeProductionContribution(order),
+    lineItems: order.lineItems ?? [],
+    printLabStatus: order.lastPrintLabSubmission?.status ?? null,
+    printLabPrinterName: order.lastPrintLabSubmission?.printerName ?? null,
+    printLabJobId: order.lastPrintLabSubmission?.printLabJobId ?? null,
+    printLabError: order.lastPrintLabSubmission?.error ?? null,
+    legacyJobStatus: order.orderWorksStatus ?? null,
+    legacyJobError: order.orderWorksLastError ?? null,
+    printerName: order.printerName ?? null,
+    totalHours: order.totalHours,
+    queuePosition: order.queuePosition,
+    estimatedCompletionAt: order.estimatedCompletionAt ? order.estimatedCompletionAt.toISOString() : null,
+  }))
+
+  return {
+    generatedAt: snapshot.generatedAt.toISOString(),
+    jobs,
+    activeCount: jobs.length,
+    totalCount: jobs.length,
+    queueHours: snapshot.queueHours,
   }
 }
 

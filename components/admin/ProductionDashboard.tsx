@@ -305,7 +305,7 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold">Production Scheduling</h1>
-          <p className="text-sm text-slate-400 mt-1">Track capacity, OrderWorks syncs, and projected completion dates.</p>
+          <p className="text-sm text-slate-400 mt-1">Track capacity, PrintLab handoffs, and projected completion dates.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn btn-outline text-sm" type="button" onClick={refresh}>
@@ -338,7 +338,7 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
           <p className="text-xs text-slate-400">Next refresh {formattedGeneratedAt}</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">OrderWorks</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Legacy jobs</p>
           <p className="text-2xl font-semibold">{snapshot.orderWorks.sentJobs} sent</p>
           <p className="text-xs text-slate-400">{snapshot.orderWorks.pendingJobs} pending • {snapshot.orderWorks.unpaidJobs} unpaid</p>
         </div>
@@ -485,9 +485,11 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
                     </div>
                     <div className="flex items-center gap-2">
                       <OrderStatusBadge status={order.status} />
-                      <span className={`text-[11px] uppercase tracking-wide ${order.orderWorksStatus === 'sent' ? 'text-emerald-300' : 'text-amber-300'}`}>
-                        OrderWorks {order.orderWorksStatus || 'pending'}
-                      </span>
+                      {order.orderWorksStatus ? (
+                        <span className={`text-[11px] uppercase tracking-wide ${order.orderWorksStatus === 'sent' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                          Legacy job {order.orderWorksStatus}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
@@ -594,7 +596,7 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
                     <p className="mt-2 text-xs text-rose-200">PrintLab error: {order.lastPrintLabSubmission.error}</p>
                   ) : null}
                   {order.orderWorksLastError ? (
-                    <p className="mt-2 text-xs text-rose-200">OrderWorks error: {order.orderWorksLastError}</p>
+                    <p className="mt-2 text-xs text-rose-200">Legacy job error: {order.orderWorksLastError}</p>
                   ) : null}
                 </div>
               ))}
