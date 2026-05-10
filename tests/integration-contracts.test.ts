@@ -15,7 +15,7 @@ function restoreEnv(snapshot: Record<string, string | undefined>) {
   }
 }
 
-test('StockWorks client authenticates via form login and forwards session cookie', async () => {
+test('StockWorks client uses Basic auth for service-to-service requests', async () => {
   const envSnapshot = {
     STOCKWORKS_BASE_URL: process.env.STOCKWORKS_BASE_URL,
     STOCKWORKS_ADMIN_USERNAME: process.env.STOCKWORKS_ADMIN_USERNAME,
@@ -29,33 +29,22 @@ test('StockWorks client authenticates via form login and forwards session cookie
   global.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     const requestUrl = String(url)
     calls.push({ url: requestUrl, init })
-    if (requestUrl.endsWith('/login')) {
-      if ((init?.method || 'GET').toUpperCase() === 'GET') {
-        return new Response('<form><input type="hidden" name="csrf_token" value="csrf123" /></form>', {
-          status: 200,
-          headers: { 'set-cookie': 'session=prelogin; Path=/; HttpOnly' },
-        })
-      }
-      return new Response('', {
-        status: 302,
-        headers: { 'set-cookie': 'session=abc123; Path=/; HttpOnly' },
-      })
-    }
     return new Response(JSON.stringify({ items: [{ id: 1 }], total: 1 }), { status: 200 })
   }) as typeof fetch
 
   try {
-    const res = await stockworksFetch('/api/inventory')
+    const res = await stockworksFetch('/movements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inventory_item_id: 1, movement_type: 'adjustment', change_grams: 10 }),
+    })
     assert.equal(res.status, 200)
-    assert.equal(calls.length, 3)
-    assert.equal(calls[0]?.url, 'https://stockworks.local/login')
-    assert.equal(String(calls[0]?.init?.method || 'GET').toUpperCase(), 'GET')
-    assert.equal(calls[1]?.url, 'https://stockworks.local/login')
-    assert.match(String(calls[1]?.init?.body || ''), /username=admin/)
-    assert.match(String(calls[1]?.init?.body || ''), /password=secret/)
-    assert.equal(calls[2]?.url, 'https://stockworks.local/api/inventory')
-    const headers = new Headers(calls[2]?.init?.headers)
-    assert.equal(headers.get('Cookie'), 'session=abc123')
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0]?.url, 'https://stockworks.local/movements')
+    const headers = new Headers(calls[0]?.init?.headers)
+    assert.equal(headers.get('Authorization'), `Basic ${Buffer.from('admin:secret').toString('base64')}`)
+    assert.equal(headers.get('Cookie'), null)
+    assert.equal(headers.get('X-CSRF-Token'), null)
   } finally {
     global.fetch = originalFetch
     restoreEnv(envSnapshot)

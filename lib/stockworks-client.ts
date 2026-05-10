@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { normalizeServiceBaseUrl } from '@/lib/service-base-url'
 
-type StockworksSession = { cookie: string; csrfToken?: string | null }
 type StockworksListResponse<T> = {
   items?: T[]
   results?: T[]
@@ -84,135 +83,23 @@ export function stockworksErrorMessage(body: unknown, fallback: string) {
   return fallback
 }
 
-function extractCookies(headers: Headers) {
-  const getSetCookie = (headers as Headers & { getSetCookie?: () => string[] }).getSetCookie
-  const setCookies = typeof getSetCookie === 'function' ? getSetCookie.call(headers) : null
-  const raw = setCookies && setCookies.length > 0
-    ? setCookies
-    : (headers.get('set-cookie') ? [headers.get('set-cookie') as string] : [])
-  const pairs = raw
-    .map((entry) => entry.split(';')[0]?.trim() || '')
-    .filter(Boolean)
-  return pairs
+function stockworksBasicAuthHeader(username: string, password: string) {
+  return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
 }
 
-function mergeCookiePairs(...groups: string[][]) {
-  const map = new Map<string, string>()
-  for (const group of groups) {
-    for (const pair of group) {
-      const idx = pair.indexOf('=')
-      if (idx <= 0) continue
-      const key = pair.slice(0, idx).trim()
-      const value = pair.slice(idx + 1).trim()
-      if (!key) continue
-      map.set(key, value)
-    }
-  }
-  return Array.from(map.entries()).map(([key, value]) => `${key}=${value}`).join('; ')
-}
-
-function extractCsrfFromCookieHeader(cookieHeader: string) {
-  const pairs = cookieHeader.split(';').map((entry) => entry.trim())
-  let stockworksSessionValue: string | null = null
-  for (const pair of pairs) {
-    const idx = pair.indexOf('=')
-    if (idx <= 0) continue
-    const key = pair.slice(0, idx).trim().toLowerCase()
-    const value = pair.slice(idx + 1).trim()
-    if (!value) continue
-    if (key === 'csrftoken' || key === 'csrf_token' || key === 'csrf') return value
-    if (key === 'stockworks-session') stockworksSessionValue = value
-  }
-
-  if (stockworksSessionValue) {
-    try {
-      const payloadPart = stockworksSessionValue.split('.')[0] || ''
-      const decoded = Buffer.from(payloadPart, 'base64url').toString('utf8')
-      const parsed = JSON.parse(decoded)
-      const embedded = typeof parsed?.csrf_token === 'string' ? parsed.csrf_token.trim() : ''
-      if (embedded) return embedded
-    } catch {}
-  }
-  return null
-}
-
-function extractCsrfToken(html: string) {
-  const nameFirst = html.match(/name=["']csrf_token["'][^>]*value=["']([^"']+)["']/i)
-  if (nameFirst?.[1]) return nameFirst[1]
-  const valueFirst = html.match(/value=["']([^"']+)["'][^>]*name=["']csrf_token["']/i)
-  return valueFirst?.[1] || null
-}
-
-async function login(baseUrl: string, username: string, password: string): Promise<StockworksSession> {
-  const loginPage = await fetchWithTimeout(`${baseUrl}/login`, {
-    method: 'GET',
-    cache: 'no-store',
-  })
-  if (!loginPage.ok) {
-    throw Object.assign(new Error(`StockWorks login page request failed (${loginPage.status})`), {
-      status: 502,
-    })
-  }
-  const loginPageCookies = extractCookies(loginPage.headers)
-  const loginPageHtml = await loginPage.text().catch(() => '')
-  const csrfFromForm = extractCsrfToken(loginPageHtml)
-  const csrfFromCookie = extractCsrfFromCookieHeader(loginPageCookies.join('; '))
-  const csrfToken = csrfFromCookie || csrfFromForm
-
-  const payload = new URLSearchParams({ username, password })
-  if (csrfFromForm) payload.set('csrf_token', csrfFromForm)
-
-  const headers = new Headers({ 'Content-Type': 'application/x-www-form-urlencoded' })
-  if (loginPageCookies.length > 0) headers.set('Cookie', mergeCookiePairs(loginPageCookies))
-  headers.set('Referer', `${baseUrl}/login`)
-  if (csrfToken) {
-    headers.set('X-CSRFToken', csrfToken)
-    headers.set('X-CSRF-Token', csrfToken)
-  }
-
-  const response = await fetchWithTimeout(`${baseUrl}/login`, {
-    method: 'POST',
-    headers,
-    body: payload.toString(),
-    redirect: 'manual',
-    cache: 'no-store',
-  })
-  if (response.status === 401 || response.status === 403) {
-    throw Object.assign(new Error('StockWorks authentication failed'), {
-      status: 502,
-    })
-  }
-  const loginResponseCookies = extractCookies(response.headers)
-  const cookie = mergeCookiePairs(loginPageCookies, loginResponseCookies)
-  if (!cookie) {
-    throw Object.assign(new Error('StockWorks authentication failed'), {
-      status: 502,
-    })
-  }
-  const csrfMerged = extractCsrfFromCookieHeader(cookie) || csrfToken
-  return { cookie, csrfToken: csrfMerged }
-}
-
-export async function getStockworksSession(): Promise<{ baseUrl: string; cookie: string; csrfToken?: string | null }> {
+export async function getStockworksSession(): Promise<{ baseUrl: string; authHeader: string }> {
   const { baseUrl, username, password } = resolveConfig()
   if (!baseUrl || !username || !password) {
     throw new Error('StockWorks is not configured')
   }
-  const session = await login(baseUrl, username, password)
-  return { baseUrl, cookie: session.cookie, csrfToken: session.csrfToken }
+  return { baseUrl, authHeader: stockworksBasicAuthHeader(username, password) }
 }
 
 export async function stockworksFetch(path: string, init?: RequestInit) {
-  const { baseUrl, cookie, csrfToken } = await getStockworksSession()
+  const { baseUrl, authHeader } = await getStockworksSession()
   const url = `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`
   const headers = new Headers(init?.headers)
-  headers.set('Cookie', cookie)
-  const method = String(init?.method || 'GET').toUpperCase()
-  const isMutating = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS'
-  if (isMutating && csrfToken) {
-    headers.set('X-CSRFToken', csrfToken)
-    headers.set('X-CSRF-Token', csrfToken)
-  }
+  headers.set('Authorization', authHeader)
   const response = await fetchWithTimeout(url, {
     ...init,
     headers,

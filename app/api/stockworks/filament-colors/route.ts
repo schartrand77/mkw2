@@ -198,15 +198,15 @@ export async function GET() {
       return NextResponse.json({ enabled: false, materials: {} })
     }
 
-    let sessionCookie = ''
+    let authHeader = ''
     try {
       const session = await getStockworksSession()
-      sessionCookie = session.cookie
+      authHeader = session.authHeader
     } catch {
       return NextResponse.json({ enabled: false, materials: {}, error: 'StockWorks authentication failed.' })
     }
 
-    const headers = { Cookie: sessionCookie }
+    const headers = { Authorization: authHeader }
     const [materialsRes, inventoryRes] = await Promise.all([
       fetch(`${baseUrl}/materials`, { headers, cache: 'no-store' }),
       fetch(`${baseUrl}/inventory`, { headers, cache: 'no-store' }),
