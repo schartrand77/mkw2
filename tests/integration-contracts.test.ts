@@ -89,6 +89,36 @@ test('StockWorks JSON helper surfaces status and payload for failed upstream res
   }
 })
 
+test('StockWorks client explains upstream network fetch failures', async () => {
+  const envSnapshot = {
+    STOCKWORKS_BASE_URL: process.env.STOCKWORKS_BASE_URL,
+    STOCKWORKS_ADMIN_USERNAME: process.env.STOCKWORKS_ADMIN_USERNAME,
+    STOCKWORKS_ADMIN_PASSWORD: process.env.STOCKWORKS_ADMIN_PASSWORD,
+  }
+  process.env.STOCKWORKS_BASE_URL = 'http://stockworks:8256'
+  process.env.STOCKWORKS_ADMIN_USERNAME = 'admin'
+  process.env.STOCKWORKS_ADMIN_PASSWORD = 'secret'
+
+  global.fetch = (async () => {
+    throw new TypeError('fetch failed')
+  }) as typeof fetch
+
+  try {
+    await assert.rejects(
+      () => stockworksJson('/inventory'),
+      (err: any) => (
+        err?.message?.includes('Unable to reach StockWorks at http://stockworks:8256') &&
+        err?.message?.includes('shared Docker network') &&
+        err?.message?.includes('internal port') &&
+        err?.cause instanceof TypeError
+      ),
+    )
+  } finally {
+    global.fetch = originalFetch
+    restoreEnv(envSnapshot)
+  }
+})
+
 test('StockWorks list helper unwraps paginated payloads', () => {
   const items = stockworksList<{ id: number }>({ items: [{ id: 1 }, { id: 2 }], total: 2 } as any)
   assert.deepEqual(items, [{ id: 1 }, { id: 2 }])
