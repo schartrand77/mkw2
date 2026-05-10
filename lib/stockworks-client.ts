@@ -100,12 +100,20 @@ export async function stockworksFetch(path: string, init?: RequestInit) {
   const url = `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`
   const headers = new Headers(init?.headers)
   headers.set('Authorization', authHeader)
-  const response = await fetchWithTimeout(url, {
-    ...init,
-    headers,
-    cache: 'no-store',
-  })
-  return response
+  try {
+    return await fetchWithTimeout(url, {
+      ...init,
+      headers,
+      cache: 'no-store',
+    })
+  } catch (cause: any) {
+    throw Object.assign(
+      new Error(
+        `Unable to reach StockWorks at ${baseUrl}. Confirm STOCKWORKS_BASE_URL is reachable from the MakerWorks container, both containers are on the shared Docker network, and StockWorks is listening on the configured internal port.`,
+      ),
+      { status: 502, cause },
+    )
+  }
 }
 
 export async function stockworksJson(path: string, init?: RequestInit) {
