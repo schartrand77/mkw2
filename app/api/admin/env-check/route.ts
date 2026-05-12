@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '../_utils'
 import { withRequestObservability } from '@/lib/request-observability'
 import { validateAdminBootstrapPassword, validateJwtSecret } from '@/lib/security-config'
+import { prisma } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +12,7 @@ type Check = {
   required: boolean
   ok: boolean
   detail?: string | null
+  configurableInApp?: boolean
 }
 
 const REQUIRED_CHECKS: Array<{ key: string; label: string; required: boolean; alt?: string[] }> = [
@@ -45,11 +47,34 @@ function resolveValue(keys: string[]): string | null {
   return null
 }
 
-function buildCheck(entry: { key: string; label: string; required: boolean; alt?: string[] }): Check {
+const IN_APP_SETTING_KEYS: Record<string, string> = {
+  STRIPE_SECRET_KEY: 'stripeSecretKey',
+  STRIPE_WEBHOOK_SECRET: 'stripeWebhookSecret',
+  STRIPE_SHIPPING_RATE_ID: 'stripeShippingRateId',
+  ORDERWORKS_BASE_URL: 'orderworksBaseUrl',
+  ORDERWORKS_USERNAME: 'orderworksUsername',
+  ORDERWORKS_PASSWORD: 'orderworksPassword',
+  STOCKWORKS_BASE_URL: 'stockworksBaseUrl',
+  STOCKWORKS_ADMIN_USERNAME: 'stockworksUsername',
+  STOCKWORKS_ADMIN_PASSWORD: 'stockworksPassword',
+  PRINTLAB_BASE_URL: 'printlabBaseUrl',
+  PRINTLAB_API_KEY: 'printlabApiKey',
+  PRINTLAB_SESSION_COOKIE: 'printlabSessionCookie',
+  PRINTLAB_AUTH_HEADER: 'printlabAuthHeader',
+  VAPID_PUBLIC_KEY: 'vapidPublicKey',
+  VAPID_PRIVATE_KEY: 'vapidPrivateKey',
+}
+
+function buildCheck(entry: { key: string; label: string; required: boolean; alt?: string[] }, configuredSettings: Set<string>): Check {
   const keys = [entry.key, ...(entry.alt || [])]
   const value = resolveValue(keys)
+  const configuredInApp = Boolean(IN_APP_SETTING_KEYS[entry.key] && configuredSettings.has(IN_APP_SETTING_KEYS[entry.key]))
   let detail = value ? null : `Missing ${entry.key}${entry.alt?.length ? ` (or ${entry.alt.join(', ')})` : ''}`
-  let ok = Boolean(value)
+  let ok = Boolean(value) || configuredInApp
+
+  if (!value && configuredInApp) {
+    detail = 'Configured in Admin -> Suite setup'
+  }
 
   if (value && entry.key === 'JWT_SECRET') {
     const jwt = validateJwtSecret(value)
@@ -67,12 +92,19 @@ function buildCheck(entry: { key: string; label: string; required: boolean; alt?
     required: entry.required,
     ok,
     detail,
+    configurableInApp: Boolean(IN_APP_SETTING_KEYS[entry.key]),
   }
 }
 
 async function handleGet() {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
-  const checks = [...REQUIRED_CHECKS, ...OPTIONAL_CHECKS].map(buildCheck)
+  const configuredSettings = new Set(
+    (await prisma.runtimeSetting.findMany({
+      where: { value: { not: null } },
+      select: { key: true },
+    })).map((row: any) => String(row.key)),
+  )
+  const checks = [...REQUIRED_CHECKS, ...OPTIONAL_CHECKS].map((entry) => buildCheck(entry, configuredSettings))
   const requiredOk = checks.filter((c) => c.required).every((c) => c.ok)
   return NextResponse.json({ ok: requiredOk, checks })
 }

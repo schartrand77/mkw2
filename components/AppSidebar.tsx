@@ -23,6 +23,7 @@ type AdminNavItem = {
 
 const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/admin', label: 'Overview' },
+  { href: '/admin/suite-setup', label: 'Suite setup' },
   { href: '/admin/site-config', label: 'Site config' },
   { href: '/admin/notifications', label: 'Notifications' },
   { href: '/admin/featured', label: 'Featured models' },
@@ -370,6 +371,8 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       likes: '/likes',
       me: '/me',
       admin: '/admin',
+      setup: '/admin/suite-setup',
+      suite: '/admin/suite-setup',
       users: '/admin/users',
       jobs: '/admin/jobs',
       inventory: '/admin/inventory',
@@ -381,7 +384,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
 
     const preferredNavOrder = [
       'home', 'discover', 'store', 'upload', 'cart', 'checkout', 'orders', 'portal', 'workspace', 'workspaces', 'profile',
-      'account', 'orgs', 'organizations', 'likes', 'me', 'admin', 'users', 'jobs', 'inventory', 'analytics', 'production',
+      'account', 'orgs', 'organizations', 'likes', 'me', 'admin', 'setup', 'suite', 'users', 'jobs', 'inventory', 'analytics', 'production',
     ]
     const navTag = preferredNavOrder.find((tag) => navTags.has(tag))
     const navRoute = navTag ? routeByTag[navTag] : null

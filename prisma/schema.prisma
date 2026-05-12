@@ -289,6 +289,20 @@ model SiteConfig {
   updatedAt                DateTime @updatedAt
 }
 
+model RuntimeSetting {
+  key       String   @id
+  category  String
+  value     String?
+  secret    Boolean  @default(false)
+  source    String   @default("database")
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([updatedAt])
+}
+
 model ProductTemplate {
   id           String   @id @default(cuid())
   title        String
