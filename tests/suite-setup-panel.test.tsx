@@ -12,4 +12,5 @@ test('suite setup panel renders grouped onboarding controls', () => {
   assert.match(html, /YouTube/)
   assert.match(html, /Test connection/)
   assert.match(html, /Generate PrintLab submit token/)
+  assert.match(html, /host\.docker\.internal:8289/)
 })

@@ -92,6 +92,7 @@ Preferred setup: save Stripe settings in **Admin -> Suite setup**. Use env only 
 - `PRINTLAB_WEBHOOK_SECRET`
 
 Preferred setup: save PrintLab URL/auth and callback secret in **Admin -> Suite setup**.
+On the Windows Docker Desktop dev suite, use `http://host.docker.internal:8289` because MakerWorks runs inside a container while PrintLab is published on the host at port 8289. If PrintLab is on the same Docker network, use its container DNS name and internal port, for example `http://printlab:8080`.
 
 Legacy alias support still exists for:
 

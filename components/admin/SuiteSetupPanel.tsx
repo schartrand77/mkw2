@@ -42,7 +42,7 @@ const GROUPS: Array<{ title: string; description: string; testKey?: string; fiel
     description: 'Printer handoff, routing callbacks, and service-to-service authentication.',
     testKey: 'printlabBaseUrl',
     fields: [
-      { key: 'printlabBaseUrl', label: 'PrintLab base URL', placeholder: 'http://printlab:8080' },
+      { key: 'printlabBaseUrl', label: 'PrintLab base URL', placeholder: 'http://host.docker.internal:8289' },
       { key: 'printlabApiKey', label: 'PrintLab API key', secret: true },
       { key: 'printlabSubmitApiKey', label: 'MakerWorks submit token for PrintLab', secret: true },
     ],

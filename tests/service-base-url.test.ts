@@ -14,3 +14,18 @@ test('normalizeServiceBaseUrl prefixes bare host and port with http', () => {
 test('normalizeServiceBaseUrl preserves https URLs', () => {
   assert.equal(normalizeServiceBaseUrl('https://stockworks.example.com/api/'), 'https://stockworks.example.com/api')
 })
+
+test('normalizeServiceBaseUrl can rewrite localhost for Docker container callers', () => {
+  assert.equal(
+    normalizeServiceBaseUrl('http://localhost:8289/', 'http://', { dockerRuntime: true }),
+    'http://host.docker.internal:8289',
+  )
+  assert.equal(
+    normalizeServiceBaseUrl('http://127.0.0.1:8289/', 'http://', { dockerRuntime: true }),
+    'http://host.docker.internal:8289',
+  )
+  assert.equal(
+    normalizeServiceBaseUrl('http://localhost:8289/', 'http://', { dockerRuntime: false }),
+    'http://localhost:8289',
+  )
+})
