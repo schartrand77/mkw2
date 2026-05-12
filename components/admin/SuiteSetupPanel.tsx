@@ -82,8 +82,10 @@ function sourceLabel(setting: RedactedSetting | undefined) {
 }
 
 export default function SuiteSetupPanel({ initialSettings }: Props) {
+  const [displayedSettings, setDisplayedSettings] = useState<Record<string, RedactedSetting>>(initialSettings)
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [status, setStatus] = useState('')
+  const [statusKind, setStatusKind] = useState<'info' | 'success' | 'error'>('info')
   const [oneTimeToken, setOneTimeToken] = useState<{ label: string; token: string } | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -94,23 +96,45 @@ export default function SuiteSetupPanel({ initialSettings }: Props) {
   async function save() {
     setBusy(true)
     setStatus('')
+    setStatusKind('info')
     setOneTimeToken(null)
     const payload = Object.fromEntries(Object.entries(settings).filter(([, value]) => value.trim().length > 0))
-    const res = await fetch('/api/admin/suite-settings', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    setBusy(false)
-    setStatus(res.ok ? 'Saved suite settings.' : ((await res.json().catch(() => null))?.error || 'Unable to save suite settings.'))
-    if (res.ok) setSettings({})
+    if (Object.keys(payload).length === 0) {
+      setBusy(false)
+      setStatusKind('info')
+      setStatus('Enter at least one setting before saving.')
+      return
+    }
+    try {
+      const res = await fetch('/api/admin/suite-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        setStatusKind('error')
+        setStatus(body?.error || 'Unable to save suite settings.')
+        return
+      }
+      if (body?.settings && typeof body.settings === 'object') setDisplayedSettings(body.settings)
+      setSettings({})
+      setStatusKind('success')
+      setStatus('Saved suite settings.')
+    } catch (error: any) {
+      setStatusKind('error')
+      setStatus(error?.message || 'Unable to save suite settings.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function testConnection(group: { title: string; testKey?: string }) {
     if (!group.testKey) return
     setBusy(true)
     setStatus('')
-    const configured = initialSettings[group.testKey]
+    setStatusKind('info')
+    const configured = displayedSettings[group.testKey]
     const baseUrl = settings[group.testKey] || configured?.value || ''
     const apiKey = group.title === 'PrintLab' ? settings.printlabApiKey : settings.stockworksServiceApiKey
     const res = await fetch('/api/admin/suite-settings/test', {
@@ -120,12 +144,14 @@ export default function SuiteSetupPanel({ initialSettings }: Props) {
     })
     const payload = await res.json().catch(() => null)
     setBusy(false)
+    setStatusKind(payload?.ok ? 'success' : 'error')
     setStatus(payload?.ok ? `${group.title} connection succeeded.` : (payload?.error || `${group.title} connection failed.`))
   }
 
   async function generateToken(target: 'printlab' | 'stockworks') {
     setBusy(true)
     setStatus('')
+    setStatusKind('info')
     setOneTimeToken(null)
     const res = await fetch('/api/admin/suite-settings/token', {
       method: 'POST',
@@ -135,9 +161,11 @@ export default function SuiteSetupPanel({ initialSettings }: Props) {
     const payload = await res.json().catch(() => null)
     setBusy(false)
     if (!res.ok) {
+      setStatusKind('error')
       setStatus(payload?.error || 'Unable to generate token.')
       return
     }
+    setStatusKind('success')
     setOneTimeToken({ label: target === 'printlab' ? 'PrintLab submit token' : 'StockWorks service token', token: payload.token })
     setStatus('Token generated and saved. Copy it into the target app now; it will not be shown again.')
   }
@@ -167,7 +195,7 @@ export default function SuiteSetupPanel({ initialSettings }: Props) {
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               {group.fields.map((field) => {
-                const setting = initialSettings[field.key]
+                const setting = displayedSettings[field.key]
                 return (
                   <label key={field.key} className="block text-sm">
                     <span className="flex items-center justify-between gap-2 text-slate-300">
@@ -208,7 +236,19 @@ export default function SuiteSetupPanel({ initialSettings }: Props) {
 
       <div className="flex flex-wrap items-center gap-3">
         <button className="btn" type="button" disabled={busy} onClick={save}>Save settings</button>
-        {status && <p className="text-sm text-slate-300">{status}</p>}
+        {status && (
+          <p
+            className={`rounded-md border px-3 py-2 text-sm ${
+              statusKind === 'error'
+                ? 'border-red-400/30 bg-red-950/30 text-red-100'
+                : statusKind === 'success'
+                  ? 'border-emerald-400/30 bg-emerald-950/30 text-emerald-100'
+                  : 'border-white/10 bg-black/20 text-slate-300'
+            }`}
+          >
+            {status}
+          </p>
+        )}
       </div>
     </div>
   )
