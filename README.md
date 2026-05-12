@@ -153,18 +153,14 @@ npm run dev
 
 Use `.env.example` as source of truth. Key variable groups:
 
-- Core: `DATABASE_URL`, `JWT_SECRET`, `BASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`
+- Minimal boot environment: `DATABASE_URL`, `JWT_SECRET`, `BASE_URL`, `STORAGE_DIR`, and bootstrap admin values when needed.
 - Backup/restore (optional local overrides): `PG_DUMP_BIN`, `PSQL_BIN`
 - Backup scheduling/retention: `BACKUP_DOCKER_SERVICE`, `BACKUP_SCHEDULE_ENABLED`, `BACKUP_SCHEDULE_TIME_UTC`, `BACKUP_RUN_ON_START`, `BACKUP_PRUNE_ON_BACKUP`, `BACKUP_RETENTION_DAYS`, `BACKUP_RETENTION_MAX_COUNT`
 - Backup runtime mode: `SKIP_DOCKER`, `PG_DUMP_BIN`, `PSQL_BIN`
 - Backup destination path: `BACKUP_DIR` (defaults to `STORAGE_DIR/backups`)
-- Payments: `STRIPE_*`
-- Orderworks bridge: `ORDERWORKS_*`
-- Stockworks inventory: `STOCKWORKS_*`
-- Printer telemetry: `PRINTLAB_*` (legacy `BAMBU_VIEW_*` still supported)
-- Email/auth: `SMTP_*`, `RECEIPT_*`, auth rate-limit settings
-- Push notifications: `VAPID_*`
-- Branding: `NEXT_PUBLIC_BRAND_*`, `HOLIDAY_THEME`
+- Optional legacy overrides: `STRIPE_*`, `PAYPAL_*`, `ORDERWORKS_*`, `STOCKWORKS_*`, `PRINTLAB_*`, `SMTP_*`, `VAPID_*`, `DISCORD_*`, `NEXT_PUBLIC_BRAND_*`, and direct-upload URL settings.
+
+Payments, email, suite integrations, notifications, direct-upload URLs, and branding can be configured after login from **Admin -> Suite setup**. Environment variables continue to override saved suite settings during migration; remove an env value only after saving and testing the matching in-app setting.
 
 ### Admin Password Guardrails
 

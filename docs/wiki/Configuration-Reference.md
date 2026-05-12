@@ -2,6 +2,8 @@
 
 Use `.env.example` as the source of truth for environment variables. This page groups the most important settings by responsibility so operators can reason about configuration faster.
 
+MakerWorks now supports in-app suite onboarding for optional integrations. Keep boot-critical values in env or Docker secrets, then configure payments, email, PrintLab, StockWorks, OrderWorks compatibility, notifications, direct-upload URLs, and branding from **Admin -> Suite setup** after login. Env values still override persisted settings while existing deployments are migrated.
+
 ## Core Runtime
 
 - `DATABASE_URL`: PostgreSQL connection string
@@ -78,6 +80,8 @@ If `REDIS_URL` is unset, queue-backed background processing is disabled.
 
 `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` are required for card-based checkout. `STRIPE_SECRET_KEY` also enables Stripe invoices for deferred invoice checkout. `STRIPE_INVOICE_DAYS_UNTIL_DUE` is optional and defaults to 14.
 
+Preferred setup: save Stripe settings in **Admin -> Suite setup**. Use env only for legacy override or secret-manager driven deployments.
+
 ## PrintLab
 
 - `PRINTLAB_BASE_URL`
@@ -86,6 +90,8 @@ If `REDIS_URL` is unset, queue-backed background processing is disabled.
 - `PRINTLAB_SESSION_COOKIE`
 - `PRINTLAB_AUTH_HEADER`
 - `PRINTLAB_WEBHOOK_SECRET`
+
+Preferred setup: save PrintLab URL/auth and callback secret in **Admin -> Suite setup**.
 
 Legacy alias support still exists for:
 
@@ -105,6 +111,8 @@ Legacy alias support still exists for:
 - `STOCKWORKS_OUT_OF_STOCK_LEAD_DAYS`
 - `STOCKWORKS_MATERIAL_LEAD_DAYS`
 
+Preferred setup: save StockWorks URL/auth and inventory behavior in **Admin -> Suite setup**.
+
 ## Email and Notifications
 
 - `SMTP_HOST`
@@ -122,6 +130,8 @@ Legacy alias support still exists for:
 - `DISCORD_CHANNEL_ID`
 - `DISCORD_ADMIN_BOT_TOKEN`
 - `DISCORD_ADMIN_CHANNEL_ID`
+
+Preferred setup: save SMTP, push, and Discord settings in **Admin -> Suite setup**. Keep env values only when you intentionally want deployment-level overrides.
 
 ## Backup and Restore
 
@@ -156,6 +166,6 @@ Legacy alias support still exists for:
 
 1. Start from `.env.example`.
 2. Set core runtime values first.
-3. Enable one integration at a time.
-4. Validate from `/admin/site-config` and `/api/admin/env-check`.
+3. Sign in as an admin and open `/admin/suite-setup`.
+4. Enable one integration at a time and use the built-in connection tests where available.
 5. Keep production secrets out of version control and out of copied sample files.
