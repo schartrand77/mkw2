@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '../../_utils'
-import { fetchPrintLabPrinters, printLabDisabledResponse } from '@/lib/printlab'
+import { fetchPrintLabPrinters, isPrintLabConfigured, printLabDisabledResponse } from '@/lib/printlab'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST() {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   try {
-    if (!process.env.PRINTLAB_BASE_URL && !process.env.BAMBU_VIEW_BASE_URL) return printLabDisabledResponse()
+    if (!(await isPrintLabConfigured())) return printLabDisabledResponse()
     const printers = await fetchPrintLabPrinters()
     const updates = [] as any[]
     for (const printer of printers) {

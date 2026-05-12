@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { buildPrintLabHealthRequestInit } from '../lib/observability-health'
 
-test('PrintLab health check sends configured auth headers', () => {
+test('PrintLab health check sends configured auth headers', async () => {
   const previousAuth = process.env.PRINTLAB_AUTH_HEADER
   const previousCookie = process.env.PRINTLAB_SESSION_COOKIE
   const previousKey = process.env.PRINTLAB_API_KEY
@@ -10,7 +10,7 @@ test('PrintLab health check sends configured auth headers', () => {
     process.env.PRINTLAB_AUTH_HEADER = 'Basic example'
     process.env.PRINTLAB_SESSION_COOKIE = 'session=abc'
     process.env.PRINTLAB_API_KEY = 'api-key'
-    const init = buildPrintLabHealthRequestInit()
+    const init = await buildPrintLabHealthRequestInit()
     const headers = init?.headers as Record<string, string>
     assert.equal(headers.Authorization, 'Basic example')
     assert.equal(headers.Cookie, 'session=abc')

@@ -1,6 +1,5 @@
 import { getStockworksSession, stockworksList } from '@/lib/stockworks-client'
 import { normalizeMaterialName } from '@/lib/cartPricing'
-import { normalizeServiceBaseUrl } from '@/lib/service-base-url'
 
 type StockworksMaterial = {
   id: number
@@ -101,20 +100,15 @@ function parseLeadTimeMap() {
 }
 
 export async function getMaterialAvailabilitySnapshot(materials?: string[]) {
-  const baseUrl = normalizeServiceBaseUrl(process.env.STOCKWORKS_BASE_URL)
-  const username = process.env.STOCKWORKS_ADMIN_USERNAME || process.env.STOCKWORKS_USERNAME || ''
-  const password = process.env.STOCKWORKS_ADMIN_PASSWORD || process.env.STOCKWORKS_PASSWORD || ''
   const limitedThreshold = parseNumber(process.env.STOCKWORKS_LIMITED_THRESHOLD_GRAMS, 1000) ?? 1000
   const defaultLeadDays = parseNumber(process.env.STOCKWORKS_OUT_OF_STOCK_LEAD_DAYS, 7) ?? 7
   const leadTimeMap = parseLeadTimeMap()
 
-  if (!baseUrl || !username || !password) {
-    return { enabled: false, materials: {} as Record<string, MaterialAvailabilityEntry> }
-  }
-
+  let baseUrl = ''
   let authHeader = ''
   try {
     const session = await getStockworksSession()
+    baseUrl = session.baseUrl
     authHeader = session.authHeader
   } catch {
     return { enabled: false, materials: {} as Record<string, MaterialAvailabilityEntry>, error: 'StockWorks authentication failed.' }

@@ -21,7 +21,7 @@ export async function POST() {
     for (const printer of printers) {
       if (printer.status === 'maintenance' || printer.status === 'offline') continue
       if (printer.status === 'printing') continue
-      if ((printer.provider === 'printlab' || printer.provider === 'bambu-view') && isPrintLabConfigured()) {
+      if ((printer.provider === 'printlab' || printer.provider === 'bambu-view') && await isPrintLabConfigured()) {
         try {
           const status = await fetchPrintLabStatus(printer.externalId || printer.id)
           if (isBusy(status)) continue

@@ -7,6 +7,7 @@ import {
   maskSecret,
   mergeRuntimeSetting,
   redactRuntimeSettings,
+  resolveRuntimeSettingsFromRows,
   validateSuiteSettingsPayload,
 } from '../lib/admin/suite-settings'
 
@@ -35,6 +36,28 @@ test('env value wins over persisted settings while migration is in progress', ()
     secret: false,
   })
   assert.deepEqual(merged, { value: 'https://env.example', source: 'env', secret: false })
+})
+
+test('resolves effective runtime settings from persisted rows', () => {
+  const encryptionKey = '0123456789abcdef0123456789abcdef'
+  const settings = resolveRuntimeSettingsFromRows({
+    rows: [
+      { key: 'printlabBaseUrl', value: 'http://printlab:8080', secret: false },
+      { key: 'printlabApiKey', value: encryptSecretValue('printlab-secret', encryptionKey), secret: true },
+      { key: 'stockworksBaseUrl', value: 'http://stockworks:8000', secret: false },
+    ],
+    env: {
+      STOCKWORKS_BASE_URL: 'http://stockworks-env:8000',
+    },
+    encryptionKey,
+  })
+
+  assert.equal(settings.printlabBaseUrl.value, 'http://printlab:8080')
+  assert.equal(settings.printlabBaseUrl.source, 'database')
+  assert.equal(settings.printlabApiKey.value, 'printlab-secret')
+  assert.equal(settings.printlabApiKey.source, 'database')
+  assert.equal(settings.stockworksBaseUrl.value, 'http://stockworks-env:8000')
+  assert.equal(settings.stockworksBaseUrl.source, 'env')
 })
 
 test('validates suite settings payload by category and known key', () => {

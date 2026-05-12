@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { getInMemoryMetricsSnapshot } from '@/lib/observability-metrics'
 import { storageRoot } from '@/lib/storage'
 import { normalizeServiceBaseUrl } from '@/lib/service-base-url'
+import { getEffectiveSuiteRuntimeSettings } from '@/lib/suite-runtime'
 
 type DependencyStatus = 'ok' | 'warn' | 'fail' | 'skipped'
 
@@ -51,11 +52,16 @@ function resolveEnv(primary: string, legacy?: string) {
   return legacy ? (process.env[legacy] || '').trim() : ''
 }
 
-export function buildPrintLabHealthRequestInit(): RequestInit | undefined {
+export async function buildPrintLabHealthRequestInit(): Promise<RequestInit | undefined> {
+  const runtime = await getEffectiveSuiteRuntimeSettings([
+    'printlabAuthHeader',
+    'printlabSessionCookie',
+    'printlabApiKey',
+  ])
   const headers: Record<string, string> = {}
-  const authHeader = resolveEnv('PRINTLAB_AUTH_HEADER', 'BAMBU_VIEW_AUTH_HEADER')
-  const sessionCookie = resolveEnv('PRINTLAB_SESSION_COOKIE', 'BAMBU_VIEW_SESSION_COOKIE')
-  const apiKey = resolveEnv('PRINTLAB_API_KEY', 'BAMBU_VIEW_API_KEY')
+  const authHeader = runtime.printlabAuthHeader.value || resolveEnv('PRINTLAB_AUTH_HEADER', 'BAMBU_VIEW_AUTH_HEADER')
+  const sessionCookie = runtime.printlabSessionCookie.value || resolveEnv('PRINTLAB_SESSION_COOKIE', 'BAMBU_VIEW_SESSION_COOKIE')
+  const apiKey = runtime.printlabApiKey.value || resolveEnv('PRINTLAB_API_KEY', 'BAMBU_VIEW_API_KEY')
   const apiKeyHeader = resolveEnv('PRINTLAB_API_KEY_HEADER', 'BAMBU_VIEW_API_KEY_HEADER') || 'X-API-Key'
   if (authHeader) headers.Authorization = authHeader
   if (sessionCookie) headers.Cookie = sessionCookie
@@ -104,11 +110,15 @@ export async function runDependencyChecks() {
   const orderworksBase = normalizeServiceBaseUrl(process.env.ORDERWORKS_BASE_URL)
   checks.push(orderworksBase ? await checkHttp('orderworks', orderworksBase) : { name: 'orderworks', status: 'skipped', detail: 'ORDERWORKS_BASE_URL not configured' })
 
-  const stockworksBase = normalizeServiceBaseUrl(process.env.STOCKWORKS_BASE_URL)
+  const runtimeSettings = await getEffectiveSuiteRuntimeSettings([
+    'stockworksBaseUrl',
+    'printlabBaseUrl',
+  ])
+  const stockworksBase = normalizeServiceBaseUrl(runtimeSettings.stockworksBaseUrl.value || process.env.STOCKWORKS_BASE_URL)
   checks.push(stockworksBase ? await checkHttp('stockworks', stockworksBase) : { name: 'stockworks', status: 'skipped', detail: 'STOCKWORKS_BASE_URL not configured' })
 
-  const printLabBase = normalizeServiceBaseUrl(process.env.PRINTLAB_BASE_URL || process.env.BAMBU_VIEW_BASE_URL || '')
-  checks.push(printLabBase ? await checkHttp('printlab', printLabBase, 3000, buildPrintLabHealthRequestInit()) : { name: 'printlab', status: 'skipped', detail: 'PRINTLAB_BASE_URL not configured' })
+  const printLabBase = normalizeServiceBaseUrl(runtimeSettings.printlabBaseUrl.value || process.env.PRINTLAB_BASE_URL || process.env.BAMBU_VIEW_BASE_URL || '')
+  checks.push(printLabBase ? await checkHttp('printlab', printLabBase, 3000, await buildPrintLabHealthRequestInit()) : { name: 'printlab', status: 'skipped', detail: 'PRINTLAB_BASE_URL not configured' })
 
   const failing = checks.filter((entry) => entry.status === 'fail').length
   const warning = checks.filter((entry) => entry.status === 'warn').length

@@ -61,6 +61,12 @@ export type ValidatedSuiteSetting = {
   secret: boolean
 }
 
+export type RuntimeSettingRow = {
+  key: string
+  value: string | null
+  secret: boolean
+}
+
 function keyToBuffer(key: string) {
   return crypto.createHash('sha256').update(key).digest()
 }
@@ -125,6 +131,34 @@ export function redactRuntimeSettings(settings: Record<string, RuntimeSettingVal
     }
   }
   return result
+}
+
+export function resolveRuntimeSettingsFromRows(input: {
+  rows: RuntimeSettingRow[]
+  env?: Record<string, string | undefined>
+  encryptionKey?: string
+}) {
+  const stored = new Map(input.rows.map((row) => [row.key, row]))
+  const effective: Record<SuiteSettingKey, RuntimeSettingValue> = {} as Record<SuiteSettingKey, RuntimeSettingValue>
+
+  for (const [settingKey, def] of Object.entries(SUITE_SETTING_DEFINITIONS) as Array<[SuiteSettingKey, typeof SUITE_SETTING_DEFINITIONS[SuiteSettingKey]]>) {
+    const row = stored.get(settingKey)
+    let storedValue = row?.value || ''
+    if (storedValue && row?.secret) {
+      try {
+        storedValue = input.encryptionKey ? decryptSecretValue(storedValue, input.encryptionKey) : ''
+      } catch {
+        storedValue = ''
+      }
+    }
+    effective[settingKey] = mergeRuntimeSetting({
+      envValue: resolveFirstEnv(def.env, input.env),
+      storedValue,
+      secret: def.secret,
+    })
+  }
+
+  return effective
 }
 
 export function validateSuiteSettingsPayload(payload: unknown) {

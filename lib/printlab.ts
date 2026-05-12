@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { normalizeServiceBaseUrl } from '@/lib/service-base-url'
+import { getEffectiveSuiteRuntimeSettings } from '@/lib/suite-runtime'
 
 export type PrintLabPrinter = {
   id: string
@@ -23,12 +24,18 @@ function resolveEnv(primary: string, legacy?: string) {
   return legacy ? (process.env[legacy] || '').trim() : ''
 }
 
-function getConfig(): PrintLabConfig | null {
-  const baseUrl = normalizeServiceBaseUrl(resolveEnv('PRINTLAB_BASE_URL', 'BAMBU_VIEW_BASE_URL'))
+async function getConfig(): Promise<PrintLabConfig | null> {
+  const runtime = await getEffectiveSuiteRuntimeSettings([
+    'printlabBaseUrl',
+    'printlabSessionCookie',
+    'printlabAuthHeader',
+    'printlabApiKey',
+  ])
+  const baseUrl = normalizeServiceBaseUrl(runtime.printlabBaseUrl.value || resolveEnv('PRINTLAB_BASE_URL', 'BAMBU_VIEW_BASE_URL'))
   if (!baseUrl) return null
-  const sessionCookie = resolveEnv('PRINTLAB_SESSION_COOKIE', 'BAMBU_VIEW_SESSION_COOKIE')
-  const authHeader = resolveEnv('PRINTLAB_AUTH_HEADER', 'BAMBU_VIEW_AUTH_HEADER')
-  const apiKey = resolveEnv('PRINTLAB_API_KEY', 'BAMBU_VIEW_API_KEY')
+  const sessionCookie = runtime.printlabSessionCookie.value || resolveEnv('PRINTLAB_SESSION_COOKIE', 'BAMBU_VIEW_SESSION_COOKIE')
+  const authHeader = runtime.printlabAuthHeader.value || resolveEnv('PRINTLAB_AUTH_HEADER', 'BAMBU_VIEW_AUTH_HEADER')
+  const apiKey = runtime.printlabApiKey.value || resolveEnv('PRINTLAB_API_KEY', 'BAMBU_VIEW_API_KEY')
   const apiKeyHeader = resolveEnv('PRINTLAB_API_KEY_HEADER', 'BAMBU_VIEW_API_KEY_HEADER') || 'X-API-Key'
   return {
     baseUrl,
@@ -40,7 +47,7 @@ function getConfig(): PrintLabConfig | null {
 }
 
 export function isPrintLabConfigured() {
-  return Boolean(getConfig())
+  return getConfig().then(Boolean)
 }
 
 export function printLabDisabledResponse() {
@@ -48,7 +55,7 @@ export function printLabDisabledResponse() {
 }
 
 async function printLabFetch(path: string, init?: RequestInit) {
-  const cfg = getConfig()
+  const cfg = await getConfig()
   if (!cfg) throw new Error('PrintLab is not configured')
   const url = `${cfg.baseUrl}${path.startsWith('/') ? '' : '/'}${path}`
   const headers = new Headers(init?.headers)

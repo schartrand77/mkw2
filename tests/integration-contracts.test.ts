@@ -169,9 +169,9 @@ test('PrintLab client explains upstream network fetch failures', async () => {
     PRINTLAB_API_KEY_HEADER: process.env.PRINTLAB_API_KEY_HEADER,
   }
   process.env.PRINTLAB_BASE_URL = 'http://PrintLab:8080'
-  delete process.env.PRINTLAB_SESSION_COOKIE
-  delete process.env.PRINTLAB_AUTH_HEADER
-  delete process.env.PRINTLAB_API_KEY
+  process.env.PRINTLAB_SESSION_COOKIE = 'sid=xyz'
+  process.env.PRINTLAB_AUTH_HEADER = 'Bearer token'
+  process.env.PRINTLAB_API_KEY = 'abc'
   delete process.env.PRINTLAB_API_KEY_HEADER
 
   global.fetch = (async () => {
