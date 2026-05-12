@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import OrderStatusBadge from '@/components/orders/OrderStatusBadge'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 import PrinterIdentity from '@/components/admin/PrinterIdentity'
+import { formatPaymentMethod, formatPaymentStatus } from '@/lib/orderworks-status'
 
 type Printer = {
   id: string
@@ -25,6 +26,26 @@ type OrderEntry = {
   createdAt: string
   customerName?: string | null
   customerEmail?: string | null
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  totalCents?: number | null
+  currency?: string | null
+  contributionType?: string | null
+  donatedAmountCents?: number | null
+  receiptStatus?: string | null
+  contributionNotes?: string | null
+  lineItems?: Array<{
+    modelTitle: string
+    material: string | null
+    quantity: number
+    totalCents: number
+  }>
+  lastPrintLabSubmission?: {
+    status: string | null
+    printerName: string | null
+    printLabJobId: string | null
+    error: string | null
+  } | null
   orderWorksStatus?: string | null
   orderWorksLastError?: string | null
   printerId?: string | null
@@ -284,7 +305,7 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold">Production Scheduling</h1>
-          <p className="text-sm text-slate-400 mt-1">Track capacity, OrderWorks syncs, and projected completion dates.</p>
+          <p className="text-sm text-slate-400 mt-1">Track capacity, PrintLab handoffs, and projected completion dates.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn btn-outline text-sm" type="button" onClick={refresh}>
@@ -317,7 +338,7 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
           <p className="text-xs text-slate-400">Next refresh {formattedGeneratedAt}</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">OrderWorks</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Legacy jobs</p>
           <p className="text-2xl font-semibold">{snapshot.orderWorks.sentJobs} sent</p>
           <p className="text-xs text-slate-400">{snapshot.orderWorks.pendingJobs} pending • {snapshot.orderWorks.unpaidJobs} unpaid</p>
         </div>
@@ -458,12 +479,17 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
                       <p className="font-medium">
                         {order.customerName || order.customerEmail || 'Customer order'}
                       </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {formatMoney(order.totalCents, order.currency)} · {formatPaymentMethod(order.paymentMethod)} · {formatPaymentStatus(order.paymentStatus)}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <OrderStatusBadge status={order.status} />
-                      <span className={`text-[11px] uppercase tracking-wide ${order.orderWorksStatus === 'sent' ? 'text-emerald-300' : 'text-amber-300'}`}>
-                        OrderWorks {order.orderWorksStatus || 'pending'}
-                      </span>
+                      {order.orderWorksStatus ? (
+                        <span className={`text-[11px] uppercase tracking-wide ${order.orderWorksStatus === 'sent' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                          Legacy job {order.orderWorksStatus}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
@@ -523,6 +549,28 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
                       </div>
                     </div>
                   ) : null}
+                  <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-slate-300">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-100">Job details</p>
+                        <p className="text-slate-400">{summarizeLineItems(order.lineItems)}</p>
+                      </div>
+                      {describeContribution(order) ? (
+                        <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-emerald-200">
+                          {describeContribution(order)}
+                        </span>
+                      ) : null}
+                    </div>
+                    {Array.isArray(order.lineItems) && order.lineItems.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {order.lineItems.slice(0, 4).map((item, index) => (
+                          <span key={`${item.modelTitle}-${index}`} className="rounded-md border border-white/10 px-2 py-1 text-slate-300">
+                            {item.quantity}x {item.modelTitle}{item.material ? ` · ${item.material}` : ''} · {formatMoney(item.totalCents, order.currency)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="grid sm:grid-cols-3 gap-3 mt-3 text-xs text-slate-300">
                     <div>
                       <p className="text-slate-500">Queue position</p>
@@ -539,10 +587,16 @@ export default function ProductionDashboard({ initial }: { initial: Snapshot }) 
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                     <span>Printer: {order.printerName || 'Unassigned'}</span>
+                    <span className={order.lastPrintLabSubmission?.status === 'failed' ? 'text-rose-200' : order.lastPrintLabSubmission ? 'text-emerald-300' : ''}>
+                      PrintLab: {formatPrintLabSubmission(order.lastPrintLabSubmission)}
+                    </span>
                     {order.failedAt ? <span className="text-rose-200">Failed</span> : null}
                   </div>
+                  {order.lastPrintLabSubmission?.error ? (
+                    <p className="mt-2 text-xs text-rose-200">PrintLab error: {order.lastPrintLabSubmission.error}</p>
+                  ) : null}
                   {order.orderWorksLastError ? (
-                    <p className="mt-2 text-xs text-rose-200">OrderWorks error: {order.orderWorksLastError}</p>
+                    <p className="mt-2 text-xs text-rose-200">Legacy job error: {order.orderWorksLastError}</p>
                   ) : null}
                 </div>
               ))}
@@ -558,6 +612,45 @@ function formatDateTime(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '--'
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+
+function formatMoney(cents?: number | null, currency?: string | null) {
+  const amount = Math.max(0, Number.isFinite(Number(cents)) ? Number(cents) : 0) / 100
+  const code = (currency || 'USD').toUpperCase()
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(amount)
+  } catch {
+    return `${code} ${amount.toFixed(2)}`
+  }
+}
+
+function describeContribution(order: OrderEntry) {
+  const type = String(order.contributionType || 'paid').trim().toLowerCase()
+  const value = formatMoney(typeof order.donatedAmountCents === 'number' ? order.donatedAmountCents : order.totalCents, order.currency)
+  if (type === 'paid' && (String(order.paymentMethod || '').trim().toLowerCase() === 'comped' || Number(order.totalCents) === 0)) {
+    return `No-charge: ${value}`
+  }
+  if (type === 'paid') return null
+  if (type === 'donated') return `Donated: ${value}`
+  if (type === 'discounted') return `Discounted: ${value}`
+  if (type === 'cost_only') return `Cost-only: ${value}`
+  if (type === 'sponsored') return `Sponsored: ${value}`
+  return `Contribution: ${value}`
+}
+
+function summarizeLineItems(items?: OrderEntry['lineItems']) {
+  if (!Array.isArray(items) || items.length === 0) return 'No line items recorded.'
+  const totalQty = items.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0)
+  const first = items[0]?.modelTitle || 'Print job'
+  return items.length === 1 ? `${totalQty}x ${first}` : `${totalQty} parts across ${items.length} line items`
+}
+
+function formatPrintLabSubmission(submission?: OrderEntry['lastPrintLabSubmission']) {
+  if (!submission) return 'not submitted yet'
+  const status = submission.status || 'submitted'
+  const printer = submission.printerName ? ` · ${submission.printerName}` : ''
+  const job = submission.printLabJobId ? ` · ${submission.printLabJobId}` : ''
+  return `${status}${printer}${job}`
 }
 
 function formatPrinterStatus(status: any) {

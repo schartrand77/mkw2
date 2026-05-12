@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getMaxCartColors } from '@/lib/cartPricing'
 import { getPricingAdjustmentConfig } from '@/lib/estimate-adjustments'
+import { resolvePublicPaymentConfig } from '@/lib/checkout-payment-availability'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -20,13 +21,7 @@ const MATERIAL_PRICE_FIELDS = {
 } as const
 
 export async function GET() {
-  const stripePublishableKey = getEnvValue('STRIPE_PUBLISHABLE_KEY')
-    || getEnvValue('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY')
-    || ''
-  const configuredPayPalClientId = getEnvValue('NEXT_PUBLIC_PAYPAL_CLIENT_ID')
-    || getEnvValue('PAYPAL_CLIENT_ID')
-    || ''
-  const paypalClientId = configuredPayPalClientId && getEnvValue('PAYPAL_CLIENT_SECRET') ? configuredPayPalClientId : ''
+  const { stripePublishableKey, paypalClientId } = resolvePublicPaymentConfig()
   const maxCartColors = getMaxCartColors()
   const cfg = await prisma.siteConfig.findUnique({
     where: { id: 'main' },
@@ -68,7 +63,7 @@ export async function GET() {
   const adjustments = getPricingAdjustmentConfig(cfg || undefined)
   const res = NextResponse.json({
     stripePublishableKey,
-    stripeTaxEnabled: isEnabled(getEnvValue('STRIPE_TAX_ENABLED')),
+    stripeTaxEnabled: isEnabled(process.env.STRIPE_TAX_ENABLED),
     paypalClientId,
     maxCartColors,
     materialPrices: Object.keys(materialPrices).length ? materialPrices : null,
@@ -87,14 +82,6 @@ export async function GET() {
 function isEnabled(raw?: string): boolean {
   const value = (raw || '').trim().toLowerCase()
   return value === '1' || value === 'true' || value === 'yes'
-}
-
-function getEnvValue(name: string): string | undefined {
-  const entries = Object.entries(process.env)
-  for (const [key, value] of entries) {
-    if (key === name && typeof value === 'string' && value !== '') return value
-  }
-  return undefined
 }
 
 function readNumber(keys: string[], fallback: number): number {

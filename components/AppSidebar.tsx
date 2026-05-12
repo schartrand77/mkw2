@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BRAND_FULL_NAME, BRAND_LOGO_PREFIX, BRAND_LOGO_SUFFIX, BRAND_VERSION } from '@/lib/brand'
 import { THEME_CLASSES, THEME_STORAGE_KEY, resolveInitialThemeMode, type ThemeMode } from '@/lib/theme-mode'
+import { resolveQuickSearchNavigation } from '@/lib/quick-search'
 
 type Props = {
   authed: boolean
@@ -343,59 +344,6 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
     </div>
   )
 
-  const resolveQuickSearchNavigation = (rawQuery: string) => {
-    const query = rawQuery.trim()
-    const tokens = query.split(/\s+/).filter(Boolean)
-    const navTags = new Set<string>()
-    const contentTokens: string[] = []
-    for (const token of tokens) {
-      if (token.startsWith('#')) navTags.add(token.toLowerCase().replace(/^#+/, ''))
-      else contentTokens.push(token)
-    }
-
-    const routeByTag: Record<string, string> = {
-      home: '/',
-      discover: '/discover',
-      store: '/products',
-      upload: '/upload',
-      cart: '/cart',
-      checkout: '/checkout',
-      orders: '/customer/orders',
-      portal: '/customer/portal',
-      workspace: '/customer/workspaces',
-      workspaces: '/customer/workspaces',
-      profile: '/settings/profile',
-      account: '/settings/account',
-      orgs: '/settings/organizations',
-      organizations: '/settings/organizations',
-      likes: '/likes',
-      me: '/me',
-      admin: '/admin',
-      setup: '/admin/suite-setup',
-      suite: '/admin/suite-setup',
-      users: '/admin/users',
-      jobs: '/admin/jobs',
-      inventory: '/admin/inventory',
-      analytics: '/admin/analytics',
-      production: '/admin/production',
-      models: '/discover',
-      merch: '/discover',
-    }
-
-    const preferredNavOrder = [
-      'home', 'discover', 'store', 'upload', 'cart', 'checkout', 'orders', 'portal', 'workspace', 'workspaces', 'profile',
-      'account', 'orgs', 'organizations', 'likes', 'me', 'admin', 'setup', 'suite', 'users', 'jobs', 'inventory', 'analytics', 'production',
-    ]
-    const navTag = preferredNavOrder.find((tag) => navTags.has(tag))
-    const navRoute = navTag ? routeByTag[navTag] : null
-    const discoverQuery = [contentTokens.join(' ').trim(), ...Array.from(navTags).filter((tag) => ['models', 'merch', 'products'].includes(tag)).map((tag) => `#${tag}`)]
-      .filter(Boolean)
-      .join(' ')
-      .trim()
-
-    return { navRoute, discoverQuery }
-  }
-
   const handleQuickSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const raw = quickSearch.trim()
@@ -403,13 +351,13 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
       router.push('/discover')
       return
     }
-    const { navRoute, discoverQuery } = resolveQuickSearchNavigation(raw)
+    const { navRoute, discoverQuery, adminOnly } = resolveQuickSearchNavigation(raw, { isAdmin })
 
-    if (navRoute?.startsWith('/admin') && !isAdmin) {
+    if (adminOnly && !isAdmin) {
       pushSessionNotification({ type: 'error', title: 'Admin only', message: 'That hashtag route requires admin access.' })
       return
     }
-    if (navRoute && navRoute !== '/discover') {
+    if (navRoute) {
       router.push(navRoute)
       return
     }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import UserDiscountControls from '@/components/admin/UserDiscountControls'
 import UserAdminActions from '@/components/admin/UserAdminActions'
 import UserOrderCreator from '@/components/admin/UserOrderCreator'
@@ -40,11 +40,30 @@ type AdminUserWithStats = AdminUser & {
 
 type Props = {
   users: AdminUserWithStats[]
+  initialSearch?: string
   className?: string
 }
 
-export default function UsersAndBadgesPanel({ users, className = '' }: Props) {
+export default function UsersAndBadgesPanel({ users, initialSearch = '', className = '' }: Props) {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
+  const [search, setSearch] = useState(initialSearch)
+  const normalizedSearch = search.trim().toLowerCase()
+  const filteredUsers = useMemo(() => {
+    if (!normalizedSearch) return users
+    return users.filter((user) => {
+      const haystack = [
+        user.id,
+        user.name,
+        user.email,
+        user.role,
+        user.profile?.slug,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(normalizedSearch)
+    })
+  }, [normalizedSearch, users])
 
   if (!users?.length) {
     return (
@@ -55,8 +74,19 @@ export default function UsersAndBadgesPanel({ users, className = '' }: Props) {
   }
 
   return (
-    <div className={`divide-y divide-white/10 ${className}`.trim()}>
-      {users.map((u) => {
+    <div className={`${className}`.trim()}>
+      <div className="border-b border-white/10 p-4">
+        <input
+          className="input"
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search users..."
+          aria-label="Search users"
+        />
+      </div>
+      <div className="divide-y divide-white/10">
+      {filteredUsers.map((u) => {
         const avatarSrc = toPublicHref(u.profile?.avatarImagePath)
         const placeholder = (u.name || u.email || '?').trim().charAt(0).toUpperCase() || '?'
         const isExpanded = expandedUserId === u.id
@@ -206,6 +236,10 @@ export default function UsersAndBadgesPanel({ users, className = '' }: Props) {
           </div>
         )
       })}
+      {!filteredUsers.length ? (
+        <div className="px-4 py-6 text-center text-sm text-slate-400">No users match that search.</div>
+      ) : null}
+      </div>
     </div>
   )
 }

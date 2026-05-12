@@ -10,6 +10,12 @@ import { DEFAULT_ACHIEVEMENTS } from '@/lib/achievements'
 import { getBadgeImageSrc } from '@/lib/badge-images'
 import CreatorQualityCard from '@/components/CreatorQualityCard'
 import { getCreatorQualitySnapshot } from '@/lib/creator-quality'
+import ProfileModelsViewToggle from '@/components/ProfileModelsViewToggle'
+import {
+  PROFILE_MODELS_VIEW_COOKIE,
+  buildProfileModelsHref,
+  resolveProfileModelsViewMode,
+} from '@/lib/profile-models-view'
 
 const fallbackAchievements = new Map(DEFAULT_ACHIEVEMENTS.map((ach) => [ach.key, ach]))
 
@@ -97,12 +103,17 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
   if (!profile) return <div>Profile not found</div>
   const rawSearchParams = searchParams ? await searchParams : {}
   const pageParam = Array.isArray(rawSearchParams?.page) ? rawSearchParams?.page?.[0] : rawSearchParams?.page
+  const viewParam = Array.isArray(rawSearchParams?.view) ? rawSearchParams?.view?.[0] : rawSearchParams?.view
   const page = pageParam ? Number.parseInt(pageParam, 10) : 1
   const pageSize = 9
   const { items: models, total: modelCount, pageCount, currentPage } = await getUserModels(profile.userId, page, pageSize)
   const creatorQuality = await getCreatorQualitySnapshot(profile.userId)
   const cookieStore = await cookies()
   const token = cookieStore.get('mwv2_token')?.value
+  const storedView = cookieStore.get(PROFILE_MODELS_VIEW_COOKIE)?.value
+  const viewMode = resolveProfileModelsViewMode(viewParam, storedView)
+  const gridViewHref = buildProfileModelsHref(profile.slug, 1, 'grid')
+  const compactViewHref = buildProfileModelsHref(profile.slug, 1, 'compact')
   const current = token ? verifyToken(token)?.sub : null
   const avatarSrc = toPublicHref(profile.avatarImagePath)
   const contactItems = [
@@ -219,70 +230,116 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
             <h2 className="text-lg font-semibold">Models</h2>
             <p className="text-xs text-slate-400">{modelCount} total</p>
           </div>
-          {pageCount > 1 && (
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span>Page {currentPage} of {pageCount}</span>
-              <div className="flex items-center gap-2">
-                {currentPage > 1 ? (
-                  <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={`/u/${profile.slug}?page=${currentPage - 1}`}>
-                    Prev
-                  </Link>
-                ) : (
-                  <span className="px-2 py-1 rounded-md border border-white/10 text-slate-600">Prev</span>
-                )}
-                {currentPage < pageCount ? (
-                  <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={`/u/${profile.slug}?page=${currentPage + 1}`}>
-                    Next
-                  </Link>
-                ) : (
-                  <span className="px-2 py-1 rounded-md border border-white/10 text-slate-600">Next</span>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {models.length === 0 && <p className="text-slate-400">No models yet.</p>}
-          {models.map((m) => {
-            const hasCustomPrice = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd))
-            const priceLabel = formatPriceLabel(m.priceUsd, { from: hasCustomPrice ? false : m.salePriceIsFrom, unit: m.salePriceUnit })
-            return (
-              <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition">
-                {m.coverImagePath ? (
-                  <img src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
-                ) : (
-                  <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
-                )}
-                <div className="p-4">
-                  <h3 className="font-semibold">{m.title}</h3>
-                  {priceLabel ? (
-                    <div className="text-sm text-slate-300">
-                      <span className="font-medium">{priceLabel}</span>
-                      {!hasCustomPrice && m.saleActive && m.basePriceUsd && (
-                        <span className="text-xs text-slate-500 ml-2 line-through">{formatCurrency(m.basePriceUsd)}</span>
-                      )}
-                    </div>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <ProfileModelsViewToggle viewMode={viewMode} gridHref={gridViewHref} compactHref={compactViewHref} />
+            {pageCount > 1 && (
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <span>Page {currentPage} of {pageCount}</span>
+                <div className="flex items-center gap-2">
+                  {currentPage > 1 ? (
+                    <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={buildProfileModelsHref(profile.slug, currentPage - 1, viewMode)}>
+                      Prev
+                    </Link>
                   ) : (
-                    <p className="text-sm text-slate-400">No estimate</p>
+                    <span className="px-2 py-1 rounded-md border border-white/10 text-slate-600">Prev</span>
+                  )}
+                  {currentPage < pageCount ? (
+                    <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={buildProfileModelsHref(profile.slug, currentPage + 1, viewMode)}>
+                      Next
+                    </Link>
+                  ) : (
+                    <span className="px-2 py-1 rounded-md border border-white/10 text-slate-600">Next</span>
                   )}
                 </div>
-              </Link>
-            )
-          })}
+              </div>
+            )}
+          </div>
         </div>
+        {models.length === 0 && <p className="text-slate-400">No models yet.</p>}
+        {viewMode === 'compact' ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {models.map((m) => {
+              const hasCustomPrice = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd))
+              const priceLabel = formatPriceLabel(m.priceUsd, { from: hasCustomPrice ? false : m.salePriceIsFrom, unit: m.salePriceUnit })
+              return (
+                <Link
+                  key={m.id}
+                  href={`/models/${m.id}`}
+                  className="group flex items-center gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2 transition hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                >
+                  {m.coverImagePath ? (
+                    <img
+                      src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`}
+                      alt={m.title}
+                      className="h-14 w-16 rounded-lg border border-white/10 object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-16 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 text-[10px] text-slate-500">
+                      No image
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <h3 className="line-clamp-1 text-sm font-semibold leading-5">{m.title}</h3>
+                    {priceLabel ? (
+                      <div className="text-xs text-slate-300">
+                        <span className="font-medium">{priceLabel}</span>
+                        {!hasCustomPrice && m.saleActive && m.basePriceUsd && (
+                          <span className="ml-2 text-[11px] text-slate-500 line-through">{formatCurrency(m.basePriceUsd)}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400">No estimate</p>
+                    )}
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {models.map((m) => {
+              const hasCustomPrice = m.salePriceUsd != null && Number.isFinite(Number(m.salePriceUsd))
+              const priceLabel = formatPriceLabel(m.priceUsd, { from: hasCustomPrice ? false : m.salePriceIsFrom, unit: m.salePriceUnit })
+              return (
+                <Link key={m.id} href={`/models/${m.id}`} className="glass rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition">
+                  {m.coverImagePath ? (
+                    <img src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`} alt={m.title} className="aspect-video w-full object-cover" />
+                  ) : (
+                    <div className="aspect-video w-full bg-slate-900/60 flex items-center justify-center text-slate-400">No image</div>
+                  )}
+                  <div className="p-4">
+                    <h3 className="font-semibold">{m.title}</h3>
+                    {priceLabel ? (
+                      <div className="text-sm text-slate-300">
+                        <span className="font-medium">{priceLabel}</span>
+                        {!hasCustomPrice && m.saleActive && m.basePriceUsd && (
+                          <span className="text-xs text-slate-500 ml-2 line-through">{formatCurrency(m.basePriceUsd)}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400">No estimate</p>
+                    )}
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
         {pageCount > 1 && (
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
             <span>Page {currentPage} of {pageCount}</span>
             <div className="flex items-center gap-2">
               {currentPage > 1 ? (
-                <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={`/u/${profile.slug}?page=${currentPage - 1}`}>
+                <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={buildProfileModelsHref(profile.slug, currentPage - 1, viewMode)}>
                   Prev
                 </Link>
               ) : (
                 <span className="px-2 py-1 rounded-md border border-white/10 text-slate-600">Prev</span>
               )}
               {currentPage < pageCount ? (
-                <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={`/u/${profile.slug}?page=${currentPage + 1}`}>
+                <Link className="px-2 py-1 rounded-md border border-white/10 hover:border-white/20" href={buildProfileModelsHref(profile.slug, currentPage + 1, viewMode)}>
                   Next
                 </Link>
               ) : (

@@ -112,15 +112,15 @@ export async function getMaterialAvailabilitySnapshot(materials?: string[]) {
     return { enabled: false, materials: {} as Record<string, MaterialAvailabilityEntry> }
   }
 
-  let sessionCookie = ''
+  let authHeader = ''
   try {
     const session = await getStockworksSession()
-    sessionCookie = session.cookie
+    authHeader = session.authHeader
   } catch {
     return { enabled: false, materials: {} as Record<string, MaterialAvailabilityEntry>, error: 'StockWorks authentication failed.' }
   }
 
-  const headers = { Cookie: sessionCookie }
+  const headers = { Authorization: authHeader }
   let materialsRes: Response
   let inventoryRes: Response
   try {

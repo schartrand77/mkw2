@@ -47,7 +47,7 @@ export default function EnvCheckCard() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Environment validation</h2>
-          <p className="text-xs text-slate-400">Verify required credentials and integration keys.</p>
+          <p className="text-xs text-slate-400">Verify required credentials and configured integrations.</p>
         </div>
         <button
           type="button"

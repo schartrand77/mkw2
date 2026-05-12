@@ -75,5 +75,8 @@ export function isColorAvailableForMaterial(
   }
   const tokens = getColorTokens(color)
   if (tokens.length === 0) return false
+  if (requestedNames.length === 0 && tokens.every((token) => token.startsWith('#'))) {
+    return true
+  }
   return tokens.some((token) => allowed.has(token))
 }

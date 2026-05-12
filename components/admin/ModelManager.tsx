@@ -1,7 +1,10 @@
 "use client"
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { buildImageSrc } from '@/lib/public-path'
+import { useCart } from '@/components/cart/CartProvider'
+import { buildAdminCheckoutCartItem } from '@/lib/admin-checkout-cart'
 
 type Model = {
   id: string
@@ -9,13 +12,19 @@ type Model = {
   coverImagePath?: string | null
   updatedAt?: string | null
   visibility: string
+  priceUsd?: number | null
   salePriceUsd?: number | null
+  material?: string | null
+  sizeXmm?: number | null
+  sizeYmm?: number | null
+  sizeZmm?: number | null
   salePriceIsFrom?: boolean | null
   salePriceUnit?: string | null
   disableCustomerDiscounts?: boolean | null
   flatRatePricing?: boolean | null
   colorSlotCount?: number | null
   allowedColors?: string[] | null
+  defaultColors?: string[] | null
   tags: string[]
   affiliateTitle?: string | null
   affiliateUrl?: string | null
@@ -59,8 +68,14 @@ function PaginationControls({
   )
 }
 
-export default function ModelManager() {
-  const [query, setQuery] = useState('')
+type Props = {
+  initialQuery?: string
+}
+
+export default function ModelManager({ initialQuery = '' }: Props) {
+  const router = useRouter()
+  const { add } = useCart()
+  const [query, setQuery] = useState(initialQuery)
   const [items, setItems] = useState<Model[]>([])
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
@@ -157,6 +172,12 @@ export default function ModelManager() {
     }
   }
 
+  const sendToCheckout = (model: Model) => {
+    const { options, ...cartItem } = buildAdminCheckoutCartItem(model)
+    add(cartItem, options)
+    router.push('/checkout')
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const activeModel = activeId ? items.find((m) => m.id === activeId) || null : null
 
@@ -208,27 +229,42 @@ export default function ModelManager() {
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
               {items.map((m) => (
-                <button
+                <div
                   key={m.id}
-                  type="button"
-                  className="flex items-start gap-3 p-3 rounded-lg border border-white/10 hover:border-white/20 bg-slate-900/40 text-left transition-colors"
-                  onClick={() => setActiveId(m.id)}
+                  className="rounded-lg border border-white/10 bg-slate-900/40 transition-colors hover:border-white/20"
                 >
-                  {m.coverImagePath ? (
-                    <img
-                      src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`}
-                      className="w-16 h-12 object-cover rounded border border-white/10"
-                      alt={`${m.title} cover`}
-                    />
-                  ) : (
-                    <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
+                  <button
+                    type="button"
+                    className="flex w-full items-start gap-3 p-3 text-left"
+                    onClick={() => setActiveId(m.id)}
+                  >
+                    {m.coverImagePath ? (
+                      <img
+                        src={buildImageSrc(m.coverImagePath, m.updatedAt) || `/files${m.coverImagePath}`}
+                        className="w-16 h-12 object-cover rounded border border-white/10"
+                        alt={`${m.title} cover`}
+                      />
+                    ) : (
+                      <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
+                    )}
+                    <div className="flex-1 space-y-1">
+                      <div className="font-semibold text-sm">{m.title}</div>
+                      <div className="text-xs uppercase tracking-wide text-slate-400">{m.visibility}</div>
+                      {m.tags?.length > 0 && <div className="text-xs text-slate-400 truncate">{m.tags.join(', ')}</div>}
+                    </div>
+                  </button>
+                  {m.visibility === 'unlisted' && (
+                    <div className="border-t border-white/10 px-3 py-2">
+                      <button
+                        type="button"
+                        className="w-full rounded-md border border-brand-500/50 bg-brand-500/15 px-3 py-2 text-sm text-brand-100 hover:border-brand-400/70 hover:bg-brand-500/25"
+                        onClick={() => sendToCheckout(m)}
+                      >
+                        Send to checkout
+                      </button>
+                    </div>
                   )}
-                  <div className="flex-1 space-y-1">
-                    <div className="font-semibold text-sm">{m.title}</div>
-                    <div className="text-xs uppercase tracking-wide text-slate-400">{m.visibility}</div>
-                    {m.tags?.length > 0 && <div className="text-xs text-slate-400 truncate">{m.tags.join(', ')}</div>}
                   </div>
-                </button>
               ))}
               {!loading && items.length === 0 && (
                 <div className="col-span-full text-slate-400 text-sm">No models found.</div>

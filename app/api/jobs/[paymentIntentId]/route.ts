@@ -16,6 +16,7 @@ import {
 } from '@/lib/orderworks-status'
 import { incrementMetric } from '@/lib/observability-metrics'
 import { withRequestObservability } from '@/lib/request-observability'
+import { generateOrderReceiptBestEffort } from '@/lib/receipts/order-receipts'
 
 const patchSchema = z.object({
   status: z.enum(['pending', 'sent']).optional(),
@@ -104,14 +105,32 @@ async function handlePatch(req: Request, { params }: Params) {
   })) as JobWithUser
 
   try {
+    const paymentStatusChanged = payload.paymentStatus !== undefined && updated.paymentStatus !== previousPaymentStatus
+    const paymentMethodChanged = payload.paymentMethod !== undefined && updated.paymentMethod !== previousPaymentMethod
     if (updated.fulfillmentStatus) {
       await syncOrderStatusFromFulfillment(paymentIntentId, updated.fulfillmentStatus)
     }
+    let linkedOrderId: string | null = null
     if (isPaidPaymentStatus(updated.paymentStatus)) {
-      await createOrderFromJobForm(updated)
+      const order = await createOrderFromJobForm(updated)
+      linkedOrderId = order?.id || null
     }
-    const paymentStatusChanged = payload.paymentStatus !== undefined && updated.paymentStatus !== previousPaymentStatus
-    const paymentMethodChanged = payload.paymentMethod !== undefined && updated.paymentMethod !== previousPaymentMethod
+    if (!linkedOrderId && (paymentStatusChanged || paymentMethodChanged)) {
+      const linkedOrder = await prisma.printOrder.findFirst({
+        where: {
+          OR: [
+            { stripePaymentIntentId: paymentIntentId },
+            { metadata: { path: ['paymentIntentId'], equals: paymentIntentId } },
+            { metadata: { path: ['stripe', 'paymentIntentId'], equals: paymentIntentId } },
+          ],
+        },
+        select: { id: true },
+      } as any)
+      linkedOrderId = linkedOrder?.id || null
+    }
+    if (linkedOrderId && (paymentStatusChanged || paymentMethodChanged)) {
+      await generateOrderReceiptBestEffort(linkedOrderId, 'adminJobPaymentUpdate')
+    }
     if (paymentStatusChanged || paymentMethodChanged) {
       if (updated.paymentStatus && ['failed', 'canceled', 'cancelled'].includes(updated.paymentStatus)) {
         incrementMetric('payment_failures_total', 1, { source: 'admin_job_patch', reason: updated.paymentStatus })

@@ -37,6 +37,16 @@ type OrderQueueEntry = {
   createdAt: Date
   customerName?: string | null
   customerEmail?: string | null
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  totalCents?: number | null
+  currency?: string | null
+  contributionType?: string | null
+  donatedAmountCents?: number | null
+  receiptStatus?: string | null
+  contributionNotes?: string | null
+  lineItems?: ProductionLineItemSummary[]
+  lastPrintLabSubmission?: PrintLabSubmissionSummary | null
   paymentIntentId?: string | null
   orderWorksStatus?: string | null
   orderWorksLastError?: string | null
@@ -49,6 +59,75 @@ type OrderQueueEntry = {
   estimatedCompletionAt: Date | null
   etaConfidenceScore: number | null
   milestones?: ProductionMilestone[]
+}
+
+export type ProductionQueueClientJob = {
+  id: string
+  orderNumber: number | null
+  orderLabel: string
+  status: string
+  createdAt: string
+  customerName?: string | null
+  customerEmail?: string | null
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  totalCents?: number | null
+  currency?: string | null
+  contributionType?: string | null
+  donatedAmountCents?: number | null
+  contributionSummary: string | null
+  lineItems?: ProductionLineItemSummary[]
+  printLabStatus: string | null
+  printLabPrinterName: string | null
+  printLabJobId: string | null
+  printLabError: string | null
+  legacyJobStatus: string | null
+  legacyJobError: string | null
+  printerName?: string | null
+  totalHours: number
+  queuePosition: number | null
+  estimatedCompletionAt: string | null
+}
+
+export type ProductionQueueClientSnapshot = {
+  generatedAt: string
+  jobs: ProductionQueueClientJob[]
+  activeCount: number
+  totalCount: number
+  queueHours: number
+}
+
+export type ProductionLineItemSummary = {
+  modelTitle: string
+  material: string | null
+  quantity: number
+  totalCents: number
+}
+
+export type PrintLabSubmissionSummary = {
+  status: string | null
+  printerName: string | null
+  printLabJobId: string | null
+  error: string | null
+}
+
+type PrintLabCallbackPayload = {
+  job_id?: unknown
+  status?: unknown
+  printer_id?: unknown
+  printer_name?: unknown
+  queue_item_id?: unknown
+  successful_gcode_id?: unknown
+  idempotency_key?: unknown
+  source_job_id?: unknown
+  source_order_id?: unknown
+  model_id?: unknown
+  model_name?: unknown
+  completed_at?: unknown
+  started_at?: unknown
+  updated_at?: unknown
+  last_error?: unknown
+  progress_percent?: unknown
 }
 
 export type ProductionMilestone = {
@@ -82,6 +161,114 @@ function clamp(value: number, min: number, max: number) {
 function asRecord(value: unknown): Record<string, any> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   return value as Record<string, any>
+}
+
+function readString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+export function formatProductionMoney(cents?: number | null, currency?: string | null) {
+  const amount = Math.max(0, Number.isFinite(Number(cents)) ? Number(cents) : 0) / 100
+  const code = (currency || 'USD').toUpperCase()
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(amount)
+  } catch {
+    return `${code} ${amount.toFixed(2)}`
+  }
+}
+
+export function describeProductionContribution(order: {
+  contributionType?: string | null
+  paymentMethod?: string | null
+  donatedAmountCents?: number | null
+  totalCents?: number | null
+  currency?: string | null
+}) {
+  const type = String(order.contributionType || 'paid').trim().toLowerCase()
+  const valueCents = typeof order.donatedAmountCents === 'number' ? order.donatedAmountCents : order.totalCents
+  const value = formatProductionMoney(valueCents, order.currency)
+  if (type === 'paid' && (String(order.paymentMethod || '').trim().toLowerCase() === 'comped' || Number(order.totalCents) === 0)) {
+    return `No-charge contribution: ${value}`
+  }
+  if (type === 'paid') return null
+  if (type === 'donated') return `Donated production work: ${value}`
+  if (type === 'discounted') return `Discounted community work: ${value}`
+  if (type === 'cost_only') return `Cost-only production: ${value}`
+  if (type === 'sponsored') return `Sponsored production: ${value}`
+  return `Community contribution: ${value}`
+}
+
+export function extractPrintLabSubmissionSummary(metadata: unknown): PrintLabSubmissionSummary | null {
+  const record = asRecord(metadata)
+  const submission = asRecord(record?.lastPrintLabSubmission)
+  if (!submission) return null
+  return {
+    status: readString(submission.status),
+    printerName: readString(submission.printerName),
+    printLabJobId: readString(submission.printLabJobId),
+    error: readString(submission.error),
+  }
+}
+
+function readNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+export function deriveOrderStatusFromPrintLabStatus(printLabStatus: unknown, currentStatus: string) {
+  const current = normalizeOrderStatus(currentStatus)
+  if (current === 'completed' || current === 'shipped' || current === 'cancelled') return current
+  const status = String(printLabStatus || '').trim().toLowerCase()
+  if (status === 'started') return 'printing'
+  if (status === 'completed') return 'completed'
+  if (status === 'failed' || status === 'cancelled' || status === 'submit_failed') return 'failed'
+  return current
+}
+
+export function mergePrintLabCallbackMetadata(
+  metadata: unknown,
+  payload: PrintLabCallbackPayload,
+  receivedAt = new Date().toISOString(),
+): Record<string, unknown> {
+  const prior = asRecord(metadata) || {}
+  const jobId = readString(payload.job_id)
+  const entry = {
+    at: receivedAt,
+    source: 'printlab_callback',
+    printLabJobId: jobId,
+    status: readString(payload.status),
+    printerId: readString(payload.printer_id),
+    printerName: readString(payload.printer_name),
+    queueItemId: readString(payload.queue_item_id),
+    successfulGcodeId: readString(payload.successful_gcode_id),
+    idempotencyKey: readString(payload.idempotency_key),
+    sourceJobId: readString(payload.source_job_id),
+    sourceOrderId: readString(payload.source_order_id),
+    modelId: readString(payload.model_id),
+    modelName: readString(payload.model_name),
+    startedAt: readString(payload.started_at),
+    completedAt: readString(payload.completed_at),
+    updatedAt: readString(payload.updated_at),
+    progressPercent: readNumber(payload.progress_percent),
+    error: readString(payload.last_error),
+  }
+  const priorSubmissions = Array.isArray(prior.printLabSubmissions) ? prior.printLabSubmissions : []
+  let matched = false
+  const printLabSubmissions = priorSubmissions.map((item) => {
+    const record = asRecord(item)
+    if (!record) return item
+    const existingId = readString(record.printLabJobId) || readString(record.jobId) || readString(record.id)
+    if (jobId && existingId === jobId) {
+      matched = true
+      return { ...record, ...entry }
+    }
+    return item
+  })
+  if (!matched) printLabSubmissions.push(entry)
+  return {
+    ...prior,
+    printLabSubmissions,
+    lastPrintLabSubmission: entry,
+  }
 }
 
 function parseDateValue(value: unknown): Date | null {
@@ -277,6 +464,24 @@ function resolveOrderStatusFromFulfillment(
   return orderStatus
 }
 
+export function resolveProductionStatusFromSignals(args: {
+  orderStatus: string
+  printLabStatus?: string | null
+  fulfillmentStatus?: FulfillmentStatusKey | null
+  fulfilledAt?: Date | null
+  jobStatus?: string | null
+  paymentStatus?: string | null
+}) {
+  const fulfilledStatus = resolveOrderStatusFromFulfillment(
+    args.orderStatus,
+    args.fulfillmentStatus,
+    args.fulfilledAt,
+    args.jobStatus,
+    args.paymentStatus,
+  )
+  return deriveOrderStatusFromPrintLabStatus(args.printLabStatus, fulfilledStatus)
+}
+
 async function loadVolumeMaps(orderItems: { modelId?: string | null; partId?: string | null }[]) {
   const modelIds = Array.from(new Set(orderItems.map((item) => item.modelId).filter((id): id is string => Boolean(id))))
   const partIds = Array.from(new Set(orderItems.map((item) => item.partId).filter((id): id is string => Boolean(id))))
@@ -377,6 +582,14 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
       createdAt: true,
       customerName: includeCustomer ? true : false,
       customerEmail: includeCustomer ? true : false,
+      paymentMethod: true,
+      paymentStatus: true,
+      totalCents: true,
+      currency: true,
+      contributionType: true,
+      donatedAmountCents: true,
+      receiptStatus: true,
+      contributionNotes: true,
       metadata: true,
       printerId: true,
       printer: { select: { id: true, name: true } },
@@ -390,6 +603,8 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
           infillPct: true,
           finish: true,
           quantity: true,
+          modelTitle: true,
+          totalCents: true,
         },
       },
     },
@@ -455,13 +670,15 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
     .map((order) => {
       const paymentIntentId = extractPaymentIntentId(order.metadata)
       const jobForm = getLatestJobForOrder(order.id, order.metadata)
-      const status = resolveOrderStatusFromFulfillment(
-        order.status,
-        jobForm?.fulfillmentStatus ?? null,
-        jobForm?.fulfilledAt ?? null,
-        jobForm?.status ?? null,
-        jobForm?.paymentStatus ?? null,
-      )
+      const lastPrintLabSubmission = extractPrintLabSubmissionSummary(order.metadata)
+      const status = resolveProductionStatusFromSignals({
+        orderStatus: order.status,
+        printLabStatus: lastPrintLabSubmission?.status ?? null,
+        fulfillmentStatus: jobForm?.fulfillmentStatus ?? null,
+        fulfilledAt: jobForm?.fulfilledAt ?? null,
+        jobStatus: jobForm?.status ?? null,
+        paymentStatus: jobForm?.paymentStatus ?? null,
+      })
       return {
         id: order.id,
         orderNumber: order.orderNumber,
@@ -469,6 +686,21 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
         createdAt: order.createdAt,
         customerName: includeCustomer ? (order as any).customerName : undefined,
         customerEmail: includeCustomer ? (order as any).customerEmail : undefined,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
+        totalCents: order.totalCents,
+        currency: order.currency,
+        contributionType: order.contributionType,
+        donatedAmountCents: order.donatedAmountCents,
+        receiptStatus: order.receiptStatus,
+        contributionNotes: order.contributionNotes,
+        lineItems: order.items.map((item) => ({
+          modelTitle: item.modelTitle,
+          material: item.material ?? null,
+          quantity: item.quantity,
+          totalCents: item.totalCents,
+        })),
+        lastPrintLabSubmission,
         paymentIntentId,
         orderWorksStatus: jobForm?.status ?? null,
         orderWorksLastError: jobForm?.lastError ?? null,
@@ -513,6 +745,48 @@ export async function getProductionSnapshot(options: { includeCustomer?: boolean
   }
 }
 
+function productionOrderLabel(orderNumber: number | null) {
+  return orderNumber ? `MW-${orderNumber.toString().padStart(5, '0')}` : 'Draft order'
+}
+
+export function buildProductionQueueClientSnapshot(snapshot: ProductionSnapshot): ProductionQueueClientSnapshot {
+  const jobs = snapshot.orders.map((order) => ({
+    id: order.id,
+    orderNumber: order.orderNumber,
+    orderLabel: productionOrderLabel(order.orderNumber),
+    status: order.status,
+    createdAt: order.createdAt.toISOString(),
+    customerName: order.customerName ?? null,
+    customerEmail: order.customerEmail ?? null,
+    paymentMethod: order.paymentMethod ?? null,
+    paymentStatus: order.paymentStatus ?? null,
+    totalCents: order.totalCents ?? null,
+    currency: order.currency ?? null,
+    contributionType: order.contributionType ?? null,
+    donatedAmountCents: order.donatedAmountCents ?? null,
+    contributionSummary: describeProductionContribution(order),
+    lineItems: order.lineItems ?? [],
+    printLabStatus: order.lastPrintLabSubmission?.status ?? null,
+    printLabPrinterName: order.lastPrintLabSubmission?.printerName ?? null,
+    printLabJobId: order.lastPrintLabSubmission?.printLabJobId ?? null,
+    printLabError: order.lastPrintLabSubmission?.error ?? null,
+    legacyJobStatus: order.orderWorksStatus ?? null,
+    legacyJobError: order.orderWorksLastError ?? null,
+    printerName: order.printerName ?? null,
+    totalHours: order.totalHours,
+    queuePosition: order.queuePosition,
+    estimatedCompletionAt: order.estimatedCompletionAt ? order.estimatedCompletionAt.toISOString() : null,
+  }))
+
+  return {
+    generatedAt: snapshot.generatedAt.toISOString(),
+    jobs,
+    activeCount: jobs.length,
+    totalCount: jobs.length,
+    queueHours: snapshot.queueHours,
+  }
+}
+
 export async function getOrderProductionSummary(orderId: string): Promise<OrderQueueEntry | null> {
   const snapshot = await getProductionSnapshot()
   return snapshot.orders.find((order) => order.id === orderId) ?? null
@@ -551,13 +825,15 @@ export async function getOrderProductionDetail(order: {
   })
   const volumeMaps = await loadVolumeMaps(order.items)
   const totalHours = estimateOrderHours(order.items, volumeMaps, cfg)
-  const effectiveStatus = resolveOrderStatusFromFulfillment(
-    order.status,
-    jobForm?.fulfillmentStatus ?? null,
-    jobForm?.fulfilledAt ?? null,
-    jobForm?.status ?? null,
-    jobForm?.paymentStatus ?? null,
-  )
+  const metadataForStatus = liveOrder?.metadata || order.metadata
+  const effectiveStatus = resolveProductionStatusFromSignals({
+    orderStatus: order.status,
+    printLabStatus: extractPrintLabSubmissionSummary(metadataForStatus)?.status ?? null,
+    fulfillmentStatus: jobForm?.fulfillmentStatus ?? null,
+    fulfilledAt: jobForm?.fulfilledAt ?? null,
+    jobStatus: jobForm?.status ?? null,
+    paymentStatus: jobForm?.paymentStatus ?? null,
+  })
 
   if (QUEUE_STATUSES.has(order.status)) {
     const snapshot = await getProductionSnapshot()

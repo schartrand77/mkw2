@@ -8,6 +8,7 @@ import { formatCurrency } from '@/lib/currency'
 import { listProjectWorkspacesForUser } from '@/lib/project-workspaces'
 import { headers } from 'next/headers'
 import { isLanRequestHost, readUploadByteEnv, resolveUploadUrlForRequestHost } from '@/lib/upload-config'
+import { canChooseUploadVisibility } from '@/lib/upload-visibility'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,10 +26,11 @@ export default async function CustomerPortalPage() {
     )
   }
 
-  const [cfg, orders, workspaces] = await Promise.all([
+  const [cfg, orders, workspaces, viewer] = await Promise.all([
     prisma.siteConfig.findUnique({ where: { id: 'main' }, select: { directUploadUrl: true } }),
     listOrdersForUser(userId, 6),
     listProjectWorkspacesForUser(userId),
+    prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true, role: true } }),
   ])
   const fallback = process.env.DIRECT_UPLOAD_URL || null
   const requestHost = reqHeaders.get('x-forwarded-host') || reqHeaders.get('host')
@@ -65,6 +67,7 @@ export default async function CustomerPortalPage() {
                 directUploadUrl={directUploadUrl}
                 maxFileBytes={maxFileBytes}
                 maxTotalBytes={maxTotalBytes}
+                canChooseVisibility={canChooseUploadVisibility(viewer)}
               />
             </div>
           </div>

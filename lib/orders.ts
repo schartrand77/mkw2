@@ -9,6 +9,7 @@ import type { OrderStatus } from '@/lib/order-status'
 import { normalizePaymentMethod as normalizeOrderWorksPaymentMethod } from '@/lib/orderworks-status'
 import { listOrganizationIdsForUser } from '@/lib/organizations'
 import { autoSubmitOrderToPrintLab } from '@/lib/printlab-order-submit'
+import { generateOrderReceiptBestEffort } from '@/lib/receipts/order-receipts'
 
 type PersistOrderPayload = {
   paymentIntentId: string
@@ -38,6 +39,7 @@ type InitialOrderStatusInput = {
 export function resolveInitialOrderStatus({ amountCents, paymentMethod, shipping }: InitialOrderStatusInput): OrderStatus {
   if (amountCents <= 0) return 'queued'
   if (paymentMethod === 'quote') return 'awaiting_review'
+  if (paymentMethod === 'comped') return 'queued'
   if (paymentMethod === 'cash') {
     return shipping.method === 'pickup' ? 'queued' : 'awaiting_payment'
   }
@@ -63,7 +65,7 @@ function normalizeShippingSelection(raw: unknown): ShippingSelection {
 
 function normalizePaymentMethod(raw?: string | null): CheckoutPaymentMethod {
   const normalized = normalizeOrderWorksPaymentMethod(raw)
-  if (normalized === 'paypal' || normalized === 'cash' || normalized === 'invoice' || normalized === 'po' || normalized === 'quote') {
+  if (normalized === 'paypal' || normalized === 'cash' || normalized === 'invoice' || normalized === 'po' || normalized === 'quote' || normalized === 'comped') {
     return normalized
   }
   return 'card'
@@ -136,7 +138,7 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
   const organizationRole = typeof metadataRecord.organizationRole === 'string' ? metadataRecord.organizationRole : null
   const orgRequiresApproval = metadataRecord.quoteApprovalRequired === true
 
-  return prisma.printOrder.create({
+  const order = await prisma.printOrder.create({
     data: {
       paymentMethod: payload.paymentMethod,
       shippingMethod: shippingData.method || 'pickup',
@@ -172,6 +174,8 @@ export async function recordCustomerOrder(payload: PersistOrderPayload) {
         : {}),
     },
   })
+  await generateOrderReceiptBestEffort(order.id, 'recordCustomerOrder')
+  return order
 }
 
 export type OrderListEntry = PrintOrder & { items: Pick<PrintOrderItem, 'id' | 'modelTitle' | 'quantity' | 'totalCents' | 'thumbnailPath'>[] }

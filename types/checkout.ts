@@ -45,7 +45,7 @@ export type ShippingSelection = {
   address?: ShippingAddress | null
 }
 
-export type CheckoutPaymentMethod = 'card' | 'paypal' | 'cash' | 'invoice' | 'po' | 'quote'
+export type CheckoutPaymentMethod = 'card' | 'paypal' | 'cash' | 'invoice' | 'po' | 'quote' | 'comped'
 
 export type CheckoutLineItem = {
   modelId: string

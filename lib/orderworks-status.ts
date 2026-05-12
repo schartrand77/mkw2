@@ -22,6 +22,7 @@ export const PAYMENT_METHOD_OPTIONS: Array<{ value: CheckoutPaymentMethod; label
   { value: 'invoice', label: 'Invoice' },
   { value: 'po', label: 'Purchase order' },
   { value: 'quote', label: 'Quote request' },
+  { value: 'comped', label: 'No-charge contribution' },
 ]
 
 export const PAYMENT_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
@@ -48,6 +49,7 @@ export function normalizePaymentMethod(value: string | null | undefined): string
   if (normalized === 'credit_card' || normalized === 'credit card' || normalized === 'stripe') return 'card'
   if (normalized === 'paypal' || normalized === 'pay_pal') return 'paypal'
   if (normalized === 'quotation' || normalized === 'rfq') return 'quote'
+  if (normalized === 'complimentary' || normalized === 'comp' || normalized === 'comped' || normalized === 'no charge' || normalized === 'no-charge') return 'comped'
   return normalized
 }
 
@@ -84,5 +86,5 @@ export function isPaidPaymentStatus(paymentStatus?: string | null) {
 export function isPaymentPromise(paymentMethod?: string | null, paymentStatus?: string | null) {
   const method = normalizePaymentMethod(paymentMethod)
   const status = normalizePaymentStatus(paymentStatus)
-  return method === 'cash' || status === 'pending'
+  return method === 'cash' || method === 'comped' || status === 'pending'
 }

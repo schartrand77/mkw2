@@ -53,7 +53,7 @@ StockWorks and PrintLab screenshots show the same synthetic order context moving
 - Upload STL/OBJ/3MF/AMF/PLY/WRL/VRML/GLB/GLTF/USD/USDZ/USDA/USDC/ZIP files.
 - Configure print options and get instant estimates.
 - Review print feasibility, material recommendations, tolerance class, and quote breakdowns before adding to cart.
-- Checkout with card, cash, invoice, PO, or quote-request modes.
+- Checkout with card, cash, no-charge contribution, invoice, PO, or quote-request modes.
 - Track orders, respond to approvals, and request revisions/reprints.
 - Review project workspaces, pinned part comments, and production progress timelines.
 
@@ -65,8 +65,8 @@ StockWorks and PrintLab screenshots show the same synthetic order context moving
 
 ## Integrations
 
-### Orderworks (job orchestration bridge)
-MakerWorks includes Orderworks-compatible job sync surfaces for external production orchestration.
+### OrderWorks (legacy compatibility)
+OrderWorks is legacy compatibility context and is no longer part of the active checkout or production handoff path. MakerWorks keeps OrderWorks-compatible surfaces for historical data and inbound compatibility, while new production execution should use the MakerWorks order lifecycle and PrintLab handoff.
 
 - Core client/service: [`lib/orderworks.ts`](lib/orderworks.ts)
 - Sync logic: [`lib/orderworks-sync.ts`](lib/orderworks-sync.ts)
@@ -346,6 +346,13 @@ npm run backup:scheduler
 ```
 
 `backup:scheduler` is intended to run as a separate long-lived process/container and uses UTC schedule + retention env vars from `.env`.
+
+### Order Receipt PDFs
+
+MakerWorks generates plain-English transaction PDFs for customer orders under `STORAGE_DIR/orders/{orderId}/receipts/`.
+Customers can download receipts from `/api/customer/orders/{orderId}/receipt`.
+Admins and staff can download or regenerate receipts from `/api/admin/orders/{orderId}/receipt`.
+Receipt generation runs best-effort during checkout, admin order creation, and payment sync; download routes regenerate the PDF on demand.
 
 ## Architecture
 
