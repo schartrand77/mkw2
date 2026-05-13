@@ -27,11 +27,11 @@ export const metadata = {
     startupImage: ['/apple-touch-icon.png'],
   },
   other: { 'mobile-web-app-capable': 'yes' },
-  icons: { icon: '/favicon.svg', apple: '/favicon.svg' },
+  icons: { icon: '/favicon.svg', apple: '/apple-touch-icon.png' },
 }
 
 export const viewport = {
-  themeColor: '#000000',
+  themeColor: '#1f2026',
   viewportFit: 'cover' as const,
 }
 
