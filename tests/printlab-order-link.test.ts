@@ -232,6 +232,28 @@ test('builds a safe model print template from completed PrintLab attachment', ()
   assert.equal(buildModelPrintTemplateSummary({ ...attachment, successfulGcodeId: null }), null)
 })
 
+test('rejects completed submitted-job attachment without successful G-code from model print templates', () => {
+  const attachment = normalizePrintLabSubmittedJobAttachment({
+    id: 'pl-job-1',
+    status: 'completed',
+    printer_name: 'X1C',
+    file_name: 'bracket.gcode.3mf',
+    completed_at: '2026-05-12T15:00:00.000Z',
+  })
+
+  assert.equal(buildModelPrintTemplateSummary(attachment), null)
+})
+
+test('rejects manual PrintLab attachment without successful G-code from model print templates', () => {
+  const attachment = buildManualPrintLabAttachment({
+    printLabJobId: 'manual-job-1',
+    printerName: 'X1C',
+    completedAt: '2026-05-12T15:00:00.000Z',
+  })
+
+  assert.equal(buildModelPrintTemplateSummary(attachment), null)
+})
+
 test('finds successful G-code records by exact trimmed id or record_id', () => {
   const records = [
     { id: 'gcode-1', record_id: 'record-1' },

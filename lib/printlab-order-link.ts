@@ -328,7 +328,7 @@ export function buildModelPrintTemplateSummary(
   >,
 ): ModelPrintTemplateSummary | null {
   if (String(attachment.status || '').trim().toLowerCase() !== 'completed') return null
-  if (!attachment.printLabJobId && !attachment.successfulGcodeId) return null
+  if (!attachment.successfulGcodeId) return null
 
   return {
     printLabJobId: attachment.printLabJobId,
