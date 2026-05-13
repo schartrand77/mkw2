@@ -195,6 +195,36 @@ test('PrintLab client fetches submitted jobs with a status filter', async () => 
   }
 })
 
+test('PrintLab client fetches submitted jobs without a trailing query string', async () => {
+  const envSnapshot = {
+    PRINTLAB_BASE_URL: process.env.PRINTLAB_BASE_URL,
+    PRINTLAB_SESSION_COOKIE: process.env.PRINTLAB_SESSION_COOKIE,
+    PRINTLAB_AUTH_HEADER: process.env.PRINTLAB_AUTH_HEADER,
+    PRINTLAB_API_KEY: process.env.PRINTLAB_API_KEY,
+    PRINTLAB_API_KEY_HEADER: process.env.PRINTLAB_API_KEY_HEADER,
+  }
+  process.env.PRINTLAB_BASE_URL = 'https://printlab.local'
+  delete process.env.PRINTLAB_SESSION_COOKIE
+  delete process.env.PRINTLAB_AUTH_HEADER
+  delete process.env.PRINTLAB_API_KEY
+  delete process.env.PRINTLAB_API_KEY_HEADER
+
+  const calls: string[] = []
+  global.fetch = (async (url: string | URL | Request) => {
+    calls.push(String(url))
+    return new Response(JSON.stringify({ items: [{ id: 'job-1' }] }), { status: 200 })
+  }) as typeof fetch
+
+  try {
+    const jobs = await fetchPrintLabJobs()
+    assert.deepEqual(jobs, [{ id: 'job-1' }])
+    assert.deepEqual(calls, ['https://printlab.local/api/jobs'])
+  } finally {
+    global.fetch = originalFetch
+    restoreEnv(envSnapshot)
+  }
+})
+
 test('PrintLab client fetches a submitted job by encoded ID', async () => {
   const envSnapshot = {
     PRINTLAB_BASE_URL: process.env.PRINTLAB_BASE_URL,
@@ -229,6 +259,36 @@ test('PrintLab client fetches a submitted job by encoded ID', async () => {
   }
 })
 
+test('PrintLab client returns raw submitted job payload without an item wrapper', async () => {
+  const envSnapshot = {
+    PRINTLAB_BASE_URL: process.env.PRINTLAB_BASE_URL,
+    PRINTLAB_SESSION_COOKIE: process.env.PRINTLAB_SESSION_COOKIE,
+    PRINTLAB_AUTH_HEADER: process.env.PRINTLAB_AUTH_HEADER,
+    PRINTLAB_API_KEY: process.env.PRINTLAB_API_KEY,
+    PRINTLAB_API_KEY_HEADER: process.env.PRINTLAB_API_KEY_HEADER,
+  }
+  process.env.PRINTLAB_BASE_URL = 'https://printlab.local'
+  delete process.env.PRINTLAB_SESSION_COOKIE
+  delete process.env.PRINTLAB_AUTH_HEADER
+  delete process.env.PRINTLAB_API_KEY
+  delete process.env.PRINTLAB_API_KEY_HEADER
+
+  const calls: string[] = []
+  global.fetch = (async (url: string | URL | Request) => {
+    calls.push(String(url))
+    return new Response(JSON.stringify({ id: 'job-raw', status: 'completed' }), { status: 200 })
+  }) as typeof fetch
+
+  try {
+    const job = await fetchPrintLabJob('job-raw')
+    assert.deepEqual(job, { id: 'job-raw', status: 'completed' })
+    assert.deepEqual(calls, ['https://printlab.local/api/jobs/job-raw'])
+  } finally {
+    global.fetch = originalFetch
+    restoreEnv(envSnapshot)
+  }
+})
+
 test('PrintLab client fetches successful G-code records', async () => {
   const envSnapshot = {
     PRINTLAB_BASE_URL: process.env.PRINTLAB_BASE_URL,
@@ -252,6 +312,36 @@ test('PrintLab client fetches successful G-code records', async () => {
   try {
     const records = await fetchPrintLabSuccessfulGcodes()
     assert.deepEqual(records, [{ id: 'gcode-1', file_name: 'plate.gcode' }])
+    assert.deepEqual(calls, ['https://printlab.local/api/successful-gcodes'])
+  } finally {
+    global.fetch = originalFetch
+    restoreEnv(envSnapshot)
+  }
+})
+
+test('PrintLab client returns an empty successful G-code list without items', async () => {
+  const envSnapshot = {
+    PRINTLAB_BASE_URL: process.env.PRINTLAB_BASE_URL,
+    PRINTLAB_SESSION_COOKIE: process.env.PRINTLAB_SESSION_COOKIE,
+    PRINTLAB_AUTH_HEADER: process.env.PRINTLAB_AUTH_HEADER,
+    PRINTLAB_API_KEY: process.env.PRINTLAB_API_KEY,
+    PRINTLAB_API_KEY_HEADER: process.env.PRINTLAB_API_KEY_HEADER,
+  }
+  process.env.PRINTLAB_BASE_URL = 'https://printlab.local'
+  delete process.env.PRINTLAB_SESSION_COOKIE
+  delete process.env.PRINTLAB_AUTH_HEADER
+  delete process.env.PRINTLAB_API_KEY
+  delete process.env.PRINTLAB_API_KEY_HEADER
+
+  const calls: string[] = []
+  global.fetch = (async (url: string | URL | Request) => {
+    calls.push(String(url))
+    return new Response(JSON.stringify({ ok: true }), { status: 200 })
+  }) as typeof fetch
+
+  try {
+    const records = await fetchPrintLabSuccessfulGcodes()
+    assert.deepEqual(records, [])
     assert.deepEqual(calls, ['https://printlab.local/api/successful-gcodes'])
   } finally {
     global.fetch = originalFetch
