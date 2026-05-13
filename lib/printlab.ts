@@ -102,6 +102,27 @@ export async function fetchPrintLabStatus(printerId?: string | null) {
   return printLabJson('/api/state')
 }
 
+export async function fetchPrintLabJobs(options?: { status?: string | null }) {
+  const params = new URLSearchParams()
+  const status = options?.status?.trim()
+  if (status) params.set('status', status)
+  const query = params.toString()
+  const data = await printLabJson(`/api/jobs${query ? `?${query}` : ''}`)
+  return Array.isArray(data?.items) ? data.items : []
+}
+
+export async function fetchPrintLabJob(jobId: string) {
+  const id = jobId.trim()
+  if (!id) throw Object.assign(new Error('PrintLab job ID is required.'), { status: 400 })
+  const data = await printLabJson(`/api/jobs/${encodeURIComponent(id)}`)
+  return data?.item ?? data
+}
+
+export async function fetchPrintLabSuccessfulGcodes() {
+  const data = await printLabJson('/api/successful-gcodes')
+  return Array.isArray(data?.items) ? data.items : []
+}
+
 export async function sendPrintLabJobAction(printerId: string, action: 'pause' | 'resume' | 'stop') {
   return printLabJson(`/api/printers/${encodeURIComponent(printerId)}/actions/${encodeURIComponent(action)}`, {
     method: 'POST',
