@@ -11,6 +11,7 @@ import ModelShareButton from '@/components/ModelShareButton'
 import InstantQuoteConfigurator from '@/components/InstantQuoteConfigurator'
 import ModelProcessingNotifier from '@/components/ModelProcessingNotifier'
 import PrintabilityChecksCard from '@/components/PrintabilityChecksCard'
+import PrintLabTemplateCard from '@/components/PrintLabTemplateCard'
 import ModelReviewWorkspace from '@/components/ModelReviewWorkspace'
 import CreatorQualityCard from '@/components/CreatorQualityCard'
 import ModelLineageCard from '@/components/ModelLineageCard'
@@ -235,6 +236,9 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             sizeZmm={model.sizeZmm}
           />
         )}
+        {Array.isArray(model.printTemplates) && model.printTemplates.length > 0 ? (
+          <PrintLabTemplateCard templates={model.printTemplates} />
+        ) : null}
         <InstantQuoteConfigurator
           modelId={model.id}
           title={model.title}

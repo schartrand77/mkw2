@@ -17,6 +17,7 @@ import SlicerStatsForm from '@/components/admin/SlicerStatsForm'
 import OrderItemQuantityControl from '@/components/admin/OrderItemQuantityControl'
 import StripePaymentPanel from '@/components/admin/StripePaymentPanel'
 import PrintLabSubmitButton from '@/components/admin/PrintLabSubmitButton'
+import PrintLabLinkPanel from '@/components/admin/PrintLabLinkPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -294,6 +295,15 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
               ) : (
                 <p className="text-xs text-slate-500">PrintLab: not submitted yet.</p>
               )}
+              <PrintLabLinkPanel
+                orderId={order.id}
+                current={lastPrintLabSubmission ? {
+                  status: typeof lastPrintLabSubmission.status === 'string' ? lastPrintLabSubmission.status : null,
+                  printerName: typeof lastPrintLabSubmission.printerName === 'string' ? lastPrintLabSubmission.printerName : null,
+                  printLabJobId: typeof lastPrintLabSubmission.printLabJobId === 'string' ? lastPrintLabSubmission.printLabJobId : null,
+                  error: typeof lastPrintLabSubmission.error === 'string' ? lastPrintLabSubmission.error : null,
+                } : null}
+              />
             </div>
           </div>
         </div>
