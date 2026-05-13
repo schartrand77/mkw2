@@ -19,6 +19,7 @@ import { enqueueImageProcessing } from '@/lib/processing-jobs'
 import { CACHE_TAGS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
 import { getCreatorQualitySnapshot } from '@/lib/creator-quality'
 import { getModelLineageSummary } from '@/lib/model-lineage'
+import { buildModelPrintTemplateSummary } from '@/lib/printlab-order-link'
 
 type ModelRouteContext = { params: Promise<{ id: string }> }
 
@@ -206,6 +207,33 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
     getCreatorQualitySnapshot(model.userId),
     getModelLineageSummary(model.id, model.creditUrl ?? null),
   ])
+  const templateOrders = await prisma.printOrder.findMany({
+    where: {
+      status: { in: ['completed', 'shipped'] },
+      items: { some: { modelId: id } },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: 10,
+    select: {
+      metadata: true,
+    },
+  })
+  const printTemplates = templateOrders
+    .flatMap((order) => {
+      const metadata = order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+        ? order.metadata as Record<string, any>
+        : {}
+      const submissions = Array.isArray(metadata.printLabSubmissions) ? metadata.printLabSubmissions : []
+      return submissions
+        .map((submission) => buildModelPrintTemplateSummary(submission as any))
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+    })
+    .sort((a, b) => {
+      const materialScore = Number(b.exactMaterials.length > 0) - Number(a.exactMaterials.length > 0)
+      if (materialScore !== 0) return materialScore
+      return String(b.completedAt || '').localeCompare(String(a.completedAt || ''))
+    })
+    .slice(0, 3)
   return NextResponse.json({
     model: {
       ...rest,
@@ -259,6 +287,7 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
         quality: creatorQuality,
       } : null,
       lineage,
+      printTemplates,
     },
   })
 }
