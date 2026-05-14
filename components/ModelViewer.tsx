@@ -174,6 +174,21 @@ function buildPartOverrideKey(overrides?: Record<string, string | null | undefin
   return pairs.map(([key, value]) => `${key}:${value == null ? '' : String(value)}`).join('|')
 }
 
+export function resolvePartScopedColorOverrides(
+  colorOverrides?: Array<string | null | undefined> | null,
+  colorOverridesByPartKey?: Record<string, string | null | undefined> | null,
+  partKey?: string | null,
+  overrideIndex = 0,
+) {
+  const keyedValue = partKey ? colorOverridesByPartKey?.[partKey] : undefined
+  if (keyedValue != null && String(keyedValue).trim()) return [keyedValue]
+  if (colorOverridesByPartKey && Object.keys(colorOverridesByPartKey).length > 0) {
+    const indexedValue = colorOverrides?.[overrideIndex]
+    return indexedValue != null && String(indexedValue).trim() ? [indexedValue] : null
+  }
+  return colorOverrides || null
+}
+
 function parseOverrideColors(overrides?: Array<string | null | undefined> | null) {
   if (!overrides || overrides.length === 0) return []
   return overrides
@@ -751,7 +766,7 @@ export default function ModelViewer({
   const cameraRef = useRef<InstanceType<ThreeLib['PerspectiveCamera']> | null>(null)
   const rendererRef = useRef<InstanceType<ThreeLib['WebGLRenderer']> | null>(null)
   const threeRef = useRef<ThreeLib | null>(null)
-  const bambuTargetsRef = useRef<Array<{ buffer: ArrayBuffer; root: InstanceType<ThreeLib['Object3D']> }>>([])
+  const bambuTargetsRef = useRef<Array<{ buffer: ArrayBuffer; root: InstanceType<ThreeLib['Object3D']>; overrideIndex: number; partKey: string }>>([])
   const non3mfTargetsRef = useRef<Array<{ root: InstanceType<ThreeLib['Object3D']>; overrideIndex: number; partKey: string }>>([])
   const bambuPlanCacheRef = useRef<WeakMap<ArrayBuffer, Map<string, BambuColorPlan | null>>>(new WeakMap())
   const colorOverridesRef = useRef<Array<string | null | undefined> | null>(colorOverrides)
@@ -983,9 +998,16 @@ export default function ModelViewer({
         const fallback = entry.fallback
         const partKey = entry.partKey
         const ext = file.split('.').pop()?.toLowerCase()
+        const resolveInitialOverrides = () => resolvePartScopedColorOverrides(
+          colorOverridesRef.current,
+          colorOverridesByPartKeyRef.current,
+          partKey,
+          idx,
+        )
         const resolveInitialColor = () => {
           const keyedColor = parseColorToHexInt(colorOverridesByPartKeyRef.current?.[partKey] ?? null)
-          const indexedColor = parseColorToHexInt(colorOverridesRef.current?.[idx] ?? colorOverridesRef.current?.[0] ?? null)
+          const scopedOverrides = resolveInitialOverrides()
+          const indexedColor = parseColorToHexInt(scopedOverrides?.[idx] ?? scopedOverrides?.[0] ?? null)
           return keyedColor ?? indexedColor ?? 0xd0d0d0
         }
         const handleError = (err: any, attemptedFile = file) => {
@@ -1015,7 +1037,8 @@ export default function ModelViewer({
               if (!res.ok) throw new Error(`Failed to fetch ${file}`)
               const buf = await res.arrayBuffer()
               let obj: InstanceType<ThreeLib['Object3D']> | null = null
-              obj = await parse3mfSimple(THREE, buf, colorOverridesRef.current)
+              const scopedOverrides = resolveInitialOverrides()
+              obj = await parse3mfSimple(THREE, buf, scopedOverrides)
               if (!obj) {
                 try {
                   obj = tmfLoader.parse(buf)
@@ -1024,9 +1047,9 @@ export default function ModelViewer({
                 }
               }
               if (!obj) throw new Error('3MF parsing failed')
-              const plan = await tryBuildBambuColorPlan(buf, colorOverridesRef.current)
+              const plan = await tryBuildBambuColorPlan(buf, scopedOverrides)
               if (plan) applyBambuColors(THREE, obj, plan)
-              bambuTargetsRef.current.push({ buffer: buf, root: obj })
+              bambuTargetsRef.current.push({ buffer: buf, root: obj, overrideIndex: idx, partKey })
               addObject(preserveMaterials(obj), partKey)
             } catch (err: any) {
               if (fallback) {
@@ -1270,15 +1293,13 @@ export default function ModelViewer({
     const THREE = threeRef.current
     if (!THREE) return
     let cancelled = false
-    const overrideKey = `${buildOverrideKey(colorOverrides)}::${buildPartOverrideKey(colorOverridesByPartKey)}`
+    const baseOverrideKey = `${buildOverrideKey(colorOverrides)}::${buildPartOverrideKey(colorOverridesByPartKey)}`
     const overridePalette = (colorOverrides || []).map((value) => parseColorToHexInt(value ?? null))
     const singleOverride = parseOverrideColors(colorOverrides)[0] ?? null
-    const resolveRawOverride = (overrideIndex: number, partKey: string) => (
-      colorOverridesByPartKey?.[partKey]
-      ?? colorOverrides?.[overrideIndex]
-      ?? colorOverrides?.[0]
-      ?? null
-    )
+    const resolveRawOverride = (overrideIndex: number, partKey: string) => {
+      const scopedOverrides = resolvePartScopedColorOverrides(colorOverrides, colorOverridesByPartKey, partKey, overrideIndex)
+      return scopedOverrides?.[overrideIndex] ?? scopedOverrides?.[0] ?? null
+    }
     const applyPaintOverrides = (target: InstanceType<ThreeLib['Object3D']>) => {
       const gradientPalette = (colorOverrides || []).map((value) => resolveGradientStops(value ?? null))
       target.traverse((child: any) => {
@@ -1326,6 +1347,13 @@ export default function ModelViewer({
     }
     const apply = async () => {
       for (const target of targets) {
+        const scopedOverrides = resolvePartScopedColorOverrides(
+          colorOverrides,
+          colorOverridesByPartKey,
+          target.partKey,
+          target.overrideIndex,
+        )
+        const overrideKey = `${baseOverrideKey}::${target.partKey}:${target.overrideIndex}:${buildOverrideKey(scopedOverrides)}`
         let planCache = bambuPlanCacheRef.current.get(target.buffer)
         if (!planCache) {
           planCache = new Map<string, BambuColorPlan | null>()
@@ -1333,11 +1361,11 @@ export default function ModelViewer({
         }
         let plan = planCache.get(overrideKey)
         if (plan === undefined) {
-          plan = await tryBuildBambuColorPlan(target.buffer, colorOverrides)
+          plan = await tryBuildBambuColorPlan(target.buffer, scopedOverrides)
           planCache.set(overrideKey, plan)
         }
         if (cancelled) continue
-        const rawOverride = resolveRawOverride(0, target.root.userData?.__mwv2PartKey || '')
+        const rawOverride = resolveRawOverride(target.overrideIndex, target.root.userData?.__mwv2PartKey || target.partKey)
         const gradientStops = resolveGradientStops(rawOverride)
         if (gradientStops.length >= 2) {
           applyGradientToObject(THREE, target.root, gradientStops)
@@ -1354,9 +1382,7 @@ export default function ModelViewer({
           applyGradientToObject(THREE, target, gradientStops)
           return
         }
-        const keyedOverride = parseColorToHexInt(colorOverridesByPartKey?.[partKey] ?? null)
-        const indexedOverride = overridePalette[overrideIndex] ?? singleOverride ?? null
-        const resolvedOverride = keyedOverride ?? indexedOverride
+        const resolvedOverride = parseColorToHexInt(rawOverride ?? null)
         target.traverse((child: any) => {
           if (!(child instanceof THREE.Mesh)) return
           const material = child.material
