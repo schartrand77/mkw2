@@ -5,6 +5,7 @@ import { getPrinterProfiles } from '@/lib/printerProfiles'
 import { MATERIAL_DENSITY_DEFAULTS, estimatePricingDetails } from '@/lib/pricing'
 import { FINISH_OPTIONS } from '@/lib/cartPricing'
 import { formatCurrency } from '@/lib/currency'
+import { PaymentBadges } from '@/components/PaymentBadges'
 
 const materialDensitySchema = z.record(z.number().positive().max(5))
 const printerOverrideSchema = z.object({
@@ -1182,7 +1183,7 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                       onChange={(e) => setCfg({ ...cfg, showApplePayBadge: e.target.checked })}
                     />
                     <span>Show Apple Pay badge</span>
-                    <img src="/ApplePay.svg" alt="Apple Pay" className="h-4 w-auto opacity-80" loading="lazy" />
+                    <PaymentBadges showApplePay />
                   </label>
                   <label className="flex items-center gap-2 text-sm">
                     <input
@@ -1192,7 +1193,7 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                       onChange={(e) => setCfg({ ...cfg, showGooglePayBadge: e.target.checked })}
                     />
                     <span>Show Google Pay badge</span>
-                    <img src="/GooglePay.png" alt="Google Pay" className="h-4 w-auto opacity-80" loading="lazy" />
+                    <PaymentBadges showGooglePay />
                   </label>
                 </div>
               </div>

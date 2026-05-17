@@ -14,6 +14,7 @@ import HolidayEffects from '@/components/HolidayEffects'
 import ClientErrorReporter from '@/components/ClientErrorReporter'
 import type { HolidayTheme } from '@/components/HolidayEffects'
 import { BRAND_FULL_NAME } from '@/lib/brand'
+import { PaymentBadges } from '@/components/PaymentBadges'
 
 export const dynamic = 'force-dynamic'
 export const metadata = {
@@ -115,12 +116,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                       </svg>
                       Proudly made in Canada
                     </span>
-                    {(showApplePayBadge || showGooglePayBadge) && (
-                      <span className="flex items-center gap-2">
-                        {showApplePayBadge && <img src="/ApplePay.svg" alt="Apple Pay" className="h-4 w-auto opacity-80" loading="lazy" />}
-                        {showGooglePayBadge && <img src="/GooglePay.png" alt="Google Pay" className="h-4 w-auto opacity-80" loading="lazy" />}
-                      </span>
-                    )}
+                    <PaymentBadges showApplePay={showApplePayBadge} showGooglePay={showGooglePayBadge} />
                   </div>
                 </footer>
               </div>

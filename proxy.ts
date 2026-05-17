@@ -13,10 +13,13 @@ const PUBLIC_EXACT = new Set([
   '/sw.js',
   '/robots.txt',
   '/sitemap.xml',
+  '/ApplePay.svg',
+  '/GooglePay.png',
+  '/badges.png',
 ])
-const PUBLIC_PREFIXES = ['/favicon', '/apple-touch-icon', '/_next', '/icons']
+const PUBLIC_PREFIXES = ['/favicon', '/apple-touch-icon', '/_next', '/icons', '/badges', '/brand', '/images', '/screenshots']
 
-function isPublicPath(pathname: string) {
+export function isPublicPath(pathname: string) {
   if (PUBLIC_EXACT.has(pathname)) return true
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 }
