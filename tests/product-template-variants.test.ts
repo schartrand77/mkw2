@@ -49,3 +49,28 @@ test('linked variant templates are hidden when a primary template owns their mat
     ['owner'],
   )
 })
+
+test('linked variant templates are hidden by managed variant title when material links were cleared', () => {
+  const templates = [
+    {
+      id: 'owner',
+      title: 'ID Badge Holder',
+      stockworksMaterialId: null,
+      stockworksVariantMap: [
+        { materialId: 101, color: 'Standard' },
+        { materialId: 202, color: 'Mandarin Orange' },
+      ],
+    },
+    {
+      id: 'duplicate',
+      title: 'ID Badge Holder - Mandarin Orange',
+      stockworksMaterialId: null,
+      stockworksVariantMap: null,
+    },
+  ]
+
+  assert.deepEqual(
+    filterLinkedVariantTemplates(templates).map((entry) => entry.id),
+    ['owner'],
+  )
+})

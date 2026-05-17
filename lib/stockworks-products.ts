@@ -83,6 +83,12 @@ type StockworksSyncSummary = {
   unlinked: number
 }
 
+type LinkedProductTemplateForStockworks = {
+  id: string
+  stockworksMaterialId?: number | null
+  stockworksVariantMap?: unknown
+}
+
 const MODELS_CATEGORY = 'models'
 const MODELS_LOCATION = 'models'
 const VARIANT_TAG = 'mwv2:template:'
@@ -218,6 +224,25 @@ function mergeNotes(userNotes: string | null, systemNote: string | null) {
 
 function hasManagedVariantTag(notes?: string | null) {
   return normalizeTitle(notes).toLowerCase().includes(VARIANT_TAG)
+}
+
+export function resolveProductTemplateStockworksUnlinks(input: {
+  liveMaterialIds: Set<number>
+  linkedTemplates: LinkedProductTemplateForStockworks[]
+}) {
+  const staleTemplateIds: string[] = []
+
+  for (const template of input.linkedTemplates) {
+    const materialId = Number(template.stockworksMaterialId)
+    if (!Number.isFinite(materialId) || materialId <= 0) continue
+    if (input.liveMaterialIds.has(materialId)) continue
+    const ownsMaterial = Array.isArray(template.stockworksVariantMap)
+      && template.stockworksVariantMap.some((row) => Number((row as any)?.materialId) === materialId)
+    if (ownsMaterial) continue
+    staleTemplateIds.push(template.id)
+  }
+
+  return staleTemplateIds
 }
 
 function toBoolStatus(value?: string | null) {
@@ -560,7 +585,6 @@ export async function syncStockworksModelsToProductTemplates(): Promise<Stockwor
       },
     }),
     prisma.productTemplate.findMany({
-      where: { stockworksMaterialId: { not: null } },
       select: { id: true, stockworksMaterialId: true, stockworksInventoryItemId: true, stockworksVariantMap: true },
     }),
   ])
@@ -666,9 +690,12 @@ export async function syncStockworksModelsToProductTemplates(): Promise<Stockwor
 
   let unlinked = 0
   const liveIds = new Set(materialIds)
+  const staleTemplateIds = new Set(resolveProductTemplateStockworksUnlinks({
+    liveMaterialIds: liveIds,
+    linkedTemplates,
+  }))
   for (const template of linkedTemplates) {
-    if (typeof template.stockworksMaterialId !== 'number') continue
-    if (liveIds.has(template.stockworksMaterialId)) continue
+    if (!staleTemplateIds.has(template.id)) continue
     await prisma.productTemplate.update({
       where: { id: template.id },
       data: {

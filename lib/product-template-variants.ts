@@ -1,8 +1,11 @@
 type TemplateVariantReference = {
   id: string
+  title?: string | null
   stockworksMaterialId?: number | null
   stockworksVariantMap?: unknown
 }
+
+const normalize = (value?: string | null) => (value || '').trim().toLowerCase()
 
 function collectReferencedMaterialIds(value: unknown): number[] {
   if (!Array.isArray(value)) return []
@@ -10,6 +13,16 @@ function collectReferencedMaterialIds(value: unknown): number[] {
   for (const row of value) {
     const materialId = Number((row as any)?.materialId)
     if (Number.isFinite(materialId) && materialId > 0) output.push(materialId)
+  }
+  return output
+}
+
+function collectReferencedColors(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const output: string[] = []
+  for (const row of value) {
+    const color = typeof (row as any)?.color === 'string' ? (row as any).color.trim() : ''
+    if (color) output.push(color)
   }
   return output
 }
@@ -44,6 +57,15 @@ export function isSecondaryOwnedVariantMaterial<T extends TemplateVariantReferen
 
 export function filterLinkedVariantTemplates<T extends TemplateVariantReference>(templates: T[]): T[] {
   const ownerByMaterialId = buildVariantMaterialOwnerIds(templates)
+  const managedVariantTitles = new Set<string>()
+
+  for (const template of templates) {
+    const title = typeof template.title === 'string' ? template.title.trim() : ''
+    if (!title) continue
+    for (const color of collectReferencedColors(template.stockworksVariantMap)) {
+      managedVariantTitles.add(normalize(`${title} - ${color}`))
+    }
+  }
 
   return templates.filter((template) => {
     const materialId = Number(template.stockworksMaterialId)
@@ -52,5 +74,9 @@ export function filterLinkedVariantTemplates<T extends TemplateVariantReference>
     if (!owners || owners.size === 0) return true
     if (owners.size === 1 && owners.has(template.id)) return true
     return false
+  }).filter((template) => {
+    if (Array.isArray(template.stockworksVariantMap) && template.stockworksVariantMap.length > 0) return true
+    const title = normalize(template.title)
+    return !title || !managedVariantTitles.has(title)
   })
 }

@@ -92,11 +92,15 @@ async function printLabJson(path: string, init?: RequestInit) {
 
 export async function fetchPrintLabPrinters(): Promise<PrintLabPrinter[]> {
   const data = await printLabJson('/api/printers')
-  const printers = Array.isArray(data?.printers) ? data.printers : []
+  const printers = Array.isArray(data?.printers)
+    ? data.printers
+    : Array.isArray(data?.items)
+      ? data.items
+      : []
   return printers.map((printer: any) => ({
     id: String(printer?.id || ''),
     name: String(printer?.name || printer?.id || 'Printer'),
-    host: printer?.host || printer?.ip_address || null,
+    host: printer?.host || printer?.ip_address || printer?.settings?.host || null,
     serial: printer?.serial || null,
     go2rtc_src: printer?.go2rtc_src || null,
   })).filter((printer: PrintLabPrinter) => Boolean(printer.id))

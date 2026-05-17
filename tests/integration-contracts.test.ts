@@ -165,6 +165,54 @@ test('PrintLab client sends configured auth headers', async () => {
   }
 })
 
+test('PrintLab client unwraps the current printer list payload', async () => {
+  const envSnapshot = {
+    PRINTLAB_BASE_URL: process.env.PRINTLAB_BASE_URL,
+    PRINTLAB_SESSION_COOKIE: process.env.PRINTLAB_SESSION_COOKIE,
+    PRINTLAB_AUTH_HEADER: process.env.PRINTLAB_AUTH_HEADER,
+    PRINTLAB_API_KEY: process.env.PRINTLAB_API_KEY,
+    PRINTLAB_API_KEY_HEADER: process.env.PRINTLAB_API_KEY_HEADER,
+  }
+  process.env.PRINTLAB_BASE_URL = 'https://printlab.local'
+  process.env.PRINTLAB_SESSION_COOKIE = 'sid=test'
+  process.env.PRINTLAB_AUTH_HEADER = 'Bearer test'
+  process.env.PRINTLAB_API_KEY = 'key-test'
+  process.env.PRINTLAB_API_KEY_HEADER = 'X-API-Key'
+
+  const calls: string[] = []
+  global.fetch = (async (url: string | URL | Request) => {
+    calls.push(String(url))
+    return new Response(JSON.stringify({
+      default_id: 'printer-1',
+      items: [
+        {
+          id: 'printer-1',
+          name: 'X1C',
+          serial: 'SERIAL-1',
+          settings: { host: '192.168.1.50' },
+        },
+      ],
+    }), { status: 200 })
+  }) as typeof fetch
+
+  try {
+    const printers = await fetchPrintLabPrinters()
+    assert.deepEqual(printers, [
+      {
+        id: 'printer-1',
+        name: 'X1C',
+        host: '192.168.1.50',
+        serial: 'SERIAL-1',
+        go2rtc_src: null,
+      },
+    ])
+    assert.deepEqual(calls, ['https://printlab.local/api/printers'])
+  } finally {
+    global.fetch = originalFetch
+    restoreEnv(envSnapshot)
+  }
+})
+
 test('PrintLab client fetches submitted jobs with a status filter', async () => {
   const envSnapshot = {
     PRINTLAB_BASE_URL: process.env.PRINTLAB_BASE_URL,
