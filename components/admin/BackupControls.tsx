@@ -1,6 +1,5 @@
 "use client"
 
-import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
 
@@ -232,15 +231,6 @@ export default function BackupControls() {
             Pending restore: {pending.folder} (scheduled {new Date(pending.scheduledAt).toLocaleString()}). Restart the app to apply.
           </div>
         )}
-      </div>
-      <div className="border-t border-white/10 pt-4 space-y-2">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-200">OrderWorks queue</h3>
-          <p className="text-xs text-slate-500">View, retry, or delete OrderWorks jobs from the dedicated queue.</p>
-        </div>
-        <Link className="px-3 py-2 inline-flex items-center rounded-md border border-white/10 text-sm hover:border-white/20" href="/admin/jobs">
-          Open job queue
-        </Link>
       </div>
     </div>
   )
