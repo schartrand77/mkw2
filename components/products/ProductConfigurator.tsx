@@ -148,40 +148,49 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
 
   if (!baseModel) {
     return (
-      <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-slate-300">
+      <div className="rounded-lg border border-white/10 bg-black/20 p-4 text-sm text-slate-300">
         This product template is missing a base model. Add one in the Product Builder.
       </div>
     )
   }
 
   return (
-    <div className="glass rounded-2xl border border-white/10 p-6 space-y-4">
-      <div className="flex items-center gap-4">
-        {coverUrl ? (
-          <img src={coverUrl} alt={product.title} className="w-20 h-20 rounded-lg border border-white/10 object-cover" />
-        ) : (
-          <div className="w-20 h-20 rounded-lg border border-white/10 bg-slate-900/70 flex items-center justify-center text-xs text-slate-500">
-            No preview
-          </div>
-        )}
+    <div data-panel="PurchasePanel" className="rounded-xl border border-white/10 bg-slate-950/90 p-5 shadow-2xl shadow-black/30 space-y-5">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <span className="rounded-full bg-emerald-500/10 px-3 py-1 font-medium text-emerald-300">In production</span>
+          <span className="text-slate-400">Made to order</span>
+        </div>
         <div>
-          <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Configured Product</div>
-          <div className="text-lg font-semibold">{product.title}</div>
-          {estimatedPrice != null && (
-            <div className="text-sm text-slate-300">Estimated from {formatCurrency(estimatedPrice)}</div>
+          <h2 className="text-2xl font-semibold leading-tight">{product.title}</h2>
+          {estimatedPrice != null ? (
+            <div className="mt-2 text-2xl font-semibold text-white">{formatCurrency(estimatedPrice)}</div>
+          ) : (
+            <div className="mt-2 text-sm text-slate-300">Price calculated at checkout</div>
           )}
         </div>
       </div>
 
-      <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-slate-300 space-y-1">
-        <div>Material: {resolvedMaterial}</div>
-        <div>Color: {selectedColor || lockedColor || 'Configured at production'}</div>
-        <div>Color slots: {selectedColorCount}</div>
-        <div>Finish: {finish}</div>
-        <div>Scale: {scale.toFixed(2)}x</div>
+      <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          <div className="text-slate-500">Material</div>
+          <div className="mt-1 font-medium text-slate-100">{resolvedMaterial}</div>
+        </div>
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          <div className="text-slate-500">Finish</div>
+          <div className="mt-1 font-medium text-slate-100 capitalize">{finish}</div>
+        </div>
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          <div className="text-slate-500">Color slots</div>
+          <div className="mt-1 font-medium text-slate-100">{selectedColorCount}</div>
+        </div>
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          <div className="text-slate-500">Scale</div>
+          <div className="mt-1 font-medium text-slate-100">{scale.toFixed(2)}x</div>
+        </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="space-y-3">
         {availableColors.length > 1 && (
           <label className="text-sm space-y-1">
             <span className="text-slate-400">Color</span>
@@ -222,7 +231,7 @@ export default function ProductConfigurator({ product, baseModel, coverUrl }: Pr
         </div>
       )}
 
-      <button type="button" className="btn w-full justify-center" onClick={addToCart}>
+      <button type="button" className="btn w-full justify-center py-3 text-base" onClick={addToCart}>
         Add to cart
       </button>
     </div>

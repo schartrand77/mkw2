@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import MerchNotifyForm from '@/components/products/MerchNotifyForm'
+import { formatCurrency } from '@/lib/currency'
 
 type MerchItem = {
   id: string
   title: string
   category?: string | null
   availability: string
+  priceUsd?: number | null
   externalUrl?: string | null
   ctaLabel?: string | null
   sizeOptions?: string[] | null
@@ -48,9 +50,23 @@ export default function MerchConfigurator({ item }: Props) {
   )
 
   return (
-    <div className="glass rounded-2xl border border-white/10 p-6 space-y-4">
-      <div className="text-xs uppercase tracking-[0.25em] text-slate-400">Configure</div>
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div data-panel="PurchasePanel" className="rounded-xl border border-white/10 bg-slate-950/90 p-5 shadow-2xl shadow-black/30 space-y-5">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <span className={`rounded-full px-3 py-1 font-medium ${item.availability === 'back_ordered' ? 'bg-amber-500/10 text-amber-300' : 'bg-emerald-500/10 text-emerald-300'}`}>
+            {item.availability === 'back_ordered' ? 'Back ordered' : 'In stock'}
+          </span>
+          <span className="text-slate-400">{item.category || 'Merch'}</span>
+        </div>
+        <div>
+          <h2 className="text-2xl font-semibold leading-tight">{item.title}</h2>
+          <div className="mt-2 text-2xl font-semibold text-white">
+            {item.priceUsd != null ? formatCurrency(item.priceUsd) : 'Price on request'}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
         {apparel && (
           <label className="text-sm space-y-1">
             <span className="text-slate-400">Size</span>
@@ -80,10 +96,21 @@ export default function MerchConfigurator({ item }: Props) {
           />
         </label>
       </div>
-      <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-slate-300">
-        <div>Selected color: {color}</div>
-        {apparel && <div>Selected size: {size}</div>}
-        <div>Quantity: {qty}</div>
+      <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          <div className="text-slate-500">Color</div>
+          <div className="mt-1 font-medium text-slate-100">{color}</div>
+        </div>
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          <div className="text-slate-500">Quantity</div>
+          <div className="mt-1 font-medium text-slate-100">{qty}</div>
+        </div>
+        {apparel && (
+          <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+            <div className="text-slate-500">Size</div>
+            <div className="mt-1 font-medium text-slate-100">{size}</div>
+          </div>
+        )}
       </div>
       {item.availability === 'back_ordered' ? (
         <MerchNotifyForm merchItemId={item.id} title={item.title} />
@@ -92,7 +119,7 @@ export default function MerchConfigurator({ item }: Props) {
           href={item.externalUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn w-full justify-center"
+          className="btn w-full justify-center py-3 text-base"
         >
           {configuredCtaLabel}
         </a>
