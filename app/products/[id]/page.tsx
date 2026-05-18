@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { buildImageSrc } from '@/lib/storage'
 import ProductConfigurator from '@/components/products/ProductConfigurator'
 import MerchConfigurator from '@/components/products/MerchConfigurator'
+import ProductMediaGallery from '@/components/products/ProductMediaGallery'
 import { getUserIdFromCookie } from '@/lib/auth'
 import { syncStockworksModelsToProductTemplates } from '@/lib/stockworks-products'
 
@@ -12,32 +13,6 @@ export const dynamic = 'force-dynamic'
 type Params = {
   params: Promise<{ id: string }>
   searchParams: Promise<{ kind?: string }>
-}
-
-function ProductMediaGallery({ images, title }: { images: string[]; title: string }) {
-  const gallery = images.length > 0 ? images : []
-  const hero = gallery[0] || null
-
-  return (
-    <div className="space-y-3">
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-slate-950">
-        {hero ? (
-          <img src={hero} alt={title} className="aspect-[4/3] w-full object-cover" />
-        ) : (
-          <div className="flex aspect-[4/3] items-center justify-center text-sm text-slate-500">No product image</div>
-        )}
-      </div>
-      {gallery.length > 1 && (
-        <div className="grid grid-cols-4 gap-3 sm:grid-cols-5">
-          {gallery.slice(0, 10).map((src, index) => (
-            <div key={`${src}-${index}`} className="overflow-hidden rounded-lg border border-white/10 bg-slate-950">
-              <img src={src} alt={`${title} view ${index + 1}`} className="aspect-square w-full object-cover" />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
 }
 
 function DetailSection({ title, children }: { title: string; children: ReactNode }) {
