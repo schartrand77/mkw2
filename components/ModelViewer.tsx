@@ -1294,14 +1294,20 @@ export default function ModelViewer({
     if (!THREE) return
     let cancelled = false
     const baseOverrideKey = `${buildOverrideKey(colorOverrides)}::${buildPartOverrideKey(colorOverridesByPartKey)}`
-    const overridePalette = (colorOverrides || []).map((value) => parseColorToHexInt(value ?? null))
-    const singleOverride = parseOverrideColors(colorOverrides)[0] ?? null
+    const buildPaintOverrideState = (overrides?: Array<string | null | undefined> | null) => ({
+      overridePalette: (overrides || []).map((value) => parseColorToHexInt(value ?? null)),
+      gradientPalette: (overrides || []).map((value) => resolveGradientStops(value ?? null)),
+      singleOverride: parseOverrideColors(overrides)[0] ?? null,
+    })
     const resolveRawOverride = (overrideIndex: number, partKey: string) => {
       const scopedOverrides = resolvePartScopedColorOverrides(colorOverrides, colorOverridesByPartKey, partKey, overrideIndex)
       return scopedOverrides?.[overrideIndex] ?? scopedOverrides?.[0] ?? null
     }
-    const applyPaintOverrides = (target: InstanceType<ThreeLib['Object3D']>) => {
-      const gradientPalette = (colorOverrides || []).map((value) => resolveGradientStops(value ?? null))
+    const applyPaintOverrides = (
+      target: InstanceType<ThreeLib['Object3D']>,
+      overrides?: Array<string | null | undefined> | null,
+    ) => {
+      const { overridePalette, gradientPalette, singleOverride } = buildPaintOverrideState(overrides ?? colorOverrides)
       target.traverse((child: any) => {
         if (!(child instanceof THREE.Mesh)) return
         const triColors: Array<number | null> | undefined = child.userData?.paintTriangleColors
@@ -1372,10 +1378,11 @@ export default function ModelViewer({
         } else if (plan) {
           applyBambuColors(THREE, target.root, plan)
         } else {
-          applyPaintOverrides(target.root)
+          applyPaintOverrides(target.root, scopedOverrides)
         }
       }
       const paint = (target: InstanceType<ThreeLib['Object3D']>, overrideIndex: number, partKey: string) => {
+        const scopedOverrides = resolvePartScopedColorOverrides(colorOverrides, colorOverridesByPartKey, partKey, overrideIndex)
         const rawOverride = resolveRawOverride(overrideIndex, partKey)
         const gradientStops = resolveGradientStops(rawOverride)
         if (gradientStops.length >= 2) {
@@ -1388,7 +1395,7 @@ export default function ModelViewer({
           const material = child.material
           const triColors: Array<number | null> | undefined = child.userData?.paintTriangleColors
           if (triColors && triColors.length > 0) {
-            applyPaintOverrides(child)
+            applyPaintOverrides(child, scopedOverrides)
             return
           }
           const override = resolvedOverride
