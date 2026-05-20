@@ -4,6 +4,11 @@ type Props = {
   scorecard: FeasibilityScorecard
 }
 
+function formatSignalValue(value: number) {
+  if (!Number.isFinite(value)) return 'N/A'
+  return String(Math.round(value))
+}
+
 export default function FeasibilityScorecard({ scorecard }: Props) {
   const tone = scorecard.score >= 78
     ? 'border-emerald-400/30 bg-emerald-500/10'
@@ -28,7 +33,7 @@ export default function FeasibilityScorecard({ scorecard }: Props) {
           <div key={signal.label} className="rounded-lg border border-white/10 bg-black/20 p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs uppercase tracking-[0.2em] text-slate-400">{signal.label}</span>
-              <span className="text-sm font-medium text-white">{signal.value}</span>
+              <span className="text-sm font-medium text-white">{formatSignalValue(signal.value)}</span>
             </div>
             <div className="mt-1 text-xs text-slate-300">{signal.summary}</div>
           </div>

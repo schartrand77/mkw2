@@ -1,12 +1,17 @@
 import { mkdir, writeFile, stat, access } from 'fs/promises'
 import { constants, existsSync } from 'fs'
 import path from 'path'
+import os from 'os'
+
+function fallbackStorageRoot() {
+  const base = process.env.LOCALAPPDATA || process.env.XDG_DATA_HOME || os.tmpdir()
+  return path.join(base, 'MakerWorks', 'storage')
+}
 
 export function storageRoot() {
   const envRoot = process.env.STORAGE_DIR
   if (envRoot && existsSync(envRoot)) return envRoot
-  // Fallback to project storage dir when env path is unset or invalid (e.g., Docker path in local dev)
-  return path.join(process.cwd(), 'storage')
+  return fallbackStorageRoot()
 }
 
 export function filesPublicBaseUrl() {

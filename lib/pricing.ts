@@ -102,6 +102,8 @@ export interface PricingDetails {
   finish: string | null
   finishSurcharge: number
   finishMultiplier: number
+  targetMarginPercent?: number
+  marginMultiplier?: number
   minimumApplied: boolean
   price: number
 }
@@ -341,6 +343,11 @@ export function estimatePricingDetails({
   const finishSurcharge = resolveFinishSurcharge(finish)
   const finishMultiplier = Math.max(1, 1 + finishSurcharge)
   const finishAdjustedBase = base * finishMultiplier
+  const targetMarginPercent = resolveTargetMarginPercent(cfg)
+  const marginMultiplier = targetMarginPercent > 0
+    ? Number((1 / (1 - targetMarginPercent / 100)).toFixed(3))
+    : 1
+  const marginAdjustedBase = finishAdjustedBase * marginMultiplier
   const minPriceEnv = parseFloat(
     currency === 'CAD'
       ? (process.env.MINIMUM_PRICE_CAD || process.env.MINIMUM_PRICE_USD || '0')
@@ -350,7 +357,7 @@ export function estimatePricingDetails({
   )
   const minPriceConfig = cfg?.minimumPriceUsd != null ? Number(cfg.minimumPriceUsd) : NaN
   const minPrice = Number.isFinite(minPriceConfig) ? Math.max(0, minPriceConfig) : Math.max(0, minPriceEnv)
-  const price = Number(Math.max(finishAdjustedBase, applyMinPrice ? minPrice : 0).toFixed(2))
+  const price = Number(Math.max(marginAdjustedBase, applyMinPrice ? minPrice : 0).toFixed(2))
 
   return {
     currency,
@@ -377,9 +384,17 @@ export function estimatePricingDetails({
     finish: finish ? String(finish) : null,
     finishSurcharge: Number(finishSurcharge.toFixed(3)),
     finishMultiplier: Number(finishMultiplier.toFixed(3)),
-    minimumApplied: applyMinPrice && price > finishAdjustedBase,
+    targetMarginPercent: targetMarginPercent || undefined,
+    marginMultiplier: marginMultiplier !== 1 ? marginMultiplier : undefined,
+    minimumApplied: applyMinPrice && price > marginAdjustedBase,
     price,
   }
+}
+
+function resolveTargetMarginPercent(cfg?: Partial<SiteConfig> | null): number {
+  const raw = (cfg as any)?.targetMarginPercent
+  if (raw == null || !Number.isFinite(Number(raw))) return 0
+  return Math.max(0, Math.min(90, Number(raw)))
 }
 
 export function estimatePrice(inputs: PricingInputs): number {

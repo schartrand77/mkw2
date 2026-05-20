@@ -48,3 +48,22 @@ test('does not render a thumbnail placeholder for comments without images', () =
   assert.doesNotMatch(html, /community make/)
   assert.match(html, /Clean print with a useful orientation note/)
 })
+
+test('falls back to the linked model image when a curated comment has no make image', () => {
+  const html = renderToStaticMarkup(
+    <CuratedHomeComments
+      comments={[
+        {
+          ...baseComment,
+          imageUrl: null,
+          imageStatus: null,
+          modelImageUrl: '/files/models/desk-hook-cover.webp',
+        },
+      ]}
+    />,
+  )
+
+  assert.match(html, /href="\/models\/model-1"/)
+  assert.match(html, /src="\/files\/models\/desk-hook-cover.webp"/)
+  assert.match(html, /alt="Desk Hook print preview"/)
+})

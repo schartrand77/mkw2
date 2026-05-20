@@ -10,8 +10,8 @@ type DiscordMessage = {
 }
 
 export async function GET(_req: NextRequest) {
-  const token = process.env.DISCORD_BOT_TOKEN
-  const channel = process.env.DISCORD_CHANNEL_ID
+  const token = process.env.DISCORD_ADMIN_BOT_TOKEN || process.env.DISCORD_BOT_TOKEN
+  const channel = process.env.DISCORD_ADMIN_CHANNEL_ID || process.env.DISCORD_CHANNEL_ID
   if (!token || !channel) return NextResponse.json({ items: [] })
   try {
     const res = await fetch(`https://discord.com/api/v10/channels/${channel}/messages?limit=50`, {

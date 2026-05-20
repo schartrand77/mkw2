@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/db'
 import { getUserIdFromCookie } from '@/lib/auth'
-import { saveBuffer } from '@/lib/storage'
+import { saveBuffer, storageRoot } from '@/lib/storage'
 import { refreshUserAchievements } from '@/lib/achievements'
 import { unlink } from 'fs/promises'
 import path from 'path'
@@ -105,7 +105,7 @@ export async function PATCH(req: NextRequest) {
     const sourceRel = path.join(userId, 'avatars', 'raw', `${Date.now()}${ext}`)
     // Cleanup old avatar if any
     if (current.avatarImagePath) {
-      try { await unlink(path.join(process.env.STORAGE_DIR || process.cwd() + '/storage', current.avatarImagePath.replace(/^\//, ''))) } catch {}
+      try { await unlink(path.join(storageRoot(), current.avatarImagePath.replace(/^\//, ''))) } catch {}
     }
     await saveBuffer(sourceRel, buf)
     updatesProfile.avatarImagePath = `/${rel.replace(/\\/g, '/')}`

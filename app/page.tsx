@@ -5,7 +5,7 @@ import { resolveBaseUrl } from '@/lib/base-url'
 import FeaturedMarquee from '@/components/FeaturedMarquee'
 import { CuratedHomeComments, type CuratedHomeComment } from '@/components/home/CuratedHomeComments'
 import { prisma } from '@/lib/db'
-import { toPublicHref } from '@/lib/storage'
+import { buildImageSrc, toPublicHref } from '@/lib/storage'
 import { serializeComment } from '@/lib/comments'
 import { CACHE_TAGS, CACHE_TTL_SECONDS } from '@/lib/cache-policy'
 
@@ -34,7 +34,7 @@ const fetchCuratedComments = unstable_cache(async (): Promise<CuratedHomeComment
     orderBy: { createdAt: 'desc' },
     take: 12,
     include: {
-      model: { select: { id: true, title: true } },
+      model: { select: { id: true, title: true, coverImagePath: true, updatedAt: true } },
       user: {
         select: {
           id: true,
@@ -66,6 +66,7 @@ const fetchCuratedComments = unstable_cache(async (): Promise<CuratedHomeComment
       userAvatarUrl: toPublicHref(serialized.user?.avatarUrl) || null,
       imageUrl: serialized.imageUrl,
       imageStatus: serialized.imageStatus || null,
+      modelImageUrl: buildImageSrc(comment.model?.coverImagePath || null, comment.model?.updatedAt || null),
     })
     if (userId) seenUsers.add(userId)
     seenModels.add(modelId)

@@ -1,0 +1,3 @@
+ALTER TABLE "SiteConfig"
+  ADD COLUMN IF NOT EXISTS "targetMarginPercent" DOUBLE PRECISION;
+

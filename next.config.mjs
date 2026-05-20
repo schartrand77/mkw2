@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  outputFileTracingExcludes: {
+    '*': ['./storage/**/*']
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb'
@@ -14,4 +17,3 @@ const nextConfig = {
 }
 
 export default nextConfig
-

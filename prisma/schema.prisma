@@ -263,6 +263,7 @@ model SiteConfig {
   machineUsdPerHour        Float?
   laborUsdPerHour          Float?
   minimumPriceUsd          Float?
+  targetMarginPercent      Float?
   minimumOrderSubtotalUsd  Float?
   minimumOrderNotes        String?
   printTimeCorrectionFactor Float?

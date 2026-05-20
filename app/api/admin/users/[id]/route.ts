@@ -4,7 +4,7 @@ import { requireAdmin } from '../../_utils'
 import { z } from 'zod'
 import { ensureUserPage, slugify } from '@/lib/userpage'
 import { hashPassword } from '@/lib/auth'
-import { saveBuffer } from '@/lib/storage'
+import { saveBuffer, storageRoot } from '@/lib/storage'
 import { isSupportedImageFile } from '@/lib/images'
 import { unlink } from 'fs/promises'
 import path from 'path'
@@ -229,7 +229,7 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
       }
       if (currentProfile.avatarImagePath) {
         try {
-          await unlink(path.join(process.env.STORAGE_DIR || process.cwd() + '/storage', currentProfile.avatarImagePath.replace(/^\//, '')))
+          await unlink(path.join(storageRoot(), currentProfile.avatarImagePath.replace(/^\//, '')))
         } catch {}
       }
       const rel = path.join(userId, 'avatars', `${Date.now()}.webp`)

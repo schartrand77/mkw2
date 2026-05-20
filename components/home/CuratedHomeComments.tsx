@@ -10,6 +10,7 @@ export type CuratedHomeComment = {
   userAvatarUrl: string | null
   imageUrl: string | null
   imageStatus: string | null
+  modelImageUrl?: string | null
 }
 
 type CuratedHomeCommentsProps = {
@@ -29,7 +30,11 @@ export function CuratedHomeComments({ comments }: CuratedHomeCommentsProps) {
       </div>
       <div className="grid gap-3 md:grid-cols-3">
         {comments.map((comment) => {
-          const imageUrl = comment.imageStatus !== 'failed' ? comment.imageUrl : null
+          const commentImageUrl = comment.imageStatus !== 'failed' ? comment.imageUrl : null
+          const imageUrl = commentImageUrl || comment.modelImageUrl || null
+          const imageAlt = commentImageUrl
+            ? `${comment.modelTitle} community make`
+            : `${comment.modelTitle} print preview`
           return (
             <article key={comment.id} className="glass rounded-xl border border-white/10 p-4 space-y-3">
               <div className="flex items-center gap-3">
@@ -65,7 +70,7 @@ export function CuratedHomeComments({ comments }: CuratedHomeCommentsProps) {
                 <Link href={`/models/${comment.modelId}`} className="block overflow-hidden rounded-md border border-white/10 bg-slate-950/60">
                   <img
                     src={imageUrl}
-                    alt={`${comment.modelTitle} community make`}
+                    alt={imageAlt}
                     className="h-24 w-full object-cover transition duration-200 hover:scale-[1.02]"
                     loading="lazy"
                   />

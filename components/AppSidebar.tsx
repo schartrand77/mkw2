@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCart } from '@/components/cart/CartProvider'
 import { pushSessionNotification } from '@/components/notifications/NotificationsProvider'
+import NotificationBell from '@/components/notifications/NotificationBell'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BRAND_FULL_NAME, BRAND_LOGO_PREFIX, BRAND_LOGO_SUFFIX, BRAND_VERSION } from '@/lib/brand'
@@ -421,6 +422,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
             >
               Cart{count > 0 ? ` (${count})` : ''}
             </Link>
+            <NotificationBell />
             <button
               type="button"
               aria-haspopup="menu"

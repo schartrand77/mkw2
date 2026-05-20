@@ -35,6 +35,7 @@ const configSchema = z.object({
   machineUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   laborUsdPerHour: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   minimumPriceUsd: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
+  targetMarginPercent: z.number().min(0, { message: 'Must be zero or a positive number.' }).max(90, { message: 'Margin must be below 90%.' }).optional(),
   minimumOrderSubtotalUsd: z.number().nonnegative({ message: 'Must be zero or a positive number.' }).optional(),
   minimumOrderNotes: z.string().max(300).optional(),
   printTimeCorrectionFactor: z.number().min(0.5).max(2.5).optional(),
@@ -99,6 +100,7 @@ type Config = {
   machineUsdPerHour?: number | null
   laborUsdPerHour?: number | null
   minimumPriceUsd?: number | null
+  targetMarginPercent?: number | null
   minimumOrderSubtotalUsd?: number | null
   minimumOrderNotes?: string | null
   printTimeCorrectionFactor?: number | null
@@ -149,6 +151,7 @@ const PRICING_PROFILE_KEYS: (keyof Config)[] = [
   'machineUsdPerHour',
   'laborUsdPerHour',
   'minimumPriceUsd',
+  'targetMarginPercent',
   'printTimeCorrectionFactor',
   'extraHourlyUsdAfterFirst',
   'demandSurgeMultiplier',
@@ -187,6 +190,7 @@ function buildPayload(cfg: Config): SchemaShape {
     machineUsdPerHour: cfg.machineUsdPerHour ?? undefined,
     laborUsdPerHour: cfg.laborUsdPerHour ?? undefined,
     minimumPriceUsd: cfg.minimumPriceUsd ?? undefined,
+    targetMarginPercent: cfg.targetMarginPercent ?? undefined,
     minimumOrderSubtotalUsd: cfg.minimumOrderSubtotalUsd ?? undefined,
     minimumOrderNotes: cfg.minimumOrderNotes ?? undefined,
     printTimeCorrectionFactor: cfg.printTimeCorrectionFactor ?? undefined,
@@ -764,6 +768,25 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                     {fieldHasError('minimumPriceUsd') && <p className="text-xs text-rose-300 mt-1">{errors.minimumPriceUsd}</p>}
                   </div>
                   <div>
+                    <label className="block text-sm mb-1">Target margin (%)</label>
+                    <input
+                      className={`input ${fieldHasError('targetMarginPercent') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
+                      type="number"
+                      step="0.5"
+                      min={0}
+                      max={90}
+                      value={cfg.targetMarginPercent ?? ''}
+                      disabled={saving}
+                      onChange={(e) => {
+                        markTouched('targetMarginPercent')
+                        setCfg({ ...cfg, targetMarginPercent: e.target.value === '' ? null : Number(e.target.value) })
+                      }}
+                      onBlur={() => markTouched('targetMarginPercent')}
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Auto prices use cost divided by one minus this margin.</p>
+                    {fieldHasError('targetMarginPercent') && <p className="text-xs text-rose-300 mt-1">{errors.targetMarginPercent}</p>}
+                  </div>
+                  <div>
                     <label className="block text-sm mb-1">Minimum order subtotal ({currency})</label>
                     <input
                       className={`input ${fieldHasError('minimumOrderSubtotalUsd') ? 'border-rose-400/70 focus:border-rose-400' : ''}`}
@@ -1029,6 +1052,9 @@ export default function SiteConfigForm({ initial }: { initial: Config }) {
                         <div>Labor cost: {formatCurrency(preview.breakdown.laborCost, preview.breakdown.currency as any)}</div>
                         <div>Extra hourly: {formatCurrency(preview.breakdown.extraHourlyCost, preview.breakdown.currency as any)}</div>
                         <div>Finish multiplier: {preview.breakdown.finishMultiplier.toFixed(2)}x</div>
+                        {preview.breakdown.targetMarginPercent ? (
+                          <div>Target margin: {preview.breakdown.targetMarginPercent}% ({preview.breakdown.marginMultiplier?.toFixed(2)}x)</div>
+                        ) : null}
                       </div>
                     </div>
                   </div>
