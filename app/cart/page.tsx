@@ -965,7 +965,6 @@ export default function CartPage() {
               height={360}
               className="bg-black/40"
               colorOverrides={selectedViewerColors}
-              colorOverridesByPartKey={selectedPreviewItem.partId ? { [selectedPreviewItem.partId]: selectedViewerColors[0] || PREVIEW_DEFAULT_COLOR } : null}
             />
           ) : (
             <div className="h-[360px] flex items-center justify-center text-sm text-slate-400 bg-slate-900/60">
