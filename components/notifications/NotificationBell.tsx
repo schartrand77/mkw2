@@ -40,7 +40,7 @@ export default function NotificationBell() {
     let timer: ReturnType<typeof setInterval> | null = null
     const load = async () => {
       try {
-        const res = await fetch('/api/announcements', { cache: 'no-store' })
+        const res = await fetch('/api/notifications/discord', { cache: 'no-store' })
         const data = await res.json().catch(() => null)
         const list = Array.isArray(data?.items) ? data.items : []
         if (!cancelled) setAnnouncements(list)
