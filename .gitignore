@@ -18,6 +18,7 @@ build
 .turbo
 .vercel
 .cache
+.superpowers/
 
 # Env
 .env

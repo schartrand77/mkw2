@@ -17,6 +17,11 @@ function resolveEnv(keys: string[]): string | undefined {
 const DEFAULT_BRAND_NAME = 'MakerWorks'
 const DEFAULT_BRAND_VERSION = 'v2'
 
+export const PARENT_COMPANY_NAME = 'r3Dr'
+export const PARENT_COMPANY_URL = 'https://r3dr.com'
+export const MAKERWORKS_PUBLIC_APP_URL = 'https://makerworks.app'
+export const MAKERWORKS_PRINT_LAB_URL = 'https://makerworks3d.com'
+
 const resolvedBrandName = resolveEnv(['BRAND_NAME', 'NEXT_PUBLIC_BRAND_NAME'])
 export const BRAND_NAME = resolvedBrandName && resolvedBrandName.length > 0 ? resolvedBrandName : DEFAULT_BRAND_NAME
 const isDefaultBrand = BRAND_NAME.trim().toLowerCase() === DEFAULT_BRAND_NAME.toLowerCase()
