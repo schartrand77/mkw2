@@ -192,8 +192,10 @@ If MakerWorks still stops instead of staying up, the container is usually exitin
 Current startup chain inside the container:
 
 ```bash
-node scripts/restore.js && npx prisma migrate deploy && node scripts/bootstrap-admin.js && npm run start
+node scripts/start-production.js
 ```
+
+On Unraid, the primary MakerWorks container sets `START_PROCESSING_WORKER=1` by default. That starts image and preview processing inside the same container as the web app, so uploaded cover images use the same `DATABASE_URL`, `STORAGE_DIR`, and storage mount as MakerWorks itself. Do not create or tune a separate worker container for normal Unraid installs.
 
 Most common reasons the container exits on Unraid:
 

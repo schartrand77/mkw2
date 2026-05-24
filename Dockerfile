@@ -40,4 +40,4 @@ COPY scripts ./scripts
 RUN mkdir -p /app/storage /app/backups /app/imports && chown -R nextjs:nodejs /app
 USER nextjs
 EXPOSE 3000
-CMD ["sh", "-c", "node scripts/restore.js && npx prisma migrate deploy && node scripts/bootstrap-admin.js && npm run start"]
+CMD ["node", "scripts/start-production.js"]

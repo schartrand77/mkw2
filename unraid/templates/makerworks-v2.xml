@@ -9,9 +9,9 @@
   <Support>https://forums.unraid.net/topic/195232-support-makerw%E2%9A%99%EF%B8%8Frks-3d-print-hub/</Support>
   <Project>https://github.com/schartrand77/mkw2</Project>
   <Overview><![CDATA[
-MakerWorks v2 is a self-hosted 3D model hub with STL previews, price estimation, optional Stripe checkout, and an admin dashboard for site settings, pricing, backups, and OrderWorks job monitoring. Point it at any reachable Postgres 15+ instance and map a persistent storage share for uploaded models, covers, avatars, and backups.
+MakerWorks v2 is a self-hosted 3D model hub with STL previews, price estimation, optional Stripe checkout, and an admin dashboard for site settings, pricing, backups, and OrderWorks job monitoring. Point it at any reachable Postgres 15+ instance and map a persistent storage share for uploaded models, covers, avatars, and backups. On Unraid, this primary container also runs the image/preview processing worker by default so uploads use the same database and storage settings as the web app.
 
-Unraid note: "Autostart" starts the container when the array/Docker service starts, but crash recovery still depends on Docker restart policy. If the container stops, check its logs: the image startup sequence runs restore, Prisma migrations, admin bootstrap, and then the Next.js server.
+Unraid note: "Autostart" starts the container when the array/Docker service starts, but crash recovery still depends on Docker restart policy. If the container stops, check its logs: the image startup sequence runs restore, Prisma migrations, admin bootstrap, then the Next.js server and integrated processing worker.
   ]]></Overview>
   <Category>Productivity:Tools</Category>
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
@@ -52,8 +52,9 @@ Unraid note: "Autostart" starts the container when the array/Docker service star
   <Config Name="BACKUP_RETENTION_MAX_COUNT" Target="BACKUP_RETENTION_MAX_COUNT" Default="30" Mode="" Description="Always keep at least this many newest backups (0 disables count-based retention)" Type="Variable" Display="advanced" Required="false" Mask="false">30</Config>
   <Config Name="PROCESSING_QUEUE_ATTEMPTS" Target="PROCESSING_QUEUE_ATTEMPTS" Default="5" Mode="" Description="Queue retry attempts before moving a failed job to dead-letter handling" Type="Variable" Display="advanced" Required="false" Mask="false">5</Config>
   <Config Name="PROCESSING_QUEUE_BACKOFF_MS" Target="PROCESSING_QUEUE_BACKOFF_MS" Default="5000" Mode="" Description="Exponential backoff delay (ms) between queue retries" Type="Variable" Display="advanced" Required="false" Mask="false">5000</Config>
-  <Config Name="IMAGE_WORKER_CONCURRENCY" Target="IMAGE_WORKER_CONCURRENCY" Default="2" Mode="" Description="Concurrency for image processing workers (used by worker container)" Type="Variable" Display="advanced" Required="false" Mask="false">2</Config>
-  <Config Name="PREVIEW_WORKER_CONCURRENCY" Target="PREVIEW_WORKER_CONCURRENCY" Default="1" Mode="" Description="Concurrency for preview processing workers (used by worker container)" Type="Variable" Display="advanced" Required="false" Mask="false">1</Config>
+  <Config Name="START_PROCESSING_WORKER" Target="START_PROCESSING_WORKER" Default="1" Mode="" Description="Run the image/preview processor inside this MakerWorks container so it uses the same DATABASE_URL and STORAGE_DIR settings" Type="Variable" Display="advanced" Required="false" Mask="false">1</Config>
+  <Config Name="IMAGE_WORKER_CONCURRENCY" Target="IMAGE_WORKER_CONCURRENCY" Default="2" Mode="" Description="Concurrency for image processing inside this container" Type="Variable" Display="advanced" Required="false" Mask="false">2</Config>
+  <Config Name="PREVIEW_WORKER_CONCURRENCY" Target="PREVIEW_WORKER_CONCURRENCY" Default="1" Mode="" Description="Concurrency for preview processing inside this container" Type="Variable" Display="advanced" Required="false" Mask="false">1</Config>
 
   <Config Name="PRINTER_PROFILE" Target="PRINTER_PROFILE" Default="BAMBU_X1C" Mode="" Description="Printer preset for speed/energy math (BAMBU_X1C, BAMBU_P1S, PRUSA_MK4, PRUSA_MK3S, CREALITY_K1_MAX, CREALITY_ENDER3_V2, ANYCUBIC_KOBRA2, GENERIC_FDM)" Type="Variable" Display="advanced" Required="false" Mask="false">BAMBU_X1C</Config>
   <Config Name="PRINTER_ELECTRIC_RATE_PER_KWH" Target="PRINTER_ELECTRIC_RATE_PER_KWH" Default="0.14" Mode="" Description="Electricity rate (per kWh) used for energy estimates" Type="Variable" Display="advanced" Required="false" Mask="false">0.14</Config>

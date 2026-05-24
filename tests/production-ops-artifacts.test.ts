@@ -87,6 +87,15 @@ test('Unraid Redis and worker templates use the shared production queue wiring',
   assert.match(workerTemplate, /npm run worker:processing/)
 })
 
+test('Unraid web template runs processing from the primary MakerWorks container', async () => {
+  const webTemplate = await readFile('unraid/templates/makerworks-v2.xml', 'utf8')
+  const dockerfile = await readFile('Dockerfile', 'utf8')
+
+  assert.match(webTemplate, /Target="START_PROCESSING_WORKER"[^>]*>1<\/Config>/)
+  assert.match(webTemplate, /same DATABASE_URL and STORAGE_DIR/)
+  assert.match(dockerfile, /scripts\/start-production\.js/)
+})
+
 test('Unraid web and worker templates share the same storage host path', async () => {
   const webTemplate = await readFile('unraid/templates/makerworks-v2.xml', 'utf8')
   const workerTemplate = await readFile('unraid/templates/makerworks-v2-worker.xml', 'utf8')

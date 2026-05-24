@@ -95,6 +95,8 @@ npm run worker:processing
 - `processing-worker`: async image/preview worker
 - `backup-scheduler`: optional scheduled backup runner
 
+For Unraid template installs, the primary MakerWorks container starts the image/preview processor itself with `START_PROCESSING_WORKER=1`. That keeps processing on the same database and storage settings as the web app, so a separate worker container is not required for normal Unraid deployments.
+
 ## Recommended Startup Commands
 
 ```bash
@@ -121,3 +123,4 @@ Confirm `STORAGE_DIR` is mapped to a persistent path. In Docker Compose, `./stor
 ### Processing queues appear idle
 
 Background processing requires `REDIS_URL` plus a running `processing-worker`.
+On Unraid, the expected worker is the integrated processor inside the primary MakerWorks container unless you intentionally disable `START_PROCESSING_WORKER`.
