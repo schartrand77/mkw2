@@ -5,6 +5,7 @@ import test from 'node:test'
 test('global layout includes r3Dr parent-company branding', async () => {
   const layout = await readFile('app/layout.tsx', 'utf8')
   const brand = await readFile('lib/brand.ts', 'utf8')
+  const globals = await readFile('app/globals.css', 'utf8')
 
   assert.match(brand, /PARENT_COMPANY_NAME = 'r3Dr'/)
   assert.match(brand, /PARENT_COMPANY_URL = 'https:\/\/r3dr\.ca'/)
@@ -16,5 +17,6 @@ test('global layout includes r3Dr parent-company branding', async () => {
   assert.doesNotMatch(layout, /parent-company-strip/)
   assert.match(layout, /<footer className="footer-shell app-footer/)
   assert.match(layout, /className="footer-business-grid"/)
+  assert.match(globals, /\.footer-shell\s*\{[^}]*border-radius:\s*1\.25rem;/s)
   assert.match(layout, /MakerWorks 3D Print Lab/)
 })
