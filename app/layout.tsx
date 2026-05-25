@@ -139,10 +139,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     </nav>
                     <nav className="footer-link-group" aria-label="r3Dr portfolio links">
                       <h2>r3Dr Portfolio</h2>
-                      <a href={PARENT_COMPANY_URL} target="_blank" rel="noreferrer">r3dr.com</a>
+                      <a href={PARENT_COMPANY_URL} target="_blank" rel="noreferrer">r3dr.ca</a>
                       <a href="https://makerworks.app" target="_blank" rel="noreferrer">makerworks.app</a>
                       <a href={MAKERWORKS_PRINT_LAB_URL} target="_blank" rel="noreferrer">makerworks3d.com</a>
-                      <a href="mailto:contact@r3dr.com">Contact r3Dr</a>
+                      <a href="mailto:contact@r3dr.ca">Contact r3Dr</a>
                     </nav>
                     <section className="footer-payments" aria-label="Payment support">
                       <h2>Checkout</h2>

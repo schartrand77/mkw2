@@ -18,7 +18,7 @@ const DEFAULT_BRAND_NAME = 'MakerWorks'
 const DEFAULT_BRAND_VERSION = 'v2'
 
 export const PARENT_COMPANY_NAME = 'r3Dr'
-export const PARENT_COMPANY_URL = 'https://r3dr.com'
+export const PARENT_COMPANY_URL = 'https://r3dr.ca'
 export const MAKERWORKS_PUBLIC_APP_URL = 'https://makerworks.app'
 export const MAKERWORKS_PRINT_LAB_URL = 'https://makerworks3d.com'
 
