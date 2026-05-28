@@ -1,0 +1,24 @@
+[mcp_servers.makerworks_agent]
+command = "uv"
+args = [
+    "run", 
+    "--from", "git+https://github.com/nickbeddows-ctrl/unraid-ssh-mcp.git", 
+    "unraid-ssh-mcp"
+]
+enabled = true
+
+  [mcp_servers.makerworks_agent.env]
+  SSH_HOST = "192.168.1.170"      # Your Unraid IP
+  SSH_PORT = "22"
+  SSH_USER = "root"
+  SSH_PASSWORD = "QPalzm12" # Or use SSH_KEY_PATH for keys
+
+  # Restrict this agent's focus directly at the tool level
+  enabled_tools = [
+      "docker_logs",
+      "docker_exec",
+      "docker_inspect",
+      "docker_restart",
+      "read_file",
+      "list_directory"
+  ]
