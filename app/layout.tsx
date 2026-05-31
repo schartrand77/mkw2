@@ -112,9 +112,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                         <span className="footer-parent-r footer-parent-r-back">r</span><span>3D</span><span className="footer-parent-r">r</span>
                       </a>
                       <p className="footer-parent-line">An r3Dr company</p>
-                      <p className="footer-company-copy">
-                        {BRAND_FULL_NAME} is part of the r3Dr portfolio, connecting print-lab software, production workflows, and practical 3D printing services.
-                      </p>
                       <div className="footer-company-meta">
                         <span>&copy; {new Date().getFullYear()} {BRAND_FULL_NAME}</span>
                         <span className="footer-leaf">

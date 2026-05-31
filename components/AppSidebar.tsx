@@ -415,6 +415,7 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
                 aria-label="Search and navigate"
               />
             </form>
+            <NotificationBell />
             <Link
               href="/cart"
               className={`app-user-shortcut-link ${isActivePath(pathname, '/cart') ? 'app-user-shortcut-link-active' : ''}`}
@@ -422,7 +423,6 @@ export default function AppSidebar({ authed, isAdmin, avatarUrl }: Props) {
             >
               Cart{count > 0 ? ` (${count})` : ''}
             </Link>
-            <NotificationBell />
             <button
               type="button"
               aria-haspopup="menu"
