@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { buildImageSrc } from '@/lib/public-path'
@@ -65,6 +65,35 @@ function PaginationControls({
         Last »
       </button>
     </div>
+  )
+}
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return <label className="block text-xs font-medium uppercase tracking-wide text-slate-400">{children}</label>
+}
+
+function CheckboxField({
+  id,
+  checked,
+  onChange,
+  children,
+}: {
+  id: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+  children: ReactNode
+}) {
+  return (
+    <label htmlFor={id} className="flex items-start gap-2 rounded-md border border-white/10 bg-black/10 px-3 py-2 text-sm text-slate-300">
+      <input
+        id={id}
+        type="checkbox"
+        className="mt-0.5 h-4 w-4 shrink-0"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className="leading-snug">{children}</span>
+    </label>
   )
 }
 
@@ -287,166 +316,208 @@ export default function ModelManager({ initialQuery = '' }: Props) {
       )}
 
       {activeModel && (
-        <div className="glass rounded-xl border border-white/10 divide-y divide-white/10">
-          <div className="p-3 grid md:grid-cols-12 gap-3 items-center">
-            <div className="md:col-span-1">
-              {activeModel.coverImagePath ? (
-                <img src={buildImageSrc(activeModel.coverImagePath, activeModel.updatedAt) || `/files${activeModel.coverImagePath}`} className="w-16 h-12 object-cover rounded border border-white/10" alt={`${activeModel.title} cover`} />
-              ) : (
-                <div className="w-16 h-12 bg-slate-900/60 rounded border border-white/10" />
-              )}
-            </div>
-            <div className="md:col-span-3 text-sm">
-              <div className="font-semibold mb-1">{activeModel.title}</div>
-              <div className="text-xs text-slate-400 break-all">{activeModel.id}</div>
-            </div>
-            <div className="md:col-span-2">
-              <select className="input" value={activeModel.visibility} onChange={(e) => updateModel(activeModel.id, { visibility: e.target.value })}>
-                <option value="public">public - Discover and checkout</option>
-                <option value="unlisted">unlisted - direct checkout only</option>
-                <option value="private">private - restricted</option>
-              </select>
-            </div>
-            <div className="md:col-span-2 space-y-2">
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Sale price (optional)</label>
-                <input
-                  className="input"
-                  type="number"
-                  step="0.01"
-                  value={activeModel.salePriceUsd ?? ''}
-                  onChange={(e) => updateModel(activeModel.id, { salePriceUsd: e.target.value === '' ? null : Number(e.target.value) })}
-                  placeholder="Leave blank to use automatic estimate"
-                />
+        <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4 shadow-[0_18px_45px_rgba(0,0,0,0.22)]">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="shrink-0">
+                  {activeModel.coverImagePath ? (
+                    <img src={buildImageSrc(activeModel.coverImagePath, activeModel.updatedAt) || `/files${activeModel.coverImagePath}`} className="h-16 w-20 rounded border border-white/10 object-cover" alt={`${activeModel.title} cover`} />
+                  ) : (
+                    <div className="h-16 w-20 rounded border border-white/10 bg-slate-900/60" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-base font-semibold">{activeModel.title}</div>
+                  <div className="break-all text-xs text-slate-400">{activeModel.id}</div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Auto estimate {activeModel.priceUsd != null ? `$${Number(activeModel.priceUsd).toFixed(2)}` : 'not available'}
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-xs text-slate-400">
-                <input
-                  id={`sale-from-${activeModel.id}`}
-                  type="checkbox"
-                  checked={!!activeModel.salePriceIsFrom}
-                  onChange={(e) => updateModel(activeModel.id, { salePriceIsFrom: e.target.checked })}
-                />
-                <label htmlFor={`sale-from-${activeModel.id}`}>Prefix with “From”</label>
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Unit label</label>
-                <select
-                  className="input text-sm"
-                  value={activeModel.salePriceUnit || ''}
-                  onChange={(e) => updateModel(activeModel.id, { salePriceUnit: e.target.value || null })}
+
+              <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
+                <button className="btn min-w-28 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => saveRow(activeModel)} disabled={savingId === activeModel.id}>
+                  {savingId === activeModel.id ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  className="btn min-w-28 bg-red-600 hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => deleteRow(activeModel.id)}
+                  disabled={deletingId === activeModel.id}
                 >
-                  <option value="">No unit</option>
-                  <option value="ea">ea</option>
-                  <option value="bx">bx</option>
-                  <option value="complete">complete</option>
-                </select>
+                  {deletingId === activeModel.id ? 'Deleting...' : 'Delete'}
+                </button>
               </div>
-              <div className="flex items-center gap-2 text-xs text-slate-400">
-                <input
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.8fr)_minmax(0,1fr)_minmax(0,1fr)]">
+              <section className="space-y-3 rounded-lg border border-white/10 bg-black/10 p-3">
+                <h3 className="text-sm font-semibold text-slate-200">Listing</h3>
+                <div className="space-y-1.5">
+                  <FieldLabel>Visibility</FieldLabel>
+                  <select className="input w-full" value={activeModel.visibility} onChange={(e) => updateModel(activeModel.id, { visibility: e.target.value })}>
+                    <option value="public">Public - Discover and checkout</option>
+                    <option value="unlisted">Unlisted - direct checkout only</option>
+                    <option value="private">Private - restricted</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <FieldLabel>Tags</FieldLabel>
+                  <input
+                    className="input w-full"
+                    value={activeModel.tags.join(', ')}
+                    onChange={(e) => updateModel(activeModel.id, { tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                    placeholder="home, decor, Japanese"
+                  />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                  <Link
+                    href={`/models/${activeModel.id}/edit`}
+                    prefetch={false}
+                    className="rounded-md border border-white/10 px-3 py-2 text-center text-sm hover:border-white/20"
+                  >
+                    Open full editor
+                  </Link>
+                  <Link
+                    href={`/admin/models/${activeModel.id}/images`}
+                    prefetch={false}
+                    className="rounded-md border border-white/10 px-3 py-2 text-center text-sm hover:border-white/20"
+                  >
+                    Manage images
+                  </Link>
+                </div>
+              </section>
+
+              <section className="space-y-3 rounded-lg border border-white/10 bg-black/10 p-3">
+                <h3 className="text-sm font-semibold text-slate-200">Pricing</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <FieldLabel>Sale price</FieldLabel>
+                    <input
+                      className="input w-full"
+                      type="number"
+                      step="0.01"
+                      value={activeModel.salePriceUsd ?? ''}
+                      onChange={(e) => updateModel(activeModel.id, { salePriceUsd: e.target.value === '' ? null : Number(e.target.value) })}
+                      placeholder="Blank = automatic"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Unit label</FieldLabel>
+                    <select
+                      className="input w-full"
+                      value={activeModel.salePriceUnit || ''}
+                      onChange={(e) => updateModel(activeModel.id, { salePriceUnit: e.target.value || null })}
+                    >
+                      <option value="">No unit</option>
+                      <option value="ea">ea</option>
+                      <option value="bx">bx</option>
+                      <option value="complete">complete</option>
+                    </select>
+                  </div>
+                </div>
+                <CheckboxField
+                  id={`sale-from-${activeModel.id}`}
+                  checked={!!activeModel.salePriceIsFrom}
+                  onChange={(checked) => updateModel(activeModel.id, { salePriceIsFrom: checked })}
+                >
+                  Prefix price with "From"
+                </CheckboxField>
+                <div className="rounded-md border border-white/10 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
+                  Current displayed price: <span className="font-medium text-slate-200">
+                    {activeModel.salePriceUsd != null
+                      ? `$${Number(activeModel.salePriceUsd).toFixed(2)}`
+                      : activeModel.priceUsd != null
+                        ? `$${Number(activeModel.priceUsd).toFixed(2)}`
+                        : 'No estimate'}
+                  </span>
+                </div>
+              </section>
+
+              <section className="space-y-3 rounded-lg border border-white/10 bg-black/10 p-3">
+                <h3 className="text-sm font-semibold text-slate-200">Checkout rules</h3>
+                <CheckboxField
                   id={`model-discount-off-${activeModel.id}`}
-                  type="checkbox"
                   checked={!!activeModel.disableCustomerDiscounts}
-                  onChange={(e) => updateModel(activeModel.id, { disableCustomerDiscounts: e.target.checked })}
-                />
-                <label htmlFor={`model-discount-off-${activeModel.id}`}>
+                  onChange={(checked) => updateModel(activeModel.id, { disableCustomerDiscounts: checked })}
+                >
                   Disable customer discounts for this model
-                </label>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-slate-400">
-                <input
+                </CheckboxField>
+                <CheckboxField
                   id={`model-flat-rate-${activeModel.id}`}
-                  type="checkbox"
                   checked={!!activeModel.flatRatePricing}
-                  onChange={(e) => updateModel(activeModel.id, { flatRatePricing: e.target.checked })}
-                />
-                <label htmlFor={`model-flat-rate-${activeModel.id}`}>
+                  onChange={(checked) => updateModel(activeModel.id, { flatRatePricing: checked })}
+                >
                   Flat rate: no color-count or custom-text surcharge
-                </label>
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Color slot count (optional)</label>
+                </CheckboxField>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <FieldLabel>Color slots</FieldLabel>
+                    <input
+                      className="input w-full"
+                      type="number"
+                      min={1}
+                      max={16}
+                      value={activeModel.colorSlotCount ?? ''}
+                      placeholder="Global default"
+                      onChange={(e) => updateModel(activeModel.id, {
+                        colorSlotCount: e.target.value === ''
+                          ? null
+                          : Math.max(1, Math.min(16, Math.round(Number(e.target.value) || 1))),
+                      })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Allowed colors</FieldLabel>
+                    <input
+                      className="input w-full"
+                      value={Array.isArray(activeModel.allowedColors) ? activeModel.allowedColors.join(', ') : ''}
+                      placeholder="Blank/all/* = all"
+                      onChange={(e) => {
+                        const raw = e.target.value.trim()
+                        if (!raw || /^(all|\*)$/i.test(raw)) {
+                          updateModel(activeModel.id, { allowedColors: null })
+                          return
+                        }
+                        updateModel(activeModel.id, {
+                          allowedColors: Array.from(new Set(raw.split(',').map((part) => part.trim()).filter(Boolean))),
+                        })
+                      }}
+                    />
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <section className="grid gap-3 rounded-lg border border-white/10 bg-black/10 p-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <FieldLabel>Affiliate label</FieldLabel>
                 <input
-                  className="input"
-                  type="number"
-                  min={1}
-                  max={16}
-                  value={activeModel.colorSlotCount ?? ''}
-                  placeholder="Blank = global default"
-                  onChange={(e) => updateModel(activeModel.id, {
-                    colorSlotCount: e.target.value === ''
-                      ? null
-                      : Math.max(1, Math.min(16, Math.round(Number(e.target.value) || 1))),
-                  })}
+                  className="input w-full"
+                  placeholder="Springs kit"
+                  value={activeModel.affiliateTitle || ''}
+                  onChange={(e) => updateModel(activeModel.id, { affiliateTitle: e.target.value })}
                 />
               </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Allowed colors (comma-separated)</label>
+              <div className="space-y-1.5">
+                <FieldLabel>Affiliate URL</FieldLabel>
                 <input
-                  className="input"
-                  value={Array.isArray(activeModel.allowedColors) ? activeModel.allowedColors.join(', ') : ''}
-                  placeholder="Blank, all, or * = allow all"
-                  onChange={(e) => {
-                    const raw = e.target.value.trim()
-                    if (!raw || /^(all|\*)$/i.test(raw)) {
-                      updateModel(activeModel.id, { allowedColors: null })
-                      return
-                    }
-                    updateModel(activeModel.id, {
-                      allowedColors: Array.from(new Set(raw.split(',').map((part) => part.trim()).filter(Boolean))),
-                    })
-                  }}
+                  className="input w-full"
+                  placeholder="https://..."
+                  value={activeModel.affiliateUrl || ''}
+                  onChange={(e) => updateModel(activeModel.id, { affiliateUrl: e.target.value })}
                 />
               </div>
-            </div>
-            <div className="md:col-span-3">
-              <input className="input" value={activeModel.tags.join(', ')} onChange={(e) => updateModel(activeModel.id, { tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
-            </div>
-            <div className="md:col-span-1 flex flex-col gap-2">
-              <button className="btn disabled:opacity-50 disabled:cursor-not-allowed" onClick={() => saveRow(activeModel)} disabled={savingId === activeModel.id}>
-                {savingId === activeModel.id ? 'Saving...' : 'Save'}
-              </button>
-              <button
-                className="btn bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => deleteRow(activeModel.id)}
-                disabled={deletingId === activeModel.id}
-              >
-                {deletingId === activeModel.id ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-            <div className="md:col-span-12 grid md:grid-cols-2 gap-3">
-              <input
-                className="input"
-                placeholder="Affiliate label e.g. Springs kit"
-                value={activeModel.affiliateTitle || ''}
-                onChange={(e) => updateModel(activeModel.id, { affiliateTitle: e.target.value })}
-              />
-              <input
-                className="input"
-                placeholder="Affiliate URL"
-                value={activeModel.affiliateUrl || ''}
-                onChange={(e) => updateModel(activeModel.id, { affiliateUrl: e.target.value })}
-              />
-              <input
-                className="input md:col-span-2"
-                placeholder="YouTube URL or video ID"
-                value={activeModel.videoUrl || ''}
-                onChange={(e) => updateModel(activeModel.id, { videoUrl: e.target.value })}
-              />
-              <Link
-                href={`/models/${activeModel.id}/edit`}
-                prefetch={false}
-                className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20"
-              >
-                Open full editor
-              </Link>
-              <Link
-                href={`/admin/models/${activeModel.id}/images`}
-                prefetch={false}
-                className="px-3 py-2 rounded-md border border-white/10 text-center text-sm hover:border-white/20"
-              >
-                Manage images
-              </Link>
-            </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <FieldLabel>YouTube video</FieldLabel>
+                <input
+                  className="input w-full"
+                  placeholder="YouTube URL or video ID"
+                  value={activeModel.videoUrl || ''}
+                  onChange={(e) => updateModel(activeModel.id, { videoUrl: e.target.value })}
+                />
+              </div>
+            </section>
           </div>
         </div>
       )}
