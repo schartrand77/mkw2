@@ -7,17 +7,28 @@ export async function GET(req: NextRequest) {
   try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   const { searchParams } = new URL(req.url)
   const q = (searchParams.get('q') || '').trim()
+  const modelId = (searchParams.get('modelId') || '').trim()
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
   const pageSize = Math.min(50, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10) || 20))
   const where: any = q ? { OR: [ { title: { contains: q, mode: 'insensitive' } }, { description: { contains: q, mode: 'insensitive' } } ] } : {}
-  const [total, items] = await Promise.all([
+  const [total, items, selected] = await Promise.all([
     prisma.model.count({ where }),
-    prisma.model.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * pageSize, take: pageSize, include: { modelTags: { include: { tag: true } } } })
+    prisma.model.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * pageSize, take: pageSize, include: { modelTags: { include: { tag: true } } } }),
+    modelId
+      ? prisma.model.findUnique({ where: { id: modelId }, include: { modelTags: { include: { tag: true } } } })
+      : Promise.resolve(null),
   ])
-  const models = items.map(m => ({
+  const mergedItems = selected && !items.some((item) => item.id === selected.id)
+    ? [selected, ...items]
+    : items
+  const models = mergedItems.map(m => ({
     id: m.id,
     title: m.title,
+    description: m.description,
+    creditName: m.creditName,
+    creditUrl: m.creditUrl,
     coverImagePath: m.coverImagePath,
+    coverImageStatus: m.coverImageStatus,
     visibility: m.visibility,
     priceUsd: (m as any).priceUsd ?? null,
     salePriceUsd: (m as any).salePriceUsd ?? null,

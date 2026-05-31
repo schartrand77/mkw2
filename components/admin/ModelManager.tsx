@@ -1,15 +1,22 @@
 "use client"
 import { useEffect, useState, type ReactNode } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { buildImageSrc } from '@/lib/public-path'
 import { useCart } from '@/components/cart/CartProvider'
 import { buildAdminCheckoutCartItem } from '@/lib/admin-checkout-cart'
+import { IMAGE_ACCEPT_ATTRIBUTE } from '@/lib/images'
+import { MATERIAL_OPTIONS, normalizeMaterialName } from '@/lib/cartPricing'
+import ModelImagesManager from '@/components/ModelImagesManager'
+import ModelRevisionsManager from '@/components/ModelRevisionsManager'
 
 type Model = {
   id: string
   title: string
+  description?: string | null
   coverImagePath?: string | null
+  coverImageStatus?: string | null
+  creditName?: string | null
+  creditUrl?: string | null
   updatedAt?: string | null
   visibility: string
   priceUsd?: number | null
@@ -99,9 +106,10 @@ function CheckboxField({
 
 type Props = {
   initialQuery?: string
+  initialModelId?: string
 }
 
-export default function ModelManager({ initialQuery = '' }: Props) {
+export default function ModelManager({ initialQuery = '', initialModelId = '' }: Props) {
   const router = useRouter()
   const { add } = useCart()
   const [query, setQuery] = useState(initialQuery)
@@ -112,14 +120,17 @@ export default function ModelManager({ initialQuery = '' }: Props) {
   const [loading, setLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(initialModelId || null)
+  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [removeCover, setRemoveCover] = useState(false)
 
   useEffect(() => {
     let active = true
     const run = async () => {
       setLoading(true)
       try {
-        const res = await fetch(`/api/admin/models?q=${encodeURIComponent(query)}&page=${page}&pageSize=${pageSize}`)
+        const modelParam = initialModelId ? `&modelId=${encodeURIComponent(initialModelId)}` : ''
+        const res = await fetch(`/api/admin/models?q=${encodeURIComponent(query)}&page=${page}&pageSize=${pageSize}${modelParam}`)
         if (!res.ok) return
         const data = await res.json()
         if (active) {
@@ -142,11 +153,20 @@ export default function ModelManager({ initialQuery = '' }: Props) {
     }
     const t = setTimeout(run, 250)
     return () => { active = false; clearTimeout(t) }
-  }, [query, page, pageSize])
+  }, [query, page, pageSize, initialModelId])
 
   useEffect(() => {
-    if (activeId && !items.find((m) => m.id === activeId)) setActiveId(null)
-  }, [items, activeId])
+    if (initialModelId) setActiveId(initialModelId)
+  }, [initialModelId])
+
+  useEffect(() => {
+    if (activeId && !loading && items.length > 0 && !items.find((m) => m.id === activeId)) setActiveId(null)
+  }, [items, activeId, loading])
+
+  useEffect(() => {
+    setCoverFile(null)
+    setRemoveCover(false)
+  }, [activeId])
 
   const updateModel = (id: string, patch: Partial<Model>) => {
     setItems(prev => prev.map((m) => m.id === id ? { ...m, ...patch } : m))
@@ -160,6 +180,11 @@ export default function ModelManager({ initialQuery = '' }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           visibility: m.visibility,
+          title: m.title,
+          description: m.description ?? '',
+          material: m.material || 'PLA',
+          creditName: m.creditName ?? '',
+          creditUrl: m.creditUrl ?? '',
           tags: m.tags.join(','),
           affiliateTitle: m.affiliateTitle ?? '',
           affiliateUrl: m.affiliateUrl ?? '',
@@ -174,6 +199,27 @@ export default function ModelManager({ initialQuery = '' }: Props) {
         })
       })
       if (!res.ok) alert('Failed to save model: ' + (await res.text()))
+      if (res.ok && (coverFile || removeCover)) {
+        const fd = new FormData()
+        fd.append('removeCover', removeCover ? '1' : '0')
+        if (coverFile) fd.append('cover', coverFile)
+        const coverRes = await fetch(`/api/models/${m.id}`, { method: 'PATCH', body: fd })
+        if (!coverRes.ok) {
+          const body = await coverRes.json().catch(() => ({}))
+          alert('Failed to update cover: ' + (body.error || coverRes.statusText))
+        } else {
+          const body = await coverRes.json().catch(() => ({}))
+          if (body?.model) {
+            updateModel(m.id, {
+              coverImagePath: body.model.coverImagePath,
+              coverImageStatus: body.model.coverImageStatus,
+              updatedAt: body.model.updatedAt,
+            })
+            setCoverFile(null)
+            setRemoveCover(false)
+          }
+        }
+      }
     } finally {
       setSavingId((current) => current === m.id ? null : current)
     }
@@ -215,7 +261,7 @@ export default function ModelManager({ initialQuery = '' }: Props) {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">Model manager</h2>
-          <p className="text-sm text-slate-400">Find a model, then open it to edit details or launch the full model editor.</p>
+          <p className="text-sm text-slate-400">Find a model, then edit catalog details, pricing, photos, and revisions in one place.</p>
         </div>
         {activeModel && (
           <button className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20 text-sm" onClick={() => setActiveId(null)}>
@@ -350,6 +396,90 @@ export default function ModelManager({ initialQuery = '' }: Props) {
               </div>
             </div>
 
+            <section className="grid gap-3 rounded-lg border border-white/10 bg-black/10 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)]">
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-200">Model details</h3>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <FieldLabel>Title</FieldLabel>
+                    <input
+                      className="input w-full"
+                      value={activeModel.title}
+                      onChange={(e) => updateModel(activeModel.id, { title: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Material</FieldLabel>
+                    <select
+                      className="input w-full"
+                      value={normalizeMaterialName(activeModel.material)}
+                      onChange={(e) => updateModel(activeModel.id, { material: e.target.value })}
+                    >
+                      {(() => {
+                        const normalized = normalizeMaterialName(activeModel.material)
+                        const options = MATERIAL_OPTIONS.map((option) => String(option))
+                        if (!options.includes(normalized)) options.push(normalized)
+                        return options.map((option) => <option key={option} value={option}>{option}</option>)
+                      })()}
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <FieldLabel>Description</FieldLabel>
+                  <textarea
+                    className="input h-28 w-full"
+                    value={activeModel.description || ''}
+                    onChange={(e) => updateModel(activeModel.id, { description: e.target.value })}
+                    placeholder="Describe the model, print notes, and customer-facing details."
+                  />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <FieldLabel>Credit model creator</FieldLabel>
+                    <input
+                      className="input w-full"
+                      value={activeModel.creditName || ''}
+                      onChange={(e) => updateModel(activeModel.id, { creditName: e.target.value })}
+                      placeholder="Creator name"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Credit URL</FieldLabel>
+                    <input
+                      className="input w-full"
+                      type="url"
+                      value={activeModel.creditUrl || ''}
+                      onChange={(e) => updateModel(activeModel.id, { creditUrl: e.target.value })}
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-200">Cover</h3>
+                {activeModel.coverImagePath ? (
+                  <img
+                    src={buildImageSrc(activeModel.coverImagePath, activeModel.updatedAt) || `/files${activeModel.coverImagePath}`}
+                    className="aspect-[4/3] w-full rounded-md border border-white/10 object-cover"
+                    alt={`${activeModel.title} cover`}
+                  />
+                ) : (
+                  <div className="flex aspect-[4/3] w-full items-center justify-center rounded-md border border-white/10 bg-slate-900/60 text-xs text-slate-500">
+                    No cover
+                  </div>
+                )}
+                <div className="space-y-2 text-sm">
+                  <input type="file" accept={IMAGE_ACCEPT_ATTRIBUTE} onChange={(e) => setCoverFile(e.target.files?.[0] || null)} />
+                  <CheckboxField id={`remove-cover-${activeModel.id}`} checked={removeCover} onChange={setRemoveCover}>
+                    Remove existing cover
+                  </CheckboxField>
+                  {coverFile && <div className="text-xs text-slate-400">Pending cover: {coverFile.name}</div>}
+                  {activeModel.coverImageStatus === 'processing' && <div className="text-xs text-amber-300">Cover processing</div>}
+                </div>
+              </div>
+            </section>
+
             <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.8fr)_minmax(0,1fr)_minmax(0,1fr)]">
               <section className="space-y-3 rounded-lg border border-white/10 bg-black/10 p-3">
                 <h3 className="text-sm font-semibold text-slate-200">Listing</h3>
@@ -369,22 +499,6 @@ export default function ModelManager({ initialQuery = '' }: Props) {
                     onChange={(e) => updateModel(activeModel.id, { tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
                     placeholder="home, decor, Japanese"
                   />
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                  <Link
-                    href={`/models/${activeModel.id}/edit`}
-                    prefetch={false}
-                    className="rounded-md border border-white/10 px-3 py-2 text-center text-sm hover:border-white/20"
-                  >
-                    Open full editor
-                  </Link>
-                  <Link
-                    href={`/admin/models/${activeModel.id}/images`}
-                    prefetch={false}
-                    className="rounded-md border border-white/10 px-3 py-2 text-center text-sm hover:border-white/20"
-                  >
-                    Manage images
-                  </Link>
                 </div>
               </section>
 
@@ -518,6 +632,20 @@ export default function ModelManager({ initialQuery = '' }: Props) {
                 />
               </div>
             </section>
+
+            <details className="rounded-lg border border-white/10 bg-black/10 p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-slate-200">Real-life photos</summary>
+              <div className="mt-3">
+                <ModelImagesManager modelId={activeModel.id} initialCover={activeModel.coverImagePath} resourceBase="/api/admin/models" />
+              </div>
+            </details>
+
+            <details className="rounded-lg border border-white/10 bg-black/10 p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-slate-200">Model revisions</summary>
+              <div className="mt-3">
+                <ModelRevisionsManager modelId={activeModel.id} />
+              </div>
+            </details>
           </div>
         </div>
       )}

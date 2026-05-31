@@ -36,6 +36,32 @@ export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
   const updates: any = {}
+  if (body.title !== undefined) {
+    const raw = String(body.title ?? '').trim()
+    if (!raw) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+    updates.title = raw.slice(0, 200)
+  }
+
+  if (body.description !== undefined) {
+    updates.description = String(body.description ?? '').slice(0, 5000)
+  }
+
+  if (body.material !== undefined) {
+    const raw = String(body.material ?? '').trim()
+    if (!raw) return NextResponse.json({ error: 'Material is required' }, { status: 400 })
+    updates.material = raw.slice(0, 40)
+  }
+
+  if (body.creditName !== undefined) {
+    const raw = String(body.creditName ?? '').trim()
+    updates.creditName = raw ? raw.slice(0, 200) : null
+  }
+
+  if (body.creditUrl !== undefined) {
+    const raw = String(body.creditUrl ?? '').trim()
+    updates.creditUrl = raw ? raw.slice(0, 500) : null
+  }
+
   const visibility = body.visibility
   if (visibility != null) {
     const allowed = new Set(['public', 'private', 'unlisted'])
@@ -119,15 +145,15 @@ export async function PATCH(req: NextRequest, { params }: AdminModelContext) {
     updates.allowedColors = sanitizeAllowedColors(body.allowedColors)
   }
 
-  if (body.salePriceUsd !== undefined) {
+  if (body.salePriceUsd !== undefined || body.material !== undefined) {
     const cfg = await prisma.siteConfig.findUnique({ where: { id: 'main' } })
     const effectivePriceUsd = computeEffectivePriceUsd({
       id,
       volumeMm3: existing.volumeMm3,
-      material: existing.material,
+      material: updates.material ?? existing.material,
       supportRatio: existing.supportRatio,
       priceUsd: existing.priceUsd,
-      salePriceUsd: updates.salePriceUsd ?? null,
+      salePriceUsd: body.salePriceUsd !== undefined ? updates.salePriceUsd ?? null : existing.salePriceUsd,
     }, cfg)
     updates.effectivePriceUsd = effectivePriceUsd
     updates.effectivePriceUpdatedAt = new Date()

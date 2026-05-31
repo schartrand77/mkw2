@@ -20,6 +20,7 @@ export default async function EditModelPage({ params }: EditModelPageProps) {
     prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } })
   ])
   if (!model) redirect('/models/' + id)
+  if (me?.isAdmin) redirect(`/admin/models?modelId=${model.id}`)
   if (model.userId !== payload.sub && !me?.isAdmin) redirect('/models/' + id)
 
   return (

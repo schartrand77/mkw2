@@ -79,7 +79,8 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
   const token = cookieStore.get('mwv2_token')?.value
   const payload = token ? verifyToken(token) : null
   const me = payload?.sub ? await prisma.user.findUnique({ where: { id: payload.sub }, select: { isAdmin: true } }) : null
-  const canEdit = !!(payload?.sub && (payload.sub === model.userId || me?.isAdmin))
+  const isAdmin = !!me?.isAdmin
+  const canEdit = !!(payload?.sub && (payload.sub === model.userId || isAdmin))
   const canModerateComments = !!me?.isAdmin
   const coverProcessing = model.coverImageStatus === 'processing'
   const galleryProcessing = Array.isArray(model.images)
@@ -346,9 +347,11 @@ export default async function ModelDetail({ params, searchParams }: ModelDetailP
             </span>
           )}
           <ModelShareButton title={model.title} url={shareUrl} />
-          {canEdit && (
+          {isAdmin ? (
+            <Link href={`/admin/models?modelId=${model.id}`} className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20">Admin edit</Link>
+          ) : canEdit ? (
             <Link href={`/models/${model.id}/edit`} className="px-3 py-2 rounded-md border border-white/10 hover:border-white/20">Edit</Link>
-          )}
+          ) : null}
         </div>
         </div>
       </div>
