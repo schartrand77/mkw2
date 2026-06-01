@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '../../_utils'
-import { buildConnectionTestHeaders, buildConnectionTestUrl, type SuiteConnectionService } from '@/lib/admin/suite-connection-tests'
+import {
+  buildConnectionTestHeaders,
+  buildConnectionTestUrl,
+  isSuiteConnectionTestOk,
+  type SuiteConnectionService,
+} from '@/lib/admin/suite-connection-tests'
 import { getEffectiveSuiteRuntimeSettings } from '@/lib/suite-runtime'
 
 export const dynamic = 'force-dynamic'
@@ -28,7 +33,7 @@ export async function POST(req: NextRequest) {
       headers: buildConnectionTestHeaders(apiKey),
       signal: AbortSignal.timeout(5000),
     })
-    return NextResponse.json({ ok: res.ok, service, status: res.status, url })
+    return NextResponse.json({ ok: isSuiteConnectionTestOk(service, res.status), service, status: res.status, url })
   } catch (e: any) {
     return NextResponse.json({ ok: false, service, error: e.message || 'Connection failed.' }, { status: 502 })
   }

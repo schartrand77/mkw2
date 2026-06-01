@@ -21,3 +21,9 @@ export function buildConnectionTestHeaders(apiKey?: string | null) {
   if (token) headers['X-API-Key'] = token
   return headers
 }
+
+export function isSuiteConnectionTestOk(service: SuiteConnectionService, status: number) {
+  if (status >= 200 && status < 300) return true
+  if (service === 'printlab' && (status === 401 || status === 403)) return true
+  return false
+}
