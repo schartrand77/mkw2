@@ -20,6 +20,7 @@ import { CACHE_TAGS, modelCommentsTag, modelTag } from '@/lib/cache-policy'
 import { getCreatorQualitySnapshot } from '@/lib/creator-quality'
 import { getModelLineageSummary } from '@/lib/model-lineage'
 import { buildModelPrintTemplateSummary } from '@/lib/printlab-order-link'
+import { buildModelGcodeTemplateSummary } from '@/lib/printlab-model-gcodes'
 
 type ModelRouteContext = { params: Promise<{ id: string }> }
 
@@ -218,7 +219,19 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
       metadata: true,
     },
   })
-  const printTemplates = templateOrders
+  const capturedGcodes = await (prisma as any).modelGcode.findMany({
+    where: { modelId: id },
+    orderBy: [
+      { completedAt: 'desc' },
+      { capturedAt: 'desc' },
+    ],
+    take: 10,
+  })
+  const printTemplates = [
+    ...capturedGcodes
+      .map((record: any) => buildModelGcodeTemplateSummary(record))
+      .filter((entry: any): entry is NonNullable<typeof entry> => Boolean(entry)),
+    ...templateOrders
     .flatMap((order) => {
       const metadata = order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
         ? order.metadata as Record<string, any>
@@ -227,6 +240,11 @@ export async function GET(_req: NextRequest, { params }: ModelRouteContext) {
       return submissions
         .map((submission) => buildModelPrintTemplateSummary(submission as any))
         .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+    }),
+  ]
+    .filter((template, index, templates) => {
+      const key = template.successfulGcodeId || template.printLabJobId || `${template.filePath}:${template.completedAt}`
+      return templates.findIndex((entry) => (entry.successfulGcodeId || entry.printLabJobId || `${entry.filePath}:${entry.completedAt}`) === key) === index
     })
     .sort((a, b) => {
       const materialScore = Number(b.exactMaterials.length > 0) - Number(a.exactMaterials.length > 0)

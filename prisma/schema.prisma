@@ -112,6 +112,7 @@ model Model {
   previewJobs ModelPreviewJob[]
   productTemplates ProductTemplate[]
   failurePhotos FailurePhoto[]
+  gcodes ModelGcode[]
 
   @@index([effectivePriceUsd])
   @@index([visibility])
@@ -119,6 +120,35 @@ model Model {
   @@index([likes])
   @@index([downloads])
   @@index([material])
+}
+
+model ModelGcode {
+  id               String   @id @default(cuid())
+  modelId          String
+  printLabRecordId String
+  printLabJobId    String?
+  printerId        String?
+  printerName      String?
+  modelName        String?
+  modelKey         String?
+  fileName         String?
+  filePath         String?
+  plateGcode       String?
+  plateIndex       String?
+  subtaskName      String?
+  useAms           Boolean?
+  amsMapping       Json?
+  materialUsage    Json?
+  completedAt      DateTime?
+  capturedAt       DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  payload          Json?
+
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@unique([modelId, printLabRecordId])
+  @@index([modelId, completedAt])
+  @@index([printLabRecordId])
 }
 
 model Collection {
