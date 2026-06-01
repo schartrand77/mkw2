@@ -11,6 +11,7 @@ type RedactedSetting = {
 
 type Props = {
   initialSettings: Record<string, RedactedSetting>
+  initialOneTimeToken?: OneTimeToken | null
 }
 
 type Field = {
@@ -18,6 +19,11 @@ type Field = {
   label: string
   secret?: boolean
   placeholder?: string
+}
+
+type OneTimeToken = {
+  label: string
+  token: string
 }
 
 const GROUPS: Array<{ title: string; description: string; testKey?: string; fields: Field[] }> = [
@@ -81,12 +87,12 @@ function sourceLabel(setting: RedactedSetting | undefined) {
   return setting.source === 'env' ? 'Configured by env' : 'Configured in app'
 }
 
-export default function SuiteSetupPanel({ initialSettings }: Props) {
+export default function SuiteSetupPanel({ initialSettings, initialOneTimeToken = null }: Props) {
   const [displayedSettings, setDisplayedSettings] = useState<Record<string, RedactedSetting>>(initialSettings)
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [status, setStatus] = useState('')
   const [statusKind, setStatusKind] = useState<'info' | 'success' | 'error'>('info')
-  const [oneTimeToken, setOneTimeToken] = useState<{ label: string; token: string } | null>(null)
+  const [oneTimeToken, setOneTimeToken] = useState<OneTimeToken | null>(initialOneTimeToken)
   const [busy, setBusy] = useState(false)
 
   function updateField(key: string, value: string) {
@@ -170,6 +176,18 @@ export default function SuiteSetupPanel({ initialSettings }: Props) {
     setStatus('Token generated and saved. Copy it into the target app now; it will not be shown again.')
   }
 
+  async function copyOneTimeToken() {
+    if (!oneTimeToken?.token) return
+    try {
+      await navigator.clipboard.writeText(oneTimeToken.token)
+      setStatusKind('success')
+      setStatus('Token copied.')
+    } catch {
+      setStatusKind('info')
+      setStatus('Select the token field and copy it manually.')
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -181,8 +199,22 @@ export default function SuiteSetupPanel({ initialSettings }: Props) {
 
       {oneTimeToken && (
         <section className="rounded-lg border border-amber-300/30 bg-amber-950/30 p-4">
-          <p className="text-sm font-semibold text-amber-100">{oneTimeToken.label}</p>
-          <code className="mt-2 block break-all rounded bg-black/40 p-3 text-xs text-amber-50">{oneTimeToken.token}</code>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-amber-100">{oneTimeToken.label}</p>
+            <button
+              className="rounded-md border border-amber-200/30 px-3 py-2 text-sm text-amber-50 hover:border-amber-100/60"
+              type="button"
+              onClick={copyOneTimeToken}
+            >
+              Copy token
+            </button>
+          </div>
+          <input
+            className="mt-3 w-full select-all rounded-md border border-amber-200/20 bg-black/50 px-3 py-2 font-mono text-sm text-amber-50"
+            readOnly
+            value={oneTimeToken.token}
+            onFocus={(event) => event.currentTarget.select()}
+          />
         </section>
       )}
 
