@@ -16,6 +16,8 @@ type PrintLabConfig = {
   authHeader?: string
   apiKey?: string
   apiKeyHeader?: string
+  submitApiKey?: string
+  submitApiKeyHeader?: string
 }
 
 function resolveEnv(primary: string, legacy?: string) {
@@ -30,6 +32,7 @@ async function getConfig(): Promise<PrintLabConfig | null> {
     'printlabSessionCookie',
     'printlabAuthHeader',
     'printlabApiKey',
+    'printlabSubmitApiKey',
   ])
   const baseUrl = normalizeServiceBaseUrl(runtime.printlabBaseUrl.value || resolveEnv('PRINTLAB_BASE_URL', 'BAMBU_VIEW_BASE_URL'))
   if (!baseUrl) return null
@@ -37,12 +40,16 @@ async function getConfig(): Promise<PrintLabConfig | null> {
   const authHeader = runtime.printlabAuthHeader.value || resolveEnv('PRINTLAB_AUTH_HEADER', 'BAMBU_VIEW_AUTH_HEADER')
   const apiKey = runtime.printlabApiKey.value || resolveEnv('PRINTLAB_API_KEY', 'BAMBU_VIEW_API_KEY')
   const apiKeyHeader = resolveEnv('PRINTLAB_API_KEY_HEADER', 'BAMBU_VIEW_API_KEY_HEADER') || 'X-API-Key'
+  const submitApiKey = runtime.printlabSubmitApiKey.value || resolveEnv('MAKERWORKS_SUBMIT_API_KEY')
+  const submitApiKeyHeader = resolveEnv('MAKERWORKS_SUBMIT_AUTH_HEADER') || apiKeyHeader || 'X-API-Key'
   return {
     baseUrl,
     sessionCookie: sessionCookie || undefined,
     authHeader: authHeader || undefined,
     apiKey: apiKey || undefined,
     apiKeyHeader: apiKey ? apiKeyHeader : undefined,
+    submitApiKey: submitApiKey || undefined,
+    submitApiKeyHeader: submitApiKey ? submitApiKeyHeader : undefined,
   }
 }
 
@@ -54,14 +61,16 @@ export function printLabDisabledResponse() {
   return NextResponse.json({ enabled: false, error: 'PrintLab integration is not configured.' }, { status: 400 })
 }
 
-async function printLabFetch(path: string, init?: RequestInit) {
+async function printLabFetch(path: string, init?: RequestInit, options?: { submitAuth?: boolean }) {
   const cfg = await getConfig()
   if (!cfg) throw new Error('PrintLab is not configured')
   const url = `${cfg.baseUrl}${path.startsWith('/') ? '' : '/'}${path}`
   const headers = new Headers(init?.headers)
   if (cfg.sessionCookie) headers.set('Cookie', cfg.sessionCookie)
   if (cfg.authHeader) headers.set('Authorization', cfg.authHeader)
-  if (cfg.apiKey && cfg.apiKeyHeader) headers.set(cfg.apiKeyHeader, cfg.apiKey)
+  const apiKey = options?.submitAuth ? (cfg.submitApiKey || cfg.apiKey) : cfg.apiKey
+  const apiKeyHeader = options?.submitAuth ? (cfg.submitApiKeyHeader || cfg.apiKeyHeader) : cfg.apiKeyHeader
+  if (apiKey && apiKeyHeader) headers.set(apiKeyHeader, apiKey)
   try {
     return await fetch(url, { ...init, headers, cache: 'no-store' })
   } catch (cause: any) {
@@ -74,8 +83,8 @@ async function printLabFetch(path: string, init?: RequestInit) {
   }
 }
 
-async function printLabJson(path: string, init?: RequestInit) {
-  const res = await printLabFetch(path, init)
+async function printLabJson(path: string, init?: RequestInit, options?: { submitAuth?: boolean }) {
+  const res = await printLabFetch(path, init, options)
   const body = await res.json().catch(() => null)
   if (!res.ok) {
     const message = typeof body?.error === 'string'
@@ -183,5 +192,5 @@ export async function submitPrintLabMakerWorksJob(payload: PrintLabMakerWorksSub
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  })
+  }, { submitAuth: true })
 }

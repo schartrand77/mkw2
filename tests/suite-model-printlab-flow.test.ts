@@ -94,10 +94,12 @@ test('uploaded MakerWorks model can become a StockWorks-aware PrintLab routed jo
     PRINTLAB_BASE_URL: process.env.PRINTLAB_BASE_URL,
     PRINTLAB_API_KEY: process.env.PRINTLAB_API_KEY,
     PRINTLAB_API_KEY_HEADER: process.env.PRINTLAB_API_KEY_HEADER,
+    MAKERWORKS_SUBMIT_API_KEY: process.env.MAKERWORKS_SUBMIT_API_KEY,
   }
   process.env.PRINTLAB_BASE_URL = 'https://printlab.local'
-  process.env.PRINTLAB_API_KEY = 'test-api-key'
+  process.env.PRINTLAB_API_KEY = 'general-api-key'
   process.env.PRINTLAB_API_KEY_HEADER = 'X-API-Key'
+  process.env.MAKERWORKS_SUBMIT_API_KEY = 'submit-api-key'
 
   let capturedUrl: string | null = null
   let capturedHeaders: Headers | null = null
@@ -119,7 +121,7 @@ test('uploaded MakerWorks model can become a StockWorks-aware PrintLab routed jo
     assert.equal(capturedUrl, 'https://printlab.local/api/works/makerworks/jobs')
     if (!capturedHeaders) throw new Error('Expected PrintLab request headers to be captured')
     assert.equal((capturedHeaders as Headers).get('Content-Type'), 'application/json')
-    assert.equal((capturedHeaders as Headers).get('X-API-Key'), 'test-api-key')
+    assert.equal((capturedHeaders as Headers).get('X-API-Key'), 'submit-api-key')
     assert.deepEqual(capturedBody, payload)
     assert.equal(submitted.status, 'queued')
     assert.equal(submitted.routing_hold, true)
