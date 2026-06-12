@@ -128,6 +128,10 @@ type PrintLabCallbackPayload = {
   updated_at?: unknown
   last_error?: unknown
   progress_percent?: unknown
+  slicer_stats?: unknown
+  slicerStats?: unknown
+  material_usage?: unknown
+  materialUsage?: unknown
 }
 
 export type ProductionMilestone = {
@@ -214,6 +218,61 @@ function readNumber(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
+function readPositiveNumber(value: unknown) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((entry) => readString(entry)).filter((entry): entry is string => Boolean(entry))
+}
+
+function normalizeMaterialUsage(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((entry) => {
+      const record = asRecord(entry)
+      if (!record) return null
+      const material = readString(record.material) || readString(record.filament_type) || readString(record.filamentType)
+      const grams = readPositiveNumber(record.grams ?? record.used_grams ?? record.usedGrams ?? record.weight_grams ?? record.weightGrams)
+      if (!material || grams === null) return null
+      const colors = readStringArray(record.colors)
+      const color = readString(record.color) || readString(record.color_name) || readString(record.colorName)
+      return {
+        material,
+        grams,
+        colors: colors.length > 0 ? colors : (color ? [color] : []),
+        source: 'printlab',
+      }
+    })
+    .filter((entry): entry is { material: string; grams: number; colors: string[]; source: 'printlab' } => entry !== null)
+}
+
+function normalizeCallbackSlicerStats(payload: PrintLabCallbackPayload, receivedAt: string) {
+  const source = asRecord(payload.slicer_stats) || asRecord(payload.slicerStats)
+  const materialSource = source?.materials ?? payload.material_usage ?? payload.materialUsage
+  const materials = normalizeMaterialUsage(materialSource)
+  const printHours = readPositiveNumber(source?.printHours ?? source?.print_hours)
+  const estimatedSeconds = readPositiveNumber(source?.estimatedSeconds ?? source?.estimated_seconds)
+  const filamentGrams = readPositiveNumber(source?.filamentGrams ?? source?.filament_grams)
+  const filamentMm = readPositiveNumber(source?.filamentMm ?? source?.filament_mm)
+
+  if (!source && materials.length === 0) return null
+  if (materials.length === 0 && printHours === null && estimatedSeconds === null && filamentGrams === null && filamentMm === null) return null
+
+  return {
+    source: readString(source?.source) || 'printlab',
+    updatedAt: receivedAt,
+    printLabRecordId: readString(payload.successful_gcode_id) || readString(payload.job_id),
+    ...(printHours !== null ? { printHours } : {}),
+    ...(estimatedSeconds !== null ? { estimatedSeconds } : {}),
+    ...(filamentGrams !== null ? { filamentGrams } : {}),
+    ...(filamentMm !== null ? { filamentMm } : {}),
+    ...(materials.length > 0 ? { materials } : {}),
+  }
+}
+
 export function deriveOrderStatusFromPrintLabStatus(printLabStatus: unknown, currentStatus: string) {
   const current = normalizeOrderStatus(currentStatus)
   if (current === 'completed' || current === 'shipped' || current === 'cancelled') return current
@@ -264,11 +323,14 @@ export function mergePrintLabCallbackMetadata(
     return item
   })
   if (!matched) printLabSubmissions.push(entry)
-  return {
+  const next: Record<string, unknown> = {
     ...prior,
     printLabSubmissions,
     lastPrintLabSubmission: entry,
   }
+  const slicerStats = normalizeCallbackSlicerStats(payload, receivedAt)
+  if (slicerStats) next.slicerStats = slicerStats
+  return next
 }
 
 function parseDateValue(value: unknown): Date | null {

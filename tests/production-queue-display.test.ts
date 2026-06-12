@@ -80,6 +80,35 @@ test('merges PrintLab callback state into production metadata', () => {
   assert.equal((metadata.printLabSubmissions as any[])[0].successfulGcodeId, 'gcode-1')
 })
 
+test('merges PrintLab callback slicer stats into production metadata', () => {
+  const metadata = mergePrintLabCallbackMetadata({
+    slicerStats: { printHours: 1.1, source: 'manual' },
+  }, {
+    job_id: 'pl-job-1',
+    status: 'completed',
+    successful_gcode_id: 'gcode-1',
+    slicer_stats: {
+      source: 'orca',
+      printHours: 1.408,
+      estimatedSeconds: 5070,
+      materials: [
+        { material: 'PLA', grams: 12.5, colors: ['Black'], source: 'printlab' },
+      ],
+    },
+  } as any, '2026-06-12T10:00:00.000Z')
+
+  assert.deepEqual(metadata.slicerStats, {
+    source: 'orca',
+    updatedAt: '2026-06-12T10:00:00.000Z',
+    printLabRecordId: 'gcode-1',
+    printHours: 1.408,
+    estimatedSeconds: 5070,
+    materials: [
+      { material: 'PLA', grams: 12.5, colors: ['Black'], source: 'printlab' },
+    ],
+  })
+})
+
 test('maps PrintLab printer status to MakerWorks production status', () => {
   assert.equal(deriveOrderStatusFromPrintLabStatus('queued', 'queued'), 'queued')
   assert.equal(deriveOrderStatusFromPrintLabStatus('started', 'queued'), 'printing')
