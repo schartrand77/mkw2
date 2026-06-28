@@ -8,6 +8,7 @@ import { prisma } from '@/lib/db'
 import { buildImageSrc, toPublicHref } from '@/lib/storage'
 import { serializeComment } from '@/lib/comments'
 import { CACHE_TAGS, CACHE_TTL_SECONDS } from '@/lib/cache-policy'
+import { getHomeCommentDisplayName } from '@/lib/home-comments'
 
 export const revalidate = 120
 
@@ -61,7 +62,7 @@ const fetchCuratedComments = unstable_cache(async (): Promise<CuratedHomeComment
       body: serialized.body,
       modelId,
       modelTitle: comment.model?.title || 'Untitled model',
-      userDisplayName: serialized.user?.displayName || 'Community maker',
+      userDisplayName: getHomeCommentDisplayName(comment.user),
       userProfileSlug: serialized.user?.profileSlug || null,
       userAvatarUrl: toPublicHref(serialized.user?.avatarUrl) || null,
       imageUrl: serialized.imageUrl,
@@ -74,7 +75,7 @@ const fetchCuratedComments = unstable_cache(async (): Promise<CuratedHomeComment
   }
 
   return picked
-}, ['home-curated-comments:v1'], {
+}, ['home-curated-comments:v2'], {
   revalidate: CACHE_TTL_SECONDS.homeCuratedComments,
   tags: [CACHE_TAGS.homePage, CACHE_TAGS.homeCuratedComments],
 })

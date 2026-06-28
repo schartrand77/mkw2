@@ -67,3 +67,22 @@ test('falls back to the linked model image when a curated comment has no make im
   assert.match(html, /src="\/files\/models\/desk-hook-cover.webp"/)
   assert.match(html, /alt="Desk Hook print preview"/)
 })
+
+test('shows only a first name on home comments when a full name is provided', () => {
+  const html = renderToStaticMarkup(
+    <CuratedHomeComments
+      comments={[
+        {
+          ...baseComment,
+          userDisplayName: 'Alex Morgan',
+          userProfileSlug: 'alexmakes',
+          imageUrl: null,
+          imageStatus: null,
+        },
+      ]}
+    />,
+  )
+
+  assert.match(html, />Alex</)
+  assert.doesNotMatch(html, /Alex Morgan/)
+})

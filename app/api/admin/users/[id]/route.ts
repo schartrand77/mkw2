@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { requireAdmin } from '../../_utils'
+import { adminRouteGuards } from '../../_utils'
 import { z } from 'zod'
 import { ensureUserPage, slugify } from '@/lib/userpage'
 import { hashPassword } from '@/lib/auth'
@@ -43,15 +43,54 @@ type AdminUserContext = { params: Promise<{ id: string }> }
 
 export async function GET(_req: NextRequest, { params }: AdminUserContext) {
   const { id: userId } = await params
-  try { await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  try { await adminRouteGuards.requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, name: true, isAdmin: true, role: true, isSuspended: true, emailVerified: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        emailVerified: true,
+        createdAt: true,
+        registrationSource: true,
+        registrationIp: true,
+        registrationUserAgent: true,
+        lastLoginAt: true,
+        lastLoginIp: true,
+        lastLoginUserAgent: true,
+        discountPercent: true,
+        isFriendsAndFamily: true,
+        friendsAndFamilyPercent: true,
+        isSuspended: true,
+        isAdmin: true,
+        role: true,
+        _count: { select: { orders: true } },
+      },
     })
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    const profile = await ensureUserPage(userId, user.email, user.name)
-    return NextResponse.json({ user, profile })
+    const [profile, badges, orderStats] = await Promise.all([
+      ensureUserPage(userId, user.email, user.name),
+      prisma.userAchievement.findMany({
+        where: { userId },
+        include: { achievement: true },
+        orderBy: { awardedAt: 'desc' },
+      }),
+      prisma.printOrder.aggregate({
+        where: { userId },
+        _count: { _all: true },
+        _sum: { totalCents: true },
+      }),
+    ])
+    return NextResponse.json({
+      user,
+      profile,
+      badges,
+      summary: {
+        orderCount: orderStats._count._all,
+        totalSpentCents: orderStats._sum.totalCents ?? 0,
+      },
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Failed to load user' }, { status: 400 })
   }
@@ -60,7 +99,7 @@ export async function GET(_req: NextRequest, { params }: AdminUserContext) {
 export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
   const { id: userId } = await params
   let adminId = ''
-  try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  try { adminId = await adminRouteGuards.requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   try {
     const actor = await prisma.user.findUnique({ where: { id: adminId }, select: { isAdmin: true, role: true } })
     const actorIsAdmin = !!(actor?.isAdmin || actor?.role === 'admin')
@@ -297,7 +336,7 @@ export async function PATCH(req: NextRequest, { params }: AdminUserContext) {
 export async function DELETE(req: NextRequest, { params }: AdminUserContext) {
   const { id: userId } = await params
   let adminId = ''
-  try { adminId = await requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
+  try { adminId = await adminRouteGuards.requireAdmin() } catch (e: any) { return NextResponse.json({ error: e.message || 'Unauthorized' }, { status: e.status || 401 }) }
   try {
     const actor = await prisma.user.findUnique({ where: { id: adminId }, select: { isAdmin: true, role: true } })
     const actorIsAdmin = !!(actor?.isAdmin || actor?.role === 'admin')

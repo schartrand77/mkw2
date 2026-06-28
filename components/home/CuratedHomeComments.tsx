@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { normalizeHomeCommentDisplayName } from '@/lib/home-comments'
 
 export type CuratedHomeComment = {
   id: string
@@ -30,6 +31,7 @@ export function CuratedHomeComments({ comments }: CuratedHomeCommentsProps) {
       </div>
       <div className="grid gap-3 md:grid-cols-3">
         {comments.map((comment) => {
+          const userDisplayName = normalizeHomeCommentDisplayName(comment.userDisplayName, comment.userProfileSlug)
           const commentImageUrl = comment.imageStatus !== 'failed' ? comment.imageUrl : null
           const imageUrl = commentImageUrl || comment.modelImageUrl || null
           const imageAlt = commentImageUrl
@@ -47,16 +49,16 @@ export function CuratedHomeComments({ comments }: CuratedHomeCommentsProps) {
                   />
                 ) : (
                   <div className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center text-xs font-semibold border border-white/10">
-                    {(comment.userDisplayName || '?').slice(0, 1).toUpperCase()}
+                    {(userDisplayName || '?').slice(0, 1).toUpperCase()}
                   </div>
                 )}
                 <div className="min-w-0">
                   {comment.userProfileSlug ? (
                     <Link href={`/u/${comment.userProfileSlug}`} className="block text-sm font-semibold truncate hover:underline">
-                      {comment.userDisplayName}
+                      {userDisplayName}
                     </Link>
                   ) : (
-                    <p className="text-sm font-semibold truncate">{comment.userDisplayName}</p>
+                    <p className="text-sm font-semibold truncate">{userDisplayName}</p>
                   )}
                   <p className="text-xs text-slate-400">
                     on{' '}
